@@ -1,0 +1,52 @@
+{{ define "main" }}
+{{ $social := .Site.Data.social_feeds }}
+<section class="page-head page-head--social">
+  <span class="kicker"><span class="dot dot-live"></span> {{ $social.headline }}</span>
+  <h1>Chiefs X Wire</h1>
+  <p class="lede">{{ $social.dek }}</p>
+  <div class="focus-updated">Updated {{ $social.updated }}</div>
+</section>
+
+<section class="section social-roster">
+  {{ range $social.categories }}
+    <article class="social-roster-group">
+      <span class="kicker">{{ .label }}</span>
+      <p>{{ .description }}</p>
+      <div class="social-chip-row">
+        {{ range .accounts }}
+          <a href="#{{ .handle | urlize }}" style="--accent: {{ .accent }}">@{{ .handle }}</a>
+        {{ end }}
+      </div>
+    </article>
+  {{ end }}
+</section>
+
+<section class="section section-xwire section-xwire--page" data-x-wire>
+  {{ range $social.categories }}
+    <div class="section-head x-category-head">
+      <div>
+        <span class="kicker">{{ .label }}</span>
+        <h2><span class="rule"></span> {{ .label }}</h2>
+        <p class="section-dek">{{ .description }}</p>
+      </div>
+    </div>
+    <div class="x-feed-grid">
+      {{ range .accounts }}
+        <article class="x-feed-card" id="{{ .handle | urlize }}" data-x-feed style="--accent: {{ .accent }}">
+          <header>
+            <div>
+              <span class="x-role">{{ .role }}</span>
+              <h3>{{ .name }}</h3>
+            </div>
+            <a href="{{ .url }}" target="_blank" rel="noopener">@{{ .handle }}</a>
+          </header>
+          <div class="x-timeline-shell">
+            <a class="twitter-timeline" data-height="560" data-theme="dark" data-dnt="true" data-chrome="nofooter noborders transparent" href="{{ .timelineUrl }}">Tweets by @{{ .handle }}</a>
+          </div>
+          <a class="x-open" href="{{ .url }}" target="_blank" rel="noopener">Open on X <span aria-hidden="true">-></span></a>
+        </article>
+      {{ end }}
+    </div>
+  {{ end }}
+</section>
+{{ end }}

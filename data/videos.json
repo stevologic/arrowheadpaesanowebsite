@@ -1,0 +1,23 @@
+[
+  {
+    "title": "Latest Arrowhead Paesano Uploads",
+    "description": "Use this card as the featured channel link until you add specific video URLs.",
+    "url": "https://www.youtube.com/@arrowheadpaesano/videos",
+    "thumbnail": "",
+    "date": "Update anytime"
+  },
+  {
+    "title": "Chiefs Talk and Roster Debates",
+    "description": "Point this card to a favorite breakdown, preview, or reaction video.",
+    "url": "https://www.youtube.com/@arrowheadpaesano",
+    "thumbnail": "",
+    "date": "Channel"
+  },
+  {
+    "title": "Community Posts",
+    "description": "Send visitors to polls, updates, and conversation on the channel community tab.",
+    "url": "https://www.youtube.com/@arrowheadpaesano/community",
+    "thumbnail": "",
+    "date": "Community"
+  }
+]

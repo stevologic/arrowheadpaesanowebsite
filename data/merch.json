@@ -1,0 +1,53 @@
+[
+  {
+    "id": "paesano-tee-red",
+    "name": "Paesano Classic Tee",
+    "price": "$28",
+    "badge": "Best seller",
+    "palette": ["#E31837", "#FFB81C"],
+    "description": "Heavyweight cotton tee. Chiefs red with the Paesano wordmark across the chest.",
+    "shopUrl": "https://www.youtube.com/@arrowheadpaesano/store"
+  },
+  {
+    "id": "paesano-hoodie",
+    "name": "Kingdom Hoodie",
+    "price": "$58",
+    "badge": "New",
+    "palette": ["#1A1A1A", "#E31837"],
+    "description": "Heavyweight midnight black hoodie with embroidered arrowhead crest.",
+    "shopUrl": "https://www.youtube.com/@arrowheadpaesano/store"
+  },
+  {
+    "id": "paesano-cap",
+    "name": "Paesano Snapback",
+    "price": "$32",
+    "palette": ["#FFB81C", "#1A1A1A"],
+    "description": "Structured 6-panel cap. Gold crown, black brim, embroidered logo.",
+    "shopUrl": "https://www.youtube.com/@arrowheadpaesano/store"
+  },
+  {
+    "id": "paesano-flag",
+    "name": "Tailgate Flag",
+    "price": "$22",
+    "palette": ["#008C45", "#FFFFFF", "#CD212A"],
+    "description": "Italian tricolore meets Chiefs Kingdom. Perfect for the lot before kickoff.",
+    "shopUrl": "https://www.youtube.com/@arrowheadpaesano/store"
+  },
+  {
+    "id": "paesano-mug",
+    "name": "Espresso Mug",
+    "price": "$16",
+    "palette": ["#FFFFFF", "#E31837"],
+    "description": "Ceramic 3oz espresso cup. For game-day mornings only.",
+    "shopUrl": "https://www.youtube.com/@arrowheadpaesano/store"
+  },
+  {
+    "id": "paesano-sticker",
+    "name": "Sticker Pack (4)",
+    "price": "$8",
+    "badge": "Free shipping",
+    "palette": ["#E31837", "#FFB81C", "#1A1A1A"],
+    "description": "Vinyl stickers. Put them on your laptop, helmet, cooler, or wherever game day needs a mark.",
+    "shopUrl": "https://www.youtube.com/@arrowheadpaesano/store"
+  }
+]

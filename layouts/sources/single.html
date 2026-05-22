@@ -1,0 +1,24 @@
+{{ define "main" }}
+<section class="page-head">
+  <span class="kicker">News desk</span>
+  <h1>All sources</h1>
+  <p class="lede">The full lineup of Chiefs and NFL sources used for research and show prep. Click any outlet to read it at the source.</p>
+</section>
+
+<section class="section">
+  <div class="bysource-grid bysource-grid--full" data-sources-grid>
+    {{ range .Site.Data.sources }}
+      <div class="bysource-col reveal" style="--accent: {{ .accent }}">
+        <header>
+          <a href="{{ .url }}" target="_blank" rel="noopener" class="bysource-name">{{ .name }}</a>
+          <span class="muted small">{{ .tagline }}</span>
+        </header>
+        <ul>
+          <li><a href="{{ .url }}" target="_blank" rel="noopener">Open website</a></li>
+          {{ with .feed }}<li><a href="{{ . }}" target="_blank" rel="noopener">Open RSS feed</a></li>{{ end }}
+        </ul>
+      </div>
+    {{ end }}
+  </div>
+</section>
+{{ end }}

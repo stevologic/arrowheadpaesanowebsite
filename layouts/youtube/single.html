@@ -1,0 +1,51 @@
+{{ define "main" }}
+<section class="youtube-hero" data-youtube-page>
+  <div class="youtube-hero-copy reveal">
+    <span class="kicker">YouTube</span>
+    <h1>Chiefs talk with sauce.</h1>
+    <p class="lede">Game reactions, roster arguments, draft-table what-ifs, and the kind of Chiefs takes you want to kick around with somebody who has been living it.</p>
+    <div class="yt-hero-actions">
+      <a class="btn btn-yt btn-lg" href="{{ .Site.Params.youtubeUrl }}" target="_blank" rel="noopener">Subscribe on YouTube</a>
+      <a class="btn btn-ghost btn-lg" href="#videos">Pick a video</a>
+    </div>
+    <div class="yt-hero-chips" aria-label="Channel themes">
+      <span>Mahomes timelines</span>
+      <span>Roster chess</span>
+      <span>Draft-day arguments</span>
+    </div>
+  </div>
+  <div class="yt-stage reveal" data-youtube-stage>
+    <div class="yt-stage-poster">
+      <span class="yt-stage-label">Now playing</span>
+      <strong>Open the channel playlist.</strong>
+      <p>Add specific video cards in <code>data/videos.json</code> whenever you want this page to feature individual uploads.</p>
+      <a class="btn btn-yt" href="{{ .Site.Params.youtubeUrl }}/videos" target="_blank" rel="noopener">Latest uploads</a>
+    </div>
+  </div>
+</section>
+
+<section class="section section-videos" id="videos">
+  <div class="section-head">
+    <div>
+      <span class="kicker">Latest uploads</span>
+      <h2><span class="rule rule-gold"></span> Pull up a chair</h2>
+    </div>
+    <a class="section-link" href="{{ .Site.Params.youtubeUrl }}" target="_blank" rel="noopener">Open channel <span aria-hidden="true">-></span></a>
+  </div>
+  <div class="yt-grid yt-grid--full" data-youtube-page-grid>
+    {{ range .Site.Data.videos }}
+      <a class="yt-card reveal" href="{{ .url }}" target="_blank" rel="noopener">
+        <div class="yt-thumb">
+          {{ if .thumbnail }}<img src="{{ .thumbnail }}" alt="" loading="lazy" />{{ end }}
+          <span class="yt-play" aria-hidden="true">&gt;</span>
+        </div>
+        <div class="yt-body">
+          <h3>{{ .title }}</h3>
+          <p>{{ .description }}</p>
+          <span class="yt-time">{{ .date }}</span>
+        </div>
+      </a>
+    {{ end }}
+  </div>
+</section>
+{{ end }}

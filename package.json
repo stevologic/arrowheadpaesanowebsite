@@ -1,0 +1,11 @@
+{
+  "name": "arrowhead-paesano",
+  "version": "1.0.0",
+  "description": "Official static website for the Arrowhead Paesano YouTube Channel",
+  "private": true,
+  "scripts": {
+    "build": "hugo --minify",
+    "dev": "hugo server -D",
+    "preview": "hugo server -D"
+  }
+}

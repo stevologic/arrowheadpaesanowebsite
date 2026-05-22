@@ -1,0 +1,118 @@
+{
+  "updated": "2026-05-09",
+  "headline": "Live X Wire",
+  "dek": "Players, official desks and reporters worth keeping open during Chiefs news cycles.",
+  "categories": [
+    {
+      "id": "official",
+      "label": "Official desks",
+      "description": "Team accounts for announcements, practice clips and game-day updates.",
+      "accounts": [
+        {
+          "name": "Kansas City Chiefs",
+          "handle": "Chiefs",
+          "role": "Official team account",
+          "url": "https://x.com/Chiefs",
+          "timelineUrl": "https://twitter.com/Chiefs",
+          "accent": "#E31837",
+          "home": true
+        },
+        {
+          "name": "Chiefs PR",
+          "handle": "ChiefsPR",
+          "role": "Roster moves, media notes and official communications",
+          "url": "https://x.com/ChiefsPR",
+          "timelineUrl": "https://twitter.com/ChiefsPR",
+          "accent": "#FFB81C",
+          "home": false
+        }
+      ]
+    },
+    {
+      "id": "players",
+      "label": "Players",
+      "description": "Franchise voices and locker-room accounts fans actually follow.",
+      "accounts": [
+        {
+          "name": "Patrick Mahomes",
+          "handle": "PatrickMahomes",
+          "role": "Chiefs quarterback",
+          "url": "https://x.com/PatrickMahomes",
+          "timelineUrl": "https://twitter.com/PatrickMahomes",
+          "accent": "#E31837",
+          "home": true
+        },
+        {
+          "name": "Travis Kelce",
+          "handle": "tkelce",
+          "role": "Chiefs tight end",
+          "url": "https://x.com/tkelce",
+          "timelineUrl": "https://twitter.com/tkelce",
+          "accent": "#FFB81C",
+          "home": true
+        }
+      ]
+    },
+    {
+      "id": "reporters",
+      "label": "Reporters",
+      "description": "Beat writers and plugged-in local voices for context, practice notes and roster movement.",
+      "accounts": [
+        {
+          "name": "Matt Derrick",
+          "handle": "mattderrick",
+          "role": "Chiefs Digest beat writer",
+          "url": "https://x.com/mattderrick",
+          "timelineUrl": "https://twitter.com/mattderrick",
+          "accent": "#E31837",
+          "home": true
+        },
+        {
+          "name": "Pete Sweeney",
+          "handle": "pgsween",
+          "role": "Kansas City Star beat writer, KSHB/810 analyst",
+          "url": "https://x.com/pgsween",
+          "timelineUrl": "https://twitter.com/pgsween",
+          "accent": "#FFB81C",
+          "home": true
+        },
+        {
+          "name": "Herbie Teope",
+          "handle": "HerbieTeope",
+          "role": "KC Sports Network Chiefs beat reporter",
+          "url": "https://x.com/HerbieTeope",
+          "timelineUrl": "https://twitter.com/HerbieTeope",
+          "accent": "#111827",
+          "home": false
+        },
+        {
+          "name": "Matt McMullen",
+          "handle": "KCChiefs_Matt",
+          "role": "Chiefs senior team reporter",
+          "url": "https://x.com/KCChiefs_Matt",
+          "timelineUrl": "https://twitter.com/KCChiefs_Matt",
+          "accent": "#E31837",
+          "home": false
+        },
+        {
+          "name": "Nate Taylor",
+          "handle": "ByNateTaylor",
+          "role": "Chiefs analyst and reporter",
+          "url": "https://x.com/ByNateTaylor",
+          "timelineUrl": "https://twitter.com/ByNateTaylor",
+          "accent": "#FFB81C",
+          "home": false
+        },
+        {
+          "name": "Jesse Newell",
+          "handle": "jessenewell",
+          "role": "The Athletic Kansas City writer",
+          "url": "https://x.com/jessenewell",
+          "timelineUrl": "https://twitter.com/jessenewell",
+          "accent": "#111827",
+          "home": false
+        }
+      ]
+    }
+  ]
+}

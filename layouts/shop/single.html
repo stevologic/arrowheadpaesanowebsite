@@ -1,0 +1,31 @@
+{{ define "main" }}
+<section class="page-head">
+  <span class="kicker">Shop</span>
+  <h1>Paesano merch</h1>
+  <p class="lede">Printful-backed tees, hoodies, caps and tailgate gear. Built for game day at Arrowhead, on the couch, or in the lot.</p>
+</section>
+
+<section class="section">
+  <script type="application/json" id="static-merch">{{ .Site.Data.merch | jsonify }}</script>
+  <div class="shop-status" data-shop-status>Static GitHub Pages catalog</div>
+  <div class="merch-grid" data-shop-grid>
+    {{ range .Site.Data.merch }}
+      <article class="merch-card">
+        <div class="merch-art" style="background: linear-gradient(135deg, {{ delimit .palette ", " }});">
+          <span class="merch-mono">AP</span>
+          {{ with .badge }}<span class="merch-badge">{{ . }}</span>{{ end }}
+        </div>
+        <div class="merch-info">
+          <h3>{{ .name }}</h3>
+          <p>{{ .description }}</p>
+          <div class="merch-foot">
+            <span class="merch-price">{{ .price }}</span>
+            <a class="btn btn-sm btn-primary" href="{{ .shopUrl }}" target="_blank" rel="noopener">Shop -></a>
+          </div>
+        </div>
+      </article>
+    {{ end }}
+  </div>
+  <p class="muted small center" data-shop-note style="margin-top:2rem">Update this catalog in <code>data/merch.json</code>. Links can point to YouTube Shopping, Printful, Shopify, or any public storefront.</p>
+</section>
+{{ end }}

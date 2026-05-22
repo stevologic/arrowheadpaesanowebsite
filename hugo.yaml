@@ -1,0 +1,40 @@
+baseURL: "https://stephanieabbott.github.io/ArrowheadPaesanoWebsite/"
+languageCode: "en-us"
+title: "Arrowhead Paesano"
+publishDir: "public_site"
+staticDir:
+  - "public"
+canonifyURLs: false
+relativeURLs: true
+disableKinds:
+  - "taxonomy"
+  - "term"
+params:
+  tagline: "Your Chiefs paesano. Kingdom news, takes, and videos - all in one official channel home."
+  description: "Official website for the Arrowhead Paesano YouTube Channel: Kansas City Chiefs news, takes, videos, and merch."
+  youtubeHandle: "@arrowheadpaesano"
+  youtubeUrl: "https://www.youtube.com/@arrowheadpaesano"
+  avatarUrl: "https://yt3.googleusercontent.com/hYR-uGTI9I1caH3ik4bmxVTOgM8gQCjMQsqsv1_4vlaH-YFQT-rihufJzfZ7AC_cacC4M1FcsG0=s160-c-k-c0x00ffffff-no-rj"
+  feedCacheMinutes: 15
+  nav:
+    - href: "/"
+      label: "News"
+      active: "news"
+    - href: "/focus/"
+      label: "Focus"
+      active: "focus"
+    - href: "/sources/"
+      label: "Sources"
+      active: "sources"
+    - href: "/social/"
+      label: "X Wire"
+      active: "social"
+    - href: "/youtube/"
+      label: "YouTube"
+      active: "youtube"
+    - href: "/shop/"
+      label: "Shop"
+      active: "shop"
+    - href: "/about/"
+      label: "About"
+      active: "about"

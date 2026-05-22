@@ -1,0 +1,60 @@
+{{ define "main" }}
+{{ $focus := .Site.Data.weekly_focus }}
+<section class="page-head focus-head">
+  <span class="kicker">Weekly YouTube pre-read</span>
+  <h1>This Week's Focus</h1>
+  <p class="lede">{{ $focus.dek }}</p>
+  <div class="focus-updated">Updated {{ $focus.updated }}</div>
+</section>
+
+<section class="section focus-layout">
+  <article class="focus-feature">
+    <span class="kicker">Episode spine</span>
+    <h2>{{ $focus.episodeTitle }}</h2>
+    <p class="focus-hook">{{ $focus.videoHook }}</p>
+    <p>{{ $focus.outlook }}</p>
+    <a class="btn btn-yt btn-lg" href="{{ .Site.Params.youtubeUrl }}" target="_blank" rel="noopener">Watch the channel</a>
+  </article>
+
+  <aside class="focus-panel">
+    <span class="kicker">Viewer questions</span>
+    <ul>
+      {{ range $focus.viewerQuestions }}
+        <li>{{ . }}</li>
+      {{ end }}
+    </ul>
+  </aside>
+</section>
+
+<section class="section focus-topics-section">
+  <div class="section-head">
+    <div>
+      <span class="kicker">Talking points</span>
+      <h2><span class="rule"></span> What to cover</h2>
+    </div>
+  </div>
+  <div class="focus-grid">
+    {{ range $focus.topics }}
+      <article class="focus-card">
+        <h3>{{ .label }}</h3>
+        <p>{{ .whyItMatters }}</p>
+        <span>{{ .talkTrack }}</span>
+      </article>
+    {{ end }}
+  </div>
+</section>
+
+<section class="section focus-strategy">
+  <div class="section-head">
+    <div>
+      <span class="kicker">Strategy</span>
+      <h2><span class="rule rule-gold"></span> How to move forward</h2>
+    </div>
+  </div>
+  <ol>
+    {{ range $focus.strategies }}
+      <li>{{ . }}</li>
+    {{ end }}
+  </ol>
+</section>
+{{ end }}

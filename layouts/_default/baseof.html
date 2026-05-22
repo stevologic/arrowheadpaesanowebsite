@@ -1,0 +1,111 @@
+{{ $active := .Params.active | default (cond .IsHome "news" "") }}
+{{ $bodyPage := .Params.active | default (cond .IsHome "home" "page") }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{{ if .IsHome }}{{ .Site.Title }} - Official YouTube Channel Website{{ else }}{{ .Title }} - {{ .Site.Title }}{{ end }}</title>
+  <meta name="description" content="{{ .Site.Params.description }}" />
+  <meta property="og:title" content="{{ .Site.Title }}" />
+  <meta property="og:description" content="{{ .Site.Params.tagline }}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="{{ .Site.Params.avatarUrl }}" />
+  <meta name="theme-color" content="#E31837" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,700&family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body class="page-{{ $bodyPage }}">
+  <a href="#main" class="skip-link">Skip to content</a>
+
+  <div class="scroll-progress" aria-hidden="true"><div class="scroll-progress-bar"></div></div>
+
+  {{ if .IsHome }}
+    <div class="hero-stripe hero-stripe--top" aria-label="Latest Chiefs headlines">
+      <div class="stripe-track" data-ticker-track>
+        <span class="stripe-item"><span class="src" style="--accent: #E31837">Official</span> Arrowhead Paesano YouTube Channel</span>
+        <span class="stripe-item"><span class="src" style="--accent: #FFB81C">Chiefs</span> Videos, takes, sources, and merch</span>
+        <span class="stripe-item"><span class="src" style="--accent: #008C45">Paesano</span> Built for GitHub Pages and easy Codex updates</span>
+      </div>
+    </div>
+  {{ end }}
+
+  <header class="site-header" data-header>
+    <div class="header-main">
+      <a class="brand" href="/" aria-label="{{ .Site.Title }} home">
+        <span class="brand-mark" aria-hidden="true">
+          <img src="{{ .Site.Params.avatarUrl }}" alt="" width="48" height="48" referrerpolicy="no-referrer" />
+        </span>
+        <span class="brand-text">
+          <span class="brand-name">Arrowhead Paesano</span>
+          <span class="brand-sub">Chiefs Kingdom - Italian-American</span>
+        </span>
+      </a>
+      <nav class="primary-nav" aria-label="Primary">
+        {{ range .Site.Params.nav }}
+          <a href="{{ .href }}" class="{{ if eq $active .active }}active{{ end }}">{{ .label }}</a>
+        {{ end }}
+      </nav>
+      <div class="header-cta">
+        <a class="btn btn-yt" href="{{ .Site.Params.youtubeUrl }}" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M23 7.2s-.2-1.6-.9-2.3c-.8-.9-1.7-.9-2.2-1C16.6 3.6 12 3.6 12 3.6s-4.6 0-7.9.3c-.5.1-1.4.1-2.2 1C1.2 5.6 1 7.2 1 7.2S.8 9.1.8 11v1.9c0 1.9.2 3.8.2 3.8s.2 1.6.9 2.3c.8.9 1.9.9 2.4 1 1.7.2 7.7.3 7.7.3s4.6 0 7.9-.3c.5-.1 1.4-.1 2.2-1 .7-.7.9-2.3.9-2.3s.2-1.9.2-3.8V11c0-1.9-.2-3.8-.2-3.8zM9.7 14.6V8.1l6 3.3-6 3.2z"/></svg>
+          Subscribe
+        </a>
+      </div>
+      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </header>
+
+  <main id="main">
+    {{ block "main" . }}{{ end }}
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <strong>{{ .Site.Title }}</strong>
+        <p>{{ .Site.Params.tagline }}</p>
+        <div class="footer-live">
+          <span><span class="pill-dot"></span> Official channel home</span>
+          <p>Built as a static GitHub Pages site so updates can be made in Markdown, JSON, and Hugo templates.</p>
+        </div>
+        <div class="tricolore" aria-hidden="true"><span></span><span></span><span></span></div>
+      </div>
+      <div class="footer-col">
+        <h4>Site</h4>
+        <ul>
+          {{ range .Site.Params.nav }}
+            <li><a href="{{ .href }}">{{ .label }}</a></li>
+          {{ end }}
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Watch</h4>
+        <ul>
+          <li><a href="{{ .Site.Params.youtubeUrl }}" target="_blank" rel="noopener">YouTube channel</a></li>
+          <li><a href="{{ .Site.Params.youtubeUrl }}/videos" target="_blank" rel="noopener">All videos</a></li>
+          <li><a href="{{ .Site.Params.youtubeUrl }}/community" target="_blank" rel="noopener">Community</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Connect</h4>
+        <ul>
+          <li><a href="/social/">Live X Wire</a></li>
+          <li><a href="https://x.com/ArrowheadPride" target="_blank" rel="noopener">Arrowhead Pride on X</a></li>
+          <li><a href="https://www.chiefs.com/" target="_blank" rel="noopener">Chiefs.com</a></li>
+          <li><a href="https://www.chiefs.com/" target="_blank" rel="noopener">Chiefs.com</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>Copyright {{ now.Format "2006" }} {{ .Site.Title }}. Not affiliated with the Kansas City Chiefs or the NFL. Made by a paesano, for paesani.</span>
+    </div>
+  </footer>
+  <script src="/js/main.js" defer></script>
+</body>
+</html>
