@@ -1,24 +1,58 @@
 {{ define "main" }}
-<section class="page-head">
-  <span class="kicker">News desk</span>
-  <h1>All sources</h1>
-  <p class="lede">The full lineup of Chiefs and NFL sources used for research and show prep. Click any outlet to read it at the source.</p>
+<section class="sources-hero">
+  <div class="sources-hero__copy reveal">
+    <span class="kicker kicker--gold">The Paesano news desk</span>
+    <h1>Know the story.<br><em>Know the source.</em></h1>
+    <p>{{ len .Site.Data.sources }} named publishers. One Chiefs-only wire. Every headline opens at the original outlet, where the reporting belongs.</p>
+    <a class="btn btn-gold btn-lg" href="#live-sources">Check the live desk <span aria-hidden="true">↓</span></a>
+  </div>
+  <div class="sources-hero__board reveal">
+    <span>Coverage mix</span>
+    <div><strong>{{ len (where .Site.Data.sources "category" "chiefs") }}</strong><small>Chiefs-focused feeds</small></div>
+    <div><strong>{{ len (where .Site.Data.sources "category" "nfl") }}</strong><small>National NFL feeds</small></div>
+    <div><strong>{{ .Site.Params.feedCacheMinutes }}m</strong><small>Refresh interval</small></div>
+    <p>League-wide feeds are filtered for Chiefs relevance before they reach the site.</p>
+  </div>
 </section>
 
-<section class="section">
-  <div class="bysource-grid bysource-grid--full" data-sources-grid>
-    {{ range .Site.Data.sources }}
-      <div class="bysource-col reveal" style="--accent: {{ .accent }}">
-        <header>
-          <a href="{{ .url }}" target="_blank" rel="noopener" class="bysource-name">{{ .name }}</a>
-          <span class="muted small">{{ .tagline }}</span>
-        </header>
-        <ul>
-          <li><a href="{{ .url }}" target="_blank" rel="noopener">Open website</a></li>
-          {{ with .feed }}<li><a href="{{ . }}" target="_blank" rel="noopener">Open RSS feed</a></li>{{ end }}
-        </ul>
-      </div>
-    {{ end }}
+<section class="source-method">
+  <article class="reveal"><span>01</span><h2>Gather</h2><p>The desk checks each publisher’s public RSS feed for new stories.</p></article>
+  <article class="reveal"><span>02</span><h2>Filter</h2><p>Chiefs outlets flow straight through; national coverage must match the Kingdom.</p></article>
+  <article class="reveal"><span>03</span><h2>Credit</h2><p>The outlet stays visible, and every click goes to the original article.</p></article>
+</section>
+
+<section class="section" id="live-sources">
+  <div class="section-head reveal">
+    <div>
+      <span class="kicker"><span class="dot dot-live"></span> Live source rooms</span>
+      <h2><span class="rule"></span> Latest by publisher</h2>
+      <p class="section-dek">Scan one outlet at a time or open its homepage. If a room is quiet, that simply means it has no recent matching Chiefs story.</p>
+    </div>
   </div>
+  <div class="bysource-grid bysource-grid--full sources-live-grid" data-sources-grid aria-live="polite">
+    <div class="empty-state"><h3>Checking every publisher</h3><p>Fresh headlines are being grouped by outlet.</p></div>
+  </div>
+</section>
+
+<section class="source-directory">
+  <div class="source-directory__inner">
+    <div class="source-directory__intro reveal">
+      <span class="kicker kicker--gold">Publisher directory</span>
+      <h2>The full source card.</h2>
+      <p>Bookmark your favorites or use Arrowhead Paesano as the front door.</p>
+    </div>
+    <div class="source-directory__grid">
+      {{ range .Site.Data.sources }}
+        <a class="reveal" href="{{ .url }}" target="_blank" rel="noopener" style="--accent:{{ .accent }}">
+          <span></span><div><strong>{{ .name }}</strong><small>{{ .tagline }}</small></div><b>↗</b>
+        </a>
+      {{ end }}
+    </div>
+  </div>
+</section>
+
+<section class="section source-disclaimer reveal">
+  <div><span>Independent desk</span><h2>We curate links. Publishers own the reporting.</h2><p>Arrowhead Paesano is not affiliated with the Kansas City Chiefs, NFL, or any linked news outlet. Headlines and images remain with their original publishers.</p></div>
+  <a class="btn btn-ink" href="/">Back to today’s wire <span aria-hidden="true">→</span></a>
 </section>
 {{ end }}

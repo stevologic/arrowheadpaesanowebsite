@@ -2,6 +2,7 @@ node_modules/
 dist/
 public_site/
 .claude/
+.hugo_build.lock
 .env
 .env.local
 npm-debug.log*
