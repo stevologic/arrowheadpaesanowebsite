@@ -1214,6 +1214,7 @@ section[id] { scroll-margin-top: 105px; }
 }
 
 @media (max-width: 760px) {
+  .section { padding-top: 56px; padding-bottom: 56px; }
   .utility-bar__inner div { display: none; }
   .header-main { min-height: 68px; }
   .brand-mark { width: 50px; height: 50px; }
@@ -1250,8 +1251,10 @@ section[id] { scroll-margin-top: 105px; }
   .footer-bottom { flex-direction: column; text-align: center; }
   .yt-grid--watch { grid-template-columns: 1fr; }
   .yt-grid--watch .yt-card--feature { grid-column: span 1; grid-template-columns: 1fr; }
+  .shorts-section__inner { padding: 60px var(--gutter); }
   .archive-grid--watch { grid-template-columns: 1fr; }
-  .watch-final-cta { margin: 0 var(--gutter) 68px; padding: 28px 22px; grid-template-columns: 86px 1fr; }
+  .watch-archive-band__inner { padding: 64px var(--gutter); }
+  .watch-final-cta { margin: 0 var(--gutter) 56px; padding: 28px 22px; grid-template-columns: 86px 1fr; }
   .watch-final-cta img { width: 86px; height: 86px; margin: 0; }
   .watch-final-cta .btn { grid-column: 1 / -1; justify-content: center; }
   .playlist-callout { grid-template-columns: 1fr; }

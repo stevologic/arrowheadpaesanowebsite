@@ -383,7 +383,7 @@ function shortCardHTML(video) {
   const title = escapeHTML(video.title || 'Arrowhead Paesano Short');
   const views = formatCount(video.views);
   return `
-    <a class="short-card reveal" href="${cleanUrl(video.link)}" target="_blank" rel="noopener" aria-label="Watch Short on YouTube: ${title}">
+    <a class="short-card" href="${cleanUrl(video.link)}" target="_blank" rel="noopener" aria-label="Watch Short on YouTube: ${title}">
       <div class="short-card__media">
         ${video.thumbnail ? `<img src="${cleanUrl(video.thumbnail)}" alt="" loading="lazy" referrerpolicy="no-referrer" />` : ''}
         <span aria-hidden="true">▶</span>
@@ -605,6 +605,7 @@ async function loadSourcesPage() {
 async function loadYouTubePage() {
   const grid = $('[data-youtube-page-grid]');
   if (!grid) return;
+  const shortsGrid = $('[data-youtube-shorts-grid]');
   try {
     const data = await fetchJSON('/api/youtube.json');
     const videos = Array.isArray(data.videos) ? data.videos : [];
@@ -615,14 +616,21 @@ async function loadYouTubePage() {
       interactive: true,
       featuredId: page ? page.dataset.featuredVideoId : '',
     });
-    renderShorts($('[data-youtube-shorts-grid]'), shorts);
+    renderShorts(shortsGrid, shorts);
     initDynamicUI(grid);
+    initDynamicUI(shortsGrid);
   } catch (_) {
     grid.innerHTML = emptyState(
       'Videos unavailable',
       'The YouTube feed could not be reached. You can still visit the channel directly.',
       `<a class="btn btn-yt" href="${YOUTUBE_URL}" target="_blank" rel="noopener">Visit channel</a>`
     );
+    if (shortsGrid) {
+      shortsGrid.innerHTML = emptyState(
+        'Shorts unavailable',
+        'Open the channel to catch every quick take.'
+      );
+    }
   }
 }
 
