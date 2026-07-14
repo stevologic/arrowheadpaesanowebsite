@@ -1,17 +1,11 @@
 {
   "name": "arrowhead-paesano",
   "version": "1.0.0",
-  "description": "Arrowhead Paesano - Kansas City Chiefs fan and news site",
-  "main": "server.js",
+  "private": true,
+  "description": "Static Hugo site for the Arrowhead Paesano YouTube channel",
   "scripts": {
-    "build": "hugo --minify",
-    "start": "node server.js",
-    "dev": "hugo --minify && node server.js"
-  },
-  "dependencies": {
-    "dotenv": "^17.4.2",
-    "express": "^4.21.2",
-    "rss-parser": "^3.13.0"
+    "build": "hugo --gc --minify",
+    "dev": "hugo server --bind 127.0.0.1 --port 1515 --baseURL http://localhost:1515/ --disableFastRender --renderToMemory"
   },
   "devDependencies": {
     "hugo-bin": "^0.149.2"

@@ -1,5 +1,7 @@
 {{ $active := .Params.active | default (cond .IsHome "news" "") }}
 {{ $bodyPage := .Params.active | default (cond .IsHome "home" "page") }}
+{{ $homeURL := "" | relURL }}
+{{ $logoURL := .Site.Params.logoUrl | relURL }}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -12,23 +14,23 @@
   <meta property="og:description" content="{{ .Site.Params.tagline }}" />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="{{ .Permalink }}" />
-  <meta property="og:image" content="{{ "/og.png" | absURL }}" />
+  <meta property="og:image" content="{{ "og.png" | absURL }}" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta property="og:image:alt" content="Arrowhead Paesano — Chiefs news, Paesano attitude" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:image" content="{{ "/og.png" | absURL }}" />
+  <meta name="twitter:image" content="{{ "og.png" | absURL }}" />
   <meta name="theme-color" content="#0d0c0d" />
-  <link rel="icon" type="image/png" href="/icon-192.png" />
-  <link rel="apple-touch-icon" href="/icon-192.png" />
+  <link rel="icon" type="image/png" href="{{ "icon-192.png" | relURL }}" />
+  <link rel="apple-touch-icon" href="{{ "icon-192.png" | relURL }}" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,700&family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  {{ if .IsHome }}<link rel="preload" as="image" href="/images/channel/host-studio-red.webp" fetchpriority="high" />{{ end }}
-  <link rel="stylesheet" href="/css/style.css" />
-  <link rel="stylesheet" href="/css/v2.css" />
+  {{ if .IsHome }}<link rel="preload" as="image" href="{{ "images/channel/host-studio-red.webp" | relURL }}" fetchpriority="high" />{{ end }}
+  <link rel="stylesheet" href="{{ "css/style.css" | relURL }}" />
+  <link rel="stylesheet" href="{{ "css/v2.css" | relURL }}" />
 </head>
-<body class="page-{{ $bodyPage }}">
+<body class="page-{{ $bodyPage }}" data-site-base="{{ $homeURL }}" data-logo-url="{{ $logoURL }}">
   <a href="#main" class="skip-link">Skip to content</a>
 
   <div class="scroll-progress" aria-hidden="true"><div class="scroll-progress-bar"></div></div>
@@ -45,9 +47,9 @@
 
   <header class="site-header" data-header>
     <div class="header-main">
-      <a class="brand" href="/" aria-label="{{ .Site.Title }} home">
+      <a class="brand" href="{{ $homeURL }}" aria-label="{{ .Site.Title }} home">
         <span class="brand-mark" aria-hidden="true">
-          <img src="{{ .Site.Params.logoUrl }}" alt="" width="58" height="58" />
+          <img src="{{ $logoURL }}" alt="" width="58" height="58" />
         </span>
         <span class="brand-text">
           <span class="brand-name">Arrowhead Paesano</span>
@@ -56,7 +58,7 @@
       </a>
       <nav class="primary-nav" id="primary-navigation" aria-label="Primary">
         {{ range .Site.Params.nav }}
-          <a href="{{ .href }}" class="{{ if eq $active .active }}active{{ end }}" {{ if eq $active .active }}aria-current="page"{{ end }}>{{ .label }}</a>
+          <a href="{{ .href | relURL }}" class="{{ if eq $active .active }}active{{ end }}" {{ if eq $active .active }}aria-current="page"{{ end }}>{{ .label }}</a>
         {{ end }}
       </nav>
       <div class="header-cta">
@@ -72,11 +74,16 @@
   </header>
 
   {{ if .IsHome }}
-    <div class="hero-stripe hero-stripe--top" aria-label="Latest Chiefs headlines">
-      <div class="stripe-label"><span></span> Live wire</div>
+    <div class="hero-stripe hero-stripe--top" aria-label="Trusted Chiefs news publishers">
+      <div class="stripe-label"><span></span> Source wire</div>
       <div class="stripe-window">
         <div class="stripe-track" data-ticker-track>
-          <span class="stripe-item"><span class="src" style="--accent: #FFB81C">News desk</span> Loading the latest Chiefs headlines</span>
+          {{ range .Site.Data.sources }}
+            <a class="stripe-item" href="{{ .url }}" target="_blank" rel="noopener"><span class="src" style="--accent: {{ .accent }}">{{ .name }}</span>{{ .tagline }}</a>
+          {{ end }}
+          {{ range .Site.Data.sources }}
+            <a class="stripe-item" href="{{ .url }}" target="_blank" rel="noopener" aria-hidden="true" tabindex="-1"><span class="src" style="--accent: {{ .accent }}">{{ .name }}</span>{{ .tagline }}</a>
+          {{ end }}
         </div>
       </div>
     </div>
@@ -89,21 +96,21 @@
   <footer class="site-footer">
     <div class="footer-grid">
       <div class="footer-brand">
-        <a class="footer-lockup" href="/">
-          <img src="{{ .Site.Params.logoUrl }}" alt="" width="86" height="86" />
+        <a class="footer-lockup" href="{{ $homeURL }}">
+          <img src="{{ $logoURL }}" alt="" width="86" height="86" />
           <strong>{{ .Site.Title }}</strong>
         </a>
         <p>{{ .Site.Params.tagline }}</p>
         <div class="footer-live">
-          <span><span class="pill-dot"></span> News desk active</span>
-          <p>Headlines come from named publishers and always open at the original source. The desk checks for updates every {{ .Site.Params.feedCacheMinutes }} minutes.</p>
+          <span><span class="pill-dot"></span> Source desk ready</span>
+          <p>Every publisher is named, and every news link opens directly at the original source. No account or server connection is required.</p>
         </div>
       </div>
       <div class="footer-col">
         <h4>Site</h4>
         <ul>
           {{ range .Site.Params.nav }}
-            <li><a href="{{ .href }}">{{ .label }}</a></li>
+            <li><a href="{{ .href | relURL }}">{{ .label }}</a></li>
           {{ end }}
         </ul>
       </div>
@@ -120,9 +127,9 @@
       <div class="footer-col">
         <h4>Connect</h4>
         <ul>
-          <li><a href="/social/">Chiefs social wire</a></li>
+          <li><a href="{{ "social/" | relURL }}">Chiefs social wire</a></li>
           <li><a href="https://www.chiefs.com/" target="_blank" rel="noopener">Chiefs.com</a></li>
-          <li><a href="/api/feed.json">JSON feed</a></li>
+          <li><a href="{{ "sources/" | relURL }}">Trusted news sources</a></li>
         </ul>
       </div>
     </div>
@@ -132,6 +139,7 @@
     </div>
     <p class="footer-affiliate-disclosure">As an Amazon Associate I earn from qualifying purchases.</p>
   </footer>
-  <script src="/js/main.js" defer></script>
+  <script src="{{ "js/shopify-storefront.js" | relURL }}" defer></script>
+  <script src="{{ "js/main.js" | relURL }}" defer></script>
 </body>
 </html>

@@ -4,9 +4,7 @@
     "name": "Arrowhead Pride",
     "tagline": "The flagship Chiefs fan blog (SB Nation)",
     "url": "https://www.arrowheadpride.com/",
-    "feed": "https://www.arrowheadpride.com/rss/index.xml",
     "category": "chiefs",
-    "chiefsOnly": true,
     "accent": "#E31837"
   },
   {
@@ -14,9 +12,7 @@
     "name": "Arrowhead Addict",
     "tagline": "Chiefs news, rumors and analysis",
     "url": "https://arrowheadaddict.com/",
-    "feed": "https://arrowheadaddict.com/feed/",
     "category": "chiefs",
-    "chiefsOnly": true,
     "accent": "#FFB81C"
   },
   {
@@ -24,9 +20,7 @@
     "name": "Chiefs Digest",
     "tagline": "Independent breaking news and analysis",
     "url": "https://chiefsdigest.com/",
-    "feed": "https://chiefsdigest.com/feed/",
     "category": "chiefs",
-    "chiefsOnly": true,
     "accent": "#E31837"
   },
   {
@@ -34,9 +28,7 @@
     "name": "Chiefs.com",
     "tagline": "Official team news and features",
     "url": "https://www.chiefs.com/news/",
-    "feed": "https://www.chiefs.com/rss/news",
     "category": "chiefs",
-    "chiefsOnly": true,
     "accent": "#FFB81C"
   },
   {
@@ -44,9 +36,7 @@
     "name": "Heavy on Chiefs",
     "tagline": "Trade rumors, roster moves, depth chart",
     "url": "https://heavy.com/sports/nfl/kansas-city-chiefs/",
-    "feed": "https://heavy.com/sports/nfl/kansas-city-chiefs/feed/",
     "category": "chiefs",
-    "chiefsOnly": true,
     "accent": "#E31837"
   },
   {
@@ -54,9 +44,7 @@
     "name": "FOX4KC Chiefs",
     "tagline": "Local Kansas City TV coverage",
     "url": "https://fox4kc.com/sports/chiefs/",
-    "feed": "https://fox4kc.com/sports/chiefs/feed/",
     "category": "chiefs",
-    "chiefsOnly": true,
     "accent": "#1A1A1A"
   },
   {
@@ -64,9 +52,7 @@
     "name": "KSHB 41 Chiefs",
     "tagline": "Kansas City's local Chiefs TV desk",
     "url": "https://www.kshb.com/sports/football/chiefs",
-    "feed": "https://www.kshb.com/sports/football/chiefs.rss",
     "category": "chiefs",
-    "chiefsOnly": true,
     "accent": "#0B4EA2"
   },
   {
@@ -74,9 +60,7 @@
     "name": "KSN Chiefs",
     "tagline": "Kansas coverage of Chiefs news and features",
     "url": "https://www.ksn.com/sports/chiefs/",
-    "feed": "https://www.ksn.com/sports/chiefs/feed/",
     "category": "chiefs",
-    "chiefsOnly": true,
     "accent": "#0057A8"
   },
   {
@@ -84,9 +68,7 @@
     "name": "KC Sports Network",
     "tagline": "Local Chiefs podcasts, newsletters and analysis",
     "url": "https://www.kcsn.com/",
-    "feed": "https://www.kcsn.com/feed",
     "category": "chiefs",
-    "chiefsOnly": false,
     "accent": "#111827"
   },
   {
@@ -94,9 +76,7 @@
     "name": "KC Kingdom",
     "tagline": "Kansas City sports community",
     "url": "https://kckingdom.com/",
-    "feed": "https://kckingdom.com/feed/",
     "category": "chiefs",
-    "chiefsOnly": false,
     "accent": "#FFB81C"
   },
   {
@@ -104,9 +84,7 @@
     "name": "Sports Illustrated NFL",
     "tagline": "National NFL coverage (Chiefs-filtered)",
     "url": "https://www.si.com/nfl/chiefs/",
-    "feed": "https://www.si.com/feed",
     "category": "nfl",
-    "chiefsOnly": false,
     "accent": "#B30838"
   },
   {
@@ -114,9 +92,7 @@
     "name": "CBS Sports NFL",
     "tagline": "League-wide coverage (Chiefs-filtered)",
     "url": "https://www.cbssports.com/nfl/",
-    "feed": "https://www.cbssports.com/rss/headlines/nfl/",
     "category": "nfl",
-    "chiefsOnly": false,
     "accent": "#013369"
   },
   {
@@ -124,9 +100,7 @@
     "name": "ESPN NFL",
     "tagline": "League-wide coverage (Chiefs-filtered)",
     "url": "https://www.espn.com/nfl/",
-    "feed": "https://www.espn.com/espn/rss/nfl/news",
     "category": "nfl",
-    "chiefsOnly": false,
     "accent": "#D00"
   },
   {
@@ -134,9 +108,7 @@
     "name": "Pro Football Talk",
     "tagline": "Breaking NFL news (Chiefs-filtered)",
     "url": "https://profootballtalk.nbcsports.com/",
-    "feed": "https://profootballtalk.nbcsports.com/feed/",
     "category": "nfl",
-    "chiefsOnly": false,
     "accent": "#1A1A1A"
   }
 ]

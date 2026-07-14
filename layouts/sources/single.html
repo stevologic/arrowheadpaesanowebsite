@@ -1,48 +1,52 @@
 {{ define "main" }}
 <section class="sources-hero">
   <div class="sources-hero__copy reveal">
-    <span class="kicker kicker--gold">The Paesano news desk</span>
+    <span class="kicker kicker--gold">The Paesano news bookmarks</span>
     <h1>Know the story.<br><em>Know the source.</em></h1>
-    <p>{{ len .Site.Data.sources }} named publishers. One Chiefs-only wire. Every headline opens at the original outlet, where the reporting belongs.</p>
-    <a class="btn btn-gold btn-lg" href="#live-sources">Check the live desk <span aria-hidden="true">↓</span></a>
+    <p>{{ len .Site.Data.sources }} named publishers, organized for Chiefs fans. Every link opens at the original outlet, where the reporting belongs.</p>
+    <a class="btn btn-gold btn-lg" href="#source-directory">Open the directory <span aria-hidden="true">↓</span></a>
   </div>
   <div class="sources-hero__board reveal">
     <span>Coverage mix</span>
-    <div><strong>{{ len (where .Site.Data.sources "category" "chiefs") }}</strong><small>Chiefs-focused feeds</small></div>
-    <div><strong>{{ len (where .Site.Data.sources "category" "nfl") }}</strong><small>National NFL feeds</small></div>
-    <div><strong>{{ .Site.Params.feedCacheMinutes }}m</strong><small>Refresh interval</small></div>
-    <p>League-wide feeds are filtered for Chiefs relevance before they reach the site.</p>
+    <div><strong>{{ len (where .Site.Data.sources "category" "chiefs") }}</strong><small>Chiefs-focused desks</small></div>
+    <div><strong>{{ len (where .Site.Data.sources "category" "nfl") }}</strong><small>National NFL desks</small></div>
+    <div><strong>Direct</strong><small>Publisher links</small></div>
+    <p>This static directory stays fast and reliable because it sends readers straight to each newsroom.</p>
   </div>
 </section>
 
 <section class="source-method">
-  <article class="reveal"><span>01</span><h2>Gather</h2><p>The desk checks each publisher’s public RSS feed for new stories.</p></article>
-  <article class="reveal"><span>02</span><h2>Filter</h2><p>Chiefs outlets flow straight through; national coverage must match the Kingdom.</p></article>
-  <article class="reveal"><span>03</span><h2>Credit</h2><p>The outlet stays visible, and every click goes to the original article.</p></article>
+  <article class="reveal"><span>01</span><h2>Choose</h2><p>Start with an official, local, independent, or national publisher you trust.</p></article>
+  <article class="reveal"><span>02</span><h2>Open</h2><p>Every card takes you directly to that publisher’s current Chiefs or NFL coverage.</p></article>
+  <article class="reveal"><span>03</span><h2>Credit</h2><p>The outlet stays visible, and the reporting remains with the people who produced it.</p></article>
 </section>
 
-<section class="section" id="live-sources">
-  <div class="section-head reveal">
-    <div>
-      <span class="kicker"><span class="dot dot-live"></span> Live source rooms</span>
-      <h2><span class="rule"></span> Latest by publisher</h2>
-      <p class="section-dek">Scan one outlet at a time or open its homepage. If a room is quiet, that simply means it has no recent matching Chiefs story.</p>
-    </div>
-  </div>
-  <div class="bysource-grid bysource-grid--full sources-live-grid" data-sources-grid aria-live="polite">
-    <div class="empty-state"><h3>Checking every publisher</h3><p>Fresh headlines are being grouped by outlet.</p></div>
-  </div>
-</section>
-
-<section class="source-directory">
+<section class="source-directory" id="source-directory">
   <div class="source-directory__inner">
     <div class="source-directory__intro reveal">
-      <span class="kicker kicker--gold">Publisher directory</span>
-      <h2>The full source card.</h2>
-      <p>Bookmark your favorites or use Arrowhead Paesano as the front door.</p>
+      <span class="kicker kicker--gold">Chiefs-focused publishers</span>
+      <h2>Your Kingdom news rack.</h2>
+      <p>Official team news, Kansas City television, and independent Chiefs analysis in one bookmarkable place.</p>
     </div>
     <div class="source-directory__grid">
-      {{ range .Site.Data.sources }}
+      {{ range where .Site.Data.sources "category" "chiefs" }}
+        <a class="reveal" href="{{ .url }}" target="_blank" rel="noopener" style="--accent:{{ .accent }}">
+          <span></span><div><strong>{{ .name }}</strong><small>{{ .tagline }}</small></div><b>↗</b>
+        </a>
+      {{ end }}
+    </div>
+  </div>
+</section>
+
+<section class="source-directory source-directory--national">
+  <div class="source-directory__inner">
+    <div class="source-directory__intro reveal">
+      <span class="kicker kicker--gold">National football desks</span>
+      <h2>Keep an eye on the league.</h2>
+      <p>Use these broader NFL rooms for transactions, opponents, national context, and the stories shaping the conference.</p>
+    </div>
+    <div class="source-directory__grid">
+      {{ range where .Site.Data.sources "category" "nfl" }}
         <a class="reveal" href="{{ .url }}" target="_blank" rel="noopener" style="--accent:{{ .accent }}">
           <span></span><div><strong>{{ .name }}</strong><small>{{ .tagline }}</small></div><b>↗</b>
         </a>
@@ -52,7 +56,7 @@
 </section>
 
 <section class="section source-disclaimer reveal">
-  <div><span>Independent desk</span><h2>We curate links. Publishers own the reporting.</h2><p>Arrowhead Paesano is not affiliated with the Kansas City Chiefs, NFL, or any linked news outlet. Headlines and images remain with their original publishers.</p></div>
-  <a class="btn btn-ink" href="/">Back to today’s wire <span aria-hidden="true">→</span></a>
+  <div><span>Independent directory</span><h2>We organize links. Publishers own the reporting.</h2><p>Arrowhead Paesano is not affiliated with the Kansas City Chiefs, NFL, or any linked news outlet. Headlines, reporting, and images remain with their original publishers.</p></div>
+  <a class="btn btn-ink" href="{{ "" | relURL }}">Back home <span aria-hidden="true">→</span></a>
 </section>
 {{ end }}

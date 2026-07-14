@@ -1,10 +1,19 @@
 {{ define "main" }}
+{{ $shopifyConfig := dict
+  "domain" (.Site.Params.shopifyStoreDomain | default "")
+  "publicStorefrontToken" (.Site.Params.shopifyStorefrontPublicToken | default "")
+  "apiVersion" (.Site.Params.shopifyApiVersion | default "2026-04")
+  "collectionHandle" (.Site.Params.shopifyCollectionHandle | default "")
+}}
+{{ $amazonTag := .Site.Params.amazonAssociateTag | default "" }}
+{{ $amazonMarketplace := .Site.Params.amazonMarketplace | default "www.amazon.com" }}
+<script type="application/json" id="shopify-config">{{ $shopifyConfig | jsonify | safeJS }}</script>
 <section class="shop-hero">
   <div class="shop-hero__copy reveal">
     <span class="kicker kicker--gold">The Paesano shop</span>
     <h1>Wear the<br><em>attitude.</em></h1>
     <p>Game-day gear for the lot, the couch, and every place the Kingdom gets loud. The first collection is taking shape now.</p>
-    <div class="shop-hero__status" data-shop-status aria-live="polite"><span></span> Checking the Shopify storefront…</div>
+    <div class="shop-hero__status" data-shop-status aria-live="polite"><span></span> Store preview · add the public Shopify token when ready</div>
     <div class="shop-hero__actions">
       <a class="btn btn-gold btn-lg" href="#collection">Preview Paesano gear <span aria-hidden="true">↓</span></a>
       <a class="btn btn-paper btn-lg" href="#chiefs-finds">Chiefs Fan Finds</a>
@@ -12,7 +21,7 @@
   </div>
   <div class="shop-hero__art reveal" aria-hidden="true">
     <div class="shop-hero__ring"></div>
-    <img src="{{ .Site.Params.logoUrl }}" alt="" width="430" height="430" />
+    <img src="{{ .Site.Params.logoUrl | relURL }}" alt="" width="430" height="430" />
     <span class="shop-hero__stamp">FIRST<br>DROP</span>
     <b>COMING SOON</b>
   </div>
@@ -37,7 +46,7 @@
     {{ range .Site.Data.merch }}
       <article class="merch-card reveal">
         <div class="merch-art" style="background: linear-gradient(135deg, {{ delimit .palette ", " }});">
-          <img class="merch-preview-logo" src="{{ $.Site.Params.logoUrl }}" alt="" loading="lazy" />
+          <img class="merch-preview-logo" src="{{ $.Site.Params.logoUrl | relURL }}" alt="" loading="lazy" />
           <span class="merch-badge">Collection preview</span>
         </div>
         <div class="merch-info">
@@ -70,7 +79,7 @@
         <article class="amazon-find-card reveal" style="--find-accent:{{ .accent }}">
           <div class="amazon-find-card__top"><span>{{ .category }}</span><b aria-hidden="true">{{ .mark }}</b></div>
           <div class="amazon-find-card__body"><h3>{{ .title }}</h3><p>{{ .description }}</p></div>
-          <a href="https://www.amazon.com/s?k={{ .query | urlquery }}" target="_blank" rel="sponsored noopener">Browse on Amazon <small>(paid link)</small><span aria-hidden="true">↗</span></a>
+          <a href="https://{{ $amazonMarketplace }}/s?k={{ .query | urlquery }}{{ with $amazonTag }}&tag={{ . | urlquery }}{{ end }}" target="_blank" rel="sponsored noopener">Browse on Amazon <small>(paid link)</small><span aria-hidden="true">↗</span></a>
         </article>
       {{ end }}
     </div>

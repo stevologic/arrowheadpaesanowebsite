@@ -3,7 +3,7 @@
   <div class="about-hero-v2__copy reveal">
     <span class="kicker kicker--gold">Meet the Arrowhead Paesano</span>
     <h1>Chiefs blood.<br><em>Italiano soul.</em></h1>
-    <p>What started as lifelong Chiefs Sundays turned into a channel, a news desk, and a seat at the table for fans who care about every snap.</p>
+    <p>What started as lifelong Chiefs Sundays turned into a channel, a trusted-source directory, and a seat at the table for fans who care about every snap.</p>
     <div class="about-hero-v2__actions">
       <a class="btn btn-yt btn-lg" href="{{ .Site.Params.subscribeUrl }}" target="_blank" rel="noopener">Join the Paesano Pack</a>
       <a class="btn btn-paper btn-lg" href="#story">Hear the story</a>
@@ -11,8 +11,8 @@
     <div class="tricolore" aria-hidden="true"><span></span><span></span><span></span></div>
   </div>
   <div class="about-hero-v2__visual reveal">
-    <figure><img src="/images/channel/host-studio-tee.webp" alt="Arrowhead Paesano at his studio desk in a Chiefs shirt" width="664" height="503" /></figure>
-    <img class="about-hero-v2__logo" src="{{ .Site.Params.logoUrl }}" alt="" aria-hidden="true" />
+    <figure><img src="{{ "images/channel/host-studio-tee.webp" | relURL }}" alt="Arrowhead Paesano at his studio desk in a Chiefs shirt" width="664" height="503" /></figure>
+    <img class="about-hero-v2__logo" src="{{ .Site.Params.logoUrl | relURL }}" alt="" aria-hidden="true" />
     <span class="about-hero-v2__label">Lifelong fan<br>Full-time opinion</span>
   </div>
 </section>
@@ -42,10 +42,10 @@
     </div>
   </div>
   <div class="about-gallery-v2__grid">
-    <figure class="reveal"><img src="/images/channel/host-studio-red.webp" alt="Arrowhead Paesano in a red Chiefs vest" loading="lazy" /><figcaption><span>Pregame</span> Optimism is undefeated</figcaption></figure>
-    <figure class="reveal"><img src="/images/channel/host-studio-military.webp" alt="Arrowhead Paesano recording in olive Chiefs gear" loading="lazy" /><figcaption><span>Film room</span> Questions on the table</figcaption></figure>
-    <figure class="reveal"><img src="/images/channel/host-turkey.webp" alt="Arrowhead Paesano with a handmade turkey at the studio desk" loading="lazy" /><figcaption><span>Holiday special</span> Even the turkey has a take</figcaption></figure>
-    <figure class="reveal"><img src="/images/channel/host-holiday.webp" alt="Arrowhead Paesano in the holiday-decorated studio" loading="lazy" /><figcaption><span>December football</span> Decorations, pressure, opinions</figcaption></figure>
+    <figure class="reveal"><img src="{{ "images/channel/host-studio-red.webp" | relURL }}" alt="Arrowhead Paesano in a red Chiefs vest" loading="lazy" /><figcaption><span>Pregame</span> Optimism is undefeated</figcaption></figure>
+    <figure class="reveal"><img src="{{ "images/channel/host-studio-military.webp" | relURL }}" alt="Arrowhead Paesano recording in olive Chiefs gear" loading="lazy" /><figcaption><span>Film room</span> Questions on the table</figcaption></figure>
+    <figure class="reveal"><img src="{{ "images/channel/host-turkey.webp" | relURL }}" alt="Arrowhead Paesano with a handmade turkey at the studio desk" loading="lazy" /><figcaption><span>Holiday special</span> Even the turkey has a take</figcaption></figure>
+    <figure class="reveal"><img src="{{ "images/channel/host-holiday.webp" | relURL }}" alt="Arrowhead Paesano in the holiday-decorated studio" loading="lazy" /><figcaption><span>December football</span> Decorations, pressure, opinions</figcaption></figure>
   </div>
 </section>
 
@@ -68,17 +68,17 @@
   <div class="about-how-it-works__copy reveal">
     <span class="kicker">More than a channel</span>
     <h2>Your Chiefs tab between uploads.</h2>
-    <p>The YouTube channel brings the Paesano voice. This site keeps working between episodes, gathering fresh Chiefs headlines from named official, local, independent, and national outlets.</p>
+    <p>The YouTube channel brings the Paesano voice. This site keeps a fast, bookmarkable directory of named official, local, independent, and national outlets close at hand.</p>
     <div class="about-how-it-works__links">
-      <a href="/sources/"><b>Explore the news sources</b><span>See how the live desk is built →</span></a>
-      <a href="/youtube/"><b>Open the watch room</b><span>Latest uploads and channel archive →</span></a>
+      <a href="{{ "sources/" | relURL }}"><b>Explore the news sources</b><span>Open the trusted publisher directory →</span></a>
+      <a href="{{ "youtube/" | relURL }}"><b>Open the watch room</b><span>Featured uploads and channel archive →</span></a>
     </div>
   </div>
-  <div class="about-how-it-works__logo reveal"><img src="{{ .Site.Params.logoUrl }}" alt="Arrowhead Paesano logo" loading="lazy" /></div>
+  <div class="about-how-it-works__logo reveal"><img src="{{ .Site.Params.logoUrl | relURL }}" alt="Arrowhead Paesano logo" loading="lazy" /></div>
 </section>
 
 <section class="watch-final-cta about-final-cta">
-  <img src="{{ .Site.Params.logoUrl }}" alt="" width="180" height="180" loading="lazy" />
+  <img src="{{ .Site.Params.logoUrl | relURL }}" alt="" width="180" height="180" loading="lazy" />
   <div><span>Welcome to the family table</span><h2>Hail to the Chiefs!</h2></div>
   <a class="btn btn-gold btn-lg" href="{{ .Site.Params.subscribeUrl }}" target="_blank" rel="noopener">Subscribe free</a>
 </section>
