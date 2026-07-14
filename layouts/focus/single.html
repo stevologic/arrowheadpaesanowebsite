@@ -1,60 +1,30 @@
 {{ define "main" }}
-{{ $focus := .Site.Data.weekly_focus }}
 <section class="page-head focus-head">
-  <span class="kicker">Weekly YouTube pre-read</span>
-  <h1>This Week's Focus</h1>
-  <p class="lede">{{ $focus.dek }}</p>
-  <div class="focus-updated">Updated {{ $focus.updated }}</div>
+  <span class="kicker">Paesano playbook</span>
+  <h1>How to use the desk</h1>
+  <p class="lede">A simple game-week rhythm for getting the news, watching the take, and bringing your own opinion to the table.</p>
 </section>
 
 <section class="section focus-layout">
   <article class="focus-feature">
-    <span class="kicker">Episode spine</span>
-    <h2>{{ $focus.episodeTitle }}</h2>
-    <p class="focus-hook">{{ $focus.videoHook }}</p>
-    <p>{{ $focus.outlook }}</p>
-    <a class="btn btn-yt btn-lg" href="{{ .Site.Params.youtubeUrl }}" target="_blank" rel="noopener">Watch the channel</a>
+    <span class="kicker">Your Chiefs routine</span>
+    <h2>Read the reporting. Watch the reaction. Make the call.</h2>
+    <p class="focus-hook">Arrowhead Paesano works best as your starting point—not the final word.</p>
+    <p>Use the live news desk to see what named outlets are reporting, open the original story for full context, then head to the channel for the fan conversation the headline starts.</p>
+    <div class="focus-actions"><a class="btn btn-primary btn-lg" href="/">Open live news</a><a class="btn btn-yt btn-lg" href="/youtube/">Watch the channel</a></div>
   </article>
-
   <aside class="focus-panel">
-    <span class="kicker">Viewer questions</span>
-    <ul>
-      {{ range $focus.viewerQuestions }}
-        <li>{{ . }}</li>
-      {{ end }}
-    </ul>
+    <span class="kicker">Three house rules</span>
+    <ul><li>Check the source before sharing the headline.</li><li>Separate official news from fan opinion.</li><li>Save the loudest debate for the comments.</li></ul>
   </aside>
 </section>
 
 <section class="section focus-topics-section">
-  <div class="section-head">
-    <div>
-      <span class="kicker">Talking points</span>
-      <h2><span class="rule"></span> What to cover</h2>
-    </div>
-  </div>
+  <div class="section-head"><div><span class="kicker">Game-week rhythm</span><h2><span class="rule"></span> What happens when</h2></div></div>
   <div class="focus-grid">
-    {{ range $focus.topics }}
-      <article class="focus-card">
-        <h3>{{ .label }}</h3>
-        <p>{{ .whyItMatters }}</p>
-        <span>{{ .talkTrack }}</span>
-      </article>
-    {{ end }}
+    <article class="focus-card"><h3>Before kickoff</h3><p>Scan injuries, roster moves, matchup reporting, and the newest Paesano preview.</p><span>Start with sourced news, then bring the questions to YouTube.</span></article>
+    <article class="focus-card"><h3>After the whistle</h3><p>Catch the instant reaction and compare it with official postgame reporting.</p><span>Emotion is welcome. Attribution is required.</span></article>
+    <article class="focus-card"><h3>All week</h3><p>Follow transactions, film-room debates, and the stories that shape the next Sunday.</p><span>The homepage refreshes automatically, so the desk is always worth another look.</span></article>
   </div>
-</section>
-
-<section class="section focus-strategy">
-  <div class="section-head">
-    <div>
-      <span class="kicker">Strategy</span>
-      <h2><span class="rule rule-gold"></span> How to move forward</h2>
-    </div>
-  </div>
-  <ol>
-    {{ range $focus.strategies }}
-      <li>{{ . }}</li>
-    {{ end }}
-  </ol>
 </section>
 {{ end }}

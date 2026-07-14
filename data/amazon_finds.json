@@ -1,0 +1,56 @@
+[
+  {
+    "id": "chiefs-jerseys-apparel",
+    "category": "Game-day gear",
+    "title": "Jerseys & Chiefs Apparel",
+    "description": "Browse jerseys, tees, hoodies, and layers for every kind of Kansas City game day.",
+    "query": "Kansas City Chiefs jerseys official NFL apparel",
+    "mark": "15",
+    "accent": "#E31837"
+  },
+  {
+    "id": "chiefs-hats-headwear",
+    "category": "Top it off",
+    "title": "Chiefs Hats & Headwear",
+    "description": "Find fitted caps, snapbacks, knit hats, and sideline-inspired headwear in Kingdom colors.",
+    "query": "Kansas City Chiefs hats caps headwear",
+    "mark": "KC",
+    "accent": "#FFB81C"
+  },
+  {
+    "id": "chiefs-tailgate-gear",
+    "category": "Parking-lot ready",
+    "title": "Tailgate Essentials",
+    "description": "Stock the pregame setup with coolers, chairs, flags, drinkware, and practical tailgate gear.",
+    "query": "Kansas City Chiefs tailgate gear accessories",
+    "mark": "LOT",
+    "accent": "#111827"
+  },
+  {
+    "id": "chiefs-fan-cave",
+    "category": "Home field",
+    "title": "Fan-Cave Upgrades",
+    "description": "Bring Arrowhead energy home with Chiefs decor, blankets, wall art, and watch-party essentials.",
+    "query": "Kansas City Chiefs home decor fan cave",
+    "mark": "HOME",
+    "accent": "#E31837"
+  },
+  {
+    "id": "chiefs-kids-family",
+    "category": "Next generation",
+    "title": "Kids & Family Gear",
+    "description": "Browse youth apparel, baby gear, family games, and Chiefs finds for the youngest fans.",
+    "query": "Kansas City Chiefs kids youth baby fan gear",
+    "mark": "JR",
+    "accent": "#FFB81C"
+  },
+  {
+    "id": "chiefs-gifts-collectibles",
+    "category": "Kingdom keepsakes",
+    "title": "Gifts & Collectibles",
+    "description": "Explore Chiefs-themed gifts, display pieces, trading cards, and keepsakes for fans and collectors.",
+    "query": "Kansas City Chiefs gifts collectibles memorabilia",
+    "mark": "MVP",
+    "accent": "#111827"
+  }
+]

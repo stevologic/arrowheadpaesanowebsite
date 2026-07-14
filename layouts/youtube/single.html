@@ -1,51 +1,128 @@
 {{ define "main" }}
-<section class="youtube-hero" data-youtube-page>
-  <div class="youtube-hero-copy reveal">
-    <span class="kicker">YouTube</span>
-    <h1>Chiefs talk with sauce.</h1>
-    <p class="lede">Game reactions, roster arguments, draft-table what-ifs, and the kind of Chiefs takes you want to kick around with somebody who has been living it.</p>
-    <div class="yt-hero-actions">
-      <a class="btn btn-yt btn-lg" href="{{ .Site.Params.youtubeUrl }}" target="_blank" rel="noopener">Subscribe on YouTube</a>
-      <a class="btn btn-ghost btn-lg" href="#videos">Pick a video</a>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Arrowhead Paesano",
+  "url": "{{ .Permalink }}",
+  "logo": "{{ .Site.Params.logoUrl | absURL }}",
+  "sameAs": ["{{ .Site.Params.youtubeUrl }}"]
+}
+</script>
+
+<section class="watch-hero" data-youtube-page data-featured-video-id="u50LL5S1tKc">
+  <div class="watch-hero__copy reveal">
+    <div class="watch-hero__channel">
+      <img src="{{ .Site.Params.logoUrl }}" alt="" width="92" height="92" />
+      <div><span>Official YouTube channel</span><strong>{{ .Site.Params.youtubeHandle }}</strong></div>
     </div>
-    <div class="yt-hero-chips" aria-label="Channel themes">
-      <span>Mahomes timelines</span>
-      <span>Roster chess</span>
-      <span>Draft-day arguments</span>
+    <h1>Chiefs talk<br><em>with sauce.</em></h1>
+    <p>Previews, recaps, roster debates, and honest fan reactions from a Chiefs lifer who never mails in the postgame take.</p>
+    <div class="watch-hero__actions">
+      <a class="btn btn-yt btn-lg" href="{{ .Site.Params.subscribeUrl }}" target="_blank" rel="noopener">Subscribe on YouTube</a>
+      <a class="btn btn-paper btn-lg" href="#latest-uploads">Browse uploads</a>
     </div>
+    <nav class="watch-tabs" aria-label="Arrowhead Paesano on YouTube">
+      <a href="{{ .Site.Params.youtubeUrl }}/videos" target="_blank" rel="noopener"><b>Videos</b><span>Full episodes</span></a>
+      <a href="{{ .Site.Params.youtubeUrl }}/shorts" target="_blank" rel="noopener"><b>Shorts</b><span>Fast takes</span></a>
+      <a href="{{ .Site.Params.youtubeUrl }}/playlists" target="_blank" rel="noopener"><b>Playlists</b><span>Binge a series</span></a>
+      <a href="{{ .Site.Params.youtubeUrl }}/posts" target="_blank" rel="noopener"><b>Posts</b><span>Polls & updates</span></a>
+    </nav>
   </div>
-  <div class="yt-stage reveal" data-youtube-stage>
-    <div class="yt-stage-poster">
-      <span class="yt-stage-label">Now playing</span>
-      <strong>Open the channel playlist.</strong>
-      <p>Add specific video cards in <code>data/videos.json</code> whenever you want this page to feature individual uploads.</p>
-      <a class="btn btn-yt" href="{{ .Site.Params.youtubeUrl }}/videos" target="_blank" rel="noopener">Latest uploads</a>
+
+  <div class="watch-hero__stage reveal">
+    <div class="watch-stage-kicker"><span></span> Featured full episode</div>
+    <div class="yt-stage yt-stage--watch" data-youtube-stage>
+      <button class="yt-stage-poster yt-stage-poster--branded" type="button" data-stage-placeholder aria-label="Load the featured Arrowhead Paesano episode">
+        <img src="/images/channel/host-stream.webp" alt="Arrowhead Paesano in the channel broadcast frame" />
+        <span class="yt-stage-poster__shade" aria-hidden="true"></span>
+        <span class="yt-stage-poster__play" aria-hidden="true">▶</span>
+        <span class="yt-stage-poster__copy"><small>From the channel</small><strong>Loading the featured episode…</strong></span>
+      </button>
+    </div>
+    <p class="watch-stage-note">Privacy-friendly player: YouTube loads only after you press play.</p>
+  </div>
+</section>
+
+<section class="shorts-section">
+  <div class="shorts-section__inner">
+    <div class="section-head reveal">
+      <div>
+        <span class="kicker kicker--gold">Quick takes</span>
+        <h2><span class="rule rule-gold"></span> Paesano Shorts</h2>
+        <p class="section-dek">Fast reactions made for the scroll. Swipe the rail or open any Short on YouTube.</p>
+      </div>
+      <a class="section-link" href="{{ .Site.Params.youtubeUrl }}/shorts" target="_blank" rel="noopener">All Shorts <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="shorts-rail" data-youtube-shorts-grid aria-live="polite">
+      <div class="empty-state empty-state--dark"><h3>Loading Shorts</h3><p>Fast takes are on the way.</p></div>
     </div>
   </div>
 </section>
 
-<section class="section section-videos" id="videos">
-  <div class="section-head">
+<section class="watch-marquee" aria-label="Channel topics">
+  <div><span>Game previews</span><i>•</i><span>Instant recaps</span><i>•</i><span>Roster moves</span><i>•</i><span>Draft talk</span><i>•</i><span>Kingdom debates</span><i>•</i><span>Game previews</span><i>•</i><span>Instant recaps</span></div>
+</section>
+
+<section class="section watch-uploads" id="latest-uploads">
+  <div class="section-head reveal">
     <div>
-      <span class="kicker">Latest uploads</span>
-      <h2><span class="rule rule-gold"></span> Pull up a chair</h2>
+      <span class="kicker"><span class="dot dot-live"></span> Synced from YouTube</span>
+      <h2><span class="rule"></span> Latest from the channel</h2>
+      <p class="section-dek">The newest public uploads arrive here automatically. Pick one to load it in the featured player above.</p>
     </div>
-    <a class="section-link" href="{{ .Site.Params.youtubeUrl }}" target="_blank" rel="noopener">Open channel <span aria-hidden="true">-></span></a>
+    <a class="section-link" href="{{ .Site.Params.youtubeUrl }}/videos" target="_blank" rel="noopener">View on YouTube <span aria-hidden="true">↗</span></a>
   </div>
-  <div class="yt-grid yt-grid--full" data-youtube-page-grid>
-    {{ range .Site.Data.videos }}
-      <a class="yt-card reveal" href="{{ .url }}" target="_blank" rel="noopener">
-        <div class="yt-thumb">
-          {{ if .thumbnail }}<img src="{{ .thumbnail }}" alt="" loading="lazy" />{{ end }}
-          <span class="yt-play" aria-hidden="true">&gt;</span>
-        </div>
-        <div class="yt-body">
-          <h3>{{ .title }}</h3>
-          <p>{{ .description }}</p>
-          <span class="yt-time">{{ .date }}</span>
-        </div>
-      </a>
-    {{ end }}
+  <div class="yt-grid yt-grid--full yt-grid--watch" data-youtube-page-grid aria-live="polite">
+    <div class="empty-state"><h3>Checking the channel</h3><p>The latest public uploads are loading now.</p></div>
   </div>
+</section>
+
+<section class="watch-archive-band">
+  <div class="watch-archive-band__inner">
+    <div class="section-head reveal">
+      <div>
+        <span class="kicker kicker--gold">Season scrapbook</span>
+        <h2><span class="rule rule-gold"></span> Previews, recaps & reactions</h2>
+        <p class="section-dek">A visual trip through the channel archive, starring the Chiefs and one very expressive Paesano.</p>
+      </div>
+    </div>
+    <div class="archive-grid archive-grid--watch">
+      {{ range .Site.Data.video_archive }}
+        <a class="archive-card reveal" href="{{ .url }}" target="_blank" rel="noopener">
+          <div class="archive-card__image">
+            <img src="{{ .image }}" alt="Thumbnail: {{ .title }}" loading="lazy" />
+            <span class="archive-card__play" aria-hidden="true">▶</span>
+          </div>
+          <div class="archive-card__body"><span>{{ .label }}</span><h3>{{ .title }}</h3></div>
+        </a>
+      {{ end }}
+    </div>
+    <a class="playlist-callout reveal" href="https://www.youtube.com/playlist?list=PLa8-vTvQk1KvSbJKvP76Dn91NiUTxwNJt" target="_blank" rel="noopener">
+      <span>Official playlist</span><strong>2025 NFL Kansas City Chiefs Game Predictions!</strong><b>Watch all 4 videos →</b>
+    </a>
+  </div>
+</section>
+
+<section class="section studio-story">
+  <div class="studio-story__image reveal">
+    <img src="/images/channel/host-stream.webp" alt="The Arrowhead Paesano channel broadcast layout" loading="lazy" />
+    <span>Behind the mic</span>
+  </div>
+  <div class="studio-story__copy reveal">
+    <span class="kicker">The show</span>
+    <h2>Where Chiefs passion meets heart and soul.</h2>
+    <p>Arrowhead Paesano is built for fans who want more than the score. It is the emotion after the whistle, the move you would make at GM, and the conversation that keeps rolling long after Sunday.</p>
+    <div class="studio-story__topics">
+      <span>Film-room questions</span><span>Fan-first analysis</span><span>Chiefs history</span><span>Postgame honesty</span>
+    </div>
+    <a class="btn btn-yt btn-lg" href="{{ .Site.Params.subscribeUrl }}" target="_blank" rel="noopener">Join the channel</a>
+  </div>
+</section>
+
+<section class="watch-final-cta">
+  <img src="{{ .Site.Params.logoUrl }}" alt="" width="180" height="180" loading="lazy" />
+  <div><span>New around here?</span><h2>Take a seat at the table.</h2></div>
+  <a class="btn btn-gold btn-lg" href="{{ .Site.Params.subscribeUrl }}" target="_blank" rel="noopener">Subscribe free</a>
 </section>
 {{ end }}

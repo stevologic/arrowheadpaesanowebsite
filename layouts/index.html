@@ -1,269 +1,197 @@
 {{ define "main" }}
 <script type="application/json" id="site-sources">{{ .Site.Data.sources | jsonify }}</script>
 
-<section class="hero" data-feed-home>
-  <div class="hero-mesh" aria-hidden="true"></div>
-  <div class="hero-noise" aria-hidden="true"></div>
-
-  <div class="hero-inner">
-    <div class="hero-copy reveal">
-      <div class="hero-badge">
-        <img src="{{ .Site.Params.avatarUrl }}" alt="Arrowhead Paesano logo" width="84" height="84" referrerpolicy="no-referrer" />
-        <div>
-          <span class="kicker"><span class="dot dot-live"></span> Chiefs Kingdom - Official channel</span>
-          <span class="hero-handle"><a href="{{ .Site.Params.youtubeUrl }}" target="_blank" rel="noopener">{{ .Site.Params.youtubeHandle }}</a></span>
-        </div>
+<section class="press-hero" data-feed-home>
+  <div class="press-hero__glow" aria-hidden="true"></div>
+  <div class="press-hero__inner">
+    <div class="press-hero__copy reveal">
+      <div class="press-hero__eyebrow">
+        <span class="live-beacon" aria-hidden="true"></span>
+        The official home of {{ .Site.Params.youtubeHandle }}
       </div>
-      <h1 class="hero-title">Chiefs news, <em>paesano</em> style.</h1>
-      <p class="lede">The official home for Arrowhead Paesano: Chiefs videos, weekly talking points, trusted source links, and Kingdom merch in one easy-to-update GitHub Pages site.</p>
-      <div class="hero-cta">
-        <a class="btn btn-primary btn-lg" href="/sources/">
-          <span>Browse sources</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M13.3 5.3 11.9 6.7 16.2 11H4v2h12.2l-4.3 4.3 1.4 1.4L20 12z"/></svg>
-        </a>
-        <a class="btn btn-ghost btn-lg" href="{{ .Site.Params.youtubeUrl }}" target="_blank" rel="noopener">
-          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M23 7.2s-.2-1.6-.9-2.3c-.8-.9-1.7-.9-2.2-1C16.6 3.6 12 3.6 12 3.6s-4.6 0-7.9.3c-.5.1-1.4.1-2.2 1C1.2 5.6 1 7.2 1 7.2S.8 9.1.8 11v1.9c0 1.9.2 3.8.2 3.8s.2 1.6.9 2.3c.8.9 1.9.9 2.4 1 1.7.2 7.7.3 7.7.3s4.6 0 7.9-.3c.5-.1 1.4-.1 2.2-1 .7-.7.9-2.3.9-2.3s.2-1.9.2-3.8V11c0-1.9-.2-3.8-.2-3.8zM9.7 14.6V8.1l6 3.3-6 3.2z"/></svg>
-          Watch on YouTube
+      <h1>Chiefs news.<br><span>Paesano attitude.</span></h1>
+      <p>Fresh Kingdom headlines from trusted publishers, original reactions from the Arrowhead Paesano channel, and one loud seat at the family table.</p>
+      <div class="press-hero__actions">
+        <a class="btn btn-primary btn-lg" href="#news-desk">Enter the news desk <span aria-hidden="true">↓</span></a>
+        <a class="btn btn-yt btn-lg" href="{{ .Site.Params.subscribeUrl }}" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M23 7.2s-.2-1.6-.9-2.3c-.8-.9-1.7-.9-2.2-1C16.6 3.6 12 3.6 12 3.6s-4.6 0-7.9.3c-.5.1-1.4.1-2.2 1C1.2 5.6 1 7.2 1 7.2S.8 9.1.8 11v1.9c0 1.9.2 3.8.2 3.8s.2 1.6.9 2.3c.8.9 1.9.9 2.4 1 1.7.2 7.7.3 7.7.3s4.6 0 7.9-.3c.5-.1 1.4-.1 2.2-1 .7-.7.9-2.3.9-2.3s.2-1.9.2-3.8V11c0-1.9-.2-3.8-.2-3.8zM9.7 14.6V8.1l6 3.3-6 3.2z"/></svg>
+          Subscribe on YouTube
         </a>
       </div>
-      <div class="hero-meta">
-        <div><strong>{{ len .Site.Data.sources }}</strong><span>Sources</span></div>
-        <div><strong>GH</strong><span>Pages</span></div>
-        <div><strong>Chiefs</strong><span>Only</span></div>
+      <div class="press-hero__proof" aria-label="Site highlights">
+        <div><strong>{{ len .Site.Data.sources }}</strong><span>named news sources</span></div>
+        <div><strong>{{ .Site.Params.feedCacheMinutes }} min</strong><span>headline refresh</span></div>
+        <div><strong>100%</strong><span>independent fan voice</span></div>
       </div>
     </div>
 
-    <a class="hero-featured reveal" data-featured-card href="{{ .Site.Params.youtubeUrl }}" target="_blank" rel="noopener" style="--accent: #E31837">
-      <div class="hf-tag">Official channel</div>
+    <div class="press-hero__visual reveal">
+      <div class="portrait-frame">
+        <div class="portrait-frame__tape" aria-hidden="true">KINGDOM FIRST</div>
+        <img src="/images/channel/host-studio-red.webp" alt="The Arrowhead Paesano host at his Chiefs studio desk" width="627" height="505" fetchpriority="high" />
+        <div class="portrait-frame__caption">
+          <span>From the Paesano desk</span>
+          <strong>Real takes. No coach-speak.</strong>
+        </div>
+      </div>
+      <img class="press-hero__crest" src="{{ .Site.Params.logoUrl }}" alt="" width="210" height="210" aria-hidden="true" />
+      <div class="press-hero__sticker" aria-hidden="true"><b>KC</b><span>ALL<br>DAY</span></div>
+    </div>
+  </div>
+
+  <div class="press-hero__story-wrap">
+    <div class="press-hero__story-label">
+      <span>Top of the wire</span>
+      <small>Latest sourced story</small>
+    </div>
+    <a class="hero-featured press-featured" data-featured-card href="/sources/" style="--accent:#E31837">
+      <div class="hf-tag">News desk</div>
       <div class="hf-body">
-        <span class="source-chip source-chip--lg">YouTube</span>
-        <h2>Watch Arrowhead Paesano on YouTube</h2>
-        <p>Subscribe for Chiefs reactions, roster debates, draft talk, and the latest Kingdom arguments.</p>
-        <span class="hf-time">{{ .Site.Params.youtubeHandle }}</span>
+        <span class="source-chip source-chip--lg">Checking the wire</span>
+        <h2>Pulling the newest Chiefs headline…</h2>
+        <p>The live desk is checking every source now.</p>
+        <span class="hf-time">just now</span>
       </div>
     </a>
   </div>
 </section>
 
-<section class="section logos-strip">
-  <div class="logos-inner">
-    <span class="logos-label">Curated from</span>
-    <ul>
+<nav class="jump-deck" aria-label="Quick links">
+  <a href="/youtube/"><span>01</span><strong>Watch</strong><small>Latest videos & archive</small></a>
+  <a href="#news-desk"><span>02</span><strong>Read</strong><small>Fresh Chiefs headlines</small></a>
+  <a href="/sources/"><span>03</span><strong>Verify</strong><small>See every publisher</small></a>
+  <a href="/about/"><span>04</span><strong>Join</strong><small>Meet the Paesano</small></a>
+</nav>
+
+<section class="section news-desk" id="news-desk">
+  <div class="section-head reveal">
+    <div>
+      <span class="kicker"><span class="dot dot-live"></span> Live Chiefs wire</span>
+      <h2><span class="rule"></span> Fresh from the Kingdom</h2>
+      <p class="section-dek">Every card names its publisher and sends you to the original reporting. No mystery content, no recycled copy.</p>
+    </div>
+    <div class="desk-freshness" data-feed-status><span></span> Updating the desk…</div>
+  </div>
+
+  <form class="news-toolbar reveal" data-news-toolbar role="search">
+    <label class="news-search">
+      <span class="sr-only">Search headlines</span>
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="m21 20-4.6-4.6a8 8 0 1 0-1.4 1.4L19.6 22 21 20ZM4 10a6 6 0 1 1 12 0 6 6 0 0 1-12 0Z"/></svg>
+      <input type="search" placeholder="Search Mahomes, draft, roster…" autocomplete="off" data-news-search />
+    </label>
+    <label class="news-source-filter">
+      <span class="sr-only">Filter by source</span>
+      <select data-news-source>
+        <option value="">All publishers</option>
+        {{ range .Site.Data.sources }}<option value="{{ .id }}">{{ .name }}</option>{{ end }}
+      </select>
+    </label>
+    <button class="btn btn-ghost btn-sm" type="reset" data-news-reset>Reset</button>
+  </form>
+
+  <div class="card-grid card-grid--press" data-card-grid aria-live="polite">
+    <div class="empty-state">
+      <h3>Warming up the news desk</h3>
+      <p>Fresh Chiefs headlines are on the way.</p>
+    </div>
+  </div>
+  <div class="section-tail reveal">
+    <p>Want the full source-by-source rundown?</p>
+    <a class="btn btn-ink" href="/sources/">Open the newsroom <span aria-hidden="true">→</span></a>
+  </div>
+</section>
+
+<section class="channel-band">
+  <div class="channel-band__inner">
+    <div class="channel-band__intro reveal">
+      <span class="kicker kicker--gold">From the channel</span>
+      <h2>Pull up a chair.<br><em>The tape is rolling.</em></h2>
+      <p>Previews before kickoff, honest reactions after the whistle, and the roster conversations Chiefs fans keep having all week.</p>
+      <div class="channel-links">
+        <a href="{{ .Site.Params.youtubeUrl }}/videos" target="_blank" rel="noopener">Uploads</a>
+        <a href="{{ .Site.Params.youtubeUrl }}/shorts" target="_blank" rel="noopener">Shorts</a>
+        <a href="{{ .Site.Params.youtubeUrl }}/playlists" target="_blank" rel="noopener">Playlists</a>
+        <a href="{{ .Site.Params.youtubeUrl }}/posts" target="_blank" rel="noopener">Posts</a>
+      </div>
+      <a class="btn btn-yt btn-lg" href="{{ .Site.Params.subscribeUrl }}" target="_blank" rel="noopener">Subscribe to Arrowhead Paesano</a>
+    </div>
+    <div class="channel-band__videos reveal">
+      <div class="yt-grid yt-grid--home" data-youtube-grid>
+        <div class="empty-state empty-state--dark">
+          <h3>Loading the latest uploads</h3>
+          <p>The channel feed is checking in.</p>
+        </div>
+      </div>
+      <a class="channel-band__more" href="/youtube/">Watch on the big board <span aria-hidden="true">→</span></a>
+    </div>
+  </div>
+</section>
+
+<section class="section archive-section">
+  <div class="section-head reveal">
+    <div>
+      <span class="kicker">From the film room</span>
+      <h2><span class="rule rule-gold"></span> The Paesano archive</h2>
+      <p class="section-dek">Game previews, instant recaps, and plenty of facial expressions. The season, one take at a time.</p>
+    </div>
+    <a class="section-link" href="/youtube/">Browse the full watch page <span aria-hidden="true">→</span></a>
+  </div>
+  <div class="archive-grid">
+    {{ range first 6 .Site.Data.video_archive }}
+      <a class="archive-card reveal" href="{{ .url }}" target="_blank" rel="noopener">
+        <div class="archive-card__image">
+          <img src="{{ .image }}" alt="Thumbnail: {{ .title }}" loading="lazy" />
+          <span class="archive-card__play" aria-hidden="true">▶</span>
+        </div>
+        <div class="archive-card__body"><span>{{ .label }}</span><h3>{{ .title }}</h3></div>
+      </a>
+    {{ end }}
+  </div>
+</section>
+
+<section class="source-wall">
+  <div class="source-wall__inner reveal">
+    <div class="source-wall__copy">
+      <span class="kicker kicker--gold">Know where the news came from</span>
+      <h2>Trusted voices.<br>Clear attribution.</h2>
+      <p>The Paesano desk gathers headlines; the original outlets do the reporting. Every story keeps the source attached.</p>
+      <a class="btn btn-paper" href="/sources/">Review all {{ len .Site.Data.sources }} sources</a>
+    </div>
+    <div class="source-wall__list" aria-label="News publishers">
       {{ range .Site.Data.sources }}
-        <li style="--accent: {{ .accent }}"><span>{{ .name }}</span></li>
-      {{ end }}
-    </ul>
-  </div>
-</section>
-
-{{ $context := .Site.Data.current_context }}
-<section class="section section-context reveal">
-  <div class="section-head">
-    <div>
-      <span class="kicker">{{ $context.eyebrow }}</span>
-      <h2><span class="rule"></span> {{ $context.title }}</h2>
-    </div>
-    <a class="section-link" href="{{ $context.primarySource.url }}" target="_blank" rel="noopener">{{ $context.primarySource.label }} <span aria-hidden="true">-></span></a>
-  </div>
-
-  <div class="context-board">
-    <article class="context-lead">
-      <span class="context-date">Updated {{ $context.updated }}</span>
-      <p>{{ $context.lede }}</p>
-      <div class="context-source-links">
-        {{ range $context.links }}
-          <a href="{{ .url }}" target="_blank" rel="noopener">{{ .label }}</a>
-        {{ end }}
-      </div>
-    </article>
-
-    <div class="context-facts">
-      {{ range $context.facts }}
-        <a class="fact-card" href="{{ .url }}" target="_blank" rel="noopener">
-          <span>{{ .label }}</span>
-          <strong>{{ .value }}</strong>
-          <p>{{ .detail }}</p>
-        </a>
-      {{ end }}
-    </div>
-  </div>
-
-  <div class="storyline-grid">
-    {{ range $context.storylines }}
-      <a class="storyline-card" href="{{ .url }}" target="_blank" rel="noopener">
-        <span>{{ .label }}</span>
-        <h3>{{ .title }}</h3>
-        <p>{{ .detail }}</p>
-      </a>
-    {{ end }}
-  </div>
-
-  <div class="schedule-watch">
-    <div>
-      <span class="kicker">Home opponents</span>
-      <div class="opponent-pills">
-        {{ range $context.scheduleWatch.home }}
-          <span>{{ . }}</span>
-        {{ end }}
-      </div>
-    </div>
-    <div>
-      <span class="kicker">Away opponents</span>
-      <div class="opponent-pills">
-        {{ range $context.scheduleWatch.away }}
-          <span>{{ . }}</span>
-        {{ end }}
-      </div>
-    </div>
-  </div>
-</section>
-
-{{ $focus := .Site.Data.weekly_focus }}
-<section class="section section-focus reveal">
-  <div class="section-head">
-    <div>
-      <span class="kicker">Weekly YouTube pre-read</span>
-      <h2><span class="rule rule-gold"></span> This Week's Focus</h2>
-    </div>
-    <a class="section-link" href="/focus/">Open pre-read <span aria-hidden="true">-></span></a>
-  </div>
-  <div class="focus-home">
-    <article>
-      <span class="focus-date">Updated {{ $focus.updated }}</span>
-      <h3>{{ $focus.episodeTitle }}</h3>
-      <p>{{ $focus.videoHook }}</p>
-    </article>
-    <div class="focus-home-topics">
-      {{ range first 3 $focus.topics }}
-        <a href="/focus/">
-          <strong>{{ .label }}</strong>
-          <span>{{ .whyItMatters }}</span>
-        </a>
+        <a href="{{ .url }}" target="_blank" rel="noopener" style="--accent:{{ .accent }}"><span></span>{{ .name }}<small>↗</small></a>
       {{ end }}
     </div>
   </div>
 </section>
 
-<section class="section" id="latest">
-  <div class="section-head reveal">
-    <div>
-      <span class="kicker">Trusted links</span>
-      <h2><span class="rule"></span> Chiefs Sources</h2>
-    </div>
-    <a class="section-link" href="/sources/">All sources <span aria-hidden="true">-></span></a>
+<section class="section meet-paesano">
+  <div class="meet-paesano__gallery reveal" aria-label="Photos from the Arrowhead Paesano studio">
+    <figure class="meet-paesano__main"><img src="/images/channel/host-turkey.webp" alt="Arrowhead Paesano at the studio desk with a handmade turkey" loading="lazy" /></figure>
+    <figure><img src="/images/channel/host-studio-military.webp" alt="Arrowhead Paesano recording in Chiefs gear" loading="lazy" /></figure>
+    <figure><img src="/images/channel/host-holiday.webp" alt="Arrowhead Paesano at the holiday studio desk" loading="lazy" /></figure>
+    <span class="meet-paesano__note">Game day is a family<br>affair around here.</span>
   </div>
-
-  <div class="bysource-grid">
-    {{ range first 6 .Site.Data.sources }}
-      <div class="bysource-col reveal" style="--accent: {{ .accent }}">
-        <header>
-          <a href="{{ .url }}" target="_blank" rel="noopener" class="bysource-name">{{ .name }}</a>
-          <span class="muted small">{{ .tagline }}</span>
-        </header>
-        <ul>
-          <li><a href="{{ .url }}" target="_blank" rel="noopener">Open {{ .name }}</a></li>
-        </ul>
-      </div>
-    {{ end }}
-  </div>
-</section>
-
-<section class="section section-yt reveal" data-youtube-section>
-  <div class="section-head">
-    <div>
-      <span class="kicker">YouTube</span>
-      <h2><span class="rule rule-gold"></span> On the channel</h2>
-    </div>
-    <a class="section-link" href="{{ .Site.Params.youtubeUrl }}" target="_blank" rel="noopener">All videos <span aria-hidden="true">-></span></a>
-  </div>
-  <div class="yt-grid" data-youtube-grid>
-    {{ range first 3 .Site.Data.videos }}
-      <a class="yt-card reveal" href="{{ .url }}" target="_blank" rel="noopener">
-        <div class="yt-thumb">
-          {{ if .thumbnail }}<img src="{{ .thumbnail }}" alt="" loading="lazy" />{{ end }}
-          <span class="yt-play" aria-hidden="true">&gt;</span>
-        </div>
-        <div class="yt-body">
-          <h3>{{ .title }}</h3>
-          <span class="yt-time">{{ .date }}</span>
-        </div>
-      </a>
-    {{ end }}
-  </div>
-</section>
-
-{{ $social := .Site.Data.social_feeds }}
-<section class="section section-xwire reveal" data-x-wire>
-  <div class="section-head">
-    <div>
-      <span class="kicker"><span class="dot dot-live"></span> X Wire</span>
-      <h2><span class="rule"></span> Live Chiefs voices</h2>
-    </div>
-    <a class="section-link" href="/social/">Open full wire <span aria-hidden="true">-></span></a>
-  </div>
-  <div class="x-wire-intro">
-    <p>{{ $social.dek }}</p>
-    <span>Updated {{ $social.updated }}</span>
-  </div>
-  <div class="x-feed-grid x-feed-grid--home">
-    {{ range $social.categories }}
-      {{ range .accounts }}
-        {{ if .home }}
-          <article class="x-feed-card" data-x-feed style="--accent: {{ .accent }}">
-            <header>
-              <div>
-                <span class="x-role">{{ .role }}</span>
-                <h3>{{ .name }}</h3>
-              </div>
-              <a href="{{ .url }}" target="_blank" rel="noopener">@{{ .handle }}</a>
-            </header>
-            <div class="x-timeline-shell">
-              <a class="twitter-timeline" data-height="420" data-theme="dark" data-dnt="true" data-chrome="nofooter noborders transparent" href="{{ .timelineUrl }}">Tweets by @{{ .handle }}</a>
-            </div>
-            <a class="x-open" href="{{ .url }}" target="_blank" rel="noopener">Open on X <span aria-hidden="true">-></span></a>
-          </article>
-        {{ end }}
-      {{ end }}
-    {{ end }}
-  </div>
-</section>
-
-<section class="section">
-  <div class="section-head reveal">
-    <div>
-      <span class="kicker">By outlet</span>
-      <h2><span class="rule"></span> The newsroom</h2>
-    </div>
-    <a class="section-link" href="/sources/">View all <span aria-hidden="true">-></span></a>
-  </div>
-  <div class="bysource-grid" data-bysource-grid>
-    {{ range .Site.Data.sources }}
-      <div class="bysource-col reveal" style="--accent: {{ .accent }}">
-        <header>
-          <a href="{{ .url }}" target="_blank" rel="noopener" class="bysource-name">{{ .name }}</a>
-          <span class="muted small">{{ .tagline }}</span>
-        </header>
-        <ul>
-          <li><a href="{{ .url }}" target="_blank" rel="noopener">Read at source</a></li>
-          {{ with .feed }}<li><a href="{{ . }}" target="_blank" rel="noopener">RSS feed</a></li>{{ end }}
-        </ul>
-      </div>
-    {{ end }}
+  <div class="meet-paesano__copy reveal">
+    <span class="kicker">Meet your host</span>
+    <h2>A Chiefs lifer with a seat saved for you.</h2>
+    <p>Arrowhead Paesano is equal parts film room, family table, and postgame group text. The takes are direct, the loyalty runs deep, and there is always room for one more fan.</p>
+    <blockquote>“Made by a Paesano, for the Kingdom.”</blockquote>
+    <a class="btn btn-ink" href="/about/">Read the story <span aria-hidden="true">→</span></a>
   </div>
 </section>
 
 <section class="section section-merch reveal">
-  <div class="merch-banner">
+  <div class="merch-banner merch-banner--v2">
     <div class="merch-banner-copy">
-      <span class="kicker">Shop</span>
-      <h2>Paesano gear, made for Kingdom.</h2>
-      <p>Tees, hoodies, caps and tailgate flags. Built for the lot, the couch, and section 134.</p>
-      <a class="btn btn-primary btn-lg" href="/shop/">Browse merch <span aria-hidden="true">-></span></a>
+      <span class="kicker">Coming to the tailgate</span>
+      <h2>Paesano gear for loud Sundays.</h2>
+      <p>The storefront is wired for Shopify and ready for the first drop. Take a look at the preview lineup while the shelves get stocked.</p>
+      <a class="btn btn-gold btn-lg" href="/shop/">Preview the shop <span aria-hidden="true">→</span></a>
     </div>
-    <div class="merch-tiles" aria-hidden="true">
-      <span class="merch-tile" style="background: linear-gradient(135deg, #E31837, #FFB81C);"><span>AP</span></span>
-      <span class="merch-tile" style="background: linear-gradient(135deg, #1A1A1A, #E31837);"><span>AP</span></span>
-      <span class="merch-tile" style="background: linear-gradient(135deg, #FFB81C, #1A1A1A);"><span>AP</span></span>
+    <div class="merch-banner__crest" aria-hidden="true">
+      <img src="{{ .Site.Params.logoUrl }}" alt="" loading="lazy" />
+      <span>FIRST<br>DROP</span>
     </div>
   </div>
 </section>

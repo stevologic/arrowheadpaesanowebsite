@@ -1,67 +1,85 @@
 {{ define "main" }}
-<section class="page-head page-head--about">
-  <div class="about-hero-copy">
-    <span class="kicker">About</span>
-    <h1>Made by a lifelong Chiefs paesano.</h1>
-    <p class="lede">Arrowhead Paesano comes from Italiano roots, Abbott-family Chiefs Sundays, and a lifetime of caring way too much about the next snap. It is a Chiefs hub with headlines, videos, and opinion served family-style: direct, passionate, and always Kingdom first.</p>
-  </div>
-  <aside class="about-memory-card" aria-label="Family Chiefs story">
-    <span>Family lore</span>
-    <strong>Father at the first Super Bowl. Abbott family still all in.</strong>
-    <p>The Chiefs were in the family story from the beginning. That loyalty passed down, got louder, and turned into this Paesano desk.</p>
+<section class="about-hero-v2">
+  <div class="about-hero-v2__copy reveal">
+    <span class="kicker kicker--gold">Meet the Arrowhead Paesano</span>
+    <h1>Chiefs blood.<br><em>Italiano soul.</em></h1>
+    <p>What started as lifelong Chiefs Sundays turned into a channel, a news desk, and a seat at the table for fans who care about every snap.</p>
+    <div class="about-hero-v2__actions">
+      <a class="btn btn-yt btn-lg" href="{{ .Site.Params.subscribeUrl }}" target="_blank" rel="noopener">Join the Paesano Pack</a>
+      <a class="btn btn-paper btn-lg" href="#story">Hear the story</a>
+    </div>
     <div class="tricolore" aria-hidden="true"><span></span><span></span><span></span></div>
+  </div>
+  <div class="about-hero-v2__visual reveal">
+    <figure><img src="/images/channel/host-studio-tee.webp" alt="Arrowhead Paesano at his studio desk in a Chiefs shirt" width="664" height="503" /></figure>
+    <img class="about-hero-v2__logo" src="{{ .Site.Params.logoUrl }}" alt="" aria-hidden="true" />
+    <span class="about-hero-v2__label">Lifelong fan<br>Full-time opinion</span>
+  </div>
+</section>
+
+<section class="about-manifesto" id="story">
+  <div class="about-manifesto__number" aria-hidden="true">87</div>
+  <div class="about-manifesto__copy reveal">
+    <span class="kicker">The family story</span>
+    <h2>At our table, Chiefs football was never background noise.</h2>
+    <p>It was family history, Sunday ritual, and the conversation that could carry all week. The Abbott family’s connection reaches back to the first Super Bowl, and that loyalty kept getting louder with every generation.</p>
+    <p>Arrowhead Paesano brings that same energy online: direct reactions, curious film-room questions, and enough personality to make every episode feel like you pulled up a chair.</p>
+    <blockquote>Family-style coverage means everybody gets a take — but the Kingdom always comes first.</blockquote>
+  </div>
+  <aside class="about-manifesto__card reveal">
+    <span>Family lore</span>
+    <strong>From the first Super Bowl to the next kickoff.</strong>
+    <p>The Chiefs have always been part of the Abbott family story. This site is the newest chapter.</p>
   </aside>
 </section>
 
-<section class="section about-story">
-  <article class="about-story-card about-story-card--lead">
-    <span class="kicker">The family table</span>
-    <h2>Italiano heritage. Chiefs bloodline. One loud, loyal Abbott crew.</h2>
-    <p>This site is built from that mix: the pride of Italian-American family life, the stubborn optimism of Chiefs fans, and the feeling that every big football conversation is better when everybody at the table has a take.</p>
-  </article>
-  <article class="about-story-card">
-    <h2>What you get here</h2>
-    <p>A clean, fast, fan-built dashboard pulling Chiefs stories from <strong>Arrowhead Pride, Arrowhead Addict, Chiefs Digest, Chiefs.com, Heavy on Chiefs, FOX4KC, KSHB 41, KSN, KCSN,</strong> and <strong>KC Kingdom</strong>, plus Chiefs-filtered headlines from <strong>CBS Sports, ESPN, Sports Illustrated,</strong> and <strong>Pro Football Talk</strong>. If it is not Chiefs enough, it does not make the table.</p>
-  </article>
-  <article class="about-story-card">
-    <h2>Who runs it</h2>
-    <p>Your paesano: a life-long Chiefs fan running the <a href="{{ .Site.Params.youtubeUrl }}" target="_blank" rel="noopener">{{ .Site.Params.youtubeHandle }}</a> YouTube channel with season recaps, draft breakdowns, roster debates, and "what should the Chiefs do next" analysis from a fan who watches the tape.</p>
-  </article>
-  <article class="about-story-card">
-    <h2>How it stays current</h2>
-    <p>The site is now built for GitHub Pages: Hugo renders the pages from Markdown and JSON files, so updates are simple, versioned, and easy to make with Codex directly in the repository.</p>
-  </article>
-  <article class="about-story-card about-story-card--dark">
-    <h2>Independent, but all in</h2>
-    <p>This is an independent fan site, not affiliated with the Kansas City Chiefs, the NFL, or the news outlets linked here. Every headline opens at the original publisher, because credit and traffic should stay where they belong.</p>
-  </article>
+<section class="section about-gallery-v2">
+  <div class="section-head reveal">
+    <div>
+      <span class="kicker">Inside the studio</span>
+      <h2><span class="rule"></span> One desk. Plenty of moods.</h2>
+      <p class="section-dek">The hat changes. The take gets louder. The Chiefs memorabilia stays exactly where it is.</p>
+    </div>
+  </div>
+  <div class="about-gallery-v2__grid">
+    <figure class="reveal"><img src="/images/channel/host-studio-red.webp" alt="Arrowhead Paesano in a red Chiefs vest" loading="lazy" /><figcaption><span>Pregame</span> Optimism is undefeated</figcaption></figure>
+    <figure class="reveal"><img src="/images/channel/host-studio-military.webp" alt="Arrowhead Paesano recording in olive Chiefs gear" loading="lazy" /><figcaption><span>Film room</span> Questions on the table</figcaption></figure>
+    <figure class="reveal"><img src="/images/channel/host-turkey.webp" alt="Arrowhead Paesano with a handmade turkey at the studio desk" loading="lazy" /><figcaption><span>Holiday special</span> Even the turkey has a take</figcaption></figure>
+    <figure class="reveal"><img src="/images/channel/host-holiday.webp" alt="Arrowhead Paesano in the holiday-decorated studio" loading="lazy" /><figcaption><span>December football</span> Decorations, pressure, opinions</figcaption></figure>
+  </div>
 </section>
 
-<section class="section">
-  <div class="section-head">
-    <h2><span class="rule"></span> The Paesano code</h2>
-  </div>
-  <div class="codes-grid">
-    <div class="code-card">
-      <span class="code-num">01</span>
-      <h3>Kingdom first</h3>
-      <p>If it is not about the Chiefs, it does not make the front page. Period.</p>
+<section class="about-code-band">
+  <div class="about-code-band__inner">
+    <div class="about-code-band__intro reveal">
+      <span class="kicker kicker--gold">The Paesano code</span>
+      <h2>How we do things around here.</h2>
     </div>
-    <div class="code-card">
-      <span class="code-num">02</span>
-      <h3>Real takes</h3>
-      <p>Honest reactions and film breakdowns from a fan who watches the tape.</p>
-    </div>
-    <div class="code-card">
-      <span class="code-num">03</span>
-      <h3>Always fresh</h3>
-      <p>Simple Hugo data files make updates quick without needing a server.</p>
-    </div>
-    <div class="code-card">
-      <span class="code-num">04</span>
-      <h3>Abbott famiglia</h3>
-      <p>From the first Super Bowl story to the next Sunday watch, the whole family rides with Kansas City.</p>
+    <div class="codes-grid codes-grid--v2">
+      <article class="code-card reveal"><span class="code-num">01</span><h3>Kingdom first</h3><p>If it is not useful to Chiefs fans, it does not make the front page.</p></article>
+      <article class="code-card reveal"><span class="code-num">02</span><h3>Name the source</h3><p>Every news card keeps the original publisher attached and sends readers there.</p></article>
+      <article class="code-card reveal"><span class="code-num">03</span><h3>Say what you mean</h3><p>Honest fan reaction without the corporate coach-speak.</p></article>
+      <article class="code-card reveal"><span class="code-num">04</span><h3>Save a seat</h3><p>The best football conversation feels like a family table with room for one more.</p></article>
     </div>
   </div>
+</section>
+
+<section class="section about-how-it-works">
+  <div class="about-how-it-works__copy reveal">
+    <span class="kicker">More than a channel</span>
+    <h2>Your Chiefs tab between uploads.</h2>
+    <p>The YouTube channel brings the Paesano voice. This site keeps working between episodes, gathering fresh Chiefs headlines from named official, local, independent, and national outlets.</p>
+    <div class="about-how-it-works__links">
+      <a href="/sources/"><b>Explore the news sources</b><span>See how the live desk is built →</span></a>
+      <a href="/youtube/"><b>Open the watch room</b><span>Latest uploads and channel archive →</span></a>
+    </div>
+  </div>
+  <div class="about-how-it-works__logo reveal"><img src="{{ .Site.Params.logoUrl }}" alt="Arrowhead Paesano logo" loading="lazy" /></div>
+</section>
+
+<section class="watch-final-cta about-final-cta">
+  <img src="{{ .Site.Params.logoUrl }}" alt="" width="180" height="180" loading="lazy" />
+  <div><span>Welcome to the family table</span><h2>Hail to the Chiefs!</h2></div>
+  <a class="btn btn-gold btn-lg" href="{{ .Site.Params.subscribeUrl }}" target="_blank" rel="noopener">Subscribe free</a>
 </section>
 {{ end }}

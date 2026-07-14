@@ -1,31 +1,90 @@
 {{ define "main" }}
-<section class="page-head">
-  <span class="kicker">Shop</span>
-  <h1>Paesano merch</h1>
-  <p class="lede">Printful-backed tees, hoodies, caps and tailgate gear. Built for game day at Arrowhead, on the couch, or in the lot.</p>
+<section class="shop-hero">
+  <div class="shop-hero__copy reveal">
+    <span class="kicker kicker--gold">The Paesano shop</span>
+    <h1>Wear the<br><em>attitude.</em></h1>
+    <p>Game-day gear for the lot, the couch, and every place the Kingdom gets loud. The first collection is taking shape now.</p>
+    <div class="shop-hero__status" data-shop-status aria-live="polite"><span></span> Checking the Shopify storefront…</div>
+    <div class="shop-hero__actions">
+      <a class="btn btn-gold btn-lg" href="#collection">Preview Paesano gear <span aria-hidden="true">↓</span></a>
+      <a class="btn btn-paper btn-lg" href="#chiefs-finds">Chiefs Fan Finds</a>
+    </div>
+  </div>
+  <div class="shop-hero__art reveal" aria-hidden="true">
+    <div class="shop-hero__ring"></div>
+    <img src="{{ .Site.Params.logoUrl }}" alt="" width="430" height="430" />
+    <span class="shop-hero__stamp">FIRST<br>DROP</span>
+    <b>COMING SOON</b>
+  </div>
 </section>
 
-<section class="section">
-  <script type="application/json" id="static-merch">{{ .Site.Data.merch | jsonify }}</script>
-  <div class="shop-status" data-shop-status>Static GitHub Pages catalog</div>
-  <div class="merch-grid" data-shop-grid>
+<section class="shop-promise" aria-label="Store promise">
+  <div><span>01</span><strong>Paesano original</strong><small>Built around the channel</small></div>
+  <div><span>02</span><strong>Game-day ready</strong><small>For Sundays and every day</small></div>
+  <div><span>03</span><strong>Shopify checkout</strong><small>Secure checkout when live</small></div>
+</section>
+
+<section class="section shop-collection" id="collection">
+  <div class="section-head reveal">
+    <div>
+      <span class="kicker">Collection preview</span>
+      <h2><span class="rule"></span> Gear for the Kingdom</h2>
+      <p class="section-dek" data-shop-note>These concepts are previews. Live products and secure checkout will appear here as soon as the Shopify store is connected.</p>
+    </div>
+  </div>
+
+  <div class="merch-grid merch-grid--shop" data-shop-grid aria-live="polite">
     {{ range .Site.Data.merch }}
-      <article class="merch-card">
+      <article class="merch-card reveal">
         <div class="merch-art" style="background: linear-gradient(135deg, {{ delimit .palette ", " }});">
-          <span class="merch-mono">AP</span>
-          {{ with .badge }}<span class="merch-badge">{{ . }}</span>{{ end }}
+          <img class="merch-preview-logo" src="{{ $.Site.Params.logoUrl }}" alt="" loading="lazy" />
+          <span class="merch-badge">Collection preview</span>
         </div>
         <div class="merch-info">
           <h3>{{ .name }}</h3>
           <p>{{ .description }}</p>
-          <div class="merch-foot">
-            <span class="merch-price">{{ .price }}</span>
-            <a class="btn btn-sm btn-primary" href="{{ .shopUrl }}" target="_blank" rel="noopener">Shop -></a>
-          </div>
+          <div class="merch-foot"><span class="merch-price">First drop preview</span><span class="shop-coming-soon">Opening soon</span></div>
         </div>
       </article>
     {{ end }}
   </div>
-  <p class="muted small center" data-shop-note style="margin-top:2rem">Update this catalog in <code>data/merch.json</code>. Links can point to YouTube Shopping, Printful, Shopify, or any public storefront.</p>
+</section>
+
+<section class="amazon-finds-band" id="chiefs-finds" data-amazon-section>
+  <div class="amazon-finds-band__inner">
+    <div class="amazon-finds-head reveal">
+      <div>
+        <span class="kicker">Shop the wider Kingdom</span>
+        <h2>Chiefs Fan Finds</h2>
+        <p>Evergreen shopping lanes for jerseys, tailgate gear, fan-cave upgrades, and gifts—curated for the Paesano Pack and opened directly on Amazon.</p>
+      </div>
+      <aside class="affiliate-disclosure" aria-label="Amazon affiliate disclosure">
+        <span>Affiliate disclosure</span>
+        <strong>As an Amazon Associate I earn from qualifying purchases.</strong>
+        <p>Prices and availability are set by Amazon and may change at any time.</p>
+      </aside>
+    </div>
+
+    <div class="amazon-finds-grid" data-amazon-grid aria-live="polite">
+      {{ range .Site.Data.amazon_finds }}
+        <article class="amazon-find-card reveal" style="--find-accent:{{ .accent }}">
+          <div class="amazon-find-card__top"><span>{{ .category }}</span><b aria-hidden="true">{{ .mark }}</b></div>
+          <div class="amazon-find-card__body"><h3>{{ .title }}</h3><p>{{ .description }}</p></div>
+          <a href="https://www.amazon.com/s?k={{ .query | urlquery }}" target="_blank" rel="sponsored noopener">Browse on Amazon <small>(paid link)</small><span aria-hidden="true">↗</span></a>
+        </article>
+      {{ end }}
+    </div>
+
+    <p class="amazon-finds-note" data-amazon-note>Paid links open on Amazon. Purchases are completed with Amazon, not on Arrowhead Paesano.</p>
+  </div>
+</section>
+
+<section class="section shop-callout reveal">
+  <div>
+    <span class="kicker kicker--gold">Be first in line</span>
+    <h2>The shelves are almost ready.</h2>
+    <p>Subscribe to the channel for first-drop announcements, new designs, and the stories behind the gear.</p>
+  </div>
+  <a class="btn btn-yt btn-lg" href="{{ .Site.Params.subscribeUrl }}" target="_blank" rel="noopener">Subscribe for drop news</a>
 </section>
 {{ end }}
