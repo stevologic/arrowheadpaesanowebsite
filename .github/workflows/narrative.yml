@@ -23,8 +23,6 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: chiefs-narrative
@@ -110,11 +108,8 @@ jobs:
     needs: update
     if: needs.update.outputs.changed == 'true'
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     concurrency:
-      group: pages
+      group: pages-publish
       cancel-in-progress: false
     env:
       HUGO_VERSION: 0.152.2
@@ -124,10 +119,6 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
-
-      - name: Configure Pages
-        id: pages
-        uses: actions/configure-pages@v6
 
       - name: Install Hugo
         run: |
@@ -140,14 +131,18 @@ jobs:
       - name: Build
         run: |
           git pull --ff-only origin "${GITHUB_REF_NAME}" || true
-          hugo --gc --minify --baseURL "${{ steps.pages.outputs.base_url }}/"
+          hugo --gc --minify
           touch dist/.nojekyll
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: ./dist
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+      - name: Publish to gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd dist
+          git init -q -b gh-pages
+          git config user.name "arrowhead-paesano-bot"
+          git config user.email "actions@github.com"
+          git add -A
+          git commit -q -m "Deploy narrative ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages:gh-pages

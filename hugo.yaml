@@ -1,4 +1,4 @@
-baseURL: "https://stevologic.github.io/arrowheadpaesanowebsite/"
+baseURL: "https://arrowheadpaesano.com/"
 languageCode: "en-us"
 title: "Arrowhead Paesano"
 publishDir: "dist"

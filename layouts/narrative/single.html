@@ -256,28 +256,15 @@
   </section>
   {{ end }}
 
-  <!-- ===================== STRATEGIES + DEBATES ===================== -->
-  {{ if or .strategies .debates }}
+  <!-- ===================== DEBATES ===================== -->
+  {{ with .debates }}
   <section class="section nrt-plan">
-    <div class="nrt-plan__cols">
-      {{ with .strategies }}
-      <div class="nrt-plan__col nrt-plan__col--strat reveal">
-        <span class="kicker">Game plan</span>
-        <h2><span class="rule"></span> Strategies to deploy</h2>
-        <ol class="nrt-strat-list">
-          {{ range . }}<li>{{ . }}</li>{{ end }}
-        </ol>
-      </div>
-      {{ end }}
-      {{ with .debates }}
-      <div class="nrt-plan__col nrt-plan__col--debate reveal">
-        <span class="kicker kicker--gold">Family table</span>
-        <h2><span class="rule rule-gold"></span> Debates for the comments</h2>
-        <ul class="nrt-debate-list">
-          {{ range . }}<li>{{ . }}</li>{{ end }}
-        </ul>
-      </div>
-      {{ end }}
+    <div class="nrt-plan__col nrt-plan__col--debate reveal">
+      <span class="kicker kicker--gold">Family table</span>
+      <h2><span class="rule rule-gold"></span> Debates for the comments</h2>
+      <ul class="nrt-debate-list nrt-debate-list--wide">
+        {{ range . }}<li>{{ . }}</li>{{ end }}
+      </ul>
     </div>
   </section>
   {{ end }}
@@ -296,7 +283,7 @@
       {{ range $i, $seg := . }}
       <div class="nrt-ros__row">
         <span class="nrt-ros__num">{{ printf "%02d" (add $i 1) }}</span>
-        <div class="nrt-ros__seg"><strong>{{ .segment }}</strong>{{ with .length }}<span class="nrt-ros__time">{{ . }}</span>{{ end }}</div>
+        <div class="nrt-ros__seg"><strong>{{ .segment }}</strong></div>
         <p class="nrt-ros__talk">{{ .talkTrack }}</p>
       </div>
       {{ end }}

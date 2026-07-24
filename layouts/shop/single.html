@@ -12,8 +12,8 @@
   <div class="shop-hero__copy reveal">
     <span class="kicker kicker--gold">The Paesano shop</span>
     <h1>Wear the<br><em>attitude.</em></h1>
-    <p>Game-day gear for the lot, the couch, and every place the Kingdom gets loud. The first collection is taking shape now.</p>
-    <div class="shop-hero__status" data-shop-status aria-live="polite"><span></span> Store preview · add the public Shopify token when ready</div>
+    <p>Game-day gear for the lot, the couch, and every place the Kingdom gets loud. The store opens once our Shopify or Printful integration is enabled.</p>
+    <div class="shop-hero__status" data-shop-status aria-live="polite"><span></span> No products yet · store opens when Shopify or Printful is connected</div>
     <div class="shop-hero__actions">
       <a class="btn btn-gold btn-lg" href="#collection">Preview Paesano gear <span aria-hidden="true">↓</span></a>
       <a class="btn btn-paper btn-lg" href="#chiefs-finds">Chiefs Fan Finds</a>
@@ -36,26 +36,16 @@
 <section class="section shop-collection" id="collection">
   <div class="section-head reveal">
     <div>
-      <span class="kicker">Collection preview</span>
-      <h2><span class="rule"></span> Gear for the Kingdom</h2>
-      <p class="section-dek" data-shop-note>These concepts are previews. Live products and secure checkout will appear here as soon as the Shopify store is connected.</p>
+      <span class="kicker">Store</span>
+      <h2><span class="rule"></span> Paesano gear</h2>
     </div>
   </div>
 
-  <div class="merch-grid merch-grid--shop" data-shop-grid aria-live="polite">
-    {{ range .Site.Data.merch }}
-      <article class="merch-card reveal">
-        <div class="merch-art" style="background: linear-gradient(135deg, {{ delimit .palette ", " }});">
-          <img class="merch-preview-logo" src="{{ $.Site.Params.logoUrl | relURL }}" alt="" loading="lazy" />
-          <span class="merch-badge">Collection preview</span>
-        </div>
-        <div class="merch-info">
-          <h3>{{ .name }}</h3>
-          <p>{{ .description }}</p>
-          <div class="merch-foot"><span class="merch-price">First drop preview</span><span class="shop-coming-soon">Opening soon</span></div>
-        </div>
-      </article>
-    {{ end }}
+  <div class="shop-empty reveal" data-shop-grid aria-live="polite">
+    <img class="shop-empty__logo" src="{{ .Site.Params.logoUrl | relURL }}" alt="" width="96" height="96" loading="lazy" />
+    <h3>No products at this time</h3>
+    <p>The Paesano store is on the way. Products and secure checkout will appear here once the Shopify or Printful integration is enabled.</p>
+    <a class="btn btn-yt" href="{{ .Site.Params.subscribeUrl }}" target="_blank" rel="noopener">Get drop announcements</a>
   </div>
 </section>
 

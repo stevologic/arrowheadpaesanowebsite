@@ -156,6 +156,7 @@
 .nrt-strat-list li { counter-increment: strat; position: relative; padding: 14px 16px 14px 54px; background: var(--nrt-ink); color: #f4eee2; border-radius: 12px; font-size: 15px; line-height: 1.5; }
 .nrt-strat-list li::before { content: counter(strat, decimal-leading-zero); position: absolute; left: 16px; top: 12px; font-family: var(--display); font-size: 22px; color: var(--nrt-gold); }
 .nrt-debate-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.nrt-debate-list--wide { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 .nrt-debate-list li { position: relative; padding: 14px 16px 14px 44px; background: var(--nrt-paper); border: 1px solid var(--nrt-line); border-radius: 12px; font-size: 15px; line-height: 1.5; color: #33303a; box-shadow: var(--nrt-shadow); }
 .nrt-debate-list li::before { content: "?"; position: absolute; left: 15px; top: 12px; font-family: var(--display); font-size: 22px; color: var(--nrt-red); }
 
@@ -251,3 +252,10 @@
 .news-chip:hover { border-color: var(--accent, var(--ap-red, #e31837)); background: var(--ap-cream, #f7f1e5); transform: translateY(-1px); }
 .news-chip--all { font-weight: 800; color: var(--ap-red, #e31837); background: transparent; border-style: dashed; }
 .news-chip--all:hover { color: #fff; background: var(--ap-red, #e31837); border-color: var(--ap-red, #e31837); }
+
+/* ---------------- SHOP EMPTY STATE ---------------- */
+.shop-empty { max-width: 620px; margin: 0 auto; text-align: center; padding: 48px 28px 56px; display: flex; flex-direction: column; align-items: center; gap: 14px; border: 1px dashed var(--ap-border, rgba(13, 12, 13, .18)); border-radius: 20px; background: var(--ap-paper, #fffdf8); }
+.shop-empty__logo { opacity: .85; margin-bottom: 4px; }
+.shop-empty h3 { font-family: var(--serif); font-weight: 800; font-size: clamp(22px, 3vw, 30px); letter-spacing: -.01em; margin: 0; color: var(--ink, #0d0c0d); }
+.shop-empty p { margin: 0; font-size: 16px; line-height: 1.6; color: #56515c; max-width: 46ch; }
+.shop-empty .btn { margin-top: 10px; }
