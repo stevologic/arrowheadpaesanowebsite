@@ -1,5 +1,10 @@
 name: Deploy Hugo site to GitHub Pages
 
+# GitHub Pages for this repo deploys from the `gh-pages` branch (legacy/branch
+# mode) at the custom domain arrowheadpaesano.com. This workflow builds the Hugo
+# site on every push to main and publishes the output to that branch, which
+# triggers GitHub's Pages deployment automatically.
+
 on:
   push:
     branches:
@@ -7,12 +12,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages
+  group: pages-publish
   cancel-in-progress: false
 
 defaults:
@@ -20,34 +23,38 @@ defaults:
     shell: bash
 
 jobs:
-  build:
+  build-deploy:
     runs-on: ubuntu-latest
     env:
-      HUGO_VERSION: 0.126.1
+      HUGO_VERSION: 0.152.2
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
       - name: Install Hugo
         run: |
-          wget -O "$RUNNER_TEMP/hugo.deb" "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.deb"
-          sudo dpkg -i "$RUNNER_TEMP/hugo.deb"
-      - name: Configure Pages
-        id: pages
-        uses: actions/configure-pages@v5
-      - name: Build
-        run: hugo --minify --baseURL "${{ steps.pages.outputs.base_url }}/"
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./public_site
+          curl -fsSL --output "${{ runner.temp }}/hugo.tar.gz" \
+            "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.tar.gz"
+          mkdir -p "${HOME}/.local/hugo"
+          tar -C "${HOME}/.local/hugo" -xf "${{ runner.temp }}/hugo.tar.gz"
+          echo "${HOME}/.local/hugo" >> "${GITHUB_PATH}"
 
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Build
+        run: |
+          hugo --gc --minify
+          touch dist/.nojekyll
+
+      - name: Publish to gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd dist
+          git init -q -b gh-pages
+          git config user.name "arrowhead-paesano-bot"
+          git config user.email "actions@github.com"
+          git add -A
+          git commit -q -m "Deploy ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages:gh-pages

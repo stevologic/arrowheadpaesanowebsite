@@ -1,6 +1,5 @@
 node_modules/
 dist/
-public_site/
 .claude/
 .hugo_build.lock
 .env
@@ -8,3 +7,10 @@ public_site/
 npm-debug.log*
 .DS_Store
 *.log
+
+# Python
+__pycache__/
+*.py[cod]
+tools/.env
+.venv/
+venv/

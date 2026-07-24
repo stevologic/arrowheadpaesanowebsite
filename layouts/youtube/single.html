@@ -1,4 +1,5 @@
 {{ define "main" }}
+<script type="application/json" id="site-channel-feed">{{ .Site.Data.channel_feed | jsonify | safeJS }}</script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -13,7 +14,7 @@
 <section class="watch-hero" data-youtube-page data-featured-video-id="u50LL5S1tKc">
   <div class="watch-hero__copy reveal">
     <div class="watch-hero__channel">
-      <img src="{{ .Site.Params.logoUrl }}" alt="" width="92" height="92" />
+      <img src="{{ .Site.Params.logoUrl | relURL }}" alt="" width="92" height="92" />
       <div><span>Official YouTube channel</span><strong>{{ .Site.Params.youtubeHandle }}</strong></div>
     </div>
     <h1>Chiefs talk<br><em>with sauce.</em></h1>
@@ -34,7 +35,7 @@
     <div class="watch-stage-kicker"><span></span> Featured full episode</div>
     <div class="yt-stage yt-stage--watch" data-youtube-stage>
       <button class="yt-stage-poster yt-stage-poster--branded" type="button" data-stage-placeholder aria-label="Load the featured Arrowhead Paesano episode">
-        <img src="/images/channel/host-stream.webp" alt="Arrowhead Paesano in the channel broadcast frame" />
+        <img src="{{ "images/channel/host-stream.webp" | relURL }}" alt="Arrowhead Paesano in the channel broadcast frame" />
         <span class="yt-stage-poster__shade" aria-hidden="true"></span>
         <span class="yt-stage-poster__play" aria-hidden="true">▶</span>
         <span class="yt-stage-poster__copy"><small>From the channel</small><strong>Loading the featured episode…</strong></span>
@@ -67,14 +68,14 @@
 <section class="section watch-uploads" id="latest-uploads">
   <div class="section-head reveal">
     <div>
-      <span class="kicker"><span class="dot dot-live"></span> Synced from YouTube</span>
+      <span class="kicker"><span class="dot dot-live"></span> From the channel</span>
       <h2><span class="rule"></span> Latest from the channel</h2>
-      <p class="section-dek">The newest public uploads arrive here automatically. Pick one to load it in the featured player above.</p>
+      <p class="section-dek">A handpicked snapshot of current public uploads. Pick one to load it in the privacy-friendly player above.</p>
     </div>
     <a class="section-link" href="{{ .Site.Params.youtubeUrl }}/videos" target="_blank" rel="noopener">View on YouTube <span aria-hidden="true">↗</span></a>
   </div>
   <div class="yt-grid yt-grid--full yt-grid--watch" data-youtube-page-grid aria-live="polite">
-    <div class="empty-state"><h3>Checking the channel</h3><p>The latest public uploads are loading now.</p></div>
+        <div class="empty-state"><h3>Opening the watch list</h3><p>The channel picks are loading now.</p></div>
   </div>
 </section>
 
@@ -91,7 +92,7 @@
       {{ range .Site.Data.video_archive }}
         <a class="archive-card reveal" href="{{ .url }}" target="_blank" rel="noopener">
           <div class="archive-card__image">
-            <img src="{{ .image }}" alt="Thumbnail: {{ .title }}" loading="lazy" />
+            <img src="{{ strings.TrimPrefix "/" .image | relURL }}" alt="Thumbnail: {{ .title }}" loading="lazy" />
             <span class="archive-card__play" aria-hidden="true">▶</span>
           </div>
           <div class="archive-card__body"><span>{{ .label }}</span><h3>{{ .title }}</h3></div>
@@ -106,7 +107,7 @@
 
 <section class="section studio-story">
   <div class="studio-story__image reveal">
-    <img src="/images/channel/host-stream.webp" alt="The Arrowhead Paesano channel broadcast layout" loading="lazy" />
+    <img src="{{ "images/channel/host-stream.webp" | relURL }}" alt="The Arrowhead Paesano channel broadcast layout" loading="lazy" />
     <span>Behind the mic</span>
   </div>
   <div class="studio-story__copy reveal">
@@ -121,7 +122,7 @@
 </section>
 
 <section class="watch-final-cta">
-  <img src="{{ .Site.Params.logoUrl }}" alt="" width="180" height="180" loading="lazy" />
+  <img src="{{ .Site.Params.logoUrl | relURL }}" alt="" width="180" height="180" loading="lazy" />
   <div><span>New around here?</span><h2>Take a seat at the table.</h2></div>
   <a class="btn btn-gold btn-lg" href="{{ .Site.Params.subscribeUrl }}" target="_blank" rel="noopener">Subscribe free</a>
 </section>

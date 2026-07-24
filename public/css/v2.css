@@ -1118,7 +1118,9 @@ section[id] { scroll-margin-top: 105px; }
 .source-method p { margin: 8px 0 0; color: #655f58; font-size: 14px; }
 .sources-live-grid .bysource-col { border-top-width: 6px; }
 
-.source-directory { background: var(--ap-red); color: #fff; }
+.source-directory { background: var(--ap-black); color: #fff; }
+.source-directory--national { background: var(--ap-black-2); }
+.source-directory__grid a:hover strong { color: var(--ap-gold); }
 .source-directory__inner { max-width: var(--max); margin: 0 auto; padding: 88px var(--gutter); display: grid; grid-template-columns: minmax(280px, .4fr) minmax(0, 1fr); gap: clamp(50px, 8vw, 110px); }
 .source-directory__intro h2 { margin: 13px 0 17px; font: 400 clamp(54px, 6vw, 82px)/.87 var(--display); }
 .source-directory__intro p { color: rgba(255, 255, 255, .7); }

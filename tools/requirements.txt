@@ -1,0 +1,3 @@
+# Chiefs Narrative engine — runtime dependencies.
+# Deliberately tiny so it installs fast in CI and runs anywhere.
+requests>=2.31,<3

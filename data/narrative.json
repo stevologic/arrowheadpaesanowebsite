@@ -1,0 +1,329 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-24T04:21:12+00:00",
+  "generator": "offline",
+  "phase": {
+    "type": "training-camp",
+    "label": "Training Camp",
+    "week": null,
+    "mode": "camp"
+  },
+  "edition": "2026 Training Camp",
+  "record": "6-11",
+  "headline": "Camp is about timing: Mahomes' knee, Bieniemy's identity, and a defense that has to carry the open",
+  "dek": "A film-room read on the storylines that decide how fast Kansas City flips the 2025 script.",
+  "videoHook": "The Chiefs' season isn't one headline — it's a countdown. How fast does the knee get right, and can the identity change hold up when the lights come on?",
+  "theEdge": "If the secondary settles and the run game is real, Kansas City can win early while Mahomes ramps.",
+  "storyline": {
+    "lede": "Chiefs camp opened at Missouri Western State University, St. Joseph, MO with one question under everything: how ready is Patrick Mahomes's knee — and how much can a retooled identity carry until it is?",
+    "body": [
+      "The story of this camp is timing. Patrick Mahomes is rebuilding from a torn ACL/LCL suffered last December, and every rep in St. Joseph is a referendum on how close he is to full strength for Week 1. Andy Reid has treated the ramp with caution, because the moment Mahomes practices in earnest, the PUP contingency comes off the table.",
+      "On offense, Eric Bieniemy is back as coordinator with a clear mandate: harder edges, cleaner fundamentals, and an identity that doesn't ask Mahomes to be the answer on every third-and-long. Expect more under-center looks, play-action off a real run threat, and 'easy offense' — screens and spacing — to protect a knee that's still getting its legs.",
+      "On defense, Steve Spagnuolo is again the steadying hand. The camp battles that matter most are on the back end: who wins the outside corner job and, especially, the slot. If the young secondary holds up, the pass rush can tee off and this defense can carry the early weeks while the offense finds its timing.",
+      "Everything points forward to Week 1 · Tue Sep 15 vs Denver Broncos. For context, the model gives KC 59.4%; Vegas has it KC -3; Polymarket prices the Chiefs at 5.9% to win it all. The question every practice answers a little more: is Kansas City ready to flip the 2025 script?"
+    ]
+  },
+  "nextGame": {
+    "label": "Week 1 · Tue Sep 15",
+    "opponent": "vs Denver Broncos",
+    "at": "GEHA Field at Arrowhead Stadium",
+    "tv": "ESPN",
+    "note": "The countdown clock for everything camp is building toward."
+  },
+  "markets": {
+    "model": {
+      "kcWin": 59.4,
+      "oppWin": 40.2,
+      "label": "ESPN FPI game projection",
+      "source": "ESPN FPI",
+      "url": "https://www.espn.com/nfl/fpi"
+    },
+    "vegas": {
+      "provider": "Draft Kings",
+      "spreadDetail": "KC -3",
+      "overUnder": 42.5,
+      "homeMoneyline": -162.0,
+      "awayMoneyline": 136.0,
+      "source": "ESPN / Draft Kings",
+      "url": "https://www.espn.com/nfl/lines"
+    },
+    "consensus": null,
+    "futures": [
+      {
+        "label": "NFL Champion 2027",
+        "chiefsPct": 5.9,
+        "source": "Polymarket",
+        "url": "https://polymarket.com/event/big-game-champion-2027"
+      },
+      {
+        "label": "Pro Football: 2027 AFC Champion",
+        "chiefsPct": 9.5,
+        "source": "Polymarket",
+        "url": "https://polymarket.com/event/pro-football-2027-afc-champion"
+      }
+    ]
+  },
+  "spotlight": [
+    {
+      "tag": "QB1",
+      "title": "Mahomes' rehab ramp vs. PUP math",
+      "body": "The Chiefs can't treat camp like a normal build-up: once Mahomes practices fully, he can't be placed on PUP. Watch how they meter his team reps and whether he sees any preseason snaps."
+    },
+    {
+      "tag": "Scheme",
+      "title": "Bieniemy-ball: identity over hero-ball",
+      "body": "More under center, more play-action, fewer 3rd-and-forever downs. The install is about winning early downs so the offense functions even on a managed snap count."
+    },
+    {
+      "tag": "Trenches",
+      "title": "Right tackle & the protection plan",
+      "body": "The line's job is to keep a rehabbing QB clean. The open tackle competition and the interior's veteran core set the ceiling for how aggressive KC can be down the field."
+    },
+    {
+      "tag": "Secondary",
+      "title": "The slot corner is the swing job",
+      "body": "In Spagnuolo's defense the nickel is a starter. Whoever wins the slot determines how much disguise and pressure KC can throw at opposing quarterbacks."
+    },
+    {
+      "tag": "Rookies",
+      "title": "Which draft pick has to play now",
+      "body": "Premium picks were spent on defense. The Chiefs need at least one rookie contributing immediately to look like themselves again."
+    },
+    {
+      "tag": "Backfield",
+      "title": "A real run game as a pressure valve",
+      "body": "An early-down run threat is what makes play-action honest and keeps the offense on schedule while Mahomes ramps up."
+    }
+  ],
+  "matchups": [
+    {
+      "unit": "Chiefs pass rush vs. protection schemes",
+      "chiefs": "Chris Jones + edge rotation",
+      "opponent": "Opposing offensive lines",
+      "edge": "KC",
+      "note": "The engine that lets a young secondary play aggressive."
+    },
+    {
+      "unit": "Chiefs secondary vs. vertical passing",
+      "chiefs": "New-look corner room",
+      "opponent": "Denver Broncos skill players",
+      "edge": "PUSH",
+      "note": "The slot battle is the swing; disguise buys time."
+    },
+    {
+      "unit": "Chiefs run game vs. loaded boxes",
+      "chiefs": "Under-center run identity",
+      "opponent": "Front seven",
+      "edge": "PUSH",
+      "note": "Early-down efficiency is the whole plan. Opening line: KC -3."
+    },
+    {
+      "unit": "Mahomes' mobility vs. his own rehab clock",
+      "chiefs": "Managed snaps, quick game",
+      "opponent": "The calendar",
+      "edge": "PUSH",
+      "note": "The one matchup no opponent controls."
+    }
+  ],
+  "xsandos": [
+    {
+      "title": "Under-center play-action boot",
+      "situation": "1st & 10, early down — knee-management down",
+      "concept": "play_action_boot",
+      "why": "Sells the run, moves the launch point off the rush, and gives Mahomes a clean half-field read without asking the knee to climb a muddy pocket.",
+      "coaching": "Marry the boot to the actual inside-zone look you're running so the linebackers have to honor the fake.",
+      "labels": {
+        "x": "post",
+        "z": "comeback",
+        "te": "flat"
+      },
+      "diagram": "images/narrative/xo-play_action_boot.svg",
+      "side": "offense"
+    },
+    {
+      "title": "RB screen / easy offense",
+      "situation": "2nd & long or vs. heavy pressure",
+      "concept": "spacing_screen",
+      "why": "Turns an aggressive rush into a negative for the defense and gets the ball out of Mahomes' hands before the knee is ever tested.",
+      "coaching": "Sell max-protect for a beat, then release the linemen — timing is everything on the slip.",
+      "labels": {},
+      "diagram": "images/narrative/xo-spacing_screen.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Under-center inside zone",
+      "situation": "1st down, establish identity",
+      "concept": "inside_zone",
+      "why": "The early-down run that makes the whole play-action menu honest and keeps the offense on schedule.",
+      "coaching": "One cut, get downhill — let the double-teams create the crease.",
+      "labels": {},
+      "diagram": "images/narrative/xo-inside_zone.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Spagnuolo simulated pressure",
+      "situation": "3rd & 5+, obvious passing down",
+      "concept": "zone_blitz",
+      "why": "Shows heat, drops a lineman into a hook, and rushes the second level to confuse protection while the coverage stays sound behind it.",
+      "coaching": "Disguise is the point: the picture pre-snap must look like man pressure even when it's zone behind it.",
+      "labels": {},
+      "diagram": "images/narrative/xo-zone_blitz.svg",
+      "side": "defense"
+    }
+  ],
+  "coaching": [
+    {
+      "topic": "Reid + Bieniemy install",
+      "detail": "Accountability and fundamentals after a 2025 that turned on one-score games; the staff wants faster starts."
+    },
+    {
+      "topic": "Spagnuolo's disguise menu",
+      "detail": "Simulated pressures and two-high shells to protect a young secondary while the pass rush develops."
+    },
+    {
+      "topic": "Knee-management game plan",
+      "detail": "Script early-down runs, boots, and screens so the offense doesn't lean on hero-ball while Mahomes ramps."
+    }
+  ],
+  "injuries": [
+    {
+      "player": "Patrick Mahomes",
+      "status": "Rehab / camp ramp",
+      "note": "Returning from a torn ACL/LCL (Dec. 2025); targeting Week 1, snaps carefully managed.",
+      "source": "ESPN"
+    },
+    {
+      "player": "",
+      "status": "See report",
+      "note": "Panthers injury scare offers Chiefs a sobering training camp reminder",
+      "source": "Arrowhead Addict"
+    },
+    {
+      "player": "",
+      "status": "See report",
+      "note": "Chiefs News: Is 2026 ‘The Last Dance’ for Travis Kelce?",
+      "source": "Arrowhead Pride"
+    },
+    {
+      "player": "",
+      "status": "See report",
+      "note": "Chiefs training camp preview: Who to consider for return specialist job",
+      "source": "Arrowhead Pride"
+    }
+  ],
+  "personnel": [
+    {
+      "move": "OC change",
+      "detail": "Eric Bieniemy returns to run the offense."
+    },
+    {
+      "move": "Open competition at tackle",
+      "detail": "The protection plan for a rehabbing QB starts up front."
+    },
+    {
+      "move": "Secondary reshuffle",
+      "detail": "Outside corner and slot are the camp's most important battles."
+    },
+    {
+      "move": "Defense-first draft",
+      "detail": "Premium capital was spent on pass rush and coverage flexibility."
+    }
+  ],
+  "strategies": [
+    "Open every practice report with the timeline board: Mahomes' rehab checkpoints and the countdown to Week 1.",
+    "Keep a running 'PUP explainer' so OTA/camp speculation stays grounded and useful.",
+    "Frame Bieniemy + the backfield as an identity change: under center, early-down efficiency, play-action.",
+    "Turn the defensive draft class into a snap plan — who plays early and how it protects the veteran core.",
+    "Script 'easy offense' installs (screens, spacing, boots) as the knee-management plan.",
+    "Track the slot-corner battle daily; it's the tell for how aggressive Spagnuolo can be."
+  ],
+  "debates": [
+    "Hold Mahomes out of preseason entirely, or get him one live series to shake off the rust?",
+    "What does 'Bieniemy-ball' actually look like in 2026 — more under center, more play-action, or just cleaner details?",
+    "Which rookie MUST be ready fast for this team to flip its 2025 script?",
+    "Is a real run game the missing piece, or is it still Mahomes-or-bust?",
+    "On a scale of nervous to confident, where are you on the Week 1 knee?"
+  ],
+  "runOfShow": [
+    {
+      "segment": "Cold open — the timeline board",
+      "length": "0:00–1:15",
+      "talkTrack": "Set the stakes: Mahomes' rehab checkpoints and the Week 1 countdown."
+    },
+    {
+      "segment": "Mahomes watch + PUP explainer",
+      "length": "1:15–4:00",
+      "talkTrack": "What full participation would mean and why the PUP math matters."
+    },
+    {
+      "segment": "Bieniemy-ball film breakdown",
+      "length": "4:00–8:00",
+      "talkTrack": "Walk the under-center boot and screen diagrams; explain the identity shift."
+    },
+    {
+      "segment": "Camp battles — trenches & secondary",
+      "length": "8:00–11:30",
+      "talkTrack": "Right tackle and slot corner; who's rising, who's on the bubble."
+    },
+    {
+      "segment": "Defensive X&O",
+      "length": "11:30–14:00",
+      "talkTrack": "Spagnuolo's simulated pressure and how it protects the young DBs."
+    },
+    {
+      "segment": "Look ahead + fan debates",
+      "length": "14:00–16:00",
+      "talkTrack": "Tee up the opener and read the top viewer debates on screen."
+    }
+  ],
+  "sources": [
+    {
+      "title": "As training camp opens, Chiefs point to brighter f...",
+      "publisher": "ESPN NFL",
+      "url": "https://www.espn.com/nfl/story/_/id/49433361/nfl-training-camp-2026-kansas-city-chiefs-patrick-mahomes-chris-jones-2026-season",
+      "note": "Kansas City's veterans have vowed to keep the disappointment of the 2025 season in mind."
+    },
+    {
+      "title": "NFL insider names Chiefs as potential landing spot for Stefon Diggs",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/nfl-insider-names-chiefs-as-potential-landing-spot-for-stefon-diggs-01ky2q3bcc8f?utm_source=RSS",
+      "note": "The Kansas City Chiefs could still use an upgrade at wide receiver and a solution is out there for them. Stefon Diggs is still without an NF"
+    },
+    {
+      "title": "Can the Chiefs afford a ‘diet version’ of Patrick Mahomes in 2026?",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/205804/chiefs-afford-diet-version-patrick-mahomes-2026",
+      "note": "On Thursday morning, ESPN’s “Get Up” crew previewed the 2026 NFL season with a question about the Kansas City Chiefs: how good are the Chief"
+    },
+    {
+      "title": "Chiefs No. 32 features one of the deepest legacies of any jersey number",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/chiefs-no-32-features-one-of-the-deepest-legacies-of-any-jersey-number?utm_source=RSS",
+      "note": "From the AFL's Rookie of the Year to a Super Bowl champion who changed the defense, No. 32 has been worn by stars across every era of Chiefs"
+    },
+    {
+      "title": "Panthers injury scare offers Chiefs a sobering training camp reminder",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/panthers-injury-scare-offers-chiefs-sobering-training-camp-reminder?utm_source=RSS",
+      "note": "Nic Scourton's injury early in training camp is a reminder that things can change in an instant as training camp gets underway."
+    },
+    {
+      "title": "Tyreek Hill just gave Chiefs fans a reality check on reunion hopes",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/tyreek-hill-just-gave-chiefs-fans-reality-check-reunion-hopes?utm_source=RSS",
+      "note": "For some Kansas City Chiefs fans, it feels like a foregone conclusion that at some point, the team will reunite with legendary wide receiver"
+    },
+    {
+      "title": "Ein neu gedachtes Vermächtnis: Die Kansas City Chiefs stellen Entwürfe für ihr neues Stadion vor, dessen Eröffnung für 2031 geplant ist",
+      "publisher": "Chiefs.com",
+      "url": "https://www.chiefs.com/news/ein-neu-gedachtes-vermachtnis-die-kansas-city-chiefs-stellen-entwurfe-fur-ihr-neues-stadion-vor-dessen-eroffnung-fur-2031-geplant-ist",
+      "note": ""
+    },
+    {
+      "title": "Die Kansas City Chiefs und Equip Sport bringen kostenloses Sportequipment nach München",
+      "publisher": "Chiefs.com",
+      "url": "https://www.chiefs.com/news/die-kansas-city-chiefs-und-equip-sport-bringen-kostenloses-sportequipment-nach-munchen",
+      "note": "Gemeinsam draußen aktiv werden: An vier Standorten in München ist ab sofort kostenlos Sportequipment verfügbar"
+    }
+  ]
+}
