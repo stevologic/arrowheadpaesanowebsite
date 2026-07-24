@@ -3,11 +3,13 @@
 Run it directly::
 
     python -m tools.chiefs_narrative.generate            # auto-pick provider
+    python -m tools.chiefs_narrative.generate --provider grok
     python -m tools.chiefs_narrative.generate --provider offline
     python -m tools.chiefs_narrative.generate --dry-run  # print, don't write
 
 Environment (all optional):
-    CHIEFS_PROVIDER   force one of: openai|anthropic|claude-cli|codex-cli|offline
+    CHIEFS_PROVIDER   force one of: grok|openai|anthropic|claude-cli|codex-cli|offline
+    XAI_API_KEY (or GROK_API_KEY) / GROK_MODEL / XAI_BASE_URL  — Grok wins over OpenAI
     OPENAI_API_KEY / OPENAI_MODEL / OPENAI_BASE_URL
     ANTHROPIC_API_KEY / ANTHROPIC_MODEL
     ODDS_API_KEY      optional sportsbook consensus via The Odds API
@@ -137,7 +139,7 @@ def build(provider_name: str | None = None) -> dict:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Generate the Chiefs Narrative edition.")
-    parser.add_argument("--provider", help="force provider (openai|anthropic|claude-cli|codex-cli|offline)")
+    parser.add_argument("--provider", help="force provider (grok|openai|anthropic|claude-cli|codex-cli|offline)")
     parser.add_argument("--dry-run", action="store_true", help="print JSON, do not write files")
     args = parser.parse_args(argv)
 

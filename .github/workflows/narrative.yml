@@ -4,10 +4,12 @@ name: Chiefs Narrative (daily)
 # auto-merges it, and deploys the refreshed site to GitHub Pages.
 #
 # Providers (auto-detected in tools/chiefs_narrative/providers.py):
-#   * If the OPENAI_API_KEY secret exists -> OpenAI writes the edition.
+#   * If the XAI_API_KEY (or GROK_API_KEY) secret exists -> Grok writes it.
+#   * Else if OPENAI_API_KEY exists -> OpenAI writes it.
 #   * Otherwise the deterministic offline writer produces a complete, cited edition.
-# Nothing is required for this to run; add OPENAI_API_KEY (and optionally
-# ODDS_API_KEY) as repository secrets to upgrade the writing.
+# Nothing is required for this to run; add XAI_API_KEY or OPENAI_API_KEY (and
+# optionally ODDS_API_KEY) as repository secrets to upgrade the writing.
+# Force one with the workflow_dispatch "provider" input (e.g. grok).
 
 on:
   schedule:
@@ -16,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       provider:
-        description: "Force writer (blank = auto). openai|anthropic|offline"
+        description: "Force writer (blank = auto). grok|openai|anthropic|offline"
         required: false
         default: ""
 
@@ -50,6 +52,11 @@ jobs:
       - name: Generate the Chiefs Narrative
         env:
           CHIEFS_PROVIDER: ${{ github.event.inputs.provider }}
+          # Grok/xAI takes precedence over OpenAI when its key is present.
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          GROK_API_KEY: ${{ secrets.GROK_API_KEY }}
+          GROK_MODEL: ${{ vars.GROK_MODEL }}
+          XAI_BASE_URL: ${{ vars.XAI_BASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
