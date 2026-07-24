@@ -106,6 +106,37 @@
   {{ end }}
   {{ end }}
 
+  <!-- ===================== X's & O's ===================== -->
+  {{ with .xsandos }}
+  <section class="section nrt-xo" id="xo">
+    <div class="section-head reveal">
+      <div>
+        <span class="kicker"><span class="dot dot-accent"></span> Film room</span>
+        <h2><span class="rule"></span> The X&rsquo;s &amp; O&rsquo;s</h2>
+        <p class="section-dek">Concepts drawn up on the board — what it is, why it works, and the coaching point.</p>
+      </div>
+    </div>
+    <div class="nrt-xo__grid">
+      {{ range . }}
+      <article class="nrt-xo-card reveal">
+        <figure class="nrt-xo-card__board">
+          <img src="{{ .diagram | relURL }}" alt="Diagram: {{ .title }}" loading="lazy" />
+        </figure>
+        <div class="nrt-xo-card__body">
+          <div class="nrt-xo-card__head">
+            <span class="nrt-xo-card__side nrt-xo-card__side--{{ .side }}">{{ if eq .side "defense" }}Defense{{ else }}Offense{{ end }}</span>
+            <h3>{{ .title }}</h3>
+          </div>
+          {{ with .situation }}<p class="nrt-xo-card__situation"><span>Situation</span> {{ . }}</p>{{ end }}
+          {{ with .why }}<p class="nrt-xo-card__why">{{ . }}</p>{{ end }}
+          {{ with .coaching }}<p class="nrt-xo-card__coach"><span>Coaching point</span> {{ . }}</p>{{ end }}
+        </div>
+      </article>
+      {{ end }}
+    </div>
+  </section>
+  {{ end }}
+
   <!-- ===================== STORYLINE ===================== -->
   {{ with .storyline }}
   <section class="section nrt-story">
@@ -165,37 +196,6 @@
           <div class="nrt-matchup__side"><span>Opponent</span>{{ .opponent }}</div>
         </div>
         {{ with .note }}<p class="nrt-matchup__note">{{ . }}</p>{{ end }}
-      </article>
-      {{ end }}
-    </div>
-  </section>
-  {{ end }}
-
-  <!-- ===================== X's & O's ===================== -->
-  {{ with .xsandos }}
-  <section class="section nrt-xo" id="xo">
-    <div class="section-head reveal">
-      <div>
-        <span class="kicker"><span class="dot dot-accent"></span> Film room</span>
-        <h2><span class="rule"></span> The X&rsquo;s &amp; O&rsquo;s</h2>
-        <p class="section-dek">Concepts drawn up on the board — what it is, why it works, and the coaching point.</p>
-      </div>
-    </div>
-    <div class="nrt-xo__grid">
-      {{ range . }}
-      <article class="nrt-xo-card reveal">
-        <figure class="nrt-xo-card__board">
-          <img src="{{ .diagram | relURL }}" alt="Diagram: {{ .title }}" loading="lazy" />
-        </figure>
-        <div class="nrt-xo-card__body">
-          <div class="nrt-xo-card__head">
-            <span class="nrt-xo-card__side nrt-xo-card__side--{{ .side }}">{{ if eq .side "defense" }}Defense{{ else }}Offense{{ end }}</span>
-            <h3>{{ .title }}</h3>
-          </div>
-          {{ with .situation }}<p class="nrt-xo-card__situation"><span>Situation</span> {{ . }}</p>{{ end }}
-          {{ with .why }}<p class="nrt-xo-card__why">{{ . }}</p>{{ end }}
-          {{ with .coaching }}<p class="nrt-xo-card__coach"><span>Coaching point</span> {{ . }}</p>{{ end }}
-        </div>
       </article>
       {{ end }}
     </div>
