@@ -1,0 +1,373 @@
+{{ define "main" }}
+{{ $n := .Site.Data.narrative }}
+{{ $archive := .Site.Data.narrative_archive }}
+{{ $edgeClass := dict "KC" "edge--kc" "OPP" "edge--opp" "PUSH" "edge--push" }}
+{{ $edgeText := dict "KC" "Chiefs edge" "OPP" "Opponent edge" "PUSH" "Even" }}
+
+{{ with $n }}
+<article class="nrt" data-narrative>
+
+  <!-- ===================== HERO ===================== -->
+  <section class="nrt-hero">
+    <div class="nrt-hero__glow" aria-hidden="true"></div>
+    <div class="nrt-hero__inner">
+      <div class="nrt-hero__meta">
+        <span class="nrt-phase"><span class="live-beacon" aria-hidden="true"></span>{{ .phase.label }}</span>
+        <span class="nrt-edition">{{ .edition }}</span>
+        <time class="nrt-stamp" datetime="{{ .generatedAt }}">Updated {{ dateFormat "Monday, Jan 2, 2006" .generatedAt }}</time>
+      </div>
+      <h1 class="nrt-headline">{{ .headline }}</h1>
+      {{ with .dek }}<p class="nrt-dek">{{ . }}</p>{{ end }}
+
+      <div class="nrt-hero__grid">
+        <div class="nrt-hero__main">
+          {{ with .videoHook }}
+          <blockquote class="nrt-hook">
+            <span class="nrt-hook__label">Cold open</span>
+            <p>“{{ . }}”</p>
+          </blockquote>
+          {{ end }}
+          <div class="nrt-hero__actions">
+            <a class="btn btn-yt btn-lg" href="{{ $.Site.Params.subscribeUrl }}" target="_blank" rel="noopener">Watch on YouTube</a>
+            <a class="btn btn-ink" href="#xo">Jump to the X&rsquo;s &amp; O&rsquo;s <span aria-hidden="true">↓</span></a>
+            <a class="btn btn-ghost" href="#runofshow">Episode rundown</a>
+          </div>
+        </div>
+
+        <aside class="nrt-nextgame">
+          <span class="nrt-nextgame__tag">Next up</span>
+          {{ with .nextGame }}
+            <strong class="nrt-nextgame__opp">{{ .opponent | default "TBD" }}</strong>
+            {{ with .label }}<span class="nrt-nextgame__when">{{ . }}</span>{{ end }}
+            <ul class="nrt-nextgame__facts">
+              {{ with .at }}<li><span>Where</span>{{ . }}</li>{{ end }}
+              {{ with .tv }}<li><span>TV</span>{{ . }}</li>{{ end }}
+              <li><span>2025</span>{{ $.Site.Data.narrative.record }} record</li>
+            </ul>
+            {{ with .note }}<p class="nrt-nextgame__note">{{ . }}</p>{{ end }}
+          {{ end }}
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== THE EDGE ===================== -->
+  {{ with .theEdge }}
+  <section class="nrt-edge">
+    <span class="nrt-edge__label">The edge</span>
+    <p>{{ . }}</p>
+  </section>
+  {{ end }}
+
+  <!-- ===================== MARKETS ===================== -->
+  {{ with .markets }}
+  {{ if or .model .vegas .futures }}
+  <section class="section nrt-markets" id="markets">
+    <div class="section-head reveal">
+      <div>
+        <span class="kicker"><span class="dot dot-live"></span> Model · Vegas · Markets</span>
+        <h2><span class="rule"></span> What the numbers say</h2>
+        <p class="section-dek">A simulation projection, the sportsbook line, and the live prediction market — cited, not vibes.</p>
+      </div>
+    </div>
+    <div class="nrt-markets__grid">
+      {{ with .model }}
+      <a class="nrt-market-card nrt-market-card--model" href="{{ .url }}" target="_blank" rel="noopener">
+        <span class="nrt-market-card__tag">Model projection</span>
+        <div class="nrt-meter" style="--pct: {{ .kcWin }}%">
+          <div class="nrt-meter__bar"><span></span></div>
+          <div class="nrt-meter__nums"><strong>{{ .kcWin }}%</strong><small>KC win</small></div>
+        </div>
+        <p class="nrt-market-card__src">{{ .label }}</p>
+      </a>
+      {{ end }}
+      {{ with .vegas }}
+      <a class="nrt-market-card nrt-market-card--vegas" href="{{ .url }}" target="_blank" rel="noopener">
+        <span class="nrt-market-card__tag">Vegas line</span>
+        <div class="nrt-vegas">
+          <div><strong>{{ .spreadDetail | default "—" }}</strong><small>Spread</small></div>
+          <div><strong>{{ .overUnder | default "—" }}</strong><small>Total (O/U)</small></div>
+        </div>
+        <p class="nrt-market-card__src">{{ .source }}</p>
+      </a>
+      {{ end }}
+      {{ range .futures }}
+      <a class="nrt-market-card nrt-market-card--future" href="{{ .url }}" target="_blank" rel="noopener">
+        <span class="nrt-market-card__tag">Prediction market</span>
+        <div class="nrt-future">
+          <strong>{{ .chiefsPct }}%</strong>
+          <small>Chiefs — {{ .label }}</small>
+        </div>
+        <p class="nrt-market-card__src">Polymarket · live</p>
+      </a>
+      {{ end }}
+    </div>
+  </section>
+  {{ end }}
+  {{ end }}
+
+  <!-- ===================== STORYLINE ===================== -->
+  {{ with .storyline }}
+  <section class="section nrt-story">
+    <div class="section-head reveal">
+      <div>
+        <span class="kicker kicker--gold">The story so far</span>
+        <h2><span class="rule rule-gold"></span> Always looking ahead</h2>
+      </div>
+    </div>
+    <div class="nrt-story__body reveal">
+      {{ with .lede }}<p class="nrt-story__lede">{{ . }}</p>{{ end }}
+      {{ range .body }}<p>{{ . }}</p>{{ end }}
+    </div>
+  </section>
+  {{ end }}
+
+  <!-- ===================== SPOTLIGHT ===================== -->
+  {{ with .spotlight }}
+  <section class="section nrt-spotlight">
+    <div class="section-head reveal">
+      <div>
+        <span class="kicker">The storylines</span>
+        <h2><span class="rule"></span> What we&rsquo;re watching</h2>
+      </div>
+    </div>
+    <div class="nrt-spotlight__grid">
+      {{ range . }}
+      <article class="nrt-spot-card reveal">
+        {{ with .tag }}<span class="nrt-spot-card__tag">{{ . }}</span>{{ end }}
+        <h3>{{ .title }}</h3>
+        <p>{{ .body }}</p>
+      </article>
+      {{ end }}
+    </div>
+  </section>
+  {{ end }}
+
+  <!-- ===================== MATCHUPS ===================== -->
+  {{ with .matchups }}
+  <section class="section nrt-matchups">
+    <div class="section-head reveal">
+      <div>
+        <span class="kicker kicker--gold">Tale of the tape</span>
+        <h2><span class="rule rule-gold"></span> Matchups that decide it</h2>
+      </div>
+    </div>
+    <div class="nrt-matchups__list">
+      {{ range . }}
+      <article class="nrt-matchup reveal">
+        <div class="nrt-matchup__unit">
+          <h3>{{ .unit }}</h3>
+          <span class="nrt-edge-chip {{ index $edgeClass .edge }}">{{ index $edgeText .edge }}</span>
+        </div>
+        <div class="nrt-matchup__cols">
+          <div class="nrt-matchup__side nrt-matchup__side--kc"><span>Chiefs</span>{{ .chiefs }}</div>
+          <div class="nrt-matchup__vs" aria-hidden="true">vs</div>
+          <div class="nrt-matchup__side"><span>Opponent</span>{{ .opponent }}</div>
+        </div>
+        {{ with .note }}<p class="nrt-matchup__note">{{ . }}</p>{{ end }}
+      </article>
+      {{ end }}
+    </div>
+  </section>
+  {{ end }}
+
+  <!-- ===================== X's & O's ===================== -->
+  {{ with .xsandos }}
+  <section class="section nrt-xo" id="xo">
+    <div class="section-head reveal">
+      <div>
+        <span class="kicker"><span class="dot dot-accent"></span> Film room</span>
+        <h2><span class="rule"></span> The X&rsquo;s &amp; O&rsquo;s</h2>
+        <p class="section-dek">Concepts drawn up on the board — what it is, why it works, and the coaching point.</p>
+      </div>
+    </div>
+    <div class="nrt-xo__grid">
+      {{ range . }}
+      <article class="nrt-xo-card reveal">
+        <figure class="nrt-xo-card__board">
+          <img src="{{ .diagram | relURL }}" alt="Diagram: {{ .title }}" loading="lazy" />
+        </figure>
+        <div class="nrt-xo-card__body">
+          <div class="nrt-xo-card__head">
+            <span class="nrt-xo-card__side nrt-xo-card__side--{{ .side }}">{{ if eq .side "defense" }}Defense{{ else }}Offense{{ end }}</span>
+            <h3>{{ .title }}</h3>
+          </div>
+          {{ with .situation }}<p class="nrt-xo-card__situation"><span>Situation</span> {{ . }}</p>{{ end }}
+          {{ with .why }}<p class="nrt-xo-card__why">{{ . }}</p>{{ end }}
+          {{ with .coaching }}<p class="nrt-xo-card__coach"><span>Coaching point</span> {{ . }}</p>{{ end }}
+        </div>
+      </article>
+      {{ end }}
+    </div>
+  </section>
+  {{ end }}
+
+  <!-- ===================== COACHING ===================== -->
+  {{ with .coaching }}
+  <section class="section nrt-coaching">
+    <div class="section-head reveal">
+      <div>
+        <span class="kicker kicker--gold">Chess match</span>
+        <h2><span class="rule rule-gold"></span> Coaching &amp; adjustments</h2>
+      </div>
+    </div>
+    <div class="nrt-coaching__grid">
+      {{ range . }}
+      <article class="nrt-coach-card reveal"><h3>{{ .topic }}</h3><p>{{ .detail }}</p></article>
+      {{ end }}
+    </div>
+  </section>
+  {{ end }}
+
+  <!-- ===================== INJURIES + PERSONNEL ===================== -->
+  {{ if or .injuries .personnel }}
+  <section class="section nrt-report">
+    <div class="nrt-report__cols">
+      {{ with .injuries }}
+      <div class="nrt-report__col reveal">
+        <span class="kicker">Injury &amp; availability</span>
+        <h2><span class="rule"></span> The report</h2>
+        <ul class="nrt-report__list nrt-report__list--injury">
+          {{ range . }}
+          <li>
+            <div class="nrt-report__row">
+              {{ with .player }}<strong>{{ . }}</strong>{{ end }}
+              {{ with .status }}<span class="nrt-status">{{ . }}</span>{{ end }}
+            </div>
+            {{ with .note }}<p>{{ . }}</p>{{ end }}
+            {{ with .source }}<cite>Source: {{ . }}</cite>{{ end }}
+          </li>
+          {{ end }}
+        </ul>
+      </div>
+      {{ end }}
+      {{ with .personnel }}
+      <div class="nrt-report__col reveal">
+        <span class="kicker kicker--gold">Roster moves</span>
+        <h2><span class="rule rule-gold"></span> Personnel</h2>
+        <ul class="nrt-report__list nrt-report__list--personnel">
+          {{ range . }}
+          <li><strong>{{ .move }}</strong><p>{{ .detail }}</p></li>
+          {{ end }}
+        </ul>
+      </div>
+      {{ end }}
+    </div>
+  </section>
+  {{ end }}
+
+  <!-- ===================== STRATEGIES + DEBATES ===================== -->
+  {{ if or .strategies .debates }}
+  <section class="section nrt-plan">
+    <div class="nrt-plan__cols">
+      {{ with .strategies }}
+      <div class="nrt-plan__col nrt-plan__col--strat reveal">
+        <span class="kicker">Game plan</span>
+        <h2><span class="rule"></span> Strategies to deploy</h2>
+        <ol class="nrt-strat-list">
+          {{ range . }}<li>{{ . }}</li>{{ end }}
+        </ol>
+      </div>
+      {{ end }}
+      {{ with .debates }}
+      <div class="nrt-plan__col nrt-plan__col--debate reveal">
+        <span class="kicker kicker--gold">Family table</span>
+        <h2><span class="rule rule-gold"></span> Debates for the comments</h2>
+        <ul class="nrt-debate-list">
+          {{ range . }}<li>{{ . }}</li>{{ end }}
+        </ul>
+      </div>
+      {{ end }}
+    </div>
+  </section>
+  {{ end }}
+
+  <!-- ===================== RUN OF SHOW ===================== -->
+  {{ with .runOfShow }}
+  <section class="section nrt-ros" id="runofshow">
+    <div class="section-head reveal">
+      <div>
+        <span class="kicker"><span class="dot dot-live"></span> YouTube template</span>
+        <h2><span class="rule"></span> This week&rsquo;s episode rundown</h2>
+        <p class="section-dek">A ready-to-shoot run-of-show for the weekly video — segment, timing, and talk track.</p>
+      </div>
+    </div>
+    <div class="nrt-ros__table reveal">
+      {{ range $i, $seg := . }}
+      <div class="nrt-ros__row">
+        <span class="nrt-ros__num">{{ printf "%02d" (add $i 1) }}</span>
+        <div class="nrt-ros__seg"><strong>{{ .segment }}</strong>{{ with .length }}<span class="nrt-ros__time">{{ . }}</span>{{ end }}</div>
+        <p class="nrt-ros__talk">{{ .talkTrack }}</p>
+      </div>
+      {{ end }}
+    </div>
+  </section>
+  {{ end }}
+
+  <!-- ===================== SOURCES ===================== -->
+  {{ with .sources }}
+  <section class="section nrt-sources">
+    <div class="section-head reveal">
+      <div>
+        <span class="kicker kicker--gold">Cited &amp; sourced</span>
+        <h2><span class="rule rule-gold"></span> The wire we read</h2>
+        <p class="section-dek">Every claim traces back to a named publisher. Open any link to read it at the source.</p>
+      </div>
+    </div>
+    <div class="nrt-sources__grid">
+      {{ range . }}
+      <a class="nrt-source-card reveal" href="{{ .url }}" target="_blank" rel="noopener">
+        <span class="nrt-source-card__pub">{{ .publisher }}</span>
+        <h3>{{ .title }}</h3>
+        {{ with .note }}<p>{{ . }}</p>{{ end }}
+        <span class="nrt-source-card__open">Read at source ↗</span>
+      </a>
+      {{ end }}
+    </div>
+  </section>
+  {{ end }}
+
+  <!-- ===================== ARCHIVE / STORY TIMELINE ===================== -->
+  {{ if $archive }}
+  <section class="section nrt-timeline">
+    <div class="section-head reveal">
+      <div>
+        <span class="kicker">The evolving story</span>
+        <h2><span class="rule"></span> Previous editions</h2>
+      </div>
+    </div>
+    <ol class="nrt-timeline__list reveal">
+      {{ range first 8 $archive }}
+      <li class="nrt-timeline__item">
+        <time datetime="{{ .generatedAt }}">{{ dateFormat "Jan 2" .generatedAt }}</time>
+        <div>
+          <span class="nrt-timeline__phase">{{ .phase }}</span>
+          <strong>{{ .headline }}</strong>
+          {{ with .theEdge }}<p>{{ . }}</p>{{ end }}
+        </div>
+      </li>
+      {{ end }}
+    </ol>
+  </section>
+  {{ end }}
+
+  <!-- ===================== COLOPHON ===================== -->
+  <section class="nrt-colophon">
+    <div class="nrt-colophon__inner">
+      <div>
+        <span class="kicker">How this is made</span>
+        <p>The Chiefs Narrative is assembled by an automated desk that reads the live schedule, the news wire, the model projection, the Vegas line, and the prediction markets, then curates a forward-looking edition and draws up the film. Regenerated regularly; always looking ahead to the next Sunday.</p>
+      </div>
+      <div class="nrt-colophon__meta">
+        <span>Generator</span><strong>{{ .generator }}</strong>
+        <span>Updated</span><strong>{{ dateFormat "Jan 2, 2006 · 3:04 PM" .generatedAt }}</strong>
+        <span>Phase</span><strong>{{ .phase.label }}</strong>
+      </div>
+    </div>
+  </section>
+
+</article>
+{{ else }}
+<section class="page-head"><span class="kicker">The Chiefs Narrative</span><h1>The desk is warming up.</h1><p class="lede">The first edition is generating. Check back shortly.</p></section>
+{{ end }}
+{{ end }}

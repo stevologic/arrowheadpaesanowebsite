@@ -39,78 +39,60 @@
     </div>
   </div>
 
-  <div class="press-hero__story-wrap">
-    <div class="press-hero__story-label">
-      <span>Start here</span>
-      <small>Original reporting</small>
-    </div>
-    <a class="hero-featured press-featured" href="{{ "sources/" | relURL }}" style="--accent:#E31837">
-      <div class="hf-tag">News bookmarks</div>
-      <div class="hf-body">
-        <span class="source-chip source-chip--lg">Trusted publishers</span>
-        <h2>Your front door to Chiefs reporting.</h2>
-        <p>Choose an official, local, independent, or national desk and read the story at its original source.</p>
-        <span class="hf-time">Always available</span>
-        <div class="hf-actions"><span class="hf-read-link">Open the directory</span><span class="hf-source-link">{{ len .Site.Data.sources }} named outlets</span></div>
-      </div>
-    </a>
-  </div>
 </section>
 
 <nav class="jump-deck" aria-label="Quick links">
-  <a href="{{ "youtube/" | relURL }}"><span>01</span><strong>Watch</strong><small>Videos, Shorts & archive</small></a>
-  <a href="#news-desk"><span>02</span><strong>Read</strong><small>Trusted Chiefs publishers</small></a>
-  <a href="{{ "sources/" | relURL }}"><span>03</span><strong>Verify</strong><small>See every publisher</small></a>
+  <a href="{{ "narrative/" | relURL }}"><span>01</span><strong>The Narrative</strong><small>Weekly Chiefs analysis</small></a>
+  <a href="{{ "youtube/" | relURL }}"><span>02</span><strong>Watch</strong><small>Videos, Shorts & archive</small></a>
+  <a href="#news-desk"><span>03</span><strong>Read</strong><small>Trusted Chiefs publishers</small></a>
   <a href="{{ "about/" | relURL }}"><span>04</span><strong>Join</strong><small>Meet the Paesano</small></a>
 </nav>
 
-<section class="section news-desk" id="news-desk">
-  <div class="section-head reveal">
-    <div>
-      <span class="kicker"><span class="dot dot-live"></span> Chiefs news bookmarks</span>
-      <h2><span class="rule"></span> Pick a trusted newsroom</h2>
-      <p class="section-dek">Every card names its publisher and opens the original outlet. Search the directory, choose a desk, and bookmark the ones you trust.</p>
+{{ with .Site.Data.narrative }}
+<section class="home-narrative">
+  <div class="home-narrative__inner">
+    <div class="home-narrative__copy">
+      <span class="kicker kicker--gold"><span class="live-beacon" aria-hidden="true"></span> The Chiefs Narrative · {{ .phase.label }}</span>
+      <h2>{{ .headline }}</h2>
+      {{ with .dek }}<p class="home-narrative__dek">{{ . }}</p>{{ end }}
+      {{ with .theEdge }}<p class="home-narrative__edge"><strong>The edge:</strong> {{ . }}</p>{{ end }}
+      <div class="home-narrative__actions">
+        <a class="btn btn-primary btn-lg" href="{{ "narrative/" | relURL }}">Read the full breakdown <span aria-hidden="true">→</span></a>
+        <a class="btn btn-ink" href="{{ "narrative/" | relURL }}#xo">See the X&rsquo;s &amp; O&rsquo;s</a>
+      </div>
     </div>
-    <div class="desk-freshness" data-feed-status><span></span> Static, fast, and always available</div>
+    <aside class="home-narrative__side">
+      {{ with .nextGame }}
+      <div class="home-narrative__nextgame">
+        <span>Next up</span>
+        <strong>{{ .opponent | default "TBD" }}</strong>
+        {{ with .label }}<small>{{ . }}</small>{{ end }}
+        {{ with .tv }}<small class="home-narrative__tv">{{ . }}</small>{{ end }}
+      </div>
+      {{ end }}
+      {{ with .markets }}
+      <div class="home-narrative__markets">
+        {{ with .model }}<div><b>{{ .kcWin }}%</b><span>Model · KC win</span></div>{{ end }}
+        {{ with .vegas }}<div><b>{{ .spreadDetail }}</b><span>Vegas line</span></div>{{ end }}
+      </div>
+      {{ end }}
+    </aside>
   </div>
+</section>
+{{ end }}
 
-  <form class="news-toolbar reveal" data-news-toolbar role="search">
-    <label class="news-search">
-      <span class="sr-only">Search publishers</span>
-      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="m21 20-4.6-4.6a8 8 0 1 0-1.4 1.4L19.6 22 21 20ZM4 10a6 6 0 1 1 12 0 6 6 0 0 1-12 0Z"/></svg>
-      <input type="search" placeholder="Search Chiefs.com, local TV, analysis…" autocomplete="off" data-news-search />
-    </label>
-    <label class="news-source-filter">
-      <span class="sr-only">Filter publisher type</span>
-      <select data-news-source>
-        <option value="">All publishers</option>
-        <option value="chiefs">Chiefs-focused</option>
-        <option value="nfl">National NFL</option>
-      </select>
-    </label>
-    <button class="btn btn-ghost btn-sm" type="reset" data-news-reset>Reset</button>
-  </form>
-
-  <div class="card-grid card-grid--press" data-source-card-grid aria-live="polite">
-    {{ range .Site.Data.sources }}
-      <a class="card reveal" data-source-card data-source-category="{{ .category }}" data-source-search="{{ lower (printf "%s %s" .name .tagline) }}" href="{{ .url }}" target="_blank" rel="noopener" style="--accent:{{ .accent }}" aria-label="Open {{ .name }}">
-        <div class="card-media">
-          <span class="card-fallback" aria-hidden="true"><span class="card-fallback-mark">{{ substr .name 0 2 | upper }}</span><span class="card-fallback-source">{{ .name }}</span></span>
-          <span class="card-chip" aria-hidden="true">{{ if eq .category "chiefs" }}Chiefs desk{{ else }}National NFL{{ end }}</span>
-        </div>
-        <div class="card-body">
-          <div class="card-meta"><span class="dot dot-accent"></span><span>Direct source</span></div>
-          <h3 class="card-title">{{ .name }}</h3>
-          <p class="card-summary">{{ .tagline }}</p>
-          <span class="card-provenance">Open publisher ↗</span>
-        </div>
-      </a>
-    {{ end }}
-    <div class="empty-state" data-source-empty hidden><h3>No matching publishers</h3><p>Try a broader search or show all publishers.</p></div>
-  </div>
-  <div class="section-tail reveal">
-    <p>Want the full source-by-source rundown?</p>
-    <a class="btn btn-ink" href="{{ "sources/" | relURL }}">Open the newsroom <span aria-hidden="true">→</span></a>
+<section class="news-router" id="news-desk">
+  <div class="news-router__inner reveal">
+    <div class="news-router__lead">
+      <span class="kicker"><span class="dot dot-live"></span> Chiefs news bookmarks</span>
+      <span class="news-router__hint">Tap a desk to open the source ↗</span>
+    </div>
+    <div class="news-router__chips">
+      {{ range .Site.Data.sources }}
+        <a class="news-chip" href="{{ .url }}" target="_blank" rel="noopener" style="--accent:{{ .accent }}"><span class="news-chip__dot" aria-hidden="true"></span>{{ .name }}</a>
+      {{ end }}
+      <a class="news-chip news-chip--all" href="{{ "sources/" | relURL }}">All {{ len .Site.Data.sources }} sources →</a>
+    </div>
   </div>
 </section>
 
@@ -156,22 +138,6 @@
         <div class="archive-card__body"><span>{{ .label }}</span><h3>{{ .title }}</h3></div>
       </a>
     {{ end }}
-  </div>
-</section>
-
-<section class="source-wall">
-  <div class="source-wall__inner reveal">
-    <div class="source-wall__copy">
-      <span class="kicker kicker--gold">Know where the news came from</span>
-      <h2>Trusted voices.<br>Clear attribution.</h2>
-      <p>Arrowhead Paesano organizes the bookmarks; the original outlets do the reporting. Every click goes straight to the source.</p>
-      <a class="btn btn-paper" href="{{ "sources/" | relURL }}">Review all {{ len .Site.Data.sources }} sources</a>
-    </div>
-    <div class="source-wall__list" aria-label="News publishers">
-      {{ range .Site.Data.sources }}
-        <a href="{{ .url }}" target="_blank" rel="noopener" style="--accent:{{ .accent }}"><span></span>{{ .name }}<small>↗</small></a>
-      {{ end }}
-    </div>
   </div>
 </section>
 

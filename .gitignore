@@ -7,3 +7,10 @@ dist/
 npm-debug.log*
 .DS_Store
 *.log
+
+# Python
+__pycache__/
+*.py[cod]
+tools/.env
+.venv/
+venv/

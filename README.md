@@ -34,6 +34,63 @@ The workflow builds with GitHub's actual Pages base URL, so project-site paths s
 
 The homepage and Watch page read `data/channel_feed.json` during the Hugo build. This keeps the public site fast and avoids a server or YouTube API key. Update that file when you want to refresh the featured uploads and Shorts; visitors can always open the live channel directly from every video section.
 
+## The Chiefs Narrative engine
+
+`/narrative/` is an automated, always-looking-ahead weekly Kansas City Chiefs
+analysis desk: training-camp battles, game previews/reviews, X's-and-O's with
+hand-drawn field diagrams, player/coaching/style matchups, injuries, personnel,
+strategies, a model projection, the Vegas line, prediction-market odds, cited
+sources, and a ready-to-shoot YouTube run-of-show. It regenerates itself and
+evolves the story toward the next Sunday.
+
+### How it works
+
+The engine lives in [`tools/chiefs_narrative/`](tools/chiefs_narrative/):
+
+1. **Collect** — reads the live 2026 schedule (ESPN), the Chiefs news wire
+   (Chiefs.com, Arrowhead Pride, Arrowhead Addict, ESPN RSS), the model
+   projection + Vegas line (ESPN FPI / DraftKings), and prediction markets
+   (Polymarket). Every network call fails soft.
+2. **Phase** — detects where the season is (offseason, training camp, preseason,
+   a specific game week, playoffs) from the schedule + today's date, so the
+   framing changes automatically.
+3. **Write** — an LLM provider (or the built-in deterministic *offline* writer)
+   turns the signals into a structured, source-cited edition.
+4. **Diagram** — renders clean X's-and-O's SVGs from a concept library
+   (`diagrams.py`) into `public/images/narrative/`.
+5. **Publish** — writes `data/narrative.json` (+ a rolling `data/narrative_archive.json`),
+   which the Hugo template at `layouts/narrative/single.html` renders.
+
+### Run it locally
+
+```bash
+# Windows
+./tools/run_local.ps1 -Serve
+
+# macOS / Linux
+./tools/run_local.sh --serve
+```
+
+With **no** configuration it uses the offline writer and still ships a complete,
+cited edition. To upgrade the writing, copy `tools/.env.example` to `tools/.env`
+and set one of:
+
+- `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`) — or run ChatGPT Codex's
+  `codex` CLI locally,
+- `ANTHROPIC_API_KEY` — or run Claude Code's `claude` CLI locally.
+
+Providers are auto-detected (OpenAI → Anthropic → `claude` CLI → `codex` CLI →
+offline); force one with `CHIEFS_PROVIDER` or `--provider`. An optional
+`ODDS_API_KEY` adds a sportsbook consensus line.
+
+### Daily automation
+
+[`.github/workflows/narrative.yml`](.github/workflows/narrative.yml) runs every
+day: it regenerates the edition, opens a pull request, auto-merges it, and
+deploys the refreshed site to GitHub Pages. Add `OPENAI_API_KEY` as a repository
+secret to have OpenAI write it; otherwise the offline writer runs with no secret
+at all. Trigger it by hand from the **Actions** tab (**Run workflow**) any time.
+
 ## Connect Shopify
 
 Set these public Storefront values in `hugo.yaml`:
