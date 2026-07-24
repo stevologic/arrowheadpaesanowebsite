@@ -1,11 +1,12 @@
 """Pluggable writer backends.
 
 Selection order (unless ``CHIEFS_PROVIDER`` forces one):
-1. OpenAI      (OPENAI_API_KEY)          — GitHub Action default.
-2. Anthropic   (ANTHROPIC_API_KEY).
-3. claude CLI  (`claude` on PATH)        — local Claude Code.
-4. codex CLI   (`codex` on PATH)         — local ChatGPT Codex.
-5. offline     — deterministic writer, always available, no key.
+1. Grok/xAI    (XAI_API_KEY or GROK_API_KEY) — takes precedence over OpenAI.
+2. OpenAI      (OPENAI_API_KEY).
+3. Anthropic   (ANTHROPIC_API_KEY).
+4. claude CLI  (`claude` on PATH)        — local Claude Code.
+5. codex CLI   (`codex` on PATH)         — local ChatGPT Codex.
+6. offline     — deterministic writer, always available, no key.
 
 Every provider returns a raw JSON string; callers extract/validate it. API
 providers use plain ``requests`` so there is no SDK to install in CI.
@@ -67,27 +68,87 @@ def extract_json(text: str) -> dict:
 # ---------------------------------------------------------------------------
 # API providers
 # ---------------------------------------------------------------------------
-def _openai(system: str, user: str) -> str:
-    key = config.env("OPENAI_API_KEY")
-    model = config.env("OPENAI_MODEL") or "gpt-4o"
-    base = config.env("OPENAI_BASE_URL") or "https://api.openai.com/v1"
-    resp = requests.post(
-        f"{base}/chat/completions",
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-        json={
-            "model": model,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            "temperature": 0.55,
-            "response_format": {"type": "json_object"},
-        },
-        timeout=120,
-    )
+def _chat_completions(label: str, base: str, key: str, model: str,
+                      system: str, user: str) -> str:
+    """Call any OpenAI-compatible /chat/completions endpoint.
+
+    Used by both OpenAI and Grok (xAI), whose APIs share this wire format. If the
+    server rejects ``response_format`` we retry once without it — ``extract_json``
+    can recover JSON from a plain reply anyway.
+    """
+    if not key:
+        raise ProviderError(f"{label}: no API key configured")
+
+    def _post(payload):
+        return requests.post(
+            f"{base.rstrip('/')}/chat/completions",
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            json=payload,
+            timeout=120,
+        )
+
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
+        "temperature": 0.55,
+        "response_format": {"type": "json_object"},
+    }
+    resp = _post(payload)
+    if resp.status_code == 400:
+        # Some models/endpoints do not accept response_format — retry plain.
+        payload.pop("response_format", None)
+        resp = _post(payload)
     if resp.status_code >= 400:
-        raise ProviderError(f"OpenAI {resp.status_code}: {resp.text[:300]}")
-    return resp.json()["choices"][0]["message"]["content"]
+        raise ProviderError(f"{label} {resp.status_code}: {resp.text[:300]}")
+    try:
+        return resp.json()["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, ValueError) as exc:
+        raise ProviderError(f"{label}: unexpected response shape ({exc})") from exc
+
+
+# --- OpenAI ---------------------------------------------------------------
+def _openai(system: str, user: str) -> str:
+    return _chat_completions(
+        "OpenAI",
+        config.env("OPENAI_BASE_URL") or "https://api.openai.com/v1",
+        config.env("OPENAI_API_KEY"),
+        openai_model(),
+        system,
+        user,
+    )
+
+
+def openai_model() -> str:
+    return config.env("OPENAI_MODEL") or "gpt-4o"
+
+
+# --- Grok (xAI) -----------------------------------------------------------
+# xAI ships an OpenAI-compatible API, so it reuses the same helper.
+GROK_DEFAULT_MODEL = "grok-4"
+GROK_DEFAULT_BASE = "https://api.x.ai/v1"
+
+
+def grok_key() -> str:
+    """Accept either XAI_API_KEY or GROK_API_KEY."""
+    return config.env("XAI_API_KEY") or config.env("GROK_API_KEY")
+
+
+def grok_model() -> str:
+    return config.env("GROK_MODEL") or config.env("XAI_MODEL") or GROK_DEFAULT_MODEL
+
+
+def _grok(system: str, user: str) -> str:
+    return _chat_completions(
+        "Grok",
+        config.env("XAI_BASE_URL") or config.env("GROK_BASE_URL") or GROK_DEFAULT_BASE,
+        grok_key(),
+        grok_model(),
+        system,
+        user,
+    )
 
 
 def _anthropic(system: str, user: str) -> str:
@@ -155,6 +216,8 @@ def _codex_cli(system: str, user: str) -> str:
 # Selection
 # ---------------------------------------------------------------------------
 _REGISTRY = {
+    "grok": _grok,
+    "xai": _grok,  # alias
     "openai": _openai,
     "anthropic": _anthropic,
     "claude-cli": _claude_cli,
@@ -163,9 +226,12 @@ _REGISTRY = {
 
 
 def resolve_provider() -> str:
+    """Pick a writer. Grok wins when its key is present, then OpenAI, etc."""
     forced = config.env("CHIEFS_PROVIDER").lower()
     if forced:
         return forced
+    if grok_key():
+        return "grok"
     if config.env("OPENAI_API_KEY"):
         return "openai"
     if config.env("ANTHROPIC_API_KEY"):
@@ -185,8 +251,10 @@ def generate_via_llm(name: str, system: str, user: str) -> tuple[dict, str]:
     raw = fn(system, user)
     data = extract_json(raw)
     label = name
-    if name == "openai":
-        label = f"openai:{config.env('OPENAI_MODEL') or 'gpt-4o'}"
+    if name in ("grok", "xai"):
+        label = f"grok:{grok_model()}"
+    elif name == "openai":
+        label = f"openai:{openai_model()}"
     elif name == "anthropic":
         label = f"anthropic:{config.env('ANTHROPIC_MODEL') or 'claude-sonnet-5'}"
     return data, label
