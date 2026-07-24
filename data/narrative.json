@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-24T05:22:40+00:00",
+  "generatedAt": "2026-07-24T12:43:54+00:00",
   "generator": "offline",
   "phase": {
     "type": "training-camp",
@@ -203,12 +203,6 @@
       "status": "See report",
       "note": "Chiefs News: Is 2026 ‘The Last Dance’ for Travis Kelce?",
       "source": "Arrowhead Pride"
-    },
-    {
-      "player": "",
-      "status": "See report",
-      "note": "Chiefs training camp preview: Who to consider for return specialist job",
-      "source": "Arrowhead Pride"
     }
   ],
   "personnel": [
@@ -278,10 +272,16 @@
   ],
   "sources": [
     {
-      "title": "As training camp opens, Chiefs point to brighter f...",
-      "publisher": "ESPN NFL",
-      "url": "https://www.espn.com/nfl/story/_/id/49433361/nfl-training-camp-2026-kansas-city-chiefs-patrick-mahomes-chris-jones-2026-season",
-      "note": "Kansas City's veterans have vowed to keep the disappointment of the 2025 season in mind."
+      "title": "Chiefs News: Mansoor Delane a player with something to prove in camp",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/205820/chiefs-news-mansoor-delane-a-player-with-something-to-prove-in-camp",
+      "note": "The latest Rookies for the Kansas City Chiefs will be reporting to the team’s training camp at Missouri Western State University in St. Jose"
+    },
+    {
+      "title": "Steve Spagnuolo's challenge still hangs over Jaden Hicks entering Chiefs' camp",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/steve-spagnuolo-challenge-still-hangs-over-jaden-hicks-entering-chiefs-camp?utm_source=RSS",
+      "note": "A blunt assessment from Steve Spagnuolo last season still frames the biggest question facing Jaden Hicks as training camp begins."
     },
     {
       "title": "NFL insider names Chiefs as potential landing spot for Stefon Diggs",
@@ -318,12 +318,6 @@
       "publisher": "Chiefs.com",
       "url": "https://www.chiefs.com/news/ein-neu-gedachtes-vermachtnis-die-kansas-city-chiefs-stellen-entwurfe-fur-ihr-neues-stadion-vor-dessen-eroffnung-fur-2031-geplant-ist",
       "note": ""
-    },
-    {
-      "title": "Die Kansas City Chiefs und Equip Sport bringen kostenloses Sportequipment nach München",
-      "publisher": "Chiefs.com",
-      "url": "https://www.chiefs.com/news/die-kansas-city-chiefs-und-equip-sport-bringen-kostenloses-sportequipment-nach-munchen",
-      "note": "Gemeinsam draußen aktiv werden: An vier Standorten in München ist ab sofort kostenlos Sportequipment verfügbar"
     }
   ]
 }
