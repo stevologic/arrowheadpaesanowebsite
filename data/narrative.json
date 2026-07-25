@@ -1,34 +1,34 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-25T19:11:27+00:00",
-  "generator": "offline",
+  "generatedAt": "2026-07-25T19:30:00+00:00",
+  "generator": "grok:grok-4.5",
   "phase": {
     "type": "training-camp",
     "label": "Training Camp",
     "week": null,
     "mode": "camp"
   },
-  "edition": "2026 Training Camp",
+  "edition": "2026 Training Camp · Vol. 1",
   "record": "6-11",
-  "headline": "Camp is about timing: Mahomes' knee, Bieniemy's identity, and a defense that has to carry the open",
-  "dek": "A film-room read on the storylines that decide how fast Kansas City flips the 2025 script.",
-  "videoHook": "The Chiefs' season isn't one headline — it's a countdown. How fast does the knee get right, and can the identity change hold up when the lights come on?",
-  "theEdge": "If the secondary settles and the run game is real, Kansas City can win early while Mahomes ramps.",
+  "headline": "Mahomes Is Cleared, the Nickel Is Open, and Camp Has to Fix a 6-11 Hangover",
+  "dek": "Rookie install is back in St. Joseph, Patrick Mahomes is a full participant with a brace and a Week 1 clock, and the Chiefs’ early camp battles will decide whether Arrowhead opens with an identity or another scramble.",
+  "videoHook": "Forget the 6-11 scar for a second — Mahomes is cleared, the rookies are on the grass in St. Joe, and every rep from here is about beating Denver on a Monday night in September.",
+  "theEdge": "A clean Mahomes ramp plus early snaps for the d-line and nickel rookies is the only path from last year’s mess to a credible Week 1 favorite over Denver.",
   "storyline": {
-    "lede": "Chiefs camp opened at Missouri Western State University, St. Joseph, MO with one question under everything: how ready is Patrick Mahomes's knee — and how much can a retooled identity carry until it is?",
+    "lede": "Training camp at Missouri Western is not nostalgia theater — it is triage and install. After a 6-11 season, Andy Reid has his rookie-quarterback-select-veteran head start back, Patrick Mahomes is cleared to practice and talking like a full-go starter for Monday Night Football against Denver, and Steve Spagnuolo’s defense has real vacancies in the nickel and along the edge that rookies and UDFAs are being asked to fill before the pads even get heavy. The through-line is simple: every competitive period in St. Joseph either buys Mahomes protection and answers on early downs or leaves Kansas City exposed when the Broncos walk into GEHA Field at Arrowhead in Week 1.",
     "body": [
-      "The story of this camp is timing. Patrick Mahomes is rebuilding from a torn ACL/LCL suffered last December, and every rep in St. Joseph is a referendum on how close he is to full strength for Week 1. Andy Reid has treated the ramp with caution, because the moment Mahomes practices in earnest, the PUP contingency comes off the table.",
-      "On offense, Eric Bieniemy is back as coordinator with a clear mandate: harder edges, cleaner fundamentals, and an identity that doesn't ask Mahomes to be the answer on every third-and-long. Expect more under-center looks, play-action off a real run threat, and 'easy offense' — screens and spacing — to protect a knee that's still getting its legs.",
-      "On defense, Steve Spagnuolo is again the steadying hand. The camp battles that matter most are on the back end: who wins the outside corner job and, especially, the slot. If the young secondary holds up, the pass rush can tee off and this defense can carry the early weeks while the offense finds its timing.",
-      "Everything points forward to Week 1 · Tue Sep 15 vs Denver Broncos. For context, the model gives KC 59.4%; Vegas has it KC -3; Polymarket prices the Chiefs at 6.0% to win it all. The question every practice answers a little more: is Kansas City ready to flip the 2025 script?"
+      "Mahomes’ first camp presser set the tone without sugarcoating the knee. He is participating fully, plans to do everything he did before, and is still managing the mental side of returning from a serious injury while wearing a brace — the exact profile of a quarterback who needs clean pockets and defined answers early, not hero-ball improvisation in September. Eric Bieniemy’s offense should lean into under-center play-action, inside zone, and easy-access throws so the first 15 scripts against Denver look like install, not invention. If the offensive line and skill group earn that trust in camp, the Chiefs can play downhill and keep Mahomes on schedule when the lights hit.",
+      "On defense, the fan base already clocked the loudest camp battle: nickel. Spagnuolo’s packages live and die with that third corner/hybrid defender matching slot receivers and surviving simulated pressure. Pair that with the edge and interior youth — first-round body Peter Woods settling in at 308–313 pounds, rookie end R. Mason Thomas as a pass-rush flier, and UDFA VJ Anthony getting a real runway because the club never closed the veteran DE door — and you see the September mandate. These pieces do not need to be finished products; they need to be reliable on base downs and sub packages so the Chiefs are not inventing a front seven in Week 1.",
+      "The market is already pricing a bounce-back opener: ESPN FPI sits Kansas City around 59 percent against Denver, and DraftKings has the Chiefs near a field goal favorite with a low total. That is not a Super Bowl referendum — Polymarket still has the club in single digits for the AFC and the Lombardi — it is a statement that a competent Mahomes offense plus Spagnuolo answers should handle a division rival at home. Camp has to validate it. Win the nickel reps, get Woods and the edge group dirty in the run game, and keep Mahomes’ dropbacks boringly clean, and Week 1 becomes a platform instead of a referendum on last year’s collapse.",
+      "Look past Denver and the September gauntlet sharpens the same themes: Colts at home, then Miami on the road. Those weeks punish soft edges and unfinished coverage rules. What St. Joseph unlocks — or fails to unlock — in the next month is the difference between controlling the AFC West narrative early and chasing it again by October."
     ]
   },
   "nextGame": {
-    "label": "Week 1 · Tue Sep 15",
-    "opponent": "vs Denver Broncos",
+    "label": "Week 1 · Mon Sep 15",
+    "opponent": "Denver Broncos",
     "at": "GEHA Field at Arrowhead Stadium",
     "tv": "ESPN",
-    "note": "The countdown clock for everything camp is building toward."
+    "note": "MNF opener and first real proof that Mahomes’ rehab and the camp install survived contact."
   },
   "markets": {
     "model": {
@@ -65,271 +65,295 @@
   },
   "spotlight": [
     {
-      "tag": "QB1",
-      "title": "Mahomes' rehab ramp vs. PUP math",
-      "body": "The Chiefs can't treat camp like a normal build-up: once Mahomes practices fully, he can't be placed on PUP. Watch how they meter his team reps and whether he sees any preseason snaps."
+      "tag": "QB Ramp",
+      "title": "Mahomes full-go with a brace and a Monday deadline",
+      "body": "Reid cleared Mahomes to practice at the start of camp, and the quarterback says he plans to do everything he did before while targeting the Broncos opener. The brace and the mental checkpoint matter: camp periods must re-wire trust in plant, drive, and scramble rules without turning September into a recklessness test."
     },
     {
-      "tag": "Scheme",
-      "title": "Bieniemy-ball: identity over hero-ball",
-      "body": "More under center, more play-action, fewer 3rd-and-forever downs. The install is about winning early downs so the offense functions even on a managed snap count."
+      "tag": "Camp Battle",
+      "title": "Nickel is the job fans are watching",
+      "body": "July fan polling already flagged the nickel role as the most intriguing roster fight in St. Joseph. In Spagnuolo’s world that is not a depth chart footnote — it is the hinge for sub packages, simulated pressures, and surviving modern slot offenses starting Week 1."
     },
     {
-      "tag": "Trenches",
-      "title": "Right tackle & the protection plan",
-      "body": "The line's job is to keep a rehabbing QB clean. The open tackle competition and the interior's veteran core set the ceiling for how aggressive KC can be down the field."
+      "tag": "Rookie DL",
+      "title": "Peter Woods’ playing weight is a statement",
+      "body": "Woods is comfortable in the 308–313 range after the first rookie practice window, a mass profile that fits an early-down interior disruptor if the hands and pad level match the scale. He is on the short list of rookies who must contribute before the leaves turn."
     },
     {
-      "tag": "Secondary",
-      "title": "The slot corner is the swing job",
-      "body": "In Spagnuolo's defense the nickel is a starter. Whoever wins the slot determines how much disguise and pressure KC can throw at opposing quarterbacks."
+      "tag": "Edge Depth",
+      "title": "R. Mason Thomas and the open DE lane",
+      "body": "With 51 days marked to the Broncos and Thomas in the 51 jersey narrative, the club is telegraphing pass-rush help. The lack of a late veteran DE signing also elevates UDFA VJ Anthony from camp body to roster threat."
     },
     {
-      "tag": "Rookies",
-      "title": "Which draft pick has to play now",
-      "body": "Premium picks were spent on defense. The Chiefs need at least one rookie contributing immediately to look like themselves again."
+      "tag": "Install",
+      "title": "Reid gets his rookie camp slice back",
+      "body": "Reid voiced real satisfaction at restoring the rookies-and-quarterbacks head start after last year’s disruption. That extra teach time is scheme oxygen for a staff that needs clean communication against Denver’s openers."
     },
     {
-      "tag": "Backfield",
-      "title": "A real run game as a pressure valve",
-      "body": "An early-down run threat is what makes play-action honest and keeps the offense on schedule while Mahomes ramps up."
+      "tag": "Market Check",
+      "title": "Favorite in Week 1, long odds for January",
+      "body": "FPI and DraftKings cast KC as a modest home favorite over Denver; championship markets still price the Chiefs as a long shot. Camp performance has to close that honesty gap between September competence and February dreams."
     }
   ],
   "matchups": [
     {
-      "unit": "Chiefs pass rush vs. protection schemes",
-      "chiefs": "Chris Jones + edge rotation",
-      "opponent": "Opposing offensive lines",
+      "unit": "Mahomes timing vs. Broncos first-fire pressure",
+      "chiefs": "Patrick Mahomes + Bieniemy protection rules",
+      "opponent": "Denver edge triggers and simulated looks",
       "edge": "KC",
-      "note": "The engine that lets a young secondary play aggressive."
+      "note": "If camp builds clean feet and quick answers, Mahomes owns early downs; if the knee steals depth, Denver’s heat becomes the story."
     },
     {
-      "unit": "Chiefs secondary vs. vertical passing",
-      "chiefs": "New-look corner room",
-      "opponent": "Denver Broncos skill players",
+      "unit": "Chiefs interior DL vs. Broncos run game",
+      "chiefs": "Peter Woods and the 1-tech/3-tech rotation",
+      "opponent": "Denver zone and duo starters",
       "edge": "PUSH",
-      "note": "The slot battle is the swing; disguise buys time."
+      "note": "Woods’ 308–313 camp weight only matters if he wins first contact and keeps Spagnuolo out of obvious passing downs."
     },
     {
-      "unit": "Chiefs run game vs. loaded boxes",
-      "chiefs": "Under-center run identity",
-      "opponent": "Front seven",
-      "edge": "PUSH",
-      "note": "Early-down efficiency is the whole plan. Opening line: KC -3."
+      "unit": "Chiefs nickel vs. Broncos slot and empty",
+      "chiefs": "Open nickel competition",
+      "opponent": "Denver slot motion and bunch",
+      "edge": "OPP",
+      "note": "Until a nickel separates in St. Joseph, give the offense the edge in forcing mismatches and late substitutions."
     },
     {
-      "unit": "Mahomes' mobility vs. his own rehab clock",
-      "chiefs": "Managed snaps, quick game",
-      "opponent": "The calendar",
+      "unit": "Chiefs EDGE depth vs. Broncos OT depth",
+      "chiefs": "R. Mason Thomas / VJ Anthony developmental rush",
+      "opponent": "Broncos tackle protection",
       "edge": "PUSH",
-      "note": "The one matchup no opponent controls."
+      "note": "Camp must prove a second and third rusher can win without inventing pressure that breaks coverage behind them."
+    },
+    {
+      "unit": "Chiefs OL identity vs. Broncos front sevens",
+      "chiefs": "Under-center zone and boot protection",
+      "opponent": "Denver penetration and scrape exchanges",
+      "edge": "KC",
+      "note": "A committed inside-zone and play-action diet is still Kansas City’s best stress test for a defense that wants horizontal pursuit."
+    },
+    {
+      "unit": "Spagnuolo pressure vs. Denver RB chip/protection",
+      "chiefs": "Zone blitz and simulated pressure menu",
+      "opponent": "Broncos hot answers and backs",
+      "edge": "KC",
+      "note": "Spags’ signature look remains a Week 1 equalizer if the nickel and inside linebackers finish the teach period clean."
     }
   ],
   "xsandos": [
     {
-      "title": "Under-center play-action boot",
-      "situation": "1st & 10, early down — knee-management down",
+      "title": "Under-Center Boot After Zone Look",
+      "situation": "1st-and-10 / early script vs. Denver",
       "concept": "play_action_boot",
-      "why": "Sells the run, moves the launch point off the rush, and gives Mahomes a clean half-field read without asking the knee to climb a muddy pocket.",
-      "coaching": "Marry the boot to the actual inside-zone look you're running so the linebackers have to honor the fake.",
+      "why": "Sells downhill run, moves Mahomes off the landmark, and gives him perimeter vision without demanding a hard plant into free rushers.",
+      "coaching": "Hold the fake a full beat; TE hinge must wall the first contain so Mahomes’ first read is clean, not a scramble drill.",
       "labels": {
-        "x": "post",
-        "z": "comeback",
-        "te": "flat"
+        "x": "over route / deep cross",
+        "z": "flat / shoot",
+        "te": "hinge-then-climb"
       },
       "diagram": "images/narrative/xo-play_action_boot.svg",
       "side": "offense"
     },
     {
-      "title": "RB screen / easy offense",
-      "situation": "2nd & long or vs. heavy pressure",
-      "concept": "spacing_screen",
-      "why": "Turns an aggressive rush into a negative for the defense and gets the ball out of Mahomes' hands before the knee is ever tested.",
-      "coaching": "Sell max-protect for a beat, then release the linemen — timing is everything on the slip.",
-      "labels": {},
-      "diagram": "images/narrative/xo-spacing_screen.svg",
-      "side": "offense"
-    },
-    {
-      "title": "Under-center inside zone",
-      "situation": "1st down, establish identity",
+      "title": "Inside Zone Money Down",
+      "situation": "2nd-and-short / establish identity",
       "concept": "inside_zone",
-      "why": "The early-down run that makes the whole play-action menu honest and keeps the offense on schedule.",
-      "coaching": "One cut, get downhill — let the double-teams create the crease.",
-      "labels": {},
+      "why": "Re-centers the offense after a 6-11 year: one-cut running, OL zone steps, and play-action credit for later boot and deep shots.",
+      "coaching": "Cover down vertical seams first; back’s eyes hit the playside B gap without bouncing early and exposing Mahomes on the fake.",
+      "labels": {
+        "x": "crack / backside cut",
+        "z": "reach stalk",
+        "te": "down block / combo"
+      },
       "diagram": "images/narrative/xo-inside_zone.svg",
       "side": "offense"
     },
     {
-      "title": "Spagnuolo simulated pressure",
-      "situation": "3rd & 5+, obvious passing down",
+      "title": "Spags Simulated Pressure",
+      "situation": "3rd-and-medium / Broncos empty or 11 personnel",
       "concept": "zone_blitz",
-      "why": "Shows heat, drops a lineman into a hook, and rushes the second level to confuse protection while the coverage stays sound behind it.",
-      "coaching": "Disguise is the point: the picture pre-snap must look like man pressure even when it's zone behind it.",
-      "labels": {},
+      "why": "Shows heat, drops a lineman, and forces a hot throw into a capped window — classic Spagnuolo leverage when nickel is trustworthy.",
+      "coaching": "Nickel must know the swap rules before the snap; a missed drop turns a coverage sack into an explosive.",
+      "labels": {
+        "x": "slot #1 — trail/under",
+        "z": "boundary corner soft-pedal",
+        "te": "hook/curl wall"
+      },
       "diagram": "images/narrative/xo-zone_blitz.svg",
       "side": "defense"
+    },
+    {
+      "title": "Four Verts vs. Soft Middle",
+      "situation": "2nd-and-7 / Cover-3 tell from Denver",
+      "concept": "four_verts",
+      "why": "Stresses the deep middle hole and outside leverage once play-action has slowed linebackers — a Mahomes special when protected.",
+      "coaching": "Seam stems must bend to the hash and sit if the post safety drives; no wasted steps that bring the rush home.",
+      "labels": {
+        "x": "boundary go",
+        "z": "field go",
+        "te": "seam/bender"
+      },
+      "diagram": "images/narrative/xo-four_verts.svg",
+      "side": "offense"
     }
   ],
   "coaching": [
     {
-      "topic": "Reid + Bieniemy install",
-      "detail": "Accountability and fundamentals after a 2025 that turned on one-score games; the staff wants faster starts."
+      "topic": "Reid’s restored rookie ramp",
+      "detail": "Reid made clear he values having the rookie portion of camp again after last season’s disruption — that is deliberate install time for communication, not just walkthrough optics."
     },
     {
-      "topic": "Spagnuolo's disguise menu",
-      "detail": "Simulated pressures and two-high shells to protect a young secondary while the pass rush develops."
+      "topic": "Bieniemy early-script discipline",
+      "detail": "With Mahomes ramping from a knee injury, the OC’s job is sequenced answers: inside zone, boot, and screens before asking for extended drop heroics against Denver."
     },
     {
-      "topic": "Knee-management game plan",
-      "detail": "Script early-down runs, boots, and screens so the offense doesn't lean on hero-ball while Mahomes ramps."
+      "topic": "Spagnuolo nickel definition",
+      "detail": "The nickel battle is a coaching problem as much as a talent one — rules for simulated pressure, stack-and-bunch, and RB empty must be settled before Week 1 motion hits."
     }
   ],
   "injuries": [
     {
       "player": "Patrick Mahomes",
-      "status": "Rehab / camp ramp",
-      "note": "Returning from a torn ACL/LCL (Dec. 2025); targeting Week 1, snaps carefully managed.",
-      "source": "ESPN"
-    },
-    {
-      "player": "",
-      "status": "See report",
-      "note": "Chiefs officially place 2 players on the PUP list",
+      "status": "Full participant (brace)",
+      "note": "Cleared to practice at the open of camp; targeting full workload and Week 1 start vs. Denver while managing knee rehab mentally and physically.",
       "source": "Arrowhead Pride"
     },
     {
-      "player": "",
-      "status": "See report",
-      "note": "What we learned about Patrick Mahomes' knee from his first Chiefs camp presser",
-      "source": "Arrowhead Addict"
-    },
-    {
-      "player": "",
-      "status": "See report",
-      "note": "Andy Reid gives 6 Chiefs injury updates; Patrick Mahomes cleared to practice",
+      "player": "Two players (unnamed in wire detail)",
+      "status": "PUP",
+      "note": "Club officially placed two players on the PUP list as rookies and quarterbacks reported, aligning with Reid’s initial injury rundown.",
       "source": "Arrowhead Pride"
-    },
-    {
-      "player": "",
-      "status": "See report",
-      "note": "Chiefs 2026 training camp tracker: Latest updates, news, injuries, rumors, and more",
-      "source": "Arrowhead Addict"
     }
   ],
   "personnel": [
     {
-      "move": "OC change",
-      "detail": "Eric Bieniemy returns to run the offense."
+      "move": "Nickel starting competition",
+      "detail": "Fan surveys already peg the nickel role as the camp battle to watch — a starter-quality answer there reshapes Spagnuolo’s entire sub package menu."
     },
     {
-      "move": "Open competition at tackle",
-      "detail": "The protection plan for a rehabbing QB starts up front."
+      "move": "Peter Woods interior rotation",
+      "detail": "First-round DL Woods reporting comfort at 308–313 pounds puts him in the early-down conversation if camp tape matches the mass."
     },
     {
-      "move": "Secondary reshuffle",
-      "detail": "Outside corner and slot are the camp's most important battles."
+      "move": "R. Mason Thomas pass-rush development",
+      "detail": "Thomas is framed as a meaningful upgrade piece for the 2026 rush; camp reps will show whether he can rotate in Week 1 packages."
     },
     {
-      "move": "Defense-first draft",
-      "detail": "Premium capital was spent on pass rush and coverage flexibility."
+      "move": "VJ Anthony UDFA runway",
+      "detail": "No late veteran DE signing left a lane; Anthony is one of the cleaner undrafted bets to force roster math on the edge."
+    },
+    {
+      "move": "Nazeeh Johnson departure context",
+      "detail": "The former Chief landed in Tennessee with ex-KC corner Joshua Williams — another reminder the secondary room was reshaped and youth/newcomers must hit."
     }
   ],
   "strategies": [
-    "Open every practice report with the timeline board: Mahomes' rehab checkpoints and the countdown to Week 1.",
-    "Keep a running 'PUP explainer' so OTA/camp speculation stays grounded and useful.",
-    "Frame Bieniemy + the backfield as an identity change: under center, early-down efficiency, play-action.",
-    "Turn the defensive draft class into a snap plan — who plays early and how it protects the veteran core.",
-    "Script 'easy offense' installs (screens, spacing, boots) as the knee-management plan.",
-    "Track the slot-corner battle daily; it's the tell for how aggressive Spagnuolo can be."
+    "Script heavy under-center inside zone and boot for the first 15 plays of the Broncos opener to protect Mahomes’ timing.",
+    "Settle a nickel hierarchy by the first joint or padded week so Spagnuolo can call simulated pressure without checking out of it.",
+    "Live in 12/13 personnel periods early in camp to manufacture play-action stress while the edge rush is still finding rush lanes.",
+    "Give Woods prescribed early-down run stuff snaps; save lighter sub fronts for obvious passing downs until the hand use catches the weight.",
+    "Use spacing screens and quick game as knee-management valves when Denver shows five- and six-man pictures.",
+    "Track competitive period winners at DE daily — Thomas and Anthony need a published rotation plan before cutdown week, not after."
   ],
   "debates": [
-    "Hold Mahomes out of preseason entirely, or get him one live series to shake off the rust?",
-    "What does 'Bieniemy-ball' actually look like in 2026 — more under center, more play-action, or just cleaner details?",
-    "Which rookie MUST be ready fast for this team to flip its 2025 script?",
-    "Is a real run game the missing piece, or is it still Mahomes-or-bust?",
-    "On a scale of nervous to confident, where are you on the Week 1 knee?"
+    "Is Mahomes’ brace a non-story by Week 1 or a constraint that should shrink the deep drop menu?",
+    "Who actually wins the nickel job — and is it a coverage specialist or a pressure hybrid Spags trusts on blitz nights?",
+    "Can Peter Woods be a Week 1 early-down starter at 308–313, or is he a rotational developmental piece until midseason?",
+    "Did skipping a veteran DE leave the edge room too thin if Thomas and the UDFAs are merely fine?",
+    "With FPI and Vegas making KC a modest favorite over Denver, is the market ahead of this roster or spotting Mahomes correctly?"
   ],
   "runOfShow": [
     {
-      "segment": "Cold open — the timeline board",
-      "length": "0:00–1:15",
-      "talkTrack": "Set the stakes: Mahomes' rehab checkpoints and the Week 1 countdown."
+      "segment": "Cold open — 6-11 to St. Joe",
+      "length": "0:00-1:30",
+      "talkTrack": "Hit the scar honestly, then pivot: Mahomes cleared, rookies on the field, Broncos on the clock. No false sunshine."
     },
     {
-      "segment": "Mahomes watch + PUP explainer",
-      "length": "1:15–4:00",
-      "talkTrack": "What full participation would mean and why the PUP math matters."
+      "segment": "Mahomes rehab & offense identity",
+      "length": "1:30-5:00",
+      "talkTrack": "Brace, mental side, full participant language. Map Bieniemy’s early diet: zone, boot, easy offense. What ‘do everything I did before’ should actually look like in September."
     },
     {
-      "segment": "Bieniemy-ball film breakdown",
-      "length": "4:00–8:00",
-      "talkTrack": "Walk the under-center boot and screen diagrams; explain the identity shift."
+      "segment": "Camp battles board",
+      "length": "5:00-9:00",
+      "talkTrack": "Nickel first, then Woods’ weight, Thomas’ rush lane, VJ Anthony’s UDFA path. Tie each battle to a Week 1 responsibility."
     },
     {
-      "segment": "Camp battles — trenches & secondary",
-      "length": "8:00–11:30",
-      "talkTrack": "Right tackle and slot corner; who's rising, who's on the bubble."
+      "segment": "X’s and O’s telestrate",
+      "length": "9:00-13:00",
+      "talkTrack": "Show play-action boot and inside zone for Mahomes; flip to Spags zone blitz once nickel is defined. Keep it Broncos-specific."
     },
     {
-      "segment": "Defensive X&O",
-      "length": "11:30–14:00",
-      "talkTrack": "Spagnuolo's simulated pressure and how it protects the young DBs."
+      "segment": "Market honesty check",
+      "length": "13:00-15:00",
+      "talkTrack": "FPI ~59% and KC -3 vs Denver versus single-digit title odds. Separate September competence from Super Bowl mythology."
     },
     {
-      "segment": "Look ahead + fan debates",
-      "length": "14:00–16:00",
-      "talkTrack": "Tee up the opener and read the top viewer debates on screen."
+      "segment": "Debates & look-ahead",
+      "length": "15:00-17:30",
+      "talkTrack": "Pose nickel and edge questions to chat; close with Colts home and Miami road as the real exam after MNF."
     }
   ],
   "sources": [
     {
-      "title": "Chiefs rookie Peter Woods is comfortable at 308 – 313 pounds in camp",
+      "title": "Patrick Mahomes plans to do everything he did before for the Chiefs",
       "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/205941/chiefs-rookie-peter-woods-comfortable-308-313-pounds-camp",
-      "note": "The Kansas City Chiefs’ first practice of training camp consisted solely of rookies, quarterbacks and select veterans, as it will for the ne"
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/205883/patrick-mahomes-plans-everything-before-chiefs-offense",
+      "note": "Primary Mahomes rehab and Week 1 intent quotes."
     },
     {
-      "title": "Dale Carter's rise and fall doesn't diminish his Chiefs legacy at No. 34",
-      "publisher": "Arrowhead Addict",
-      "url": "https://arrowheadaddict.com/dale-carter-s-rise-and-fall-doesn-t-diminish-his-chiefs-legacy-at-no-34-01kycptdy82k?utm_source=RSS",
-      "note": "The No. 34 brings up memories of excellent defensive backs for Kansas City Chiefs, including one who was hidden in the shadows for the full"
-    },
-    {
-      "title": "July ‘Reacts’ poll: Chiefs’ fans are intrigued by battle for Nickel role",
+      "title": "Andy Reid gives 6 Chiefs injury updates; Patrick Mahomes cleared to practice",
       "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/nfl-reacts-survey/205933/july-results-chiefs-fans-intrigued-battle-nickel-role",
-      "note": "Welcome to SB Nation Reacts, a survey of fans across the NFL. Each week, we send out questions to the most plugged-in Kansas City Chiefs fan"
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/205876/andy-reid-gives-6-chiefs-injury-updates-patrick-mahomes-cleared-to-practice",
+      "note": "Confirms Mahomes clearance and Reid’s opening injury frame."
     },
     {
       "title": "Chiefs officially place 2 players on the PUP list",
       "publisher": "Arrowhead Pride",
       "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/205925/chiefs-officially-place-2-players-on-the-pup-list",
-      "note": "On Friday — as the Kansas City Chiefs saw their rookies, quarterbacks and selected veterans report to training camp — head coach Andy Reid o"
+      "note": "Documents the two-player PUP move at the start of camp."
+    },
+    {
+      "title": "Chiefs rookie Peter Woods is comfortable at 308 – 313 pounds in camp",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/205941/chiefs-rookie-peter-woods-comfortable-308-313-pounds-camp",
+      "note": "Establishes Woods’ camp playing weight after day one."
+    },
+    {
+      "title": "July ‘Reacts’ poll: Chiefs’ fans are intrigued by battle for Nickel role",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/nfl-reacts-survey/205933/july-results-chiefs-fans-intrigued-battle-nickel-role",
+      "note": "Shows nickel as the marquee camp competition in fan data."
     },
     {
       "title": "Andy Reid pleased with having rookie portion of Chiefs camp again",
       "publisher": "Arrowhead Pride",
       "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/205909/andy-reid-pleased-having-rookie-portion-chiefs-camp-again",
-      "note": "Rookies and quarterbacks for the Kansas City Chiefs reported to Missouri Western State University in St. Joseph on Friday for the initial pa"
+      "note": "Context for the restored rookies/QBs head start in St. Joseph."
     },
     {
       "title": "51 Days until Chiefs football, we are ‘R Mason Thomas’ days away",
       "publisher": "Arrowhead Pride",
       "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/205910/51-days-until-chiefs-football-r-mason-thomas-days-away",
-      "note": "We are 51 days away from the Kansas City Chiefs‘ season-opening game against the Denver Broncos on “Monday Night Football” in Week 1. The No"
+      "note": "Frames Thomas as a pass-rush piece on the Week 1 countdown."
     },
     {
       "title": "Why VJ Anthony is one Chiefs UDFA worth watching this summer",
       "publisher": "Arrowhead Addict",
       "url": "https://arrowheadaddict.com/why-vj-anthony-is-one-chiefs-udfa-worth-watching-this-summer?utm_source=RSS",
-      "note": "Kansas City never made that last veteran signing to the defensive end spot after the draft. As a result, VJ Anthony has one of the better sh"
+      "note": "Explains the open DE lane elevating an undrafted edge."
     },
     {
-      "title": "Chiefs News: Former Chiefs player Jordan Devey passes at 38 years old",
-      "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/205899/chiefs-news-former-chiefs-player-jordan-devey-passes-38-years-old",
-      "note": "The latest It is very sad to hear the news that former Kansas City Chiefs offensive lineman Jordan Devey passed away on Friday, July 24th, a"
+      "title": "What we learned about Patrick Mahomes' knee from his first Chiefs camp presser",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/what-we-learned-about-patrick-mahomes-knee-from-first-chiefs-camp-presser?utm_source=RSS",
+      "note": "Details brace usage and mental side of the return."
+    },
+    {
+      "title": "Chiefs Quarterbacks, Rookies and Select Veterans Report to Training Camp",
+      "publisher": "Chiefs.com",
+      "url": "https://www.chiefs.com/news/chiefs-quarterbacks-rookies-and-select-veterans-report-to-training-camp",
+      "note": "Official marker that the camp calendar has started."
     }
   ]
 }
