@@ -30,25 +30,62 @@ def _slugify(text: str) -> str:
     return text or "play"
 
 
+def _ensure_six_xsandos(narrative: dict, signals: dict, ph: dict, upcoming: list) -> None:
+    """Guarantee exactly six X&O cards.
+
+    The prompt demands six, but if a writer under-delivers we top up from the
+    offline writer's phase-aware cards, preferring concepts not already used.
+    """
+    want = 6
+    cards = narrative.get("xsandos") or []
+    if len(cards) >= want:
+        narrative["xsandos"] = cards[:want]
+        return
+    pool = schema._norm_xsandos(offline.write(signals, ph, upcoming).get("xsandos"))
+    used = {c["concept"] for c in cards}
+    for card in pool:  # distinct concepts first
+        if len(cards) >= want:
+            break
+        if card["concept"] not in used:
+            cards.append(card)
+            used.add(card["concept"])
+    for card in pool:  # last resort: allow a repeated concept
+        if len(cards) >= want:
+            break
+        cards.append(card)
+    narrative["xsandos"] = cards
+
+
+def _edition_slug(narrative: dict) -> str:
+    """Stable per-edition slug from the generation timestamp, e.g. 2026-07-25-1930."""
+    stamp = (narrative.get("generatedAt") or config.iso_now())[:16]  # YYYY-MM-DDTHH:MM
+    return stamp.replace("T", "-").replace(":", "")
+
+
 def _render_diagrams(narrative: dict) -> None:
-    """Render each X&O concept to an SVG and attach the file path + side."""
+    """Render each X&O concept to an SVG and attach the file path + side.
+
+    Diagrams live in a per-edition directory so archived editions keep their
+    own boards instead of being overwritten by the next day's run.
+    """
     config.ensure_dirs()
+    edition = narrative.get("slug") or _edition_slug(narrative)
+    out_dir = config.DIAGRAM_DIR / edition
     used = {}
     for i, xo in enumerate(narrative.get("xsandos", []), 1):
         concept = xo.get("concept", diagrams.DEFAULT_CONCEPT)
-        # Unique slug per edition; concept can repeat across editions (overwrite OK).
         base = f"xo-{concept}"
         slug = base if base not in used else f"{base}-{i}"
         used[base] = True
         info = diagrams.write_diagram(
-            config.DIAGRAM_DIR,
+            out_dir,
             slug,
             concept,
             labels=xo.get("labels"),
             title=xo.get("title"),
             blurb=xo.get("why") or None,
         )
-        xo["diagram"] = info["file"]
+        xo["diagram"] = f"images/narrative/{edition}/{slug}.svg"
         xo["side"] = info["side"]
 
 
@@ -63,6 +100,7 @@ def _write_archive(narrative: dict) -> None:
 
     snapshot = {
         "generatedAt": narrative["generatedAt"],
+        "slug": narrative.get("slug", ""),
         "edition": narrative["edition"],
         "phase": narrative["phase"]["label"],
         "headline": narrative["headline"],
@@ -130,8 +168,10 @@ def build(provider_name: str | None = None) -> dict:
         "markets": signals.get("markets", {}),
     }
     narrative = schema.normalize(raw, phase=ph, meta=meta)
+    narrative["slug"] = _edition_slug(narrative)
 
-    # 6. Render diagrams and attach files.
+    # 6. Guarantee six X&O cards, then render diagrams and attach files.
+    _ensure_six_xsandos(narrative, signals, ph, upcoming)
     _render_diagrams(narrative)
 
     return {"narrative": narrative, "schedule": schedule}
@@ -151,9 +191,10 @@ def main(argv=None) -> int:
         return 0
 
     config.ensure_dirs()
-    config.NARRATIVE_JSON.write_text(
-        json.dumps(narrative, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+    payload = json.dumps(narrative, indent=2, ensure_ascii=False) + "\n"
+    config.NARRATIVE_JSON.write_text(payload, encoding="utf-8")
+    # Full copy per edition so archived editions stay viewable as their own pages.
+    (config.EDITIONS_DIR / f"{narrative['slug']}.json").write_text(payload, encoding="utf-8")
     _write_archive(narrative)
     _write_schedule(result["schedule"])
 

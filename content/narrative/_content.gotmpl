@@ -1,0 +1,15 @@
+{{/* Build one page per archived Chiefs Narrative edition from
+     data/narrative_editions/<slug>.json. Pages render at /narrative/<slug>/
+     via layouts/narrative/edition.html. */}}
+{{ with .Site.Data.narrative_editions }}
+  {{ range $slug, $edition := . }}
+    {{ $.AddPage (dict
+        "path" $slug
+        "kind" "page"
+        "layout" "edition"
+        "title" (printf "%s — %s" ($edition.edition | default "Chiefs Narrative") ($edition.headline | default $slug))
+        "dates" (dict "date" (time.AsTime $edition.generatedAt))
+        "params" (dict "active" "narrative" "slug" $slug)
+    ) }}
+  {{ end }}
+{{ end }}

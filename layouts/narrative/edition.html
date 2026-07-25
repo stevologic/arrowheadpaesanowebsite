@@ -1,0 +1,17 @@
+{{ define "main" }}
+{{/* An archived Chiefs Narrative edition, built from data/narrative_editions/<slug>.json */}}
+{{ $slug := .Params.slug }}
+{{ $n := index .Site.Data.narrative_editions $slug }}
+{{ $archive := .Site.Data.narrative_archive }}
+
+{{ with $n }}
+{{ partial "narrative-edition.html" (dict
+    "n" .
+    "site" $.Site
+    "isCurrent" false
+    "archive" $archive
+    "currentSlug" $slug) }}
+{{ else }}
+<section class="page-head"><span class="kicker">The Chiefs Narrative</span><h1>Edition not found.</h1><p class="lede"><a href="{{ "narrative/" | relURL }}">Back to the current edition</a></p></section>
+{{ end }}
+{{ end }}

@@ -165,6 +165,6 @@ def _norm_xsandos(value) -> list[dict]:
                 # diagram file + side filled in during rendering
             }
         )
-        if len(out) >= 4:
+        if len(out) >= 6:
             break
     return out
