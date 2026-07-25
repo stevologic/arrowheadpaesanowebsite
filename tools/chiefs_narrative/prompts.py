@@ -107,10 +107,13 @@ def _schema_hint(phase: dict) -> str:
             "xsandos": [
                 {
                     "title": "play/scheme title",
-                    "situation": "down/distance/context",
-                    "concept": "one allowed concept key",
-                    "why": "why it works here",
-                    "coaching": "the coaching point",
+                    "situation": "down/distance/context vs. THIS opponent",
+                    "concept": "one allowed concept key — each of the 6 cards uses a different key",
+                    "why": "why this call wins NOW — tie it to named players, current "
+                           "injuries/availability, personnel battles, and the matchup "
+                           "edges in this edition",
+                    "coaching": "the film-room coaching point, specific to the players "
+                                "who will execute it",
                     "labels": {"x": "route", "z": "route", "te": "route"},
                 }
             ],
@@ -195,7 +198,14 @@ def build_user_prompt(signals: dict, phase: dict, next_games: list[dict]) -> str
             _concept_menu(),
             "Return JSON with EXACTLY these keys (values are hints, replace them):\n"
             + _schema_hint(phase),
-            "Rules: 3-4 xsandos max (mix offense + defense). 4-6 matchups. "
+            "Rules: EXACTLY 6 xsandos cards — four offense, two defense — each "
+            "using a DIFFERENT allowed concept key. Every card must earn its "
+            "place in this edition: ground the situation, 'why', and coaching "
+            "point in the current facts above — the upcoming opponent, injuries "
+            "and availability, personnel/camp battles, coaching tendencies, and "
+            "the strengths and weaknesses driving your matchup edges — and name "
+            "the specific players or coaches involved. No generic filler that "
+            "could run any week. 4-6 matchups. "
             "5-8 spotlight/strategies/debates. Every injuries[].source and every "
             "sources[] entry must correspond to a provided news item or be omitted. "
             "Output ONLY the JSON object.",

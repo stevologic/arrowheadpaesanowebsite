@@ -16,6 +16,7 @@ DIAGRAM_DIR = PUBLIC_DIR / "images" / "narrative"
 
 NARRATIVE_JSON = DATA_DIR / "narrative.json"
 ARCHIVE_JSON = DATA_DIR / "narrative_archive.json"
+EDITIONS_DIR = DATA_DIR / "narrative_editions"
 SCHEDULE_JSON = DATA_DIR / "schedule_2026.json"
 
 SCHEMA_VERSION = 1
@@ -70,3 +71,4 @@ def env(name: str, default: str = "") -> str:
 def ensure_dirs() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     DIAGRAM_DIR.mkdir(parents=True, exist_ok=True)
+    EDITIONS_DIR.mkdir(parents=True, exist_ok=True)

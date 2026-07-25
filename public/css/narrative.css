@@ -185,6 +185,19 @@
 .nrt-timeline__phase { font-family: var(--grotesk); font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #8a8590; }
 .nrt-timeline__item strong { display: block; font-family: var(--serif); font-weight: 700; font-size: 17px; color: var(--nrt-ink); margin: 4px 0; line-height: 1.25; }
 .nrt-timeline__item p { margin: 0; font-size: 14px; color: #6a6572; line-height: 1.5; }
+.nrt-timeline__item { display: block; }
+.nrt-timeline__link { display: grid; grid-template-columns: 92px 1fr; gap: 20px; text-decoration: none; color: inherit; }
+a.nrt-timeline__link { cursor: pointer; border-radius: 10px; margin: -6px; padding: 6px; transition: background .18s ease; }
+a.nrt-timeline__link:hover { background: rgba(227, 24, 55, .05); }
+a.nrt-timeline__link:hover strong { color: var(--nrt-red); }
+.nrt-timeline__open { display: inline-block; margin-top: 8px; font-family: var(--grotesk); font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--nrt-red); }
+.nrt-timeline__item--current .nrt-timeline__open { color: #8a8590; }
+.nrt-timeline__item--current { background: rgba(255, 184, 28, .07); border-radius: 10px; }
+.nrt-timeline__pager { display: flex; align-items: center; justify-content: center; gap: 18px; margin-top: 22px; }
+.nrt-timeline__pager button[disabled] { opacity: .4; cursor: default; pointer-events: none; }
+.nrt-timeline__pagenum { font-family: var(--grotesk); font-size: 12px; font-weight: 700; letter-spacing: .06em; color: #8a8590; }
+.nrt-archive-note { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 22px; background: var(--nrt-gold); color: var(--nrt-ink); font-family: var(--grotesk); font-size: 13px; font-weight: 700; letter-spacing: .02em; }
+.nrt-archive-note a { color: var(--nrt-ink); text-decoration: underline; text-underline-offset: 3px; }
 
 /* ---------------- COLOPHON ---------------- */
 .nrt-colophon { background: var(--nrt-ink); color: rgba(255, 255, 255, .8); }

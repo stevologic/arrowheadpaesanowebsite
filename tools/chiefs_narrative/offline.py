@@ -209,6 +209,16 @@ def _camp(signals, phase, next_games) -> dict:
                 "keeps the offense on schedule.",
          "coaching": "One cut, get downhill — let the double-teams create the crease.",
          "labels": {}},
+        {"concept": "four_verts",
+         "title": "Play-action four verts — the timing test",
+         "situation": "2nd & 6 vs. single-high — the scheduled deep shot",
+         "why": "The rehab ramp isn't real until the deep timing is: verts off a run "
+                "fake test Mahomes' rhythm and the seam benders against the single-high "
+                "looks Denver leans on, with the linebackers held by the fake.",
+         "coaching": "Throw on schedule from the top of the drop — if the post safety "
+                     "takes the seam, the ball comes out to the bender. No second "
+                     "hitch; the knee never has to reset.",
+         "labels": {"x": "boundary go", "z": "field go", "te": "seam/bender"}},
         {"concept": "zone_blitz",
          "title": "Spagnuolo simulated pressure",
          "situation": "3rd & 5+, obvious passing down",
@@ -216,6 +226,15 @@ def _camp(signals, phase, next_games) -> dict:
                 "confuse protection while the coverage stays sound behind it.",
          "coaching": "Disguise is the point: the picture pre-snap must look like man "
                      "pressure even when it's zone behind it.",
+         "labels": {}},
+        {"concept": "cover_two",
+         "title": "Two-high insurance for a young secondary",
+         "situation": "Shot-play downs while the nickel job is unsettled",
+         "why": "Until the slot battle resolves, two deep halves cap the vertical game "
+                "and let Chris Jones and the front four win the down — no freebies "
+                "over first-year corners in September.",
+         "coaching": "Corners sink hard and funnel inside; safeties overlap the post. "
+                     "Give up the checkdown, rally and tackle — never the shot.",
          "labels": {}},
     ]
 
@@ -325,6 +344,21 @@ def _generic(signals, phase, next_games) -> dict:
         edition = phase.get("edition")
 
     xsandos = [
+        {"concept": "inside_zone", "title": "Inside zone — stay on schedule",
+         "situation": "1st down / 2nd & short",
+         "why": "Early-down efficiency keeps the play-action and boot menu honest and "
+                "the offense out of obvious passing downs — where opponents want it.",
+         "coaching": "One cut, downhill — let the double-teams move the line and take "
+                     "the four yards every time.",
+         "labels": {}},
+        {"concept": "play_action_boot", "title": "Under-center boot — the early-down answer",
+         "situation": f"1st & 10 off a run look vs. {opp}",
+         "why": "Moves the launch point away from the rush and gives a defined "
+                "half-field read — the cheapest explosive in the menu once the run "
+                "game has landed.",
+         "coaching": "The fake has to match the run action on tape or the backside "
+                     "end never bites.",
+         "labels": {"x": "deep cross", "z": "flat", "te": "hinge-climb"}},
         {"concept": "four_verts", "title": "4 verticals vs. Cover 3",
          "situation": "2nd & medium, spread look",
          "why": "Stretches the deep zones and forces the safety to choose — a staple "
@@ -337,6 +371,13 @@ def _generic(signals, phase, next_games) -> dict:
                 "with an RB checkdown as the outlet.",
          "coaching": "Set the mesh depth tight so the pick is legal and natural.",
          "labels": {"x": "corner", "z": "sit"}},
+        {"concept": "zone_blitz", "title": "Simulated pressure on the money down",
+         "situation": "3rd & 5-8, protection stressed",
+         "why": "Five-man picture, four-man rush: force the hot throw into a capped "
+                "window without selling out the coverage behind it.",
+         "coaching": "The dropper must land in the throwing lane the protection "
+                     "leaves open — that's where the hot ball goes.",
+         "labels": {}},
         {"concept": "cover_two", "title": "Spagnuolo Cover-2 shell",
          "situation": "Protect a lead / obvious passing down",
          "why": "Takes the top off, rallies to tackle, and dares the offense to be "
