@@ -84,7 +84,7 @@ def _chat_completions(label: str, base: str, key: str, model: str,
             f"{base.rstrip('/')}/chat/completions",
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
             json=payload,
-            timeout=120,
+            timeout=llm_timeout(),
         )
 
     payload = {
@@ -131,6 +131,15 @@ GROK_DEFAULT_MODEL = "grok-4"
 GROK_DEFAULT_BASE = "https://api.x.ai/v1"
 
 
+def llm_timeout() -> int:
+    """HTTP read timeout for LLM calls. A full six-card edition can take a
+    frontier model well past two minutes, so default generously."""
+    try:
+        return int(config.env("LLM_TIMEOUT") or 300)
+    except ValueError:
+        return 300
+
+
 def grok_key() -> str:
     """Accept either XAI_API_KEY or GROK_API_KEY."""
     return config.env("XAI_API_KEY") or config.env("GROK_API_KEY")
@@ -163,12 +172,12 @@ def _anthropic(system: str, user: str) -> str:
         },
         json={
             "model": model,
-            "max_tokens": 4096,
+            "max_tokens": 8192,
             "temperature": 0.55,
             "system": system,
             "messages": [{"role": "user", "content": user}],
         },
-        timeout=120,
+        timeout=llm_timeout(),
     )
     if resp.status_code >= 400:
         raise ProviderError(f"Anthropic {resp.status_code}: {resp.text[:300]}")
