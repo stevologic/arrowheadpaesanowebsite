@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Arrowhead Paesano">
+  <defs>
+    <linearGradient id="ap-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E31837"/>
+      <stop offset="1" stop-color="#A40E25"/>
+    </linearGradient>
+    <linearGradient id="ap-gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFD460"/>
+      <stop offset="1" stop-color="#FFB81C"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded square background -->
+  <rect x="0" y="0" width="400" height="400" rx="56" fill="url(#ap-bg)"/>
+
+  <!-- Soft top highlight -->
+  <rect x="0" y="0" width="400" height="200" rx="56" fill="rgba(255,255,255,.06)"/>
+
+  <!-- Decorative top arc -->
+  <path d="M 60 56 Q 200 26 340 56" stroke="rgba(255,255,255,.18)" stroke-width="2" fill="none"/>
+
+  <!-- Arrowhead crest -->
+  <g transform="translate(200 162)">
+    <!-- Outer ring -->
+    <circle cx="0" cy="0" r="86" fill="rgba(0,0,0,.18)"/>
+    <circle cx="0" cy="0" r="80" fill="#0E0E10"/>
+    <circle cx="0" cy="0" r="80" fill="none" stroke="url(#ap-gold)" stroke-width="3"/>
+    <!-- Arrowhead -->
+    <path d="M 0 -50 L 56 36 L 32 36 L 0 -2 L -32 36 L -56 36 Z"
+          fill="url(#ap-gold)" stroke="#1A1A1A" stroke-width="2" stroke-linejoin="round"/>
+    <!-- Small AP monogram -->
+    <text x="0" y="60" text-anchor="middle"
+          font-family="'Bebas Neue', Impact, sans-serif"
+          font-size="20" letter-spacing="6" fill="rgba(255,255,255,.7)" font-weight="700">EST · KC</text>
+  </g>
+
+  <!-- Wordmark banner -->
+  <g>
+    <rect x="20" y="280" width="360" height="100" rx="14" fill="#0E0E10"/>
+    <rect x="20" y="280" width="360" height="100" rx="14" fill="none" stroke="url(#ap-gold)" stroke-width="3"/>
+    <text x="200" y="332" text-anchor="middle"
+          font-family="'Bebas Neue', Impact, sans-serif"
+          font-size="48" letter-spacing="6" fill="#FFFFFF" font-weight="700">ARROWHEAD</text>
+    <text x="200" y="364" text-anchor="middle"
+          font-family="'Bebas Neue', Impact, sans-serif"
+          font-size="20" letter-spacing="16" fill="#FFB81C" font-weight="600">PAESANO</text>
+  </g>
+</svg>
