@@ -9,6 +9,7 @@ name: Chiefs Narrative (daily)
 #   * Otherwise the deterministic offline writer produces a complete, cited edition.
 # Nothing is required for this to run; add XAI_API_KEY or OPENAI_API_KEY (and
 # optionally ODDS_API_KEY) as repository secrets to upgrade the writing.
+# Optional repository variable GROK_MODEL selects the xAI model (default grok-4.6).
 # Force one with the workflow_dispatch "provider" input (e.g. grok).
 
 on:
@@ -62,7 +63,13 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-        run: python -m tools.chiefs_narrative.generate
+        run: |
+          python - <<'PY'
+          from tools.chiefs_narrative.providers import grok_model
+          print(f"GROK_MODEL env={__import__('os').environ.get('GROK_MODEL', '')!r}")
+          print(f"resolved grok model={grok_model()}")
+          PY
+          python -m tools.chiefs_narrative.generate
 
       - name: Detect changes
         id: diff

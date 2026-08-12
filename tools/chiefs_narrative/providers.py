@@ -127,7 +127,7 @@ def openai_model() -> str:
 
 # --- Grok (xAI) -----------------------------------------------------------
 # xAI ships an OpenAI-compatible API, so it reuses the same helper.
-GROK_DEFAULT_MODEL = "grok-4"
+GROK_DEFAULT_MODEL = "grok-4.6"
 GROK_DEFAULT_BASE = "https://api.x.ai/v1"
 
 

@@ -8,8 +8,9 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from tools.chiefs_narrative import diagrams, generate, offline, prompts, schema
+from tools.chiefs_narrative import diagrams, generate, offline, prompts, providers, schema
 
 # Canned inputs: the writers only use .get() lookups, so minimal dicts work.
 CAMP_PHASE = {"type": "training-camp", "label": "Training Camp",
@@ -80,6 +81,31 @@ class EditionSlugs(unittest.TestCase):
     def test_slug_is_derived_from_timestamp(self):
         slug = generate._edition_slug({"generatedAt": "2026-07-25T19:30:00+00:00"})
         self.assertEqual(slug, "2026-07-25-1930")
+
+
+class GrokModelSelection(unittest.TestCase):
+    """GROK_MODEL (or XAI_MODEL) must resolve to grok-4.6 unless overridden."""
+
+    def test_default_is_grok_4_6(self):
+        with patch.dict("os.environ", {}, clear=True):
+            self.assertEqual(providers.GROK_DEFAULT_MODEL, "grok-4.6")
+            self.assertEqual(providers.grok_model(), "grok-4.6")
+
+    def test_grok_model_env_wins(self):
+        with patch.dict("os.environ", {"GROK_MODEL": "grok-4.6", "XAI_MODEL": "ignored"}, clear=True):
+            self.assertEqual(providers.grok_model(), "grok-4.6")
+
+    def test_xai_model_used_when_grok_model_unset(self):
+        with patch.dict("os.environ", {"XAI_MODEL": "grok-4.6"}, clear=True):
+            self.assertEqual(providers.grok_model(), "grok-4.6")
+
+    def test_blank_grok_model_falls_back_to_default(self):
+        with patch.dict("os.environ", {"GROK_MODEL": "  ", "XAI_MODEL": ""}, clear=True):
+            self.assertEqual(providers.grok_model(), "grok-4.6")
+
+    def test_workflow_passes_repository_variable(self):
+        yaml = (Path(__file__).resolve().parents[2] / ".github" / "workflows" / "narrative.yml").read_text(encoding="utf-8")
+        self.assertIn("GROK_MODEL: ${{ vars.GROK_MODEL }}", yaml)
 
 
 if __name__ == "__main__":
