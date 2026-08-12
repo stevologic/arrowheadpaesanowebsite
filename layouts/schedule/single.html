@@ -1,0 +1,75 @@
+{{ define "main" }}
+{{ $all := site.Data.schedule_2026 }}
+{{ $pre := where $all "seasonType" "pre" }}
+{{ $reg := where $all "seasonType" "reg" }}
+{{ $home := where $all "homeAway" "home" }}
+{{ $away := where $all "homeAway" "away" }}
+
+<section class="sched-hero">
+  <div class="sched-hero__copy">
+    <span class="kicker kicker--gold">Kansas City Chiefs</span>
+    <h1>2026 schedule</h1>
+    <p>Every dress rehearsal and every Sunday that counts. Kickoffs in Central Time. Home is Arrowhead.</p>
+    <div class="sched-hero__jump">
+      <a class="btn btn-gold" href="#preseason">Preseason <span aria-hidden="true">↓</span></a>
+      <a class="btn btn-paper" href="#regular">Regular season <span aria-hidden="true">↓</span></a>
+    </div>
+  </div>
+  <div class="sched-hero__board" aria-label="Schedule snapshot">
+    <div><strong>{{ len $pre }}</strong><span>Preseason</span></div>
+    <div><strong>{{ len $reg }}</strong><span>Regular season</span></div>
+    <div><strong>{{ len $home }}</strong><span>Home</span></div>
+    <div><strong>{{ len $away }}</strong><span>Road</span></div>
+  </div>
+</section>
+
+{{ with $pre }}
+<section class="sched-block" id="preseason">
+  <div class="sched-block__head">
+    <span class="kicker">Dress rehearsals</span>
+    <h2>Preseason</h2>
+    <p>Roster bullets, not style points. The first live snaps of 2026.</p>
+  </div>
+  <div class="sched-table" role="table" aria-label="2026 Chiefs preseason">
+    <div class="sched-table__head" role="row">
+      <span>Week</span><span>Opp</span><span>When</span><span>Where</span><span>TV</span>
+    </div>
+    {{ range . }}
+      {{ partial "schedule-row.html" . }}
+    {{ end }}
+  </div>
+</section>
+{{ end }}
+
+{{ with $reg }}
+<section class="sched-block" id="regular">
+  <div class="sched-block__head">
+    <span class="kicker">The season that counts</span>
+    <h2>Regular season</h2>
+    <p>Week 1 is Monday night Denver at Arrowhead. The bye is Week 5.</p>
+  </div>
+  <div class="sched-table" role="table" aria-label="2026 Chiefs regular season">
+    <div class="sched-table__head" role="row">
+      <span>Week</span><span>Opp</span><span>When</span><span>Where</span><span>TV</span>
+    </div>
+    {{ $prev := 0 }}
+    {{ range . }}
+      {{ if and $prev (gt (sub .week $prev) 1) }}
+        {{ $bye := add $prev 1 }}
+        <div class="sched-row sched-row--bye" role="row">
+          <span class="sched-row__week">Week {{ $bye }}</span>
+          <strong class="sched-row__opp">Bye</strong>
+          <span class="sched-row__when">Open date</span>
+          <span class="sched-row__where">—</span>
+          <span class="sched-row__tv">—</span>
+        </div>
+      {{ end }}
+      {{ partial "schedule-row.html" . }}
+      {{ $prev = .week }}
+    {{ end }}
+  </div>
+</section>
+{{ end }}
+
+<p class="sched-note">Times from ESPN. Flex games (late-season windows without a network yet) show Time TBD. Updated with the daily Chiefs Narrative desk.</p>
+{{ end }}

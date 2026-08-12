@@ -1,0 +1,20 @@
+{{- $when := .kickoff | default .date -}}
+{{- if in (printf "%s" .date) "T05:00:00Z" -}}
+  {{- $when = replace $when "11:00 PM CT" "Time TBD" -}}
+{{- end -}}
+{{- $ha := cond (eq .homeAway "home") "vs" "@" -}}
+{{- $where := cond (eq .homeAway "home") "Arrowhead" (.venue | default "TBD") -}}
+{{- $tv := .tv | default "TBD" -}}
+{{- $week := "" -}}
+{{- if eq .seasonType "pre" -}}
+  {{- $week = printf "PRE %v" (.week | default "") -}}
+{{- else -}}
+  {{- $week = printf "Week %v" (.week | default "") -}}
+{{- end -}}
+<div class="sched-row{{ if eq .homeAway "home" }} sched-row--home{{ end }}{{ if .completed }} sched-row--done{{ end }}" role="row">
+  <span class="sched-row__week">{{ $week }}</span>
+  <strong class="sched-row__opp"><abbr title="{{ if eq .homeAway "home" }}Home{{ else }}Away{{ end }}">{{ $ha }}</abbr> {{ .opponent }}</strong>
+  <span class="sched-row__when">{{ $when }}</span>
+  <span class="sched-row__where">{{ $where }}</span>
+  <span class="sched-row__tv">{{ $tv }}</span>
+</div>

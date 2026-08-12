@@ -286,6 +286,28 @@ class SeasonClock(unittest.TestCase):
         self.assertIn("site.Data.schedule_2026", slate)
         self.assertIn("site.Data.wire", wire)
 
+    def test_schedule_page_lists_preseason_and_regular(self):
+        root = Path(__file__).resolve().parents[2]
+        page = (root / "layouts" / "schedule" / "single.html").read_text(encoding="utf-8")
+        row = (root / "layouts" / "partials" / "schedule-row.html").read_text(encoding="utf-8")
+        nav = (root / "hugo.yaml").read_text(encoding="utf-8")
+        md = (root / "content" / "schedule.md").read_text(encoding="utf-8")
+        self.assertIn('where $all "seasonType" "pre"', page)
+        self.assertIn('where $all "seasonType" "reg"', page)
+        self.assertIn("Bye", page)
+        self.assertIn(".opponent", row)
+        self.assertIn('href: "schedule/"', nav)
+        self.assertIn("active: \"schedule\"", md)
+
+        games = json.loads((root / "data" / "schedule_2026.json").read_text(encoding="utf-8"))
+        pre = [g for g in games if g.get("seasonType") == "pre"]
+        reg = [g for g in games if g.get("seasonType") == "reg"]
+        self.assertEqual(len(pre), 3)
+        self.assertGreaterEqual(len(reg), 17)
+        self.assertTrue(any(g.get("opponentAbbr") == "LAR" for g in pre))
+        self.assertTrue(any(g.get("week") == 1 and g.get("opponentAbbr") == "DEN" for g in reg))
+        self.assertNotIn(5, {g.get("week") for g in reg})
+
 
 if __name__ == "__main__":
     unittest.main()
