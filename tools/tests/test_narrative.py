@@ -317,6 +317,14 @@ class SeasonClock(unittest.TestCase):
         self.assertIn('partial "season-slate.html"', edition)
         self.assertIn(".game", edition)
         self.assertIn("Upcoming game", edition)
+        watch = (root / "layouts" / "youtube" / "single.html").read_text(encoding="utf-8")
+        self.assertIn("watch-onair", watch)
+        self.assertIn("watch-monitor", watch)
+        watch_css = (root / "public" / "css" / "v2.css").read_text(encoding="utf-8")
+        stage = watch_css[watch_css.find(".yt-stage--watch"):watch_css.find(".yt-stage--watch") + 220]
+        self.assertNotIn("18px 20px 0 var(--ap-red)", stage)
+        cta = watch_css[watch_css.find(".watch-final-cta {"):watch_css.find(".watch-final-cta {") + 420]
+        self.assertNotIn("var(--ap-red)", cta)
         self.assertIn("site.Data.schedule_2026", slate)
         self.assertIn("site.Data.wire", wire)
         self.assertIn("slate-game__ha", slate)
