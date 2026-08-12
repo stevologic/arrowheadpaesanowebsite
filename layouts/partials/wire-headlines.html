@@ -4,10 +4,10 @@
 {{- with site.Data.wire -}}
 {{- if .headlines -}}
 <div class="wire-headlines" aria-label="Today's Chiefs headlines">
-  {{- range first 6 .headlines -}}
-  <a class="wire-item" href="{{ .url }}" target="_blank" rel="noopener">
-    <span class="wire-item__src">{{ .publisher }}</span>
-    <strong class="wire-item__title">{{ .title }}</strong>
+  {{- range $i, $item := first 6 .headlines -}}
+  <a class="wire-item{{ if eq $i 0 }} wire-item--lead{{ end }}" href="{{ $item.url }}" target="_blank" rel="noopener">
+    <span class="wire-item__src">{{ $item.publisher }}</span>
+    <strong class="wire-item__title">{{ $item.title }}</strong>
   </a>
   {{- end -}}
 </div>

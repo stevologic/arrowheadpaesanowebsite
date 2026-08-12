@@ -752,11 +752,22 @@ section[id] { scroll-margin-top: 105px; }
 .yt-grid--watch .yt-card { border-radius: 10px; border-color: var(--ap-border); box-shadow: 0 5px 0 rgba(13, 12, 13, .08); }
 .yt-grid--watch .yt-card.is-playing { box-shadow: 0 7px 0 var(--ap-red); }
 
-.shorts-section { background: var(--ap-red); color: #fff; }
+.shorts-section {
+  background:
+    linear-gradient(180deg, rgba(13, 12, 13, .03), transparent 40%),
+    var(--ap-cream);
+  color: var(--ap-black);
+  border-top: 1px solid var(--ap-border);
+  border-bottom: 1px solid var(--ap-border);
+}
 .shorts-section__inner { max-width: var(--max); margin: 0 auto; padding: 84px var(--gutter); }
-.shorts-section .section-dek { color: rgba(255, 255, 255, .66); }
-.shorts-section .section-link { color: #fff; }
+.shorts-section .section-dek { color: #5f5a55; }
+.shorts-section .section-link { color: var(--ap-black); }
 .shorts-section .section-link::after { background: var(--ap-gold); }
+.shorts-section .empty-state--dark {
+  background: #211d1f;
+  color: #fff;
+}
 .shorts-rail { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(210px, 255px); gap: 17px; overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: inline mandatory; scrollbar-color: var(--ap-gold) rgba(255, 255, 255, .15); padding: 4px 3px 18px; }
 .short-card { min-width: 0; scroll-snap-align: start; overflow: hidden; border: 1px solid rgba(255, 255, 255, .22); background: var(--ap-black); box-shadow: 6px 7px 0 var(--ap-gold); transition: transform .22s; }
 .short-card:hover { transform: translateY(-5px); }
