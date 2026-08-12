@@ -143,6 +143,8 @@ def build(provider_name: str | None = None) -> dict:
     # 4. Choose a writer.
     name = provider_name or providers.resolve_provider()
     print(f"  [writer] provider = {name}")
+    if name in ("grok", "xai"):
+        print(f"  [writer] model = {providers.grok_model()}")
 
     raw = None
     generator_label = "offline"
