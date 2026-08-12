@@ -86,11 +86,14 @@
 <section class="news-router" id="news-desk">
   <div class="news-router__inner reveal">
     <div class="news-router__lead">
-      <span class="kicker"><span class="dot dot-live"></span> Today's Chiefs wire</span>
-      <span class="news-router__hint">Headlines from the named desks ↗</span>
+      <div>
+        <span class="kicker"><span class="dot dot-live"></span> Today's Chiefs wire</span>
+        <h2>From the named desks</h2>
+      </div>
+      <span class="news-router__hint">Every link opens at the original publisher ↗</span>
     </div>
     {{ partial "wire-headlines.html" . }}
-    <div class="news-router__chips">
+    <div class="news-router__chips" aria-label="News source bookmarks">
       {{ range .Site.Data.sources }}
         <a class="news-chip" href="{{ .url }}" target="_blank" rel="noopener" style="--accent:{{ .accent }}"><span class="news-chip__dot" aria-hidden="true"></span>{{ .name }}</a>
       {{ end }}

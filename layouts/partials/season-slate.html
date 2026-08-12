@@ -16,20 +16,24 @@
     <div class="season-slate__lead">
       <span class="kicker"><span class="dot dot-live"></span> 2026 slate</span>
       <h2>Looking ahead</h2>
-      <p>The next few Kansas City games, kickoffs in Central Time. <a href="{{ "schedule/" | relURL }}">Full preseason + regular season →</a></p>
+      <p>Next on the calendar, kickoffs in Central Time.</p>
+      <a class="season-slate__all" href="{{ "schedule/" | relURL }}">Full schedule →</a>
     </div>
     <div class="season-slate__grid">
       {{- range first $limit $games -}}
-      <article class="slate-game{{ if eq .seasonType "pre" }} slate-game--pre{{ end }}">
-        <span class="slate-game__tag">
-          {{- if eq .seasonType "pre" -}}Preseason{{ if .week }} {{ .week }}{{ end -}}
-          {{- else if .week -}}Week {{ .week -}}
-          {{- else -}}Upcoming{{- end -}}
-        </span>
-        <strong class="slate-game__opp">{{ if eq .homeAway "away" }}@ {{ end }}{{ .opponentShort | default .opponent }}</strong>
+      <article class="slate-game{{ if eq .seasonType "pre" }} slate-game--pre{{ end }}{{ if eq .homeAway "home" }} slate-game--home{{ else }} slate-game--away{{ end }}">
+        <div class="slate-game__top">
+          <span class="slate-game__tag">
+            {{- if eq .seasonType "pre" -}}Preseason{{ if .week }} {{ .week }}{{ end -}}
+            {{- else if .week -}}Week {{ .week -}}
+            {{- else -}}Upcoming{{- end -}}
+          </span>
+          <span class="slate-game__ha">{{ if eq .homeAway "home" }}Home{{ else }}Away{{ end }}</span>
+        </div>
+        <strong class="slate-game__opp">{{ .opponentShort | default .opponent }}</strong>
         <span class="slate-game__when">{{ .kickoff | default .date }}</span>
         <span class="slate-game__meta">
-          {{- if eq .homeAway "home" -}}Arrowhead{{ else }}{{ .venue }}{{ end -}}
+          {{- if eq .homeAway "home" }}Arrowhead{{ else }}{{ .venue }}{{ end -}}
           {{- with .tv }} · {{ . }}{{ end -}}
         </span>
       </article>

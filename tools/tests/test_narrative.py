@@ -285,6 +285,14 @@ class SeasonClock(unittest.TestCase):
         self.assertIn('partial "season-slate.html"', edition)
         self.assertIn("site.Data.schedule_2026", slate)
         self.assertIn("site.Data.wire", wire)
+        self.assertIn("slate-game__ha", slate)
+        self.assertIn("wire-item--lead", wire)
+        v2 = (root / "public" / "css" / "v2.css").read_text(encoding="utf-8")
+        start = v2.find(".shorts-section {")
+        self.assertGreater(start, -1)
+        block = v2[start:start + 280]
+        self.assertNotIn("var(--ap-red)", block)
+        self.assertIn("var(--ap-cream)", block)
 
     def test_schedule_page_lists_preseason_and_regular(self):
         root = Path(__file__).resolve().parents[2]
