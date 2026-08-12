@@ -16,6 +16,7 @@
     <div class="watch-hero__channel">
       <img src="{{ .Site.Params.logoUrl | relURL }}" alt="" width="92" height="92" />
       <div><span>Official YouTube channel</span><strong>{{ .Site.Params.youtubeHandle }}</strong></div>
+      <span class="watch-onair"><i aria-hidden="true"></i> On air</span>
     </div>
     <h1>Chiefs talk<br><em>with sauce.</em></h1>
     <p>Previews, recaps, roster debates, and honest fan reactions from a Chiefs lifer who never mails in the postgame take.</p>
@@ -33,13 +34,15 @@
 
   <div class="watch-hero__stage reveal">
     <div class="watch-stage-kicker"><span></span> Featured full episode</div>
-    <div class="yt-stage yt-stage--watch" data-youtube-stage>
-      <button class="yt-stage-poster yt-stage-poster--branded" type="button" data-stage-placeholder aria-label="Load the featured Arrowhead Paesano episode">
-        <img src="{{ "images/channel/host-stream.webp" | relURL }}" alt="Arrowhead Paesano in the channel broadcast frame" />
-        <span class="yt-stage-poster__shade" aria-hidden="true"></span>
-        <span class="yt-stage-poster__play" aria-hidden="true">▶</span>
-        <span class="yt-stage-poster__copy"><small>From the channel</small><strong>Loading the featured episode…</strong></span>
-      </button>
+    <div class="watch-monitor">
+      <div class="yt-stage yt-stage--watch" data-youtube-stage>
+        <button class="yt-stage-poster yt-stage-poster--branded" type="button" data-stage-placeholder aria-label="Load the featured Arrowhead Paesano episode">
+          <img src="{{ "images/channel/host-stream.webp" | relURL }}" alt="Arrowhead Paesano in the channel broadcast frame" />
+          <span class="yt-stage-poster__shade" aria-hidden="true"></span>
+          <span class="yt-stage-poster__play" aria-hidden="true">▶</span>
+          <span class="yt-stage-poster__copy"><small>From the channel</small><strong>Loading the featured episode…</strong></span>
+        </button>
+      </div>
     </div>
     <p class="watch-stage-note">Privacy-friendly player: YouTube loads only after you press play.</p>
   </div>
@@ -62,7 +65,10 @@
 </section>
 
 <section class="watch-marquee" aria-label="Channel topics">
-  <div><span>Game previews</span><i>•</i><span>Instant recaps</span><i>•</i><span>Roster moves</span><i>•</i><span>Draft talk</span><i>•</i><span>Kingdom debates</span><i>•</i><span>Game previews</span><i>•</i><span>Instant recaps</span></div>
+  <div>
+    <span>Game previews</span><i>•</i><span>Instant recaps</span><i>•</i><span>Roster moves</span><i>•</i><span>Draft talk</span><i>•</i><span>Kingdom debates</span><i>•</i>
+    <span>Game previews</span><i>•</i><span>Instant recaps</span><i>•</i><span>Roster moves</span><i>•</i><span>Draft talk</span><i>•</i><span>Kingdom debates</span>
+  </div>
 </section>
 
 <section class="section watch-uploads" id="latest-uploads">
