@@ -288,6 +288,7 @@ class SeasonClock(unittest.TestCase):
         self.assertIn("site.Data.wire", wire)
         self.assertIn("slate-game__ha", slate)
         self.assertIn("wire-item--lead", wire)
+        self.assertIn("first 8 .headlines", wire)
         base = (root / "layouts" / "_default" / "baseof.html").read_text(encoding="utf-8")
         self.assertIn("Source wire", base)
         self.assertIn("stripe-item__name", base)
