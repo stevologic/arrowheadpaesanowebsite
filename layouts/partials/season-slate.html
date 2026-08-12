@@ -1,8 +1,8 @@
 {{- /*
   Upcoming 2026 slate from data/schedule_2026.json.
-  Context: optional "limit" (default 6).
+  Context: optional "limit" (default 7: next game plus two even rows).
 */ -}}
-{{- $limit := .limit | default 6 -}}
+{{- $limit := .limit | default 7 -}}
 {{- $games := slice -}}
 {{- range site.Data.schedule_2026 -}}
   {{- $dt := time.AsTime .date -}}

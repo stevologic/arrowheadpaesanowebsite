@@ -281,6 +281,7 @@ class SeasonClock(unittest.TestCase):
         slate = (root / "layouts" / "partials" / "season-slate.html").read_text(encoding="utf-8")
         wire = (root / "layouts" / "partials" / "wire-headlines.html").read_text(encoding="utf-8")
         self.assertIn('partial "season-slate.html"', index)
+        self.assertIn('dict "limit" 7', index)
         self.assertIn('partial "wire-headlines.html"', index)
         self.assertIn('partial "season-slate.html"', edition)
         self.assertIn("site.Data.schedule_2026", slate)
