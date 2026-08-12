@@ -1,0 +1,15 @@
+{{- /*
+  Today's collected Chiefs wire from data/wire.json.
+*/ -}}
+{{- with site.Data.wire -}}
+{{- if .headlines -}}
+<div class="wire-headlines" aria-label="Today's Chiefs headlines">
+  {{- range first 6 .headlines -}}
+  <a class="wire-item" href="{{ .url }}" target="_blank" rel="noopener">
+    <span class="wire-item__src">{{ .publisher }}</span>
+    <strong class="wire-item__title">{{ .title }}</strong>
+  </a>
+  {{- end -}}
+</div>
+{{- end -}}
+{{- end -}}

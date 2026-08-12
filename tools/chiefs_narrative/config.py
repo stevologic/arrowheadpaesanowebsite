@@ -18,6 +18,7 @@ NARRATIVE_JSON = DATA_DIR / "narrative.json"
 ARCHIVE_JSON = DATA_DIR / "narrative_archive.json"
 EDITIONS_DIR = DATA_DIR / "narrative_editions"
 SCHEDULE_JSON = DATA_DIR / "schedule_2026.json"
+WIRE_JSON = DATA_DIR / "wire.json"
 
 SCHEMA_VERSION = 1
 
@@ -40,8 +41,13 @@ TEAM = {
 }
 
 # ESPN public (unofficial) endpoints — no key required.
-ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/kc"
-ESPN_SCHEDULE = ESPN_BASE + "/schedule?season={season}"
+# site.api.espn.com started 403'ing the team schedule from CI; the web API
+# still serves preseason + regular + postseason calendars.
+ESPN_WEB_BASE = "https://site.web.api.espn.com/apis/site/v2/sports/football/nfl"
+ESPN_SCHEDULE = (
+    ESPN_WEB_BASE + "/teams/{espn_id}/schedule?season={season}&seasontype={stype}"
+)
+ESPN_SUMMARY = ESPN_WEB_BASE + "/summary?event={event}"
 
 # News wires we are allowed to read and cite. Every one is a real, public RSS
 # feed. Keep the "publisher" label human-friendly; the writer cites it verbatim.

@@ -81,12 +81,15 @@
 </section>
 {{ end }}
 
+{{ partial "season-slate.html" (dict "limit" 6) }}
+
 <section class="news-router" id="news-desk">
   <div class="news-router__inner reveal">
     <div class="news-router__lead">
-      <span class="kicker"><span class="dot dot-live"></span> Chiefs news bookmarks</span>
-      <span class="news-router__hint">Tap a desk to open the source ↗</span>
+      <span class="kicker"><span class="dot dot-live"></span> Today's Chiefs wire</span>
+      <span class="news-router__hint">Headlines from the named desks ↗</span>
     </div>
+    {{ partial "wire-headlines.html" . }}
     <div class="news-router__chips">
       {{ range .Site.Data.sources }}
         <a class="news-chip" href="{{ .url }}" target="_blank" rel="noopener" style="--accent:{{ .accent }}"><span class="news-chip__dot" aria-hidden="true"></span>{{ .name }}</a>

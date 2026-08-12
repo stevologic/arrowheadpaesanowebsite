@@ -47,7 +47,9 @@ evolves the story toward the next Sunday.
 
 The engine lives in [`tools/chiefs_narrative/`](tools/chiefs_narrative/):
 
-1. **Collect** — reads the live 2026 schedule (ESPN), the Chiefs news wire
+1. **Collect** — reads the live 2026 schedule (ESPN preseason + regular +
+   postseason, falling back to the checked-in slate if ESPN is down), the
+   Chiefs news wire
    (Chiefs.com, Arrowhead Pride, Arrowhead Addict, ESPN RSS), the model
    projection + Vegas line (ESPN FPI / DraftKings), and prediction markets
    (Polymarket). Every network call fails soft.
@@ -59,7 +61,7 @@ The engine lives in [`tools/chiefs_narrative/`](tools/chiefs_narrative/):
 4. **Diagram** — renders clean X's-and-O's SVGs from a concept library
    (`diagrams.py`) into `public/images/narrative/`.
 5. **Publish** — writes `data/narrative.json` (+ a rolling `data/narrative_archive.json`),
-   which the Hugo template at `layouts/narrative/single.html` renders.
+   the 2026 slate, and today's wire headlines, which the Hugo templates render.
 
 ### Run it locally
 

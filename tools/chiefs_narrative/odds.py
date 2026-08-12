@@ -18,7 +18,7 @@ import requests
 
 from . import config
 
-ESPN_SUMMARY = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event={event}"
+ESPN_SUMMARY = config.ESPN_SUMMARY
 PM_EVENTS = "https://gamma-api.polymarket.com/events?closed=false&limit=6&order=volume&ascending=false&tag_slug=nfl"
 CHIEFS_TEAM_NAME = "Kansas City Chiefs"
 

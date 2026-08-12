@@ -1,0 +1,40 @@
+{{- /*
+  Upcoming 2026 slate from data/schedule_2026.json.
+  Context: optional "limit" (default 6).
+*/ -}}
+{{- $limit := .limit | default 6 -}}
+{{- $games := slice -}}
+{{- range site.Data.schedule_2026 -}}
+  {{- $dt := time.AsTime .date -}}
+  {{- if and (not .completed) (ge $dt now) -}}
+    {{- $games = $games | append . -}}
+  {{- end -}}
+{{- end -}}
+{{- if $games -}}
+<section class="season-slate" id="slate" aria-label="Upcoming Chiefs games">
+  <div class="season-slate__inner">
+    <div class="season-slate__lead">
+      <span class="kicker"><span class="dot dot-live"></span> 2026 slate</span>
+      <h2>Looking ahead</h2>
+      <p>The remaining Kansas City schedule, kickoffs in Central Time. Always the next Sunday — or the next dress rehearsal.</p>
+    </div>
+    <div class="season-slate__grid">
+      {{- range first $limit $games -}}
+      <article class="slate-game{{ if eq .seasonType "pre" }} slate-game--pre{{ end }}">
+        <span class="slate-game__tag">
+          {{- if eq .seasonType "pre" -}}Preseason{{ if .week }} {{ .week }}{{ end -}}
+          {{- else if .week -}}Week {{ .week -}}
+          {{- else -}}Upcoming{{- end -}}
+        </span>
+        <strong class="slate-game__opp">{{ if eq .homeAway "away" }}@ {{ end }}{{ .opponentShort | default .opponent }}</strong>
+        <span class="slate-game__when">{{ .kickoff | default .date }}</span>
+        <span class="slate-game__meta">
+          {{- if eq .homeAway "home" -}}Arrowhead{{ else }}{{ .venue }}{{ end -}}
+          {{- with .tv }} · {{ . }}{{ end -}}
+        </span>
+      </article>
+      {{- end -}}
+    </div>
+  </div>
+</section>
+{{- end -}}

@@ -3,10 +3,10 @@
   "generatedAt": "2026-08-12T17:56:15+00:00",
   "generator": "grok:grok-4.6",
   "phase": {
-    "type": "offseason",
-    "label": "Offseason",
-    "week": null,
-    "mode": "offseason"
+    "type": "preseason",
+    "label": "Preseason",
+    "week": 2,
+    "mode": "preview"
   },
   "edition": "2026 Training Camp · Vol. 13",
   "record": "6-11",

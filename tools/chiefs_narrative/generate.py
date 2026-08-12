@@ -56,6 +56,17 @@ def _ensure_six_xsandos(narrative: dict, signals: dict, ph: dict, upcoming: list
     narrative["xsandos"] = cards
 
 
+def _ensure_next_game(narrative: dict, ph: dict) -> None:
+    """If the writer skipped nextGame, fill it from the live schedule row."""
+    if narrative.get("nextGame", {}).get("opponent"):
+        return
+    if not ph.get("nextGame"):
+        return
+    narrative["nextGame"] = schema._norm_next_game(
+        phase_mod.format_next_game(ph["nextGame"])
+    )
+
+
 def _edition_slug(narrative: dict) -> str:
     """Stable per-edition slug from the generation timestamp, e.g. 2026-07-25-1930."""
     stamp = (narrative.get("generatedAt") or config.iso_now())[:16]  # YYYY-MM-DDTHH:MM
@@ -123,6 +134,30 @@ def _write_schedule(schedule: list[dict]) -> None:
         )
 
 
+def _write_wire(headlines: list[dict]) -> None:
+    """Publish the collected news wire so the site can render today's headlines."""
+    rows = []
+    for item in headlines or []:
+        title = (item.get("title") or "").strip()
+        url = (item.get("url") or "").strip()
+        if not title or not url:
+            continue
+        rows.append(
+            {
+                "title": title,
+                "url": url,
+                "publisher": (item.get("publisher") or "").strip(),
+                "published": item.get("published"),
+            }
+        )
+        if len(rows) >= 12:
+            break
+    payload = {"updatedAt": config.iso_now(), "headlines": rows}
+    config.WIRE_JSON.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+
+
 def build(provider_name: str | None = None) -> dict:
     print("Arrowhead Paesano — Chiefs Narrative engine")
     print("-" * 52)
@@ -171,12 +206,17 @@ def build(provider_name: str | None = None) -> dict:
     }
     narrative = schema.normalize(raw, phase=ph, meta=meta)
     narrative["slug"] = _edition_slug(narrative)
+    _ensure_next_game(narrative, ph)
 
     # 6. Guarantee six X&O cards, then render diagrams and attach files.
     _ensure_six_xsandos(narrative, signals, ph, upcoming)
     _render_diagrams(narrative)
 
-    return {"narrative": narrative, "schedule": schedule}
+    return {
+        "narrative": narrative,
+        "schedule": schedule,
+        "news": signals.get("news") or [],
+    }
 
 
 def main(argv=None) -> int:
@@ -199,6 +239,7 @@ def main(argv=None) -> int:
     (config.EDITIONS_DIR / f"{narrative['slug']}.json").write_text(payload, encoding="utf-8")
     _write_archive(narrative)
     _write_schedule(result["schedule"])
+    _write_wire(result.get("news") or [])
 
     print("-" * 52)
     print(f"  wrote {config.NARRATIVE_JSON.relative_to(config.REPO_ROOT)}")

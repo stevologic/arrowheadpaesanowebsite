@@ -5,12 +5,24 @@ merge gate. Run with:  python -m unittest discover -s tools/tests -v
 """
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from tools.chiefs_narrative import diagrams, generate, offline, prompts, providers, schema
+from tools.chiefs_narrative import (
+    collect,
+    diagrams,
+    generate,
+    odds,
+    offline,
+    phase,
+    prompts,
+    providers,
+    schema,
+)
 
 # Canned inputs: the writers only use .get() lookups, so minimal dicts work.
 CAMP_PHASE = {"type": "training-camp", "label": "Training Camp",
@@ -106,6 +118,173 @@ class GrokModelSelection(unittest.TestCase):
     def test_workflow_passes_repository_variable(self):
         yaml = (Path(__file__).resolve().parents[2] / ".github" / "workflows" / "narrative.yml").read_text(encoding="utf-8")
         self.assertIn("GROK_MODEL: ${{ vars.GROK_MODEL }}", yaml)
+
+
+def _espn_event(event_id, date, abbr, season_type, week, home=True, venue="GEHA Field at Arrowhead Stadium"):
+    kc = {"homeAway": "home" if home else "away", "team": {"abbreviation": "KC", "displayName": "Kansas City Chiefs", "shortDisplayName": "Chiefs"}, "score": None}
+    opp = {"homeAway": "away" if home else "home", "team": {"abbreviation": abbr, "displayName": f"{abbr} Team", "shortDisplayName": abbr, "name": abbr}, "score": None}
+    return {
+        "id": event_id,
+        "date": date,
+        "week": {"number": week},
+        "seasonType": {"abbreviation": season_type},
+        "competitions": [{
+            "competitors": [kc, opp],
+            "venue": {"fullName": venue},
+            "broadcasts": [{"names": ["NFL Network"], "media": {"shortName": "NFLN"}}],
+            "status": {"type": {"completed": False}},
+        }],
+    }
+
+
+class SeasonClock(unittest.TestCase):
+    """August 2026 is still camp/preseason. An ESPN outage must not wipe the slate."""
+
+    RAMS = {
+        "id": "401873283",
+        "week": 2,
+        "seasonType": "pre",
+        "date": "2026-08-15T20:00Z",
+        "opponent": "Los Angeles Rams",
+        "homeAway": "home",
+        "venue": "GEHA Field at Arrowhead Stadium",
+        "tv": "NFLN",
+        "completed": False,
+    }
+    DEN = {
+        "id": "401872931",
+        "week": 1,
+        "seasonType": "reg",
+        "date": "2026-09-15T00:15Z",
+        "opponent": "Denver Broncos",
+        "homeAway": "home",
+        "venue": "GEHA Field at Arrowhead Stadium",
+        "completed": False,
+    }
+
+    def test_mid_august_with_preseason_is_preseason(self):
+        now = datetime(2026, 8, 12, 18, 0, tzinfo=timezone.utc)
+        ph = phase.detect([self.RAMS, self.DEN], now=now)
+        self.assertEqual(ph["type"], "preseason")
+        self.assertEqual(ph["nextGame"]["opponent"], "Los Angeles Rams")
+
+    def test_empty_schedule_in_august_is_still_camp(self):
+        now = datetime(2026, 8, 12, 18, 0, tzinfo=timezone.utc)
+        ph = phase.detect([], now=now)
+        self.assertEqual(ph["type"], "training-camp")
+
+    def test_june_without_games_is_offseason(self):
+        now = datetime(2026, 6, 1, 12, 0, tzinfo=timezone.utc)
+        ph = phase.detect([], now=now)
+        self.assertEqual(ph["type"], "offseason")
+
+    def test_format_next_game_uses_central_kickoff(self):
+        game = dict(self.RAMS)
+        game["kickoff"] = collect.kickoff_label(game["date"])
+        card = phase.format_next_game(game)
+        self.assertEqual(card["opponent"], "Los Angeles Rams")
+        self.assertIn("Preseason Week 2", card["label"])
+        self.assertIn("Aug 15", card["label"])
+        self.assertEqual(card["at"], "GEHA Field at Arrowhead Stadium")
+
+    def test_monday_night_kickoff_stays_monday_in_central(self):
+        label = collect.kickoff_label("2026-09-15T00:15Z")
+        self.assertIn("Sep 14", label)
+        self.assertIn("7:15 PM", label)
+
+    def test_espn_dates_gain_seconds_for_hugo(self):
+        self.assertEqual(collect.normalize_iso("2026-08-15T20:00Z"), "2026-08-15T20:00:00Z")
+
+    def test_fetch_schedule_hits_espn_web_api_for_each_season_type(self):
+        seen = []
+
+        def fake(url):
+            seen.append(url)
+            return {"events": []}
+
+        with patch.object(collect, "_get_json", side_effect=fake):
+            collect.fetch_schedule(2026)
+        joined = "\n".join(seen)
+        self.assertIn("site.web.api.espn.com", joined)
+        self.assertIn("seasontype=1", joined)
+        self.assertIn("seasontype=2", joined)
+        self.assertIn("seasontype=3", joined)
+        self.assertNotIn("site.api.espn.com/apis", joined)
+
+    def test_fetch_schedule_merges_preseason_and_regular(self):
+        def fake(url):
+            if "seasontype=1" in url:
+                return {"events": [_espn_event("p1", "2026-08-15T20:00Z", "LAR", "pre", 2)]}
+            if "seasontype=2" in url:
+                return {"events": [_espn_event("r1", "2026-09-15T00:15Z", "DEN", "reg", 1)]}
+            return {"events": []}
+
+        with patch.object(collect, "_get_json", side_effect=fake):
+            games = collect.fetch_schedule(2026)
+        self.assertEqual([g["seasonType"] for g in games], ["pre", "reg"])
+        self.assertEqual(games[0]["opponentAbbr"], "LAR")
+        self.assertEqual(games[1]["opponentAbbr"], "DEN")
+        self.assertEqual(games[0]["tv"], "NFLN")
+
+    def test_resolve_schedule_falls_back_to_checked_in_slate(self):
+        cached = [dict(self.DEN)]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "schedule.json"
+            path.write_text(json.dumps(cached), encoding="utf-8")
+            with patch.object(collect.config, "SCHEDULE_JSON", path), \
+                 patch.object(collect, "fetch_schedule", return_value=[]):
+                games = collect.resolve_schedule()
+        self.assertEqual(games[0]["opponent"], "Denver Broncos")
+        self.assertTrue(games[0].get("kickoff"))
+
+    def test_odds_summary_uses_espn_web_api(self):
+        self.assertIn("site.web.api.espn.com", odds.ESPN_SUMMARY)
+
+    def test_writer_skipping_next_game_is_filled_from_schedule(self):
+        narrative = schema.normalize(
+            {"headline": "Camp", "nextGame": {}},
+            phase={"type": "preseason", "label": "Preseason", "mode": "preview", "edition": "Pre"},
+            meta={"generatedAt": "2026-08-12T00:00:00+00:00", "generator": "test", "record": "6-11"},
+        )
+        generate._ensure_next_game(narrative, {"nextGame": self.RAMS})
+        self.assertEqual(narrative["nextGame"]["opponent"], "Los Angeles Rams")
+        self.assertIn("Preseason", narrative["nextGame"]["label"])
+
+    def test_write_wire_publishes_named_headlines(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "wire.json"
+            with patch.object(generate.config, "WIRE_JSON", path):
+                generate._write_wire([
+                    {"title": "Spags talks tackling", "url": "https://example.com/a", "publisher": "Arrowhead Pride"},
+                    {"title": "missing url", "publisher": "Nope"},
+                ])
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(len(payload["headlines"]), 1)
+        self.assertEqual(payload["headlines"][0]["publisher"], "Arrowhead Pride")
+        self.assertTrue(payload["updatedAt"])
+
+    def test_checked_in_slate_is_hugo_parseable(self):
+        games = json.loads(
+            (Path(__file__).resolve().parents[2] / "data" / "schedule_2026.json").read_text(encoding="utf-8")
+        )
+        self.assertGreaterEqual(len(games), 17)
+        self.assertEqual(games[0]["seasonType"], "pre")
+        self.assertEqual(games[0]["opponentAbbr"], "LAR")
+        for game in games:
+            self.assertRegex(game["date"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+            self.assertTrue(game.get("kickoff"))
+
+    def test_templates_render_slate_and_wire(self):
+        root = Path(__file__).resolve().parents[2]
+        index = (root / "layouts" / "index.html").read_text(encoding="utf-8")
+        edition = (root / "layouts" / "partials" / "narrative-edition.html").read_text(encoding="utf-8")
+        slate = (root / "layouts" / "partials" / "season-slate.html").read_text(encoding="utf-8")
+        wire = (root / "layouts" / "partials" / "wire-headlines.html").read_text(encoding="utf-8")
+        self.assertIn('partial "season-slate.html"', index)
+        self.assertIn('partial "wire-headlines.html"', index)
+        self.assertIn('partial "season-slate.html"', edition)
+        self.assertIn("site.Data.schedule_2026", slate)
+        self.assertIn("site.Data.wire", wire)
 
 
 if __name__ == "__main__":
