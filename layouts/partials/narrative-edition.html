@@ -79,16 +79,34 @@
 
   <!-- ===================== MARKETS ===================== -->
   {{ with .markets }}
-  {{ if or .model .vegas .futures }}
+  {{ if or .game .model .vegas .futures }}
   <section class="section nrt-markets" id="markets">
     <div class="section-head reveal">
       <div>
-        <span class="kicker"><span class="dot dot-live"></span> Model · Vegas · Markets</span>
+        <span class="kicker"><span class="dot dot-live"></span> Next game · Vegas · Markets</span>
         <h2><span class="rule"></span> What the numbers say</h2>
-        <p class="section-dek">A simulation projection, the sportsbook line, and the live prediction market — cited, not vibes.</p>
+        <p class="section-dek">The prediction for the next kickoff, the sportsbook line, and the live season markets — cited, not vibes.</p>
       </div>
     </div>
     <div class="nrt-markets__grid">
+      {{ with .game }}
+      <a class="nrt-market-card nrt-market-card--game" href="{{ .url }}" target="_blank" rel="noopener">
+        <span class="nrt-market-card__tag">Upcoming game</span>
+        <strong class="nrt-game-opp">{{ if eq .homeAway "away" }}@ {{ end }}{{ .opponent }}</strong>
+        {{ with .label }}<p class="nrt-game-when">{{ . }}</p>{{ end }}
+        {{ with .kcWin }}
+        <div class="nrt-meter" style="--pct: {{ . }}%">
+          <div class="nrt-meter__bar"><span></span></div>
+          <div class="nrt-meter__nums"><strong>{{ . }}%</strong><small>KC win</small></div>
+        </div>
+        {{ end }}
+        <div class="nrt-vegas">
+          {{ with .spreadDetail }}<div><strong>{{ . }}</strong><small>Spread</small></div>{{ end }}
+          {{ with .overUnder }}<div><strong>{{ . }}</strong><small>Total (O/U)</small></div>{{ end }}
+        </div>
+        <p class="nrt-market-card__src">{{ .source }}</p>
+      </a>
+      {{ end }}
       {{ with .model }}
       <a class="nrt-market-card nrt-market-card--model" href="{{ .url }}" target="_blank" rel="noopener">
         <span class="nrt-market-card__tag">Model projection</span>
@@ -99,7 +117,7 @@
         <p class="nrt-market-card__src">{{ .label }}</p>
       </a>
       {{ end }}
-      {{ with .vegas }}
+      {{ if and .vegas (not .game) }}
       <a class="nrt-market-card nrt-market-card--vegas" href="{{ .url }}" target="_blank" rel="noopener">
         <span class="nrt-market-card__tag">Vegas line</span>
         <div class="nrt-vegas">

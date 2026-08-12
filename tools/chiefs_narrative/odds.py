@@ -44,6 +44,16 @@ def _num(v):
         return None
 
 
+def implied_win_pct(american) -> float | None:
+    """American moneyline → implied win probability (percent, one decimal)."""
+    ml = _num(american)
+    if ml is None or ml == 0:
+        return None
+    if ml < 0:
+        return round((-ml) / ((-ml) + 100.0) * 100.0, 1)
+    return round(100.0 / (ml + 100.0) * 100.0, 1)
+
+
 # ---------------------------------------------------------------------------
 # ESPN: model prediction + Vegas line for the next game
 # ---------------------------------------------------------------------------
@@ -211,22 +221,65 @@ def fetch_polymarket_futures() -> list[dict]:
 # ---------------------------------------------------------------------------
 # Aggregate
 # ---------------------------------------------------------------------------
+def _kc_moneyline(vegas: dict | None, next_game: dict | None):
+    if not vegas:
+        return None
+    side = (next_game or {}).get("homeAway")
+    if side == "home":
+        return vegas.get("homeMoneyline")
+    if side == "away":
+        return vegas.get("awayMoneyline")
+    return vegas.get("homeMoneyline")
+
+
+def build_game_card(next_game: dict | None, pred: dict) -> dict | None:
+    """One card for the upcoming kickoff: FPI if we have it, else implied Vegas."""
+    if not next_game or not next_game.get("opponent"):
+        return None
+    model = (pred or {}).get("model") or {}
+    vegas = (pred or {}).get("vegas") or {}
+    kc_win = model.get("kcWin")
+    source = model.get("label") or ""
+    if kc_win is None:
+        kc_win = implied_win_pct(_kc_moneyline(vegas, next_game))
+        if kc_win is not None:
+            source = "DraftKings implied win probability"
+    if kc_win is None and not vegas.get("spreadDetail"):
+        return None
+    event_id = next_game.get("id") or ""
+    return {
+        "opponent": next_game.get("opponent") or "",
+        "label": next_game.get("kickoff") or next_game.get("label") or "",
+        "homeAway": next_game.get("homeAway") or "",
+        "kcWin": kc_win,
+        "spreadDetail": vegas.get("spreadDetail") or "",
+        "overUnder": vegas.get("overUnder"),
+        "source": source or vegas.get("source") or "ESPN",
+        "url": (
+            f"https://www.espn.com/nfl/game/_/gameId/{event_id}"
+            if event_id
+            else "https://www.espn.com/nfl/lines"
+        ),
+    }
+
+
 def collect_markets(next_game: dict | None) -> dict:
     print("  [odds] fetching model prediction, Vegas line, prediction markets…")
-    game = fetch_game_prediction(next_game.get("id") if next_game else None)
+    pred = fetch_game_prediction(next_game.get("id") if next_game else None)
     consensus = fetch_odds_api_consensus()
-    if consensus and game.get("vegas"):
-        game["vegas"]["consensus"] = consensus
+    if consensus and pred.get("vegas"):
+        pred["vegas"]["consensus"] = consensus
     futures = fetch_polymarket_futures()
     result = {
-        "model": game.get("model"),
-        "vegas": game.get("vegas"),
+        "game": build_game_card(next_game, pred),
+        "model": pred.get("model"),
+        "vegas": pred.get("vegas"),
         "consensus": consensus,
         "futures": futures,
     }
     bits = []
-    if result["model"]:
-        bits.append(f"model KC {result['model']['kcWin']}%")
+    if result["game"] and result["game"].get("kcWin") is not None:
+        bits.append(f"next game KC {result['game']['kcWin']}%")
     if result["vegas"]:
         bits.append(f"line {result['vegas'].get('spreadDetail','?')}")
     if futures:

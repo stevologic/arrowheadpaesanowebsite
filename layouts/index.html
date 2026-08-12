@@ -72,8 +72,13 @@
       {{ end }}
       {{ with .markets }}
       <div class="home-narrative__markets">
-        {{ with .model }}<div><b>{{ .kcWin }}%</b><span>Model · KC win</span></div>{{ end }}
-        {{ with .vegas }}<div><b>{{ .spreadDetail }}</b><span>Vegas line</span></div>{{ end }}
+        {{ with .game }}
+          {{ with .kcWin }}<div><b>{{ . }}%</b><span>Next game · KC</span></div>{{ end }}
+          {{ with .spreadDetail }}<div><b>{{ . }}</b><span>Vegas line</span></div>{{ end }}
+        {{ else }}
+          {{ with .model }}<div><b>{{ .kcWin }}%</b><span>Model · KC win</span></div>{{ end }}
+          {{ with .vegas }}<div><b>{{ .spreadDetail }}</b><span>Vegas line</span></div>{{ end }}
+        {{ end }}
       </div>
       {{ end }}
     </aside>

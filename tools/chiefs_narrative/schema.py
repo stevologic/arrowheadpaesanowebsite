@@ -135,6 +135,7 @@ def _norm_next_game(value) -> dict:
     if not isinstance(value, dict):
         return {}
     return {
+        "id": _s(value.get("id")),
         "label": _s(value.get("label")),
         "opponent": _s(value.get("opponent")),
         "at": _s(value.get("at")),
