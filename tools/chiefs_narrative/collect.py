@@ -8,6 +8,7 @@ going, because the pipeline must never hard-fail the daily automation.
 from __future__ import annotations
 
 import html
+import json
 import re
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -49,60 +50,162 @@ def _get_json(url: str):
 # ---------------------------------------------------------------------------
 # Schedule
 # ---------------------------------------------------------------------------
+# ESPN seasonType ids: 1 = preseason, 2 = regular, 3 = postseason.
+_SEASON_TYPES = (1, 2, 3)
+
+
+def normalize_iso(raw: str) -> str:
+    """ESPN sends ``2026-08-15T20:00Z``; Hugo's time.AsTime needs seconds."""
+    if not raw:
+        return ""
+    try:
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    except Exception:  # noqa: BLE001
+        return raw
+
+
+def kickoff_label(iso: str) -> str:
+    """Human kickoff in US Central, e.g. 'Sat, Aug 15 · 3:00 PM CT'."""
+    if not iso:
+        return ""
+    try:
+        from zoneinfo import ZoneInfo
+
+        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        local = dt.astimezone(ZoneInfo("America/Chicago"))
+        hour = local.strftime("%I").lstrip("0") or "12"
+        return f"{local.strftime('%a, %b')} {local.day} · {hour}:{local.strftime('%M %p')} CT"
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def load_cached_schedule() -> list[dict]:
+    """Last good slate written to data/schedule_2026.json."""
+    try:
+        data = json.loads(config.SCHEDULE_JSON.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return []
+    if not isinstance(data, list):
+        return []
+    return [enrich_game(g) for g in data if isinstance(g, dict)]
+
+
+def enrich_game(game: dict) -> dict:
+    """Fill derived display fields on a normalized game dict."""
+    if not isinstance(game, dict):
+        return {}
+    out = dict(game)
+    if out.get("date"):
+        out["date"] = normalize_iso(out["date"])
+        if not out.get("kickoff"):
+            label = kickoff_label(out["date"])
+            if label:
+                out["kickoff"] = label
+    return out
+
+
+def _broadcast_name(comp: dict) -> str:
+    broadcasts = comp.get("broadcasts") or []
+    if not broadcasts:
+        # Some web-API payloads put the call on geoBroadcasts / media.
+        geos = comp.get("geoBroadcasts") or []
+        if geos:
+            media = geos[0].get("media") or {}
+            return media.get("shortName") or media.get("name") or ""
+        return ""
+    media = broadcasts[0]
+    tv = ""
+    if isinstance(media, dict):
+        inner = media.get("media") if isinstance(media.get("media"), dict) else {}
+        tv = inner.get("shortName") or media.get("shortName") or ""
+        if not tv and media.get("names"):
+            tv = ", ".join(media["names"])
+    return tv
+
+
+def parse_event(event: dict) -> dict | None:
+    """Normalize one ESPN event into the slate shape the site and phase use."""
+    try:
+        comp = event["competitions"][0]
+        competitors = comp["competitors"]
+        home = next(c for c in competitors if c["homeAway"] == "home")
+        away = next(c for c in competitors if c["homeAway"] == "away")
+        kc_is_home = home["team"].get("abbreviation") == "KC"
+        kc = home if kc_is_home else away
+        opp = away if kc_is_home else home
+        status = (comp.get("status") or {}).get("type") or {}
+        date = event.get("date") or comp.get("date")
+        game = {
+            "id": event.get("id"),
+            "week": (event.get("week") or {}).get("number"),
+            "seasonType": (event.get("seasonType") or {}).get("abbreviation", "reg"),
+            "date": date,
+            "opponent": opp["team"].get("displayName"),
+            "opponentAbbr": opp["team"].get("abbreviation"),
+            "opponentShort": opp["team"].get("shortDisplayName")
+            or opp["team"].get("name"),
+            "homeAway": "home" if kc_is_home else "away",
+            "venue": (comp.get("venue") or {}).get("fullName", ""),
+            "tv": _broadcast_name(comp),
+            "completed": bool(status.get("completed")),
+            "kcScore": _to_int(kc.get("score")),
+            "oppScore": _to_int(opp.get("score")),
+        }
+        return enrich_game(game)
+    except Exception as exc:  # noqa: BLE001 - skip malformed events
+        print(f"  [collect] warning: skipped a schedule event: {exc}")
+        return None
+
+
 def fetch_schedule(season: int = None) -> list[dict]:
     """Return a normalized list of the Chiefs' games for the season.
 
-    Each game: {week, seasonType, date (ISO), opponent, opponentAbbr, homeAway,
-    venue, tv, completed, kcScore, oppScore}.
+    Pulls preseason, regular season, and postseason from ESPN's web API and
+    merges them. Each game: {week, seasonType, date (ISO), kickoff, opponent,
+    opponentAbbr, homeAway, venue, tv, completed, kcScore, oppScore}.
     """
     season = season or config.TEAM["season"]
-    data = _get_json(config.ESPN_SCHEDULE.format(season=season))
+    team_id = config.TEAM["espn_id"]
     games: list[dict] = []
-    if not data or "events" not in data:
-        return games
-
-    for event in data.get("events", []):
-        try:
-            comp = event["competitions"][0]
-            competitors = comp["competitors"]
-            home = next(c for c in competitors if c["homeAway"] == "home")
-            away = next(c for c in competitors if c["homeAway"] == "away")
-            kc_is_home = home["team"].get("abbreviation") == "KC"
-            kc = home if kc_is_home else away
-            opp = away if kc_is_home else home
-            broadcasts = comp.get("broadcasts") or []
-            tv = ""
-            if broadcasts:
-                media = broadcasts[0]
-                tv = media.get("media", {}).get("shortName") or ""
-                if not tv and media.get("names"):
-                    tv = ", ".join(media["names"])
-            status = comp.get("status", {}).get("type", {})
-            completed = bool(status.get("completed"))
-            games.append(
-                {
-                    "id": event.get("id"),
-                    "week": event.get("week", {}).get("number"),
-                    "seasonType": event.get("seasonType", {}).get("abbreviation", "reg"),
-                    "date": event.get("date"),
-                    "opponent": opp["team"].get("displayName"),
-                    "opponentAbbr": opp["team"].get("abbreviation"),
-                    "opponentShort": opp["team"].get("shortDisplayName")
-                    or opp["team"].get("name"),
-                    "homeAway": "home" if kc_is_home else "away",
-                    "venue": comp.get("venue", {}).get("fullName", ""),
-                    "tv": tv,
-                    "completed": completed,
-                    "kcScore": _to_int(kc.get("score")),
-                    "oppScore": _to_int(opp.get("score")),
-                }
-            )
-        except Exception as exc:  # noqa: BLE001 - skip malformed events
-            print(f"  [collect] warning: skipped a schedule event: {exc}")
+    seen: set[str] = set()
+    for stype in _SEASON_TYPES:
+        url = config.ESPN_SCHEDULE.format(
+            espn_id=team_id, season=season, stype=stype
+        )
+        data = _get_json(url)
+        if not data:
             continue
+        for event in data.get("events") or []:
+            game = parse_event(event)
+            if not game:
+                continue
+            key = str(game.get("id") or game.get("date") or "")
+            if key and key in seen:
+                continue
+            if key:
+                seen.add(key)
+            games.append(game)
 
     games.sort(key=lambda g: g.get("date") or "")
     return games
+
+
+def resolve_schedule(season: int = None) -> list[dict]:
+    """Live ESPN slate, or the last checked-in slate if ESPN is down."""
+    live = fetch_schedule(season)
+    if live:
+        return live
+    cached = load_cached_schedule()
+    if cached:
+        print(f"  [collect] live schedule empty; using cached {len(cached)} games")
+        return cached
+    print("  [collect] warning: no live or cached schedule")
+    return []
 
 
 def _to_int(value):
@@ -253,7 +356,7 @@ def fetch_news(max_per_feed: int = 8, max_total: int = 24) -> list[dict]:
 def collect_all(season: int = None) -> dict:
     """Gather every live signal into one bundle for the writer + phase logic."""
     print("  [collect] fetching 2026 schedule…")
-    schedule = fetch_schedule(season)
+    schedule = resolve_schedule(season)
     print(f"  [collect] {len(schedule)} games loaded")
     print("  [collect] fetching news wires…")
     news = fetch_news()

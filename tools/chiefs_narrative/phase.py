@@ -12,9 +12,10 @@ from datetime import datetime, timezone
 
 from . import config
 
-# Rough training-camp window (Chiefs report to St. Joseph the final week of July).
+# Training camp through late August (roster cutdowns), not just the first
+# preseason Saturday. Mid-August is still camp/preseason, not the offseason.
 CAMP_START = (7, 15)   # month, day
-CAMP_END = (8, 6)      # first preseason game usually early-mid August
+CAMP_END = (8, 31)
 
 # A game only drives "game-week" framing once it is this close; a Week 1 game in
 # September should not make late July look like a game week.
@@ -129,6 +130,15 @@ def detect(schedule: list[dict], now: datetime = None) -> dict:
                 f"{season} Offseason", reg[0] if reg else None, last_game,
             )
 
+    # A remaining preseason game means we are still in the dress-rehearsal
+    # stretch even if kickoff is more than GAME_WEEK_DAYS away.
+    if next_game and next_game.get("seasonType") == "pre":
+        wk = next_game.get("week")
+        return _wrap(
+            "preseason", "Preseason", wk, "preview", f"{season} Preseason",
+            next_game, last_game,
+        )
+
     if in_camp_window:
         return _wrap(
             "training-camp", "Training Camp", None, "camp",
@@ -152,6 +162,37 @@ def _wrap(ptype, label, week, mode, edition, next_game, last_game) -> dict:
         "edition": edition,
         "nextGame": next_game,
         "lastGame": last_game,
+    }
+
+
+def format_next_game(game: dict | None) -> dict:
+    """Turn a schedule row into the narrative nextGame card."""
+    if not game:
+        return {}
+    kickoff = game.get("kickoff") or ""
+    st = game.get("seasonType")
+    week = game.get("week")
+    if st == "pre":
+        prefix = f"Preseason Week {week}" if week else "Preseason"
+    elif st == "post":
+        prefix = "Playoffs"
+    elif week:
+        prefix = f"Week {week}"
+    else:
+        prefix = ""
+    if prefix and kickoff:
+        label = f"{prefix} · {kickoff}"
+    else:
+        label = prefix or kickoff
+    venue = game.get("venue") or ""
+    if game.get("homeAway") == "away" and venue:
+        venue = f"@ {venue}"
+    return {
+        "label": label,
+        "opponent": game.get("opponent") or "",
+        "at": venue,
+        "tv": game.get("tv") or "",
+        "note": "",
     }
 
 

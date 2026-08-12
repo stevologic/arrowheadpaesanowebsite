@@ -1,9 +1,57 @@
 [
   {
+    "id": "401873283",
+    "week": 2,
+    "seasonType": "pre",
+    "date": "2026-08-15T20:00:00Z",
+    "opponent": "Los Angeles Rams",
+    "opponentAbbr": "LAR",
+    "opponentShort": "Rams",
+    "homeAway": "home",
+    "venue": "GEHA Field at Arrowhead Stadium",
+    "tv": "NFL Net",
+    "completed": false,
+    "kcScore": null,
+    "oppScore": null,
+    "kickoff": "Sat, Aug 15 · 3:00 PM CT"
+  },
+  {
+    "id": "401873296",
+    "week": 3,
+    "seasonType": "pre",
+    "date": "2026-08-22T23:30:00Z",
+    "opponent": "Tampa Bay Buccaneers",
+    "opponentAbbr": "TB",
+    "opponentShort": "Buccaneers",
+    "homeAway": "away",
+    "venue": "Raymond James Stadium",
+    "tv": "ESPN Unlmtd",
+    "completed": false,
+    "kcScore": null,
+    "oppScore": null,
+    "kickoff": "Sat, Aug 22 · 6:30 PM CT"
+  },
+  {
+    "id": "401873305",
+    "week": 4,
+    "seasonType": "pre",
+    "date": "2026-08-29T00:00:00Z",
+    "opponent": "Seattle Seahawks",
+    "opponentAbbr": "SEA",
+    "opponentShort": "Seahawks",
+    "homeAway": "home",
+    "venue": "GEHA Field at Arrowhead Stadium",
+    "tv": "ESPN Unlmtd",
+    "completed": false,
+    "kcScore": null,
+    "oppScore": null,
+    "kickoff": "Fri, Aug 28 · 7:00 PM CT"
+  },
+  {
     "id": "401872931",
     "week": 1,
     "seasonType": "reg",
-    "date": "2026-09-15T00:15Z",
+    "date": "2026-09-15T00:15:00Z",
     "opponent": "Denver Broncos",
     "opponentAbbr": "DEN",
     "opponentShort": "Broncos",
@@ -12,13 +60,14 @@
     "tv": "ESPN",
     "completed": false,
     "kcScore": null,
-    "oppScore": null
+    "oppScore": null,
+    "kickoff": "Mon, Sep 14 · 7:15 PM CT"
   },
   {
     "id": "401872945",
     "week": 2,
     "seasonType": "reg",
-    "date": "2026-09-21T00:20Z",
+    "date": "2026-09-21T00:20:00Z",
     "opponent": "Indianapolis Colts",
     "opponentAbbr": "IND",
     "opponentShort": "Colts",
@@ -27,13 +76,14 @@
     "tv": "NBC",
     "completed": false,
     "kcScore": null,
-    "oppScore": null
+    "oppScore": null,
+    "kickoff": "Sun, Sep 20 · 7:20 PM CT"
   },
   {
     "id": "401872952",
     "week": 3,
     "seasonType": "reg",
-    "date": "2026-09-27T17:00Z",
+    "date": "2026-09-27T17:00:00Z",
     "opponent": "Miami Dolphins",
     "opponentAbbr": "MIA",
     "opponentShort": "Dolphins",
@@ -42,13 +92,14 @@
     "tv": "CBS",
     "completed": false,
     "kcScore": null,
-    "oppScore": null
+    "oppScore": null,
+    "kickoff": "Sun, Sep 27 · 12:00 PM CT"
   },
   {
     "id": "401872976",
     "week": 4,
     "seasonType": "reg",
-    "date": "2026-10-04T20:25Z",
+    "date": "2026-10-04T20:25:00Z",
     "opponent": "Las Vegas Raiders",
     "opponentAbbr": "LV",
     "opponentShort": "Raiders",
@@ -57,13 +108,14 @@
     "tv": "CBS",
     "completed": false,
     "kcScore": null,
-    "oppScore": null
+    "oppScore": null,
+    "kickoff": "Sun, Oct 4 · 3:25 PM CT"
   },
   {
     "id": "401873006",
     "week": 6,
     "seasonType": "reg",
-    "date": "2026-10-18T20:25Z",
+    "date": "2026-10-18T20:25:00Z",
     "opponent": "Los Angeles Chargers",
     "opponentAbbr": "LAC",
     "opponentShort": "Chargers",
@@ -72,13 +124,14 @@
     "tv": "CBS",
     "completed": false,
     "kcScore": null,
-    "oppScore": null
+    "oppScore": null,
+    "kickoff": "Sun, Oct 18 · 3:25 PM CT"
   },
   {
     "id": "401873022",
     "week": 7,
     "seasonType": "reg",
-    "date": "2026-10-26T00:20Z",
+    "date": "2026-10-26T00:20:00Z",
     "opponent": "Seattle Seahawks",
     "opponentAbbr": "SEA",
     "opponentShort": "Seahawks",
@@ -87,13 +140,14 @@
     "tv": "NBC",
     "completed": false,
     "kcScore": null,
-    "oppScore": null
+    "oppScore": null,
+    "kickoff": "Sun, Oct 25 · 7:20 PM CT"
   },
   {
     "id": "401873033",
     "week": 8,
     "seasonType": "reg",
-    "date": "2026-11-01T21:25Z",
+    "date": "2026-11-01T21:25:00Z",
     "opponent": "Denver Broncos",
     "opponentAbbr": "DEN",
     "opponentShort": "Broncos",
@@ -102,13 +156,14 @@
     "tv": "CBS",
     "completed": false,
     "kcScore": null,
-    "oppScore": null
+    "oppScore": null,
+    "kickoff": "Sun, Nov 1 · 3:25 PM CT"
   },
   {
     "id": "401873045",
     "week": 9,
     "seasonType": "reg",
-    "date": "2026-11-08T18:00Z",
+    "date": "2026-11-08T18:00:00Z",
     "opponent": "New York Jets",
     "opponentAbbr": "NYJ",
     "opponentShort": "Jets",
@@ -117,13 +172,14 @@
     "tv": "CBS",
     "completed": false,
     "kcScore": null,
-    "oppScore": null
+    "oppScore": null,
+    "kickoff": "Sun, Nov 8 · 12:00 PM CT"
   },
   {
     "id": "401873058",
     "week": 10,
     "seasonType": "reg",
-    "date": "2026-11-15T18:00Z",
+    "date": "2026-11-15T18:00:00Z",
     "opponent": "Atlanta Falcons",
     "opponentAbbr": "ATL",
     "opponentShort": "Falcons",
@@ -132,13 +188,14 @@
     "tv": "CBS",
     "completed": false,
     "kcScore": null,
-    "oppScore": null
+    "oppScore": null,
+    "kickoff": "Sun, Nov 15 · 12:00 PM CT"
   },
   {
     "id": "401873067",
     "week": 11,
     "seasonType": "reg",
-    "date": "2026-11-22T18:00Z",
+    "date": "2026-11-22T18:00:00Z",
     "opponent": "Arizona Cardinals",
     "opponentAbbr": "ARI",
     "opponentShort": "Cardinals",
@@ -147,13 +204,14 @@
     "tv": "CBS",
     "completed": false,
     "kcScore": null,
-    "oppScore": null
+    "oppScore": null,
+    "kickoff": "Sun, Nov 22 · 12:00 PM CT"
   },
   {
     "id": "401873082",
     "week": 12,
     "seasonType": "reg",
-    "date": "2026-11-27T01:20Z",
+    "date": "2026-11-27T01:20:00Z",
     "opponent": "Buffalo Bills",
     "opponentAbbr": "BUF",
     "opponentShort": "Bills",
@@ -162,13 +220,14 @@
     "tv": "NBC",
     "completed": false,
     "kcScore": null,
-    "oppScore": null
+    "oppScore": null,
+    "kickoff": "Thu, Nov 26 · 7:20 PM CT"
   },
   {
     "id": "401873096",
     "week": 13,
     "seasonType": "reg",
-    "date": "2026-12-04T01:15Z",
+    "date": "2026-12-04T01:15:00Z",
     "opponent": "Los Angeles Rams",
     "opponentAbbr": "LAR",
     "opponentShort": "Rams",
@@ -177,13 +236,14 @@
     "tv": "Prime Video",
     "completed": false,
     "kcScore": null,
-    "oppScore": null
+    "oppScore": null,
+    "kickoff": "Thu, Dec 3 · 7:15 PM CT"
   },
   {
     "id": "401873119",
     "week": 14,
     "seasonType": "reg",
-    "date": "2026-12-13T21:25Z",
+    "date": "2026-12-13T21:25:00Z",
     "opponent": "Cincinnati Bengals",
     "opponentAbbr": "CIN",
     "opponentShort": "Bengals",
@@ -192,13 +252,14 @@
     "tv": "FOX",
     "completed": false,
     "kcScore": null,
-    "oppScore": null
+    "oppScore": null,
+    "kickoff": "Sun, Dec 13 · 3:25 PM CT"
   },
   {
     "id": "401873139",
     "week": 15,
     "seasonType": "reg",
-    "date": "2026-12-22T01:15Z",
+    "date": "2026-12-22T01:15:00Z",
     "opponent": "New England Patriots",
     "opponentAbbr": "NE",
     "opponentShort": "Patriots",
@@ -207,13 +268,14 @@
     "tv": "ESPN",
     "completed": false,
     "kcScore": null,
-    "oppScore": null
+    "oppScore": null,
+    "kickoff": "Mon, Dec 21 · 7:15 PM CT"
   },
   {
     "id": "401873153",
     "week": 16,
     "seasonType": "reg",
-    "date": "2026-12-27T21:25Z",
+    "date": "2026-12-27T21:25:00Z",
     "opponent": "San Francisco 49ers",
     "opponentAbbr": "SF",
     "opponentShort": "49ers",
@@ -222,13 +284,14 @@
     "tv": "CBS",
     "completed": false,
     "kcScore": null,
-    "oppScore": null
+    "oppScore": null,
+    "kickoff": "Sun, Dec 27 · 3:25 PM CT"
   },
   {
     "id": "401873158",
     "week": 17,
     "seasonType": "reg",
-    "date": "2027-01-03T05:00Z",
+    "date": "2027-01-03T05:00:00Z",
     "opponent": "Los Angeles Chargers",
     "opponentAbbr": "LAC",
     "opponentShort": "Chargers",
@@ -237,13 +300,14 @@
     "tv": "",
     "completed": false,
     "kcScore": null,
-    "oppScore": null
+    "oppScore": null,
+    "kickoff": "Sat, Jan 2 · 11:00 PM CT"
   },
   {
     "id": "401873178",
     "week": 18,
     "seasonType": "reg",
-    "date": "2027-01-10T05:00Z",
+    "date": "2027-01-10T05:00:00Z",
     "opponent": "Las Vegas Raiders",
     "opponentAbbr": "LV",
     "opponentShort": "Raiders",
@@ -252,6 +316,7 @@
     "tv": "",
     "completed": false,
     "kcScore": null,
-    "oppScore": null
+    "oppScore": null,
+    "kickoff": "Sat, Jan 9 · 11:00 PM CT"
   }
 ]
