@@ -76,14 +76,20 @@
 
   {{ if .IsHome }}
     <div class="hero-stripe hero-stripe--top" aria-label="Trusted Chiefs news publishers">
-      <div class="stripe-label"><span></span> Source wire</div>
+      <div class="stripe-label"><span class="stripe-label__dot" aria-hidden="true"></span> Source wire</div>
       <div class="stripe-window">
         <div class="stripe-track" data-ticker-track>
           {{ range .Site.Data.sources }}
-            <a class="stripe-item" href="{{ .url }}" target="_blank" rel="noopener"><span class="src" style="--accent: {{ .accent }}">{{ .name }}</span>{{ .tagline }}</a>
+            <a class="stripe-item" href="{{ .url }}" target="_blank" rel="noopener">
+              <span class="stripe-item__name">{{ .name }}</span>
+              <span class="stripe-item__dek">{{ .tagline }}</span>
+            </a>
           {{ end }}
           {{ range .Site.Data.sources }}
-            <a class="stripe-item" href="{{ .url }}" target="_blank" rel="noopener" aria-hidden="true" tabindex="-1"><span class="src" style="--accent: {{ .accent }}">{{ .name }}</span>{{ .tagline }}</a>
+            <a class="stripe-item" href="{{ .url }}" target="_blank" rel="noopener" aria-hidden="true" tabindex="-1">
+              <span class="stripe-item__name">{{ .name }}</span>
+              <span class="stripe-item__dek">{{ .tagline }}</span>
+            </a>
           {{ end }}
         </div>
       </div>
