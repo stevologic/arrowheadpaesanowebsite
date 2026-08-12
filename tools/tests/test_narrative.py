@@ -240,6 +240,37 @@ class SeasonClock(unittest.TestCase):
     def test_odds_summary_uses_espn_web_api(self):
         self.assertIn("site.web.api.espn.com", odds.ESPN_SUMMARY)
 
+    def test_implied_win_pct_from_favorite_moneyline(self):
+        self.assertEqual(odds.implied_win_pct(-135), 57.4)
+        self.assertEqual(odds.implied_win_pct(114), 46.7)
+
+    def test_collect_markets_builds_upcoming_game_card(self):
+        next_game = {
+            "id": "401873283",
+            "opponent": "Los Angeles Rams",
+            "homeAway": "home",
+            "kickoff": "Sat, Aug 15 · 3:00 PM CT",
+        }
+        pred = {
+            "model": None,
+            "vegas": {
+                "spreadDetail": "KC -2.5",
+                "overUnder": 36.5,
+                "homeMoneyline": -135,
+                "awayMoneyline": 114,
+                "source": "ESPN / Draft Kings",
+            },
+        }
+        with patch.object(odds, "fetch_game_prediction", return_value=pred), \
+             patch.object(odds, "fetch_polymarket_futures", return_value=[]), \
+             patch.object(odds, "fetch_odds_api_consensus", return_value=None):
+            markets = odds.collect_markets(next_game)
+        game = markets["game"]
+        self.assertEqual(game["opponent"], "Los Angeles Rams")
+        self.assertEqual(game["spreadDetail"], "KC -2.5")
+        self.assertEqual(game["kcWin"], 57.4)
+        self.assertIn("implied", game["source"].lower())
+
     def test_writer_skipping_next_game_is_filled_from_schedule(self):
         narrative = schema.normalize(
             {"headline": "Camp", "nextGame": {}},
@@ -284,6 +315,8 @@ class SeasonClock(unittest.TestCase):
         self.assertIn('dict "limit" 7', index)
         self.assertIn('partial "wire-headlines.html"', index)
         self.assertIn('partial "season-slate.html"', edition)
+        self.assertIn(".game", edition)
+        self.assertIn("Upcoming game", edition)
         self.assertIn("site.Data.schedule_2026", slate)
         self.assertIn("site.Data.wire", wire)
         self.assertIn("slate-game__ha", slate)

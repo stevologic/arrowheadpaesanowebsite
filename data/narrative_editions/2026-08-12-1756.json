@@ -28,11 +28,20 @@
     "opponent": "Los Angeles Rams",
     "at": "Arrowhead Stadium",
     "tv": "TBD",
-    "note": "First live action of 2026 — roster bullets, not style points — against a Rams club that already took joint-practice reps."
+    "note": "First live action of 2026 — roster bullets, not style points — against a Rams club that already took joint-practice reps.",
+    "id": "401873283"
   },
   "markets": {
     "model": null,
-    "vegas": null,
+    "vegas": {
+      "provider": "Draft Kings",
+      "spreadDetail": "KC -2.5",
+      "overUnder": 36.5,
+      "homeMoneyline": -135.0,
+      "awayMoneyline": 114.0,
+      "source": "ESPN / Draft Kings",
+      "url": "https://www.espn.com/nfl/lines"
+    },
     "consensus": null,
     "futures": [
       {
@@ -47,7 +56,17 @@
         "source": "Polymarket",
         "url": "https://polymarket.com/event/pro-football-2027-afc-champion"
       }
-    ]
+    ],
+    "game": {
+      "opponent": "Los Angeles Rams",
+      "label": "Sat, Aug 15 · 3:00 PM CT",
+      "homeAway": "home",
+      "kcWin": 57.4,
+      "spreadDetail": "KC -2.5",
+      "overUnder": 36.5,
+      "source": "DraftKings implied win probability",
+      "url": "https://www.espn.com/nfl/game/_/gameId/401873283"
+    }
   },
   "spotlight": [
     {
