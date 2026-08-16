@@ -10,7 +10,7 @@
     "homeAway": "home",
     "venue": "GEHA Field at Arrowhead Stadium",
     "tv": "NFL Net",
-    "completed": false,
+    "completed": true,
     "kcScore": null,
     "oppScore": null,
     "kickoff": "Sat, Aug 15 · 3:00 PM CT"
