@@ -142,6 +142,22 @@
   {{ end }}
   {{ end }}
 
+  <!-- ===================== STORYLINE ===================== -->
+  {{ with .storyline }}
+  <section class="section nrt-story">
+    <div class="section-head reveal">
+      <div>
+        <span class="kicker kicker--gold">The story so far</span>
+        <h2><span class="rule rule-gold"></span> Always looking ahead</h2>
+      </div>
+    </div>
+    <div class="nrt-story__body reveal">
+      {{ with .lede }}<p class="nrt-story__lede">{{ . }}</p>{{ end }}
+      {{ range .body }}<p>{{ . }}</p>{{ end }}
+    </div>
+  </section>
+  {{ end }}
+
   <!-- ===================== X's & O's ===================== -->
   {{ with .xsandos }}
   <section class="section nrt-xo" id="xo">
@@ -169,22 +185,6 @@
         </div>
       </article>
       {{ end }}
-    </div>
-  </section>
-  {{ end }}
-
-  <!-- ===================== STORYLINE ===================== -->
-  {{ with .storyline }}
-  <section class="section nrt-story">
-    <div class="section-head reveal">
-      <div>
-        <span class="kicker kicker--gold">The story so far</span>
-        <h2><span class="rule rule-gold"></span> Always looking ahead</h2>
-      </div>
-    </div>
-    <div class="nrt-story__body reveal">
-      {{ with .lede }}<p class="nrt-story__lede">{{ . }}</p>{{ end }}
-      {{ range .body }}<p>{{ . }}</p>{{ end }}
     </div>
   </section>
   {{ end }}
