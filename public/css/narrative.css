@@ -446,6 +446,14 @@ a.nrt-timeline__link:hover strong { color: var(--nrt-red); }
 .slate-game--home { border-top: 3px solid #c5a059; }
 .slate-game--away { border-top: 3px solid #2b2a2c; }
 .slate-game--pre { background: #fffaf0; }
+.slate-game--done { background: #f4f1f2; }
+.slate-game--live { box-shadow: inset 0 0 0 1px rgba(227, 24, 55, .28); }
+.slate-game__score {
+  font-family: var(--display, "Bebas Neue");
+  font-size: 22px;
+  letter-spacing: .03em;
+  color: #0d0c0d;
+}
 .slate-game:first-child {
   grid-column: 1 / -1;
   display: grid;
@@ -463,6 +471,7 @@ a.nrt-timeline__link:hover strong { color: var(--nrt-red); }
   align-self: end;
 }
 .slate-game:first-child .slate-game__when,
+.slate-game:first-child .slate-game__score,
 .slate-game:first-child .slate-game__meta { align-self: end; }
 .slate-game__top {
   display: flex;
@@ -576,7 +585,7 @@ a.nrt-timeline__link:hover strong { color: var(--nrt-red); }
 .sched-table { border: 1px solid var(--ap-border, rgba(13,12,13,.14)); border-radius: 16px; overflow: hidden; background: #fff; }
 .sched-table__head, .sched-row {
   display: grid;
-  grid-template-columns: 88px minmax(0, 1.4fr) minmax(0, 1.1fr) minmax(0, 1.1fr) 110px;
+  grid-template-columns: 88px minmax(0, 1.4fr) minmax(0, 1.1fr) minmax(0, 1.1fr) 110px 92px;
   gap: 10px;
   align-items: center;
   padding: 12px 16px;
@@ -594,7 +603,15 @@ a.nrt-timeline__link:hover strong { color: var(--nrt-red); }
 .sched-row { border-top: 1px solid rgba(13,12,13,.08); }
 .sched-row--home { background: #fff8ea; }
 .sched-row--bye { background: #f3f1f4; color: #6b6570; }
-.sched-row--done { opacity: .62; }
+.sched-row--done { opacity: .78; }
+.sched-row--live { box-shadow: inset 3px 0 0 var(--ap-red, #e31837); }
+.sched-row__score {
+  font-family: var(--grotesk);
+  font-size: 13.5px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  color: #0d0c0d;
+}
 .sched-row__week {
   font-family: var(--grotesk);
   font-size: 12px;

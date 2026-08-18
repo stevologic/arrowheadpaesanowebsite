@@ -5,16 +5,26 @@
 {{- $ha := cond (eq .homeAway "home") "vs" "@" -}}
 {{- $where := cond (eq .homeAway "home") "Arrowhead" (.venue | default "TBD") -}}
 {{- $tv := .tv | default "TBD" -}}
+{{- $hasScore := and (ne .kcScore nil) (ne .oppScore nil) -}}
+{{- $score := "" -}}
+{{- if $hasScore -}}
+  {{- $score = printf "KC %v–%v" .kcScore .oppScore -}}
+{{- else if .completed -}}
+  {{- $score = "Final" -}}
+{{- else if .inProgress -}}
+  {{- $score = "In progress" -}}
+{{- end -}}
 {{- $week := "" -}}
 {{- if eq .seasonType "pre" -}}
   {{- $week = printf "PRE %v" (.week | default "") -}}
 {{- else -}}
   {{- $week = printf "Week %v" (.week | default "") -}}
 {{- end -}}
-<div class="sched-row{{ if eq .homeAway "home" }} sched-row--home{{ end }}{{ if .completed }} sched-row--done{{ end }}" role="row">
+<div class="sched-row{{ if eq .homeAway "home" }} sched-row--home{{ end }}{{ if .completed }} sched-row--done{{ end }}{{ if .inProgress }} sched-row--live{{ end }}" role="row">
   <span class="sched-row__week">{{ $week }}</span>
   <strong class="sched-row__opp"><abbr title="{{ if eq .homeAway "home" }}Home{{ else }}Away{{ end }}">{{ $ha }}</abbr> {{ .opponent }}</strong>
   <span class="sched-row__when">{{ $when }}</span>
   <span class="sched-row__where">{{ $where }}</span>
   <span class="sched-row__tv">{{ $tv }}</span>
+  <span class="sched-row__score">{{ $score }}</span>
 </div>

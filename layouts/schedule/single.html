@@ -32,7 +32,7 @@
   </div>
   <div class="sched-table" role="table" aria-label="2026 Chiefs preseason">
     <div class="sched-table__head" role="row">
-      <span>Week</span><span>Opp</span><span>When</span><span>Where</span><span>TV</span>
+      <span>Week</span><span>Opp</span><span>When</span><span>Where</span><span>TV</span><span>Score</span>
     </div>
     {{ range . }}
       {{ partial "schedule-row.html" . }}
@@ -50,7 +50,7 @@
   </div>
   <div class="sched-table" role="table" aria-label="2026 Chiefs regular season">
     <div class="sched-table__head" role="row">
-      <span>Week</span><span>Opp</span><span>When</span><span>Where</span><span>TV</span>
+      <span>Week</span><span>Opp</span><span>When</span><span>Where</span><span>TV</span><span>Score</span>
     </div>
     {{ $prev := 0 }}
     {{ range . }}
@@ -62,6 +62,7 @@
           <span class="sched-row__when">Open date</span>
           <span class="sched-row__where">—</span>
           <span class="sched-row__tv">—</span>
+          <span class="sched-row__score">—</span>
         </div>
       {{ end }}
       {{ partial "schedule-row.html" . }}
@@ -71,5 +72,5 @@
 </section>
 {{ end }}
 
-<p class="sched-note">Times from ESPN. Flex games (late-season windows without a network yet) show Time TBD. Updated with the daily Chiefs Narrative desk.</p>
+<p class="sched-note">Times, networks, and final scores from ESPN. Kickoffs in Central Time. Flex games (late-season windows without a network yet) show Time TBD. Scores stay blank until ESPN publishes them — we do not invent results. Refreshed by the Chiefs desk after kickoffs, not only when the narrative text changes.</p>
 {{ end }}

@@ -1,37 +1,61 @@
 {{- /*
-  Upcoming 2026 slate from data/schedule_2026.json.
-  Context: optional "limit" (default 7: next game plus two even rows).
+  2026 slate from data/schedule_2026.json.
+  Context: optional "limit" (default 7: last final plus upcoming rows).
 */ -}}
 {{- $limit := .limit | default 7 -}}
-{{- $games := slice -}}
+{{- $upcoming := slice -}}
+{{- $lastDone := false -}}
 {{- range site.Data.schedule_2026 -}}
   {{- $dt := time.AsTime .date -}}
-  {{- if and (not .completed) (ge $dt now) -}}
+  {{- if or .completed .inProgress (lt $dt now) -}}
+    {{- $lastDone = . -}}
+  {{- else -}}
+    {{- $upcoming = $upcoming | append . -}}
+  {{- end -}}
+{{- end -}}
+{{- $games := slice -}}
+{{- if $lastDone -}}
+  {{- $games = $games | append $lastDone -}}
+{{- end -}}
+{{- $room := sub $limit (len $games) -}}
+{{- if gt $room 0 -}}
+  {{- range first $room $upcoming -}}
     {{- $games = $games | append . -}}
   {{- end -}}
 {{- end -}}
 {{- if $games -}}
-<section class="season-slate" id="slate" aria-label="Upcoming Chiefs games">
+<section class="season-slate" id="slate" aria-label="Chiefs 2026 slate">
   <div class="season-slate__inner">
     <div class="season-slate__lead">
       <span class="kicker"><span class="dot dot-live"></span> 2026 slate</span>
       <h2>Looking ahead</h2>
-      <p>Next on the calendar, kickoffs in Central Time.</p>
+      <p>Latest final, then next on the calendar. Kickoffs in Central Time.</p>
       <a class="season-slate__all" href="{{ "schedule/" | relURL }}">Full schedule →</a>
     </div>
     <div class="season-slate__grid">
-      {{- range first $limit $games -}}
-      <article class="slate-game{{ if eq .seasonType "pre" }} slate-game--pre{{ end }}{{ if eq .homeAway "home" }} slate-game--home{{ else }} slate-game--away{{ end }}">
+      {{- range $games -}}
+      {{- $hasScore := and (ne .kcScore nil) (ne .oppScore nil) -}}
+      <article class="slate-game{{ if eq .seasonType "pre" }} slate-game--pre{{ end }}{{ if eq .homeAway "home" }} slate-game--home{{ else }} slate-game--away{{ end }}{{ if .completed }} slate-game--done{{ end }}{{ if .inProgress }} slate-game--live{{ end }}">
         <div class="slate-game__top">
           <span class="slate-game__tag">
-            {{- if eq .seasonType "pre" -}}Preseason{{ if .week }} {{ .week }}{{ end -}}
+            {{- if .completed -}}Final
+            {{- else if .inProgress -}}In progress
+            {{- else if eq .seasonType "pre" -}}Preseason{{ if .week }} {{ .week }}{{ end -}}
             {{- else if .week -}}Week {{ .week -}}
             {{- else -}}Upcoming{{- end -}}
           </span>
           <span class="slate-game__ha">{{ if eq .homeAway "home" }}Home{{ else }}Away{{ end }}</span>
         </div>
         <strong class="slate-game__opp">{{ .opponentShort | default .opponent }}</strong>
+        {{- if $hasScore -}}
+        <span class="slate-game__score">KC {{ .kcScore }}–{{ .oppScore }}</span>
+        {{- else if .completed -}}
+        <span class="slate-game__when">Final · {{ .kickoff | default .date }}</span>
+        {{- else if .inProgress -}}
+        <span class="slate-game__when">In progress</span>
+        {{- else -}}
         <span class="slate-game__when">{{ .kickoff | default .date }}</span>
+        {{- end -}}
         <span class="slate-game__meta">
           {{- if eq .homeAway "home" }}Arrowhead{{ else }}{{ .venue }}{{ end -}}
           {{- with .tv }} · {{ . }}{{ end -}}
