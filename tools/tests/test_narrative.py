@@ -119,10 +119,40 @@ class GrokModelSelection(unittest.TestCase):
         yaml = (Path(__file__).resolve().parents[2] / ".github" / "workflows" / "narrative.yml").read_text(encoding="utf-8")
         self.assertIn("GROK_MODEL: ${{ vars.GROK_MODEL }}", yaml)
 
+    def test_workflow_refreshes_slate_beyond_narrative_text(self):
+        yaml = (Path(__file__).resolve().parents[2] / ".github" / "workflows" / "narrative.yml").read_text(encoding="utf-8")
+        self.assertIn("10 11 * * *", yaml)
+        self.assertIn("20 4 * * *", yaml)
+        self.assertIn("20 7 * * 0,1,2", yaml)
+        self.assertIn("--schedule-only", yaml)
+        self.assertIn("python -m tools.chiefs_narrative.generate --schedule-only", yaml)
+        self.assertIn("Chiefs schedule: refresh 2026 slate", yaml)
+        self.assertNotIn("*/15", yaml)
 
-def _espn_event(event_id, date, abbr, season_type, week, home=True, venue="GEHA Field at Arrowhead Stadium"):
-    kc = {"homeAway": "home" if home else "away", "team": {"abbreviation": "KC", "displayName": "Kansas City Chiefs", "shortDisplayName": "Chiefs"}, "score": None}
-    opp = {"homeAway": "away" if home else "home", "team": {"abbreviation": abbr, "displayName": f"{abbr} Team", "shortDisplayName": abbr, "name": abbr}, "score": None}
+
+def _espn_event(
+    event_id,
+    date,
+    abbr,
+    season_type,
+    week,
+    home=True,
+    venue="GEHA Field at Arrowhead Stadium",
+    kc_score=None,
+    opp_score=None,
+    completed=False,
+    state="pre",
+):
+    kc = {
+        "homeAway": "home" if home else "away",
+        "team": {"abbreviation": "KC", "displayName": "Kansas City Chiefs", "shortDisplayName": "Chiefs"},
+        "score": kc_score,
+    }
+    opp = {
+        "homeAway": "away" if home else "home",
+        "team": {"abbreviation": abbr, "displayName": f"{abbr} Team", "shortDisplayName": abbr, "name": abbr},
+        "score": opp_score,
+    }
     return {
         "id": event_id,
         "date": date,
@@ -132,7 +162,7 @@ def _espn_event(event_id, date, abbr, season_type, week, home=True, venue="GEHA 
             "competitors": [kc, opp],
             "venue": {"fullName": venue},
             "broadcasts": [{"names": ["NFL Network"], "media": {"shortName": "NFLN"}}],
-            "status": {"type": {"completed": False}},
+            "status": {"type": {"completed": completed, "state": state}},
         }],
     }
 
@@ -225,6 +255,8 @@ class SeasonClock(unittest.TestCase):
         self.assertEqual(games[0]["opponentAbbr"], "LAR")
         self.assertEqual(games[1]["opponentAbbr"], "DEN")
         self.assertEqual(games[0]["tv"], "NFLN")
+        self.assertIsNone(games[0]["kcScore"])
+        self.assertFalse(games[0]["completed"])
 
     def test_resolve_schedule_falls_back_to_checked_in_slate(self):
         cached = [dict(self.DEN)]
@@ -333,6 +365,10 @@ class SeasonClock(unittest.TestCase):
         self.assertIn("site.Data.schedule_2026", slate)
         self.assertIn("site.Data.wire", wire)
         self.assertIn("slate-game__ha", slate)
+        self.assertIn("slate-game__score", slate)
+        self.assertIn("kcScore", slate)
+        self.assertIn("slate-game--done", slate)
+        self.assertIn("In progress", slate)
         self.assertIn("wire-item--lead", wire)
         self.assertIn("first 8 .headlines", wire)
         base = (root / "layouts" / "_default" / "baseof.html").read_text(encoding="utf-8")
@@ -362,6 +398,10 @@ class SeasonClock(unittest.TestCase):
         self.assertIn('where $all "seasonType" "reg"', page)
         self.assertIn("Bye", page)
         self.assertIn(".opponent", row)
+        self.assertIn("sched-row__score", row)
+        self.assertIn("kcScore", row)
+        self.assertIn("Score", page)
+        self.assertIn("sched-row__score", page)
         self.assertIn('href: "schedule/"', nav)
         self.assertIn("active: \"schedule\"", md)
 
@@ -373,6 +413,141 @@ class SeasonClock(unittest.TestCase):
         self.assertTrue(any(g.get("opponentAbbr") == "LAR" for g in pre))
         self.assertTrue(any(g.get("week") == 1 and g.get("opponentAbbr") == "DEN" for g in reg))
         self.assertNotIn(5, {g.get("week") for g in reg})
+        rams = next(g for g in pre if g.get("opponentAbbr") == "LAR")
+        if rams.get("completed"):
+            self.assertIsNotNone(rams.get("kcScore"), "completed Rams game must keep a real ESPN score")
+            self.assertIsNotNone(rams.get("oppScore"))
+
+
+class ScheduleScores(unittest.TestCase):
+    """Normalize ESPN scores without inventing kickoffs, networks, or results."""
+
+    def test_to_int_reads_espn_web_score_object(self):
+        self.assertEqual(collect._to_int({"value": 12.0, "displayValue": "12"}), 12)
+        self.assertEqual(collect._to_int({"displayValue": "20"}), 20)
+        self.assertEqual(collect._to_int("17"), 17)
+        self.assertEqual(collect._to_int(7), 7)
+        self.assertEqual(collect._to_int(3.0), 3)
+
+    def test_to_int_does_not_invent(self):
+        self.assertIsNone(collect._to_int(None))
+        self.assertIsNone(collect._to_int(""))
+        self.assertIsNone(collect._to_int({}))
+        self.assertIsNone(collect._to_int({"value": None}))
+        self.assertIsNone(collect._to_int("TBD"))
+        self.assertIsNone(collect._to_int(True))
+
+    def test_parse_event_keeps_final_from_espn_dict(self):
+        event = _espn_event(
+            "401873283",
+            "2026-08-15T20:00Z",
+            "LAR",
+            "pre",
+            2,
+            kc_score={"value": 12.0, "displayValue": "12"},
+            opp_score={"value": 20.0, "displayValue": "20"},
+            completed=True,
+            state="post",
+        )
+        game = collect.parse_event(event)
+        self.assertTrue(game["completed"])
+        self.assertFalse(game["inProgress"])
+        self.assertEqual(game["kcScore"], 12)
+        self.assertEqual(game["oppScore"], 20)
+        self.assertEqual(game["tv"], "NFLN")
+        self.assertIn("Aug 15", game["kickoff"])
+        self.assertIn("CT", game["kickoff"])
+
+    def test_parse_event_leaves_blank_when_espn_has_no_score(self):
+        event = _espn_event(
+            "401873283",
+            "2026-08-15T20:00Z",
+            "LAR",
+            "pre",
+            2,
+            completed=True,
+            state="post",
+        )
+        game = collect.parse_event(event)
+        self.assertTrue(game["completed"])
+        self.assertIsNone(game["kcScore"])
+        self.assertIsNone(game["oppScore"])
+
+    def test_in_progress_can_show_espn_score_without_marking_final(self):
+        event = _espn_event(
+            "live1",
+            "2026-08-22T23:30Z",
+            "TB",
+            "pre",
+            3,
+            home=False,
+            kc_score={"value": 10.0, "displayValue": "10"},
+            opp_score={"value": 7.0, "displayValue": "7"},
+            completed=False,
+            state="in",
+        )
+        game = collect.parse_event(event)
+        self.assertFalse(game["completed"])
+        self.assertTrue(game["inProgress"])
+        self.assertEqual(game["kcScore"], 10)
+        self.assertEqual(game["oppScore"], 7)
+
+    def test_merge_keeps_cached_final_when_live_omits_score(self):
+        live = [{
+            "id": "401873283",
+            "completed": True,
+            "kcScore": None,
+            "oppScore": None,
+            "tv": "NFL Net",
+        }]
+        cached = [{
+            "id": "401873283",
+            "completed": True,
+            "kcScore": 12,
+            "oppScore": 20,
+            "tv": "NFL Net",
+        }]
+        merged = collect.merge_cached_scores(live, cached)
+        self.assertEqual(merged[0]["kcScore"], 12)
+        self.assertEqual(merged[0]["oppScore"], 20)
+
+    def test_merge_does_not_invent_when_neither_side_has_a_score(self):
+        live = [{"id": "x", "completed": True, "kcScore": None, "oppScore": None}]
+        cached = [{"id": "x", "completed": True, "kcScore": None, "oppScore": None}]
+        merged = collect.merge_cached_scores(live, cached)
+        self.assertIsNone(merged[0]["kcScore"])
+        self.assertIsNone(merged[0]["oppScore"])
+
+    def test_write_schedule_refuses_to_clobber_with_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "schedule.json"
+            path.write_text('[{"id": "keep"}]\n', encoding="utf-8")
+            with patch.object(collect.config, "SCHEDULE_JSON", path):
+                self.assertFalse(collect.write_schedule([]))
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8"))[0]["id"], "keep")
+
+    def test_schedule_only_writes_slate_without_narrative(self):
+        event = _espn_event(
+            "401873283",
+            "2026-08-15T20:00Z",
+            "LAR",
+            "pre",
+            2,
+            kc_score={"value": 12.0, "displayValue": "12"},
+            opp_score={"value": 20.0, "displayValue": "20"},
+            completed=True,
+            state="post",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "schedule.json"
+            with patch.object(collect.config, "SCHEDULE_JSON", path), \
+                 patch.object(collect, "fetch_schedule", return_value=[collect.parse_event(event)]):
+                rc = generate.main(["--schedule-only"])
+            self.assertEqual(rc, 0)
+            games = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(games[0]["kcScore"], 12)
+        self.assertEqual(games[0]["oppScore"], 20)
+        self.assertTrue(games[0]["completed"])
 
 
 if __name__ == "__main__":

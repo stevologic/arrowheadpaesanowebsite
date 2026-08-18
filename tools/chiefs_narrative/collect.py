@@ -106,7 +106,33 @@ def enrich_game(game: dict) -> dict:
             label = kickoff_label(out["date"])
             if label:
                 out["kickoff"] = label
+    out.setdefault("inProgress", False)
     return out
+
+
+def _to_int(value):
+    """Parse an ESPN score. Never invent: missing/unreadable values stay None.
+
+    The web API sends ``{"value": 12.0, "displayValue": "12"}``; older payloads
+    send a bare string or int. A dict we cannot read is not a 0.
+    """
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, dict):
+        if value.get("value") is not None and value.get("value") != "":
+            return _to_int(value.get("value"))
+        return _to_int(value.get("displayValue"))
+    if isinstance(value, int):
+        return value
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        try:
+            return int(float(value))
+        except (TypeError, ValueError):
+            return None
 
 
 def _broadcast_name(comp: dict) -> str:
@@ -140,6 +166,7 @@ def parse_event(event: dict) -> dict | None:
         opp = away if kc_is_home else home
         status = (comp.get("status") or {}).get("type") or {}
         date = event.get("date") or comp.get("date")
+        state = (status.get("state") or "").lower()
         game = {
             "id": event.get("id"),
             "week": (event.get("week") or {}).get("number"),
@@ -153,6 +180,7 @@ def parse_event(event: dict) -> dict | None:
             "venue": (comp.get("venue") or {}).get("fullName", ""),
             "tv": _broadcast_name(comp),
             "completed": bool(status.get("completed")),
+            "inProgress": state == "in" and not status.get("completed"),
             "kcScore": _to_int(kc.get("score")),
             "oppScore": _to_int(opp.get("score")),
         }
@@ -195,12 +223,30 @@ def fetch_schedule(season: int = None) -> list[dict]:
     return games
 
 
+def merge_cached_scores(live: list[dict], cached: list[dict]) -> list[dict]:
+    """Keep a previously published final if ESPN omits the score this fetch.
+
+    Copies scores only. Never invents kickoffs, networks, or results.
+    """
+    prev = {str(g.get("id")): g for g in cached if g.get("id")}
+    merged: list[dict] = []
+    for game in live:
+        out = dict(game)
+        old = prev.get(str(out.get("id") or ""))
+        if old and out.get("kcScore") is None and old.get("kcScore") is not None:
+            out["kcScore"] = old["kcScore"]
+            if out.get("oppScore") is None:
+                out["oppScore"] = old.get("oppScore")
+        merged.append(out)
+    return merged
+
+
 def resolve_schedule(season: int = None) -> list[dict]:
     """Live ESPN slate, or the last checked-in slate if ESPN is down."""
+    cached = load_cached_schedule()
     live = fetch_schedule(season)
     if live:
-        return live
-    cached = load_cached_schedule()
+        return merge_cached_scores(live, cached)
     if cached:
         print(f"  [collect] live schedule empty; using cached {len(cached)} games")
         return cached
@@ -208,11 +254,25 @@ def resolve_schedule(season: int = None) -> list[dict]:
     return []
 
 
-def _to_int(value):
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return None
+def write_schedule(games: list[dict]) -> bool:
+    """Persist the slate the site reads. Refuse to overwrite with an empty list."""
+    if not games:
+        return False
+    config.ensure_dirs()
+    config.SCHEDULE_JSON.write_text(
+        json.dumps(games, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
+    return True
+
+
+def refresh_schedule(season: int = None) -> list[dict]:
+    """Fetch (or fall back) and write ``data/schedule_2026.json``."""
+    games = resolve_schedule(season)
+    if write_schedule(games):
+        print(f"  [collect] wrote {len(games)} games to {config.SCHEDULE_JSON.name}")
+    else:
+        print("  [collect] warning: no slate to write; left last good file in place")
+    return games
 
 
 # ---------------------------------------------------------------------------

@@ -5,6 +5,7 @@ Run it directly::
     python -m tools.chiefs_narrative.generate            # auto-pick provider
     python -m tools.chiefs_narrative.generate --provider grok
     python -m tools.chiefs_narrative.generate --provider offline
+    python -m tools.chiefs_narrative.generate --schedule-only  # slate only
     python -m tools.chiefs_narrative.generate --dry-run  # print, don't write
 
 Environment (all optional):
@@ -128,10 +129,7 @@ def _write_archive(narrative: dict) -> None:
 
 
 def _write_schedule(schedule: list[dict]) -> None:
-    if schedule:
-        config.SCHEDULE_JSON.write_text(
-            json.dumps(schedule, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-        )
+    collect.write_schedule(schedule)
 
 
 def _write_wire(headlines: list[dict]) -> None:
@@ -158,13 +156,16 @@ def _write_wire(headlines: list[dict]) -> None:
     )
 
 
-def build(provider_name: str | None = None) -> dict:
+def build(provider_name: str | None = None, persist_schedule: bool = True) -> dict:
     print("Arrowhead Paesano — Chiefs Narrative engine")
     print("-" * 52)
 
-    # 1. Collect live signals.
+    # 1. Collect live signals and persist the slate immediately so a later
+    # writer failure still leaves dates, networks, and scores in the repo.
     signals = collect.collect_all()
     schedule = signals["schedule"]
+    if persist_schedule:
+        _write_schedule(schedule)
 
     # 2. Determine phase + upcoming games.
     ph = phase_mod.detect(schedule)
@@ -223,9 +224,20 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="Generate the Chiefs Narrative edition.")
     parser.add_argument("--provider", help="force provider (grok|openai|anthropic|claude-cli|codex-cli|offline)")
     parser.add_argument("--dry-run", action="store_true", help="print JSON, do not write files")
+    parser.add_argument(
+        "--schedule-only",
+        action="store_true",
+        help="refresh data/schedule_2026.json from ESPN and exit (no narrative)",
+    )
     args = parser.parse_args(argv)
 
-    result = build(args.provider)
+    if args.schedule_only:
+        games = collect.refresh_schedule()
+        print("-" * 52)
+        print(f"  slate: {len(games)} games")
+        return 0
+
+    result = build(args.provider, persist_schedule=not args.dry_run)
     narrative = result["narrative"]
 
     if args.dry_run:
