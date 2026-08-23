@@ -27,10 +27,10 @@
     "homeAway": "away",
     "venue": "Raymond James Stadium",
     "tv": "ESPN Unlmtd",
-    "completed": false,
+    "completed": true,
     "inProgress": false,
-    "kcScore": null,
-    "oppScore": null,
+    "kcScore": 15,
+    "oppScore": 16,
     "kickoff": "Sat, Aug 22 · 6:30 PM CT"
   },
   {
