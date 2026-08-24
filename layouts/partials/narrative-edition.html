@@ -77,6 +77,134 @@
   </section>
   {{ end }}
 
+  <!-- ===================== LAST GAME ===================== -->
+  {{ with .lastGameReview }}
+  <section class="section nrt-lastgame" id="last-game">
+    <div class="section-head reveal">
+      <div>
+        <span class="kicker"><span class="dot dot-live"></span> Last game</span>
+        <h2><span class="rule"></span> What the tape said</h2>
+        <p class="section-dek">A real review of the most recent result — not a box-score dump, and not a skip-ahead.</p>
+      </div>
+    </div>
+    <div class="nrt-lastgame__card reveal">
+      <div class="nrt-lastgame__scoreboard">
+        {{ with .result }}<span class="nrt-lastgame__result nrt-lastgame__result--{{ . }}">{{ . }}</span>{{ end }}
+        <div>
+          {{ with .opponent }}<strong>{{ . }}</strong>{{ end }}
+          {{ with .label }}<span>{{ . }}</span>{{ end }}
+        </div>
+        {{ with .score }}<b class="nrt-lastgame__score">{{ . }}</b>{{ end }}
+      </div>
+      {{ with .lede }}<p class="nrt-lastgame__lede">{{ . }}</p>{{ end }}
+      {{ range .analysis }}<p>{{ . }}</p>{{ end }}
+      {{ if or .whatWorked .whatDidnt }}
+      <div class="nrt-lastgame__split">
+        {{ with .whatWorked }}
+        <div>
+          <h3>What held up</h3>
+          <ul>{{ range . }}<li>{{ . }}</li>{{ end }}</ul>
+        </div>
+        {{ end }}
+        {{ with .whatDidnt }}
+        <div>
+          <h3>What broke</h3>
+          <ul>{{ range . }}<li>{{ . }}</li>{{ end }}</ul>
+        </div>
+        {{ end }}
+      </div>
+      {{ end }}
+      {{ with .takeaways }}
+      <div class="nrt-lastgame__takes">
+        {{ range . }}
+        <article>
+          <h3>{{ .title }}</h3>
+          <p>{{ .body }}</p>
+        </article>
+        {{ end }}
+      </div>
+      {{ end }}
+    </div>
+  </section>
+  {{ end }}
+
+  <!-- ===================== CURRENT STATE ===================== -->
+  {{ with .currentState }}
+  <section class="section nrt-state" id="current-state">
+    <div class="section-head reveal">
+      <div>
+        <span class="kicker kicker--gold">Current state</span>
+        <h2><span class="rule rule-gold"></span> Where we stand</h2>
+        <p class="section-dek">After the last kickoff: the work list, and the questions the building should be arguing.</p>
+      </div>
+      {{ with .record }}<p class="nrt-state__record">{{ . }}</p>{{ end }}
+    </div>
+    {{ with .lede }}<p class="nrt-state__lede reveal">{{ . }}</p>{{ end }}
+    <div class="nrt-state__grid">
+      {{ with .workOn }}
+      <div class="nrt-state__col reveal">
+        <h3>What we need to work on</h3>
+        {{ range . }}
+        <article>
+          <strong>{{ .title }}</strong>
+          <p>{{ .body }}</p>
+        </article>
+        {{ end }}
+      </div>
+      {{ end }}
+      {{ with .thinkAbout }}
+      <div class="nrt-state__col nrt-state__col--think reveal">
+        <h3>What to think about</h3>
+        {{ range . }}
+        <article>
+          <strong>{{ .title }}</strong>
+          <p>{{ .body }}</p>
+        </article>
+        {{ end }}
+      </div>
+      {{ end }}
+    </div>
+  </section>
+  {{ end }}
+
+  <!-- ===================== NEXT-GAME PLAN ===================== -->
+  {{ with .gamePlan }}
+  <section class="section nrt-gameplan" id="game-plan">
+    <div class="section-head reveal">
+      <div>
+        <span class="kicker"><span class="dot dot-accent"></span> Looking ahead</span>
+        <h2><span class="rule"></span> The next-game plan</h2>
+        <p class="section-dek">How they match up, what Kansas City should script, and the keys that decide it.</p>
+      </div>
+    </div>
+    <div class="nrt-gameplan__card reveal">
+      {{ with .opponent }}<span class="nrt-gameplan__opp">{{ . }}</span>{{ end }}
+      {{ with .lede }}<p class="nrt-gameplan__lede">{{ . }}</p>{{ end }}
+      {{ with .howTheyMatch }}
+      <div class="nrt-gameplan__match">
+        <h3>How they match up</h3>
+        <p>{{ . }}</p>
+      </div>
+      {{ end }}
+      {{ with .keys }}
+      <div class="nrt-gameplan__keys">
+        {{ range . }}
+        <article>
+          <h3>{{ .title }}</h3>
+          <p>{{ .body }}</p>
+        </article>
+        {{ end }}
+      </div>
+      {{ end }}
+      {{ with .script }}
+      <ol class="nrt-gameplan__script">
+        {{ range . }}<li>{{ . }}</li>{{ end }}
+      </ol>
+      {{ end }}
+    </div>
+  </section>
+  {{ end }}
+
   <!-- ===================== MARKETS ===================== -->
   {{ with .markets }}
   {{ if or .game .model .vegas .futures }}
@@ -429,7 +557,7 @@
     <div class="nrt-colophon__inner">
       <div>
         <span class="kicker">How this is made</span>
-        <p>The Chiefs Narrative is assembled by an automated desk that reads the live schedule, the news wire, the model projection, the Vegas line, and the prediction markets, then curates a forward-looking edition and draws up the film. Regenerated regularly; always looking ahead to the next Sunday.</p>
+        <p>The Chiefs Narrative is assembled by an automated desk that reads the live schedule, the last-game recap, the news wire, the model projection, the Vegas line, and the prediction markets. Each edition reviews the last result, names the current work list, then game-plans the next opponent — matchups, script, and film. Regenerated regularly; always looking ahead to the next Sunday.</p>
       </div>
       <div class="nrt-colophon__meta">
         <span>Generator</span><strong>{{ .generator }}</strong>

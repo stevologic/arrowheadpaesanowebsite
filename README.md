@@ -36,12 +36,13 @@ The homepage and Watch page read `data/channel_feed.json` during the Hugo build.
 
 ## The Chiefs Narrative engine
 
-`/narrative/` is an automated, always-looking-ahead weekly Kansas City Chiefs
-analysis desk: training-camp battles, game previews/reviews, X's-and-O's with
-hand-drawn field diagrams, player/coaching/style matchups, injuries, personnel,
-strategies, a model projection, the Vegas line, prediction-market odds, cited
-sources, and a ready-to-shoot YouTube run-of-show. It regenerates itself and
-evolves the story toward the next Sunday.
+`/narrative/` is an automated weekly Kansas City Chiefs analysis desk. Each
+edition reviews the last game, names the current state of the roster (what to
+work on, what to think about), then looks ahead to the next opponent with a
+game plan and matchup read. It also carries training-camp battles, X's-and-O's
+with hand-drawn field diagrams, injuries, personnel, a model projection, the
+Vegas line, prediction-market odds, cited sources, and a ready-to-shoot YouTube
+run-of-show. It regenerates itself and evolves the story toward the next Sunday.
 
 ### How it works
 
@@ -49,15 +50,16 @@ The engine lives in [`tools/chiefs_narrative/`](tools/chiefs_narrative/):
 
 1. **Collect** — reads the live 2026 schedule (ESPN preseason + regular +
    postseason, falling back to the checked-in slate if ESPN is down), the
-   Chiefs news wire
-   (Chiefs.com, Arrowhead Pride, Arrowhead Addict, ESPN RSS), the model
+   last completed game's ESPN recap (box + scoring plays), the Chiefs news
+   wire (Chiefs.com, Arrowhead Pride, Arrowhead Addict, ESPN RSS), the model
    projection + Vegas line (ESPN FPI / DraftKings), and prediction markets
    (Polymarket). Every network call fails soft.
 2. **Phase** — detects where the season is (offseason, training camp, preseason,
    a specific game week, playoffs) from the schedule + today's date, so the
    framing changes automatically.
 3. **Write** — an LLM provider (or the built-in deterministic *offline* writer)
-   turns the signals into a structured, source-cited edition.
+   turns the signals into a structured, source-cited edition with three
+   required acts: last-game review, current state, next-game plan.
 4. **Diagram** — renders clean X's-and-O's SVGs from a concept library
    (`diagrams.py`) into `public/images/narrative/`.
 5. **Publish** — writes `data/narrative.json` (+ a rolling `data/narrative_archive.json`),

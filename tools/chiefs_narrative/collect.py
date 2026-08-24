@@ -413,6 +413,111 @@ def fetch_news(max_per_feed: int = 8, max_total: int = 24) -> list[dict]:
     return unique
 
 
+# ---------------------------------------------------------------------------
+# Last-game recap (ESPN summary — fail soft)
+# ---------------------------------------------------------------------------
+_RECAP_STAT_NAMES = (
+    "totalYards",
+    "netPassingYards",
+    "rushingYards",
+    "turnovers",
+    "firstDowns",
+    "thirdDownEff",
+    "possessionTime",
+    "sacks",
+)
+
+
+def _box_stats(team_block: dict) -> dict:
+    stats = {}
+    for row in team_block.get("statistics") or []:
+        if not isinstance(row, dict):
+            continue
+        name = row.get("name") or ""
+        if name in _RECAP_STAT_NAMES:
+            stats[name] = str(row.get("displayValue") or row.get("value") or "").strip()
+    return stats
+
+
+def _scoring_lines(plays: list, limit: int = 8) -> list[str]:
+    out = []
+    for play in plays or []:
+        if not isinstance(play, dict):
+            continue
+        team = ((play.get("team") or {}).get("abbreviation")) or ""
+        text = (play.get("text") or "").strip()
+        if not text:
+            continue
+        period = (play.get("period") or {}).get("number")
+        clock = (play.get("clock") or {}).get("displayValue") or ""
+        q = f"Q{period}" if period else ""
+        stamp = " ".join(p for p in (q, clock) if p)
+        prefix = f"{team} " if team else ""
+        line = f"{prefix}{text}"
+        if stamp:
+            line = f"{stamp} — {line}"
+        out.append(line)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def fetch_game_recap(event_id: str) -> dict:
+    """Box-score snapshot + scoring plays for one ESPN event.
+
+    Used to ground last-game analysis. Missing or partial payloads become {}.
+    Never invents a score that ESPN did not send.
+    """
+    if not event_id:
+        return {}
+    data = _get_json(config.ESPN_SUMMARY.format(event=event_id))
+    if not isinstance(data, dict):
+        return {}
+
+    recap = {"eventId": str(event_id), "kc": {}, "opp": {}, "scoring": [], "leaders": []}
+    box = data.get("boxscore") or {}
+    for block in box.get("teams") or []:
+        if not isinstance(block, dict):
+            continue
+        abbr = ((block.get("team") or {}).get("abbreviation") or "").upper()
+        stats = _box_stats(block)
+        if abbr == "KC":
+            recap["kc"] = stats
+        elif abbr:
+            recap["opp"] = stats
+            recap["oppAbbr"] = abbr
+
+    recap["scoring"] = _scoring_lines(data.get("scoringPlays") or [])
+
+    for group in data.get("leaders") or []:
+        if not isinstance(group, dict):
+            continue
+        team = ((group.get("team") or {}).get("abbreviation") or "").upper()
+        if team != "KC":
+            continue
+        for leader in group.get("leaders") or []:
+            if not isinstance(leader, dict):
+                continue
+            people = leader.get("leaders") or []
+            if not people or not isinstance(people[0], dict):
+                continue
+            athlete = people[0].get("athlete") or {}
+            name = athlete.get("displayName") or ""
+            value = people[0].get("displayValue") or ""
+            category = leader.get("displayName") or leader.get("name") or ""
+            if name and value:
+                recap["leaders"].append(
+                    {"player": name, "category": category, "value": value}
+                )
+            if len(recap["leaders"]) >= 4:
+                break
+        break
+
+    if not recap["kc"] and not recap["opp"] and not recap["scoring"] and not recap["leaders"]:
+        return {}
+    return recap
+
+
 def collect_all(season: int = None) -> dict:
     """Gather every live signal into one bundle for the writer + phase logic."""
     print("  [collect] fetching 2026 schedule…")

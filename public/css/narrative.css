@@ -62,6 +62,128 @@
 .nrt-edge__label { flex: none; font-family: var(--display); letter-spacing: .06em; font-size: 22px; color: var(--nrt-red); border-right: 3px solid var(--nrt-gold); padding-right: 20px; }
 .nrt-edge p { margin: 0; font-family: var(--serif); font-size: clamp(18px, 2vw, 26px); line-height: 1.3; font-weight: 600; color: var(--nrt-ink); }
 
+/* ---------------- LAST GAME / STATE / PLAN ---------------- */
+.nrt-lastgame__card,
+.nrt-gameplan__card {
+  background: var(--nrt-paper);
+  border: 1px solid var(--nrt-line);
+  border-radius: var(--nrt-radius);
+  padding: 26px 28px;
+  box-shadow: var(--nrt-shadow);
+}
+.nrt-lastgame__card p,
+.nrt-gameplan__card p { margin: 0 0 14px; font-size: 16px; line-height: 1.6; color: #3d3842; }
+.nrt-lastgame__lede,
+.nrt-gameplan__lede,
+.nrt-state__lede {
+  font-family: var(--serif);
+  font-size: clamp(18px, 1.8vw, 22px);
+  line-height: 1.4;
+  font-weight: 600;
+  color: var(--nrt-ink);
+}
+.nrt-lastgame__scoreboard {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 18px;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--nrt-line);
+}
+.nrt-lastgame__result {
+  font-family: var(--display);
+  font-size: 28px;
+  letter-spacing: .04em;
+  width: 46px;
+  height: 46px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: #ddd;
+  color: var(--nrt-ink);
+}
+.nrt-lastgame__result--W { background: var(--nrt-green); color: #fff; }
+.nrt-lastgame__result--L { background: var(--nrt-red); color: #fff; }
+.nrt-lastgame__scoreboard strong { display: block; font-family: var(--serif); font-size: 22px; font-weight: 800; }
+.nrt-lastgame__scoreboard span { display: block; font-family: var(--grotesk); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #6b6570; }
+.nrt-lastgame__score { margin-left: auto; font-family: var(--display); font-size: clamp(28px, 3vw, 40px); letter-spacing: .02em; }
+.nrt-lastgame__split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin: 8px 0 20px;
+}
+.nrt-lastgame__split h3,
+.nrt-state__col h3,
+.nrt-gameplan__match h3 {
+  font-family: var(--grotesk);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  margin: 0 0 10px;
+  color: var(--nrt-red);
+}
+.nrt-lastgame__split ul,
+.nrt-gameplan__script { margin: 0; padding: 0 0 0 18px; display: grid; gap: 8px; color: #3d3842; }
+.nrt-lastgame__takes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.nrt-lastgame__takes article,
+.nrt-state__col article,
+.nrt-gameplan__keys article {
+  background: #fff;
+  border: 1px solid var(--nrt-line);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+.nrt-lastgame__takes h3,
+.nrt-state__col strong,
+.nrt-gameplan__keys h3 {
+  display: block;
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 800;
+  margin: 0 0 6px;
+  color: var(--nrt-ink);
+}
+.nrt-state__record {
+  font-family: var(--display);
+  font-size: 28px;
+  letter-spacing: .04em;
+  color: var(--nrt-red);
+  margin: 0;
+}
+.nrt-state__lede { max-width: 70ch; margin: 0 0 22px; }
+.nrt-state__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.nrt-state__col { display: grid; gap: 12px; align-content: start; }
+.nrt-state__col--think h3 { color: #a97b00; }
+.nrt-gameplan__opp {
+  font-family: var(--grotesk);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--nrt-gold);
+  background: var(--nrt-ink);
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 999px;
+  margin-bottom: 12px;
+}
+.nrt-gameplan__match { margin: 8px 0 20px; padding: 16px 18px; background: #fff8ea; border-radius: 12px; }
+.nrt-gameplan__match p { margin: 0; }
+.nrt-gameplan__keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 18px; }
+.nrt-gameplan__script { font-size: 15px; line-height: 1.5; }
+
+.home-narrative__last {
+  font-family: var(--grotesk);
+  font-size: 13px;
+  letter-spacing: .04em;
+  color: rgba(255, 255, 255, .7);
+  margin: 0 0 16px;
+}
+.home-narrative__last b { color: var(--ap-gold, #ffb81c); margin-right: 6px; }
+
 /* ---------------- MARKETS ---------------- */
 .nrt-markets__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
 .nrt-market-card { display: block; background: var(--nrt-paper); border: 1px solid var(--nrt-line); border-radius: var(--nrt-radius); padding: 20px; text-decoration: none; color: var(--nrt-ink); box-shadow: var(--nrt-shadow); transition: transform .18s ease, box-shadow .18s ease; position: relative; overflow: hidden; }
@@ -227,7 +349,8 @@ a.nrt-timeline__link:hover strong { color: var(--nrt-red); }
 /* ---------------- RESPONSIVE ---------------- */
 @media (max-width: 900px) {
   .nrt-hero__grid { grid-template-columns: 1fr; }
-  .nrt-report__cols, .nrt-plan__cols, .nrt-colophon__inner { grid-template-columns: 1fr; }
+  .nrt-report__cols, .nrt-plan__cols, .nrt-colophon__inner,
+  .nrt-lastgame__split, .nrt-state__grid { grid-template-columns: 1fr; }
   .nrt-stamp { margin-left: 0; width: 100%; }
 }
 @media (max-width: 620px) {

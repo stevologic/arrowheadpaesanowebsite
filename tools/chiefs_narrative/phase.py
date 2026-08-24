@@ -165,6 +165,59 @@ def _wrap(ptype, label, week, mode, edition, next_game, last_game) -> dict:
     }
 
 
+def slate_record(schedule: list[dict], season_type: str | None = None) -> str:
+    """W-L (-T) from completed games that actually have scores."""
+    wins = losses = ties = 0
+    for game in schedule or []:
+        if season_type and game.get("seasonType") != season_type:
+            continue
+        if not game.get("completed"):
+            continue
+        kc, opp = game.get("kcScore"), game.get("oppScore")
+        if kc is None or opp is None:
+            continue
+        if kc > opp:
+            wins += 1
+        elif kc < opp:
+            losses += 1
+        else:
+            ties += 1
+    if not (wins or losses or ties):
+        return ""
+    if ties:
+        return f"{wins}-{losses}-{ties}"
+    return f"{wins}-{losses}"
+
+
+def game_result(game: dict | None) -> dict:
+    """Scoreboard tokens for a completed (or in-progress) slate row."""
+    if not game:
+        return {}
+    kc, opp = game.get("kcScore"), game.get("oppScore")
+    result = ""
+    score = ""
+    if kc is not None and opp is not None:
+        if kc > opp:
+            result = "W"
+        elif kc < opp:
+            result = "L"
+        else:
+            result = "T"
+        score = f"KC {kc}–{opp}"
+    return {"result": result, "score": score}
+
+
+def format_last_game(game: dict | None) -> dict:
+    """Turn a completed slate row into the last-game review header."""
+    card = format_next_game(game)
+    if not card:
+        return {}
+    card.update(game_result(game))
+    if game.get("id"):
+        card["id"] = str(game["id"])
+    return card
+
+
 def format_next_game(game: dict | None) -> dict:
     """Turn a schedule row into the narrative nextGame card."""
     if not game:
