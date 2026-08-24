@@ -68,6 +68,39 @@ def _ensure_next_game(narrative: dict, ph: dict) -> None:
     )
 
 
+def _ensure_desk_sections(
+    narrative: dict, signals: dict, ph: dict, upcoming: list
+) -> None:
+    """Guarantee last-game / current-state / next-game plan when facts exist."""
+    fallback = None
+
+    def _fallback() -> dict:
+        nonlocal fallback
+        if fallback is None:
+            fallback = offline.write(signals, ph, upcoming)
+        return fallback
+
+    if ph.get("lastGame") and not narrative.get("lastGameReview", {}).get("lede"):
+        narrative["lastGameReview"] = schema._norm_last_game_review(
+            _fallback().get("lastGameReview")
+        )
+    if not narrative.get("currentState", {}).get("lede"):
+        narrative["currentState"] = schema._norm_current_state(
+            _fallback().get("currentState")
+        )
+    if not narrative.get("gamePlan", {}).get("lede"):
+        narrative["gamePlan"] = schema._norm_game_plan(_fallback().get("gamePlan"))
+
+    review = narrative.get("lastGameReview") or {}
+    last = ph.get("lastGame")
+    if last and review:
+        header = phase_mod.format_last_game(last)
+        for key in ("opponent", "label", "result", "score"):
+            if not review.get(key) and header.get(key):
+                review[key] = header[key]
+        narrative["lastGameReview"] = review
+
+
 def _edition_slug(narrative: dict) -> str:
     """Stable per-edition slug from the generation timestamp, e.g. 2026-07-25-1930."""
     stamp = (narrative.get("generatedAt") or config.iso_now())[:16]  # YYYY-MM-DDTHH:MM
@@ -172,6 +205,11 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
     upcoming = phase_mod.next_games(schedule, count=3)
     print(f"  [phase] {ph['label']} (type={ph['type']}, mode={ph['mode']})")
 
+    last = ph.get("lastGame") or {}
+    if last.get("id"):
+        print(f"  [collect] last-game recap for event {last['id']}…")
+        signals["lastGameRecap"] = collect.fetch_game_recap(str(last["id"]))
+
     # 3. Markets/predictions for the next game.
     next_game = ph.get("nextGame") or (upcoming[0] if upcoming else None)
     signals["markets"] = odds.collect_markets(next_game)
@@ -208,6 +246,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
     narrative = schema.normalize(raw, phase=ph, meta=meta)
     narrative["slug"] = _edition_slug(narrative)
     _ensure_next_game(narrative, ph)
+    _ensure_desk_sections(narrative, signals, ph, upcoming)
 
     # 6. Guarantee six X&O cards, then render diagrams and attach files.
     _ensure_six_xsandos(narrative, signals, ph, upcoming)

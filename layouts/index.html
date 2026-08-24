@@ -12,6 +12,9 @@
       <h1>Chiefs news.<br><span>Paesano attitude.</span></h1>
       <p>Trusted Kingdom newsrooms, original reactions from the Arrowhead Paesano channel, and one loud seat at the family table.</p>
       <div class="press-hero__actions">
+        {{ with .Site.Data.narrative }}
+        <a class="btn btn-gold btn-lg" href="{{ "narrative/" | relURL }}">Read the latest Narrative <span aria-hidden="true">→</span></a>
+        {{ end }}
         <a class="btn btn-primary btn-lg" href="#news-desk">Open the news bookmarks <span aria-hidden="true">↓</span></a>
         <a class="btn btn-yt btn-lg" href="{{ .Site.Params.subscribeUrl }}" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M23 7.2s-.2-1.6-.9-2.3c-.8-.9-1.7-.9-2.2-1C16.6 3.6 12 3.6 12 3.6s-4.6 0-7.9.3c-.5.1-1.4.1-2.2 1C1.2 5.6 1 7.2 1 7.2S.8 9.1.8 11v1.9c0 1.9.2 3.8.2 3.8s.2 1.6.9 2.3c.8.9 1.9.9 2.4 1 1.7.2 7.7.3 7.7.3s4.6 0 7.9-.3c.5-.1 1.4-.1 2.2-1 .7-.7.9-2.3.9-2.3s.2-1.9.2-3.8V11c0-1.9-.2-3.8-.2-3.8zM9.7 14.6V8.1l6 3.3-6 3.2z"/></svg>
@@ -56,9 +59,19 @@
       <h2>{{ .headline }}</h2>
       {{ with .dek }}<p class="home-narrative__dek">{{ . }}</p>{{ end }}
       {{ with .theEdge }}<p class="home-narrative__edge"><strong>The edge:</strong> {{ . }}</p>{{ end }}
+      {{ with .lastGameReview }}
+        {{ if or .score .result }}
+        <p class="home-narrative__last">
+          Last game
+          {{ with .result }}<b>{{ . }}</b>{{ end }}
+          {{ with .score }}{{ . }}{{ end }}
+          {{ with .opponent }} · {{ . }}{{ end }}
+        </p>
+        {{ end }}
+      {{ end }}
       <div class="home-narrative__actions">
-        <a class="btn btn-primary btn-lg" href="{{ "narrative/" | relURL }}">Read the full breakdown <span aria-hidden="true">→</span></a>
-        <a class="btn btn-ink" href="{{ "narrative/" | relURL }}#xo">See the X&rsquo;s &amp; O&rsquo;s</a>
+        <a class="btn btn-primary btn-lg" href="{{ "narrative/" | relURL }}">Read the latest edition <span aria-hidden="true">→</span></a>
+        <a class="btn btn-ink" href="{{ "narrative/" | relURL }}#game-plan">Next-game plan</a>
       </div>
     </div>
     <aside class="home-narrative__side">

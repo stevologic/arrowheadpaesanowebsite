@@ -76,6 +76,210 @@ class SixCardGuarantee(unittest.TestCase):
         self.assertIn("EXACTLY 6 xsandos", text)
         for hint in ("injuries", "personnel", "coaching", "matchup"):
             self.assertIn(hint, text)
+        self.assertIn("lastGameReview", text)
+        self.assertIn("currentState", text)
+        self.assertIn("gamePlan", text)
+        self.assertIn("LAST GAME:", text)
+
+
+class DeskSections(unittest.TestCase):
+    """Last-game review, current state, and next-game plan are first-class."""
+
+    LAST = {
+        "id": "401873296",
+        "week": 3,
+        "seasonType": "pre",
+        "date": "2026-08-22T23:30:00Z",
+        "opponent": "Tampa Bay Buccaneers",
+        "opponentAbbr": "TB",
+        "opponentShort": "Buccaneers",
+        "homeAway": "away",
+        "venue": "Raymond James Stadium",
+        "completed": True,
+        "kcScore": 15,
+        "oppScore": 16,
+        "kickoff": "Sat, Aug 22 · 6:30 PM CT",
+    }
+    PHASE = {
+        "type": "preseason",
+        "label": "Preseason",
+        "mode": "preview",
+        "edition": "2026 Preseason",
+        "lastGame": LAST,
+        "nextGame": {
+            "opponent": "Seattle Seahawks",
+            "homeAway": "home",
+            "week": 4,
+            "venue": "Arrowhead Stadium",
+            "seasonType": "pre",
+        },
+    }
+
+    def test_offline_week_writer_emits_three_act_desk(self):
+        signals = {
+            "news": [
+                {
+                    "title": "Chiefs vs. Buccaneers Final Score: Chiefs lose 16-15",
+                    "summary": "Kansas City fell 16-15 in Tampa.",
+                    "publisher": "Arrowhead Pride",
+                    "url": "https://example.com/tb",
+                }
+            ],
+            "markets": {},
+            "schedule": [self.LAST],
+            "lastGameRecap": {
+                "kc": {"totalYards": "280", "turnovers": "1"},
+                "opp": {"totalYards": "310", "turnovers": "0"},
+                "oppAbbr": "TB",
+                "scoring": ["Q4 0:12 — TB 29 Yd Field Goal"],
+                "leaders": [],
+            },
+        }
+        raw = offline.write(
+            signals, self.PHASE, [{"opponent": "Seattle Seahawks", "homeAway": "home"}]
+        )
+        review = raw["lastGameReview"]
+        self.assertEqual(review["result"], "L")
+        self.assertIn("15", review["score"])
+        self.assertIn("Tampa", review["lede"])
+        self.assertGreaterEqual(len(review["analysis"]), 2)
+        self.assertTrue(review["whatWorked"])
+        self.assertTrue(review["whatDidnt"])
+        state = raw["currentState"]
+        self.assertTrue(state["lede"])
+        self.assertTrue(state["workOn"])
+        self.assertTrue(state["thinkAbout"])
+        plan = raw["gamePlan"]
+        self.assertIn("Seattle", plan["opponent"] + plan["lede"] + plan["howTheyMatch"])
+        self.assertTrue(plan["keys"])
+        self.assertTrue(plan["script"])
+
+    def test_schema_keeps_desk_and_drops_empty(self):
+        raw = offline.write(
+            {"news": [], "markets": {}, "schedule": [self.LAST]},
+            self.PHASE,
+            NEXT,
+        )
+        narrative = schema.normalize(
+            raw,
+            phase=self.PHASE,
+            meta={"generatedAt": "2026-08-24T00:00:00+00:00", "generator": "test",
+                  "record": "6-11", "markets": {}},
+        )
+        self.assertEqual(narrative["lastGameReview"]["result"], "L")
+        self.assertTrue(narrative["currentState"]["workOn"])
+        self.assertTrue(narrative["gamePlan"]["howTheyMatch"])
+        empty = schema.normalize(
+            {"headline": "x"},
+            phase={"type": "offseason", "label": "Offseason", "mode": "offseason"},
+            meta={"generatedAt": "2026-01-01T00:00:00+00:00", "generator": "test"},
+        )
+        self.assertEqual(empty["lastGameReview"], {})
+        self.assertEqual(empty["currentState"], {})
+        self.assertEqual(empty["gamePlan"], {})
+
+    def test_ensure_desk_fills_skipped_writer_sections(self):
+        narrative = schema.normalize(
+            {"headline": "thin"},
+            phase=self.PHASE,
+            meta={"generatedAt": "2026-08-24T00:00:00+00:00", "generator": "test"},
+        )
+        generate._ensure_desk_sections(
+            narrative,
+            {"news": [], "markets": {}, "schedule": [self.LAST]},
+            self.PHASE,
+            NEXT,
+        )
+        self.assertTrue(narrative["lastGameReview"]["lede"])
+        self.assertEqual(narrative["lastGameReview"]["score"], "KC 15–16")
+        self.assertTrue(narrative["currentState"]["lede"])
+        self.assertTrue(narrative["gamePlan"]["lede"])
+
+    def test_slate_record_and_game_result(self):
+        self.assertEqual(phase.slate_record([self.LAST], "pre"), "0-1")
+        self.assertEqual(phase.game_result(self.LAST)["result"], "L")
+        card = phase.format_last_game(self.LAST)
+        self.assertEqual(card["result"], "L")
+        self.assertIn("Buccaneers", card["opponent"])
+
+    def test_prompt_includes_last_game_box(self):
+        phase_with_last = dict(CAMP_PHASE)
+        phase_with_last["lastGame"] = self.LAST
+        text = prompts.build_user_prompt(
+            {
+                "news": [],
+                "markets": {},
+                "schedule": [],
+                "lastGameRecap": {
+                    "kc": {"totalYards": "280"},
+                    "opp": {"totalYards": "310"},
+                    "oppAbbr": "TB",
+                    "scoring": [],
+                    "leaders": [],
+                },
+            },
+            phase_with_last,
+            NEXT,
+        )
+        self.assertIn("Tampa Bay Buccaneers", text)
+        self.assertIn("final KC 15-16", text)
+        self.assertIn("totalYards=280", text)
+
+    def test_fetch_game_recap_reads_espn_summary(self):
+        payload = {
+            "boxscore": {
+                "teams": [
+                    {
+                        "team": {"abbreviation": "KC"},
+                        "statistics": [
+                            {"name": "totalYards", "displayValue": "280"},
+                            {"name": "turnovers", "displayValue": "1"},
+                        ],
+                    },
+                    {
+                        "team": {"abbreviation": "TB"},
+                        "statistics": [
+                            {"name": "totalYards", "displayValue": "310"},
+                        ],
+                    },
+                ]
+            },
+            "scoringPlays": [
+                {
+                    "team": {"abbreviation": "TB"},
+                    "text": "29 Yd Field Goal",
+                    "period": {"number": 4},
+                    "clock": {"displayValue": "0:12"},
+                }
+            ],
+            "leaders": [
+                {
+                    "team": {"abbreviation": "KC"},
+                    "leaders": [
+                        {
+                            "displayName": "Passing Yards",
+                            "leaders": [
+                                {
+                                    "athlete": {"displayName": "Patrick Mahomes"},
+                                    "displayValue": "12/18, 140 YDS",
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ],
+        }
+        with patch.object(collect, "_get_json", return_value=payload):
+            recap = collect.fetch_game_recap("401873296")
+        self.assertEqual(recap["kc"]["totalYards"], "280")
+        self.assertEqual(recap["oppAbbr"], "TB")
+        self.assertTrue(recap["scoring"][0].startswith("Q4"))
+        self.assertEqual(recap["leaders"][0]["player"], "Patrick Mahomes")
+
+    def test_fetch_game_recap_empty_on_blank_payload(self):
+        with patch.object(collect, "_get_json", return_value={"boxscore": {}}):
+            self.assertEqual(collect.fetch_game_recap("1"), {})
+        self.assertEqual(collect.fetch_game_recap(""), {})
 
 
 class Diagrams(unittest.TestCase):
@@ -340,6 +544,10 @@ class SeasonClock(unittest.TestCase):
     def test_templates_render_slate_and_wire(self):
         root = Path(__file__).resolve().parents[2]
         index = (root / "layouts" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("Read the latest Narrative", index)
+        self.assertIn("press-hero__actions", index)
+        hero_actions = index[index.find("press-hero__actions"):index.find("press-hero__proof")]
+        self.assertIn("narrative/", hero_actions)
         edition = (root / "layouts" / "partials" / "narrative-edition.html").read_text(encoding="utf-8")
         slate = (root / "layouts" / "partials" / "season-slate.html").read_text(encoding="utf-8")
         wire = (root / "layouts" / "partials" / "wire-headlines.html").read_text(encoding="utf-8")
@@ -351,9 +559,19 @@ class SeasonClock(unittest.TestCase):
         self.assertIn("Upcoming game", edition)
         story = edition.find("Always looking ahead")
         xo = edition.find('id="xo"')
+        last_game = edition.find('id="last-game"')
+        state = edition.find('id="current-state"')
+        plan = edition.find('id="game-plan"')
         self.assertGreater(story, -1)
         self.assertGreater(xo, -1)
         self.assertLess(story, xo, "Always looking ahead must render above the X's & O's")
+        self.assertLess(last_game, state)
+        self.assertLess(state, plan)
+        self.assertLess(plan, xo, "Next-game plan must render above the X's & O's")
+        self.assertIn("What the tape said", edition)
+        self.assertIn("Where we stand", edition)
+        self.assertIn("The next-game plan", edition)
+        self.assertIn("How they match up", edition)
         watch = (root / "layouts" / "youtube" / "single.html").read_text(encoding="utf-8")
         self.assertIn("watch-onair", watch)
         self.assertIn("watch-monitor", watch)

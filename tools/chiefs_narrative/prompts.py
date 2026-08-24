@@ -20,11 +20,14 @@ diehard Chiefs fans who want real X's-and-O's, matchup edges, and a clear story 
 that always looks ahead to the next Sunday.
 
 You produce ONE structured "Chiefs Narrative" edition. It must be:
-- Grounded ONLY in the facts provided (schedule + news wire) plus widely-known, \
-durable NFL knowledge. Never invent injuries, transactions, scores, or quotes.
+- Grounded ONLY in the facts provided (schedule + last-game recap + news wire) \
+plus widely-known, durable NFL knowledge. Never invent injuries, transactions, \
+scores, or quotes.
 - Specific and analytical: name players, coaches, concepts, and leverage points.
 - Balanced: give the opponent real credit; mark honest edges.
-- Forward-looking: the through-line is "what it means for the games ahead."
+- Built as a three-act desk: (1) review the last game with real analysis, \
+(2) say where the Chiefs stand and what they must work on or think about, \
+(3) look ahead to the next game with a game plan and a matchup read.
 
 Cite sources using ONLY the provided news items (match the publisher + url). If \
 a claim is general football knowledge, you do not need a citation. Do not \
@@ -49,6 +52,40 @@ def _schedule_brief(schedule: list[dict], next_games: list[dict]) -> str:
     lines += [line(g) for g in schedule]
     lines.append("\nNEXT UP:")
     lines += [line(g) for g in next_games] or ["  (no upcoming games — offseason/camp)"]
+    return "\n".join(lines)
+
+
+def _last_game_brief(signals: dict, phase: dict) -> str:
+    game = (phase or {}).get("lastGame")
+    if not game:
+        return "LAST GAME: none on the current slate yet — skip lastGameReview."
+    loc = "vs" if game.get("homeAway") == "home" else "@"
+    score = ""
+    if game.get("kcScore") is not None:
+        score = f" [final KC {game['kcScore']}-{game['oppScore']}]"
+    lines = [
+        "LAST GAME (review this with real analysis; do not invent a different score):",
+        f"  {game.get('seasonType','reg')} wk{game.get('week')} "
+        f"{(game.get('date') or '')[:10]} KC {loc} {game.get('opponent')}"
+        f"{score} at {game.get('venue') or '—'}",
+    ]
+    recap = (signals or {}).get("lastGameRecap") or {}
+    kc = recap.get("kc") or {}
+    opp = recap.get("opp") or {}
+    if kc or opp:
+        lines.append("  BOX (ESPN, cite as ESPN):")
+        if kc:
+            lines.append("    KC: " + ", ".join(f"{k}={v}" for k, v in kc.items() if v))
+        if opp:
+            label = recap.get("oppAbbr") or "OPP"
+            lines.append(f"    {label}: " + ", ".join(f"{k}={v}" for k, v in opp.items() if v))
+    for play in recap.get("scoring") or []:
+        lines.append(f"  score: {play}")
+    for leader in recap.get("leaders") or []:
+        lines.append(
+            f"  KC leader: {leader.get('player')} — {leader.get('category')} "
+            f"({leader.get('value')})"
+        )
     return "\n".join(lines)
 
 
@@ -84,6 +121,38 @@ def _schema_hint(phase: dict) -> str:
             "storyline": {
                 "lede": "the evolving story, one strong paragraph",
                 "body": ["2-4 more paragraphs building the arc, looking ahead"],
+            },
+            "lastGameReview": {
+                "opponent": "last opponent",
+                "label": "Week N · Day Mon DD",
+                "result": "W | L | T",
+                "score": "KC 24–17",
+                "lede": "one-paragraph recap of what actually happened",
+                "analysis": [
+                    "2-4 paragraphs of film-room analysis — not a box-score recitation"
+                ],
+                "takeaways": [{"title": "takeaway", "body": "2-3 sentences"}],
+                "whatWorked": ["concrete things that held up"],
+                "whatDidnt": ["concrete things that broke or lagged"],
+            },
+            "currentState": {
+                "lede": "where the Chiefs are right now after that result",
+                "record": "current relevant record",
+                "workOn": [
+                    {"title": "fix or install", "body": "why it matters this week"}
+                ],
+                "thinkAbout": [
+                    {"title": "question / debate", "body": "what the staff and fans should weigh"}
+                ],
+            },
+            "gamePlan": {
+                "opponent": "next opponent",
+                "lede": "the assignment and the stakes",
+                "howTheyMatch": "how the two teams match up — styles, personnel, leverage",
+                "keys": [
+                    {"title": "game-plan key", "body": "how KC attacks or takes it away"}
+                ],
+                "script": ["3-6 concrete calls / adjustments for next Sunday"],
             },
             "nextGame": {
                 "label": "Week N · Day Mon DD",
@@ -178,13 +247,17 @@ def build_user_prompt(signals: dict, phase: dict, next_games: list[dict]) -> str
     )
     guidance = {
         "training-camp": "Focus on camp battles, Mahomes' rehab ramp, install/scheme "
-        "identity, rookies who must play early, and what a strong camp unlocks for Week 1.",
-        "preseason": "Treat preseason as a dress rehearsal: starters' snaps, roster "
-        "bubble battles, and what to watch before the opener.",
-        "regular": "Build a full game-week preview: opponent tendencies, matchup edges, "
-        "the X&O plan, injuries, and a prediction-shaped thesis.",
-        "postseason": "Raise the stakes: playoff matchup, adjustments, and championship-level margins.",
-        "offseason": "Advance the roster-building story: needs, additions, and the path to next season.",
+        "identity, rookies who must play early, and what a strong camp unlocks for Week 1. "
+        "If a preseason or prior game is on the slate, review it before looking ahead.",
+        "preseason": "Treat preseason as a dress rehearsal: review the last result, "
+        "name the roster-bubble and install issues it exposed, then game-plan the next "
+        "exhibition and how that opponent matches up.",
+        "regular": "Open with a real last-game film review, then the current state of "
+        "the season (what to fix), then a full next-game game plan and matchup thesis.",
+        "postseason": "Raise the stakes: review the last playoff/regular result, the "
+        "current state of the roster, then the next opponent's game plan and matchups.",
+        "offseason": "Advance the roster-building story: what last season/last game "
+        "proved, what still needs answering, and how the pieces point toward the opener.",
     }.get(phase.get("type"), "Advance the Chiefs story and look ahead.")
 
     return "\n\n".join(
@@ -192,13 +265,16 @@ def build_user_prompt(signals: dict, phase: dict, next_games: list[dict]) -> str
             facts,
             phase_line,
             "EDITORIAL GUIDANCE: " + guidance,
+            _last_game_brief(signals, phase),
             _schedule_brief(signals.get("schedule", []), next_games),
             _markets_brief(signals.get("markets", {})),
             _news_brief(signals.get("news", [])),
             _concept_menu(),
             "Return JSON with EXACTLY these keys (values are hints, replace them):\n"
             + _schema_hint(phase),
-            "Rules: EXACTLY 6 xsandos cards — four offense, two defense — each "
+            "Rules: Always fill lastGameReview (unless LAST GAME says none), "
+            "currentState, and gamePlan with specific, non-generic analysis. "
+            "EXACTLY 6 xsandos cards — four offense, two defense — each "
             "using a DIFFERENT allowed concept key. Every card must earn its "
             "place in this edition: ground the situation, 'why', and coaching "
             "point in the current facts above — the upcoming opponent, injuries "

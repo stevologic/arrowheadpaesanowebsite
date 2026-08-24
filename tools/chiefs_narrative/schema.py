@@ -74,6 +74,9 @@ def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
         "videoHook": _s(raw.get("videoHook")),
         "theEdge": _s(raw.get("theEdge")),
         "storyline": _norm_storyline(raw.get("storyline")),
+        "lastGameReview": _norm_last_game_review(raw.get("lastGameReview")),
+        "currentState": _norm_current_state(raw.get("currentState")),
+        "gamePlan": _norm_game_plan(raw.get("gamePlan")),
         "nextGame": _norm_next_game(raw.get("nextGame")),
         "markets": meta.get("markets") or {},
         "spotlight": _obj_list(
@@ -129,6 +132,63 @@ def _norm_storyline(value) -> dict:
     if isinstance(value, str):
         return {"lede": _s(value), "body": []}
     return {"lede": "", "body": []}
+
+
+def _norm_last_game_review(value) -> dict:
+    if not isinstance(value, dict):
+        return {}
+    review = {
+        "opponent": _s(value.get("opponent")),
+        "label": _s(value.get("label")),
+        "result": _s(value.get("result")).upper(),
+        "score": _s(value.get("score")),
+        "lede": _s(value.get("lede")),
+        "analysis": _str_list(value.get("analysis"), limit=6),
+        "takeaways": _obj_list(
+            value.get("takeaways"), {"title": "", "body": ""}, limit=6
+        ),
+        "whatWorked": _str_list(value.get("whatWorked"), limit=6),
+        "whatDidnt": _str_list(value.get("whatDidnt"), limit=6),
+    }
+    if review["result"] and review["result"] not in ("W", "L", "T"):
+        review["result"] = ""
+    if not any(
+        review[k]
+        for k in ("lede", "analysis", "takeaways", "whatWorked", "whatDidnt", "score")
+    ):
+        return {}
+    return review
+
+
+def _norm_current_state(value) -> dict:
+    if not isinstance(value, dict):
+        return {}
+    state = {
+        "lede": _s(value.get("lede")),
+        "record": _s(value.get("record")),
+        "workOn": _obj_list(value.get("workOn"), {"title": "", "body": ""}, limit=6),
+        "thinkAbout": _obj_list(
+            value.get("thinkAbout"), {"title": "", "body": ""}, limit=6
+        ),
+    }
+    if not any(state[k] for k in ("lede", "workOn", "thinkAbout", "record")):
+        return {}
+    return state
+
+
+def _norm_game_plan(value) -> dict:
+    if not isinstance(value, dict):
+        return {}
+    plan = {
+        "opponent": _s(value.get("opponent")),
+        "lede": _s(value.get("lede")),
+        "howTheyMatch": _s(value.get("howTheyMatch")),
+        "keys": _obj_list(value.get("keys"), {"title": "", "body": ""}, limit=6),
+        "script": _str_list(value.get("script"), limit=6),
+    }
+    if not any(plan[k] for k in ("lede", "howTheyMatch", "keys", "script")):
+        return {}
+    return plan
 
 
 def _norm_next_game(value) -> dict:

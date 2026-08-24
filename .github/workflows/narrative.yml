@@ -1,8 +1,10 @@
 name: Chiefs Narrative (daily)
 
-# Regenerates the Chiefs Narrative every morning, refreshes the published
-# schedule more often (evenings and late game windows), opens an automated
-# pull request, auto-merges it, and deploys the refreshed site to GitHub Pages.
+# Regenerates the Chiefs Narrative every morning as a three-act desk:
+# last-game review, current state / work list, then next-game plan and
+# matchup. Also refreshes the published schedule more often (evenings and
+# late game windows), opens an automated pull request, auto-merges it, and
+# deploys the refreshed site to GitHub Pages.
 #
 # Schedule freshness does not depend on narrative text changing: a score-only
 # or kickoff/network update still commits data/schedule_2026.json and deploys.
@@ -140,7 +142,7 @@ jobs:
               "" \
               "**${HEADLINE}**" \
               "" \
-              "- Regenerated data/narrative.json + archive from the live schedule, news wire, model projection, Vegas line and prediction markets." \
+              "- Regenerated data/narrative.json + archive: last-game review (ESPN recap + wire), current state / work list, and next-game plan + matchup, plus the live schedule, news wire, model projection, Vegas line and prediction markets." \
               "- Wrote data/schedule_2026.json from ESPN (kickoffs in CT, networks, venues, final scores when ESPN has them)." \
               "- Re-rendered the X's-and-O's diagrams." \
               "" \
