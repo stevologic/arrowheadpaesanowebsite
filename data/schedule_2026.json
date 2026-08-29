@@ -44,10 +44,10 @@
     "homeAway": "home",
     "venue": "Arrowhead Stadium",
     "tv": "ESPN Unlmtd",
-    "completed": false,
+    "completed": true,
     "inProgress": false,
-    "kcScore": null,
-    "oppScore": null,
+    "kcScore": 9,
+    "oppScore": 9,
     "kickoff": "Fri, Aug 28 · 7:00 PM CT"
   },
   {
