@@ -232,7 +232,42 @@ def _markets_brief(markets: dict) -> str:
     return "\n".join(lines)
 
 
-def build_user_prompt(signals: dict, phase: dict, next_games: list[dict]) -> str:
+def _prior_titles_block(prior_editions: list[dict] | None) -> str:
+    """Tell the writer not to reprint recent headline / dek / theEdge copy."""
+    if not prior_editions:
+        return ""
+    lines = [
+        "DO NOT REUSE these recent titles. Write a fresh headline, dek, and "
+        "theEdge that do not match any of the following (case and extra "
+        "whitespace do not count as a new title):",
+    ]
+    seen = set()
+    for ed in prior_editions:
+        headline = (ed.get("headline") or "").strip()
+        dek = (ed.get("dek") or "").strip()
+        edge = (ed.get("theEdge") or "").strip()
+        key = " ".join(headline.lower().split())
+        if not headline or key in seen:
+            continue
+        seen.add(key)
+        when = (ed.get("generatedAt") or ed.get("slug") or "prior")[:16]
+        lines.append(f"  [{when}]")
+        lines.append(f"    headline: {headline}")
+        if dek:
+            lines.append(f"    dek: {dek}")
+        if edge:
+            lines.append(f"    theEdge: {edge}")
+    if len(lines) == 1:
+        return ""
+    return "\n".join(lines)
+
+
+def build_user_prompt(
+    signals: dict,
+    phase: dict,
+    next_games: list[dict],
+    prior_editions: list[dict] | None = None,
+) -> str:
     team = config.TEAM
     facts = (
         f"TEAM FACTS: {team['name']} — HC {team['head_coach']}, OC "
@@ -260,11 +295,16 @@ def build_user_prompt(signals: dict, phase: dict, next_games: list[dict]) -> str
         "proved, what still needs answering, and how the pieces point toward the opener.",
     }.get(phase.get("type"), "Advance the Chiefs story and look ahead.")
 
-    return "\n\n".join(
+    chunks = [
+        facts,
+        phase_line,
+        "EDITORIAL GUIDANCE: " + guidance,
+    ]
+    recent = _prior_titles_block(prior_editions)
+    if recent:
+        chunks.append(recent)
+    chunks.extend(
         [
-            facts,
-            phase_line,
-            "EDITORIAL GUIDANCE: " + guidance,
             _last_game_brief(signals, phase),
             _schedule_brief(signals.get("schedule", []), next_games),
             _markets_brief(signals.get("markets", {})),
@@ -287,3 +327,4 @@ def build_user_prompt(signals: dict, phase: dict, next_games: list[dict]) -> str
             "Output ONLY the JSON object.",
         ]
     )
+    return "\n\n".join(chunks)

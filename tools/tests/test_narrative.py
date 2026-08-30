@@ -8,9 +8,10 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from contextlib import ExitStack
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from tools.chiefs_narrative import (
     collect,
@@ -635,6 +636,286 @@ class SeasonClock(unittest.TestCase):
         if rams.get("completed"):
             self.assertIsNotNone(rams.get("kcScore"), "completed Rams game must keep a real ESPN score")
             self.assertIsNotNone(rams.get("oppScore"))
+
+
+class HeadlineUniqueness(unittest.TestCase):
+    """Refuse reprinting yesterday's headline / dek / theEdge after one retry."""
+
+    HEADLINE = (
+        "Camp is about timing: Mahomes' knee, Bieniemy's identity, and a defense "
+        "that has to carry the open"
+    )
+    DEK = (
+        "A film-room read on the storylines that decide how fast Kansas City "
+        "flips the 2025 script."
+    )
+    EDGE = (
+        "If the secondary settles and the run game is real, Kansas City can win "
+        "early while Mahomes ramps."
+    )
+    SLUG = "2026-08-29-1540"
+    SNAPSHOT = {
+        "generatedAt": "2026-08-29T15:40:37+00:00",
+        "slug": SLUG,
+        "edition": "2026 Training Camp",
+        "phase": "Training Camp",
+        "headline": HEADLINE,
+        "theEdge": EDGE,
+    }
+
+    def _clone_raw(self):
+        return {
+            "headline": self.HEADLINE,
+            "dek": self.DEK,
+            "theEdge": self.EDGE,
+            "edition": "2026 Training Camp",
+        }
+
+    def _unique_raw(self):
+        return {
+            "headline": "A new camp clock: PUP math, the slot job, and Denver on the horizon",
+            "dek": "Today's tape is about who is closing camp jobs, not yesterday's thesis.",
+            "theEdge": "Win the slot and the right tackle job this week or Week 1 starts behind.",
+            "edition": "2026 Training Camp",
+        }
+
+    def _edition_payload(self, **overrides):
+        payload = {
+            "generatedAt": self.SNAPSHOT["generatedAt"],
+            "slug": self.SLUG,
+            "headline": self.HEADLINE,
+            "dek": self.DEK,
+            "theEdge": self.EDGE,
+        }
+        payload.update(overrides)
+        return payload
+
+    def _seed_archive(self, tmp: Path):
+        archive = tmp / "narrative_archive.json"
+        editions = tmp / "narrative_editions"
+        editions.mkdir()
+        archive.write_text(json.dumps([self.SNAPSHOT]) + "\n", encoding="utf-8")
+        (editions / f"{self.SLUG}.json").write_text(
+            json.dumps(self._edition_payload()) + "\n", encoding="utf-8"
+        )
+        return archive, editions
+
+    def _generation_stack(self, *, llm, archive: Path, editions: Path, extra=None):
+        stack = ExitStack()
+        stack.enter_context(
+            patch.object(
+                collect,
+                "collect_all",
+                return_value={"schedule": [], "news": [], "markets": {}},
+            )
+        )
+        stack.enter_context(patch.object(phase, "detect", return_value=CAMP_PHASE))
+        stack.enter_context(patch.object(phase, "next_games", return_value=NEXT))
+        stack.enter_context(patch.object(odds, "collect_markets", return_value={}))
+        stack.enter_context(patch.object(providers, "generate_via_llm", llm))
+        stack.enter_context(patch.object(generate, "_render_diagrams"))
+        stack.enter_context(patch.object(generate, "_write_schedule"))
+        stack.enter_context(patch.object(generate.config, "ARCHIVE_JSON", archive))
+        stack.enter_context(patch.object(generate.config, "EDITIONS_DIR", editions))
+        for item in extra or []:
+            stack.enter_context(item)
+        return stack
+
+    def test_matching_headline_dek_the_edge_detected_after_normalize(self):
+        previous = {
+            "headline": self.HEADLINE,
+            "dek": self.DEK,
+            "theEdge": self.EDGE,
+        }
+        raw = {
+            "headline": (
+                "  CAMP is about timing: Mahomes' knee, Bieniemy's identity, "
+                "and a defense that has to carry the open  "
+            ),
+            "dek": (
+                "A FILM-ROOM read on the storylines that decide how fast "
+                "Kansas City flips the 2025 script."
+            ),
+            "theEdge": (
+                "If the  secondary  settles and the run game is real, Kansas "
+                "City can win early while Mahomes ramps."
+            ),
+        }
+        narrative = schema.normalize(
+            raw,
+            phase=CAMP_PHASE,
+            meta={"generatedAt": "2026-08-30T15:23:00+00:00", "generator": "test"},
+        )
+        self.assertEqual(
+            generate._matched_copy_fields(narrative, previous),
+            ["headline", "dek", "theEdge"],
+        )
+        narrative["dek"] = "Fresh dek."
+        narrative["theEdge"] = "Fresh edge."
+        self.assertEqual(
+            generate._matched_copy_fields(narrative, previous), ["headline"]
+        )
+        narrative["headline"] = "A brand new camp thesis"
+        self.assertEqual(generate._matched_copy_fields(narrative, previous), [])
+        self.assertEqual(generate._matched_copy_fields(narrative, None), [])
+        self.assertTrue(generate.is_clone(self._clone_raw(), previous))
+        self.assertFalse(generate.is_clone(self._unique_raw(), previous))
+
+    def test_load_recent_editions_prefers_editions_dir_newest_first(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            editions = root / "narrative_editions"
+            editions.mkdir()
+            older = self._edition_payload(
+                generatedAt="2026-08-28T21:25:56+00:00",
+                slug="2026-08-28-2125",
+                headline="Last tape, current roster, next dress rehearsal",
+                dek="Last game on the tape, where the Chiefs stand, and the plan for who's next.",
+                theEdge="Model/market read: Vegas has it KC -1.5.",
+            )
+            newer = self._edition_payload()
+            (editions / "2026-08-28-2125.json").write_text(
+                json.dumps(older) + "\n", encoding="utf-8"
+            )
+            (editions / f"{self.SLUG}.json").write_text(
+                json.dumps(newer) + "\n", encoding="utf-8"
+            )
+            archive = root / "narrative_archive.json"
+            archive.write_text(
+                json.dumps(
+                    [
+                        {
+                            "generatedAt": "2099-01-01T00:00:00+00:00",
+                            "headline": "stale archive should not win",
+                            "theEdge": "archive edge",
+                        }
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            with patch.object(generate.config, "ARCHIVE_JSON", archive), \
+                 patch.object(generate.config, "EDITIONS_DIR", editions):
+                rows = generate._load_recent_editions()
+        self.assertEqual(rows[0]["headline"], self.HEADLINE)
+        self.assertEqual(rows[0]["dek"], self.DEK)
+        self.assertEqual(rows[0]["theEdge"], self.EDGE)
+        self.assertEqual(
+            rows[1]["headline"], "Last tape, current roster, next dress rehearsal"
+        )
+        self.assertNotIn("stale archive should not win", [r["headline"] for r in rows])
+
+    def test_load_recent_editions_falls_back_to_archive(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            editions = root / "narrative_editions"
+            editions.mkdir()
+            archive = root / "narrative_archive.json"
+            archive.write_text(json.dumps([self.SNAPSHOT]) + "\n", encoding="utf-8")
+            with patch.object(generate.config, "ARCHIVE_JSON", archive), \
+                 patch.object(generate.config, "EDITIONS_DIR", editions):
+                rows = generate._load_recent_editions()
+        self.assertEqual(rows[0]["headline"], self.HEADLINE)
+        self.assertEqual(rows[0]["theEdge"], self.EDGE)
+
+    def test_prompt_lists_recent_headlines(self):
+        text = prompts.build_user_prompt(
+            SIGNALS,
+            CAMP_PHASE,
+            NEXT,
+            prior_editions=[
+                {
+                    "generatedAt": "2026-08-29T15:40:37+00:00",
+                    "headline": self.HEADLINE,
+                    "dek": self.DEK,
+                    "theEdge": self.EDGE,
+                },
+                {
+                    "generatedAt": "2026-08-28T21:25:56+00:00",
+                    "headline": "Last tape, current roster, next dress rehearsal",
+                    "dek": "Last game on the tape, where the Chiefs stand, and the plan for who's next.",
+                    "theEdge": "Model/market read: Vegas has it KC -1.5.",
+                },
+            ],
+        )
+        self.assertIn("DO NOT REUSE these recent titles", text)
+        self.assertIn(self.HEADLINE, text)
+        self.assertIn(self.DEK, text)
+        self.assertIn(self.EDGE, text)
+        self.assertIn("Last tape, current roster, next dress rehearsal", text)
+
+    def test_clone_retries_once_then_accepts_new_headline(self):
+        llm = Mock(side_effect=[(self._clone_raw(), "grok"), (self._unique_raw(), "grok")])
+        with tempfile.TemporaryDirectory() as tmp:
+            archive, editions = self._seed_archive(Path(tmp))
+            with self._generation_stack(llm=llm, archive=archive, editions=editions):
+                result = generate.build("grok", persist_schedule=False)
+        self.assertEqual(llm.call_count, 2)
+        first_user = llm.call_args_list[0].args[2]
+        retry_user = llm.call_args_list[1].args[2]
+        self.assertIn("DO NOT REUSE these recent titles", first_user)
+        self.assertIn(self.HEADLINE, first_user)
+        self.assertIn(self.DEK, first_user)
+        self.assertIn(self.EDGE, first_user)
+        self.assertIn("yesterday's title was", retry_user)
+        self.assertIn(self.HEADLINE, retry_user)
+        self.assertIn("yesterday's dek was", retry_user)
+        self.assertIn("yesterday's theEdge was", retry_user)
+        self.assertEqual(
+            result["narrative"]["headline"], self._unique_raw()["headline"]
+        )
+        self.assertEqual(result["narrative"]["dek"], self._unique_raw()["dek"])
+        self.assertEqual(result["narrative"]["theEdge"], self._unique_raw()["theEdge"])
+
+    def test_second_clone_fails_without_writing_files(self):
+        llm = Mock(side_effect=[(self._clone_raw(), "grok"), (self._clone_raw(), "grok")])
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive, editions = self._seed_archive(root)
+            narrative_json = root / "narrative.json"
+            wire_json = root / "wire.json"
+            extra = [
+                patch.object(generate.config, "NARRATIVE_JSON", narrative_json),
+                patch.object(generate.config, "WIRE_JSON", wire_json),
+            ]
+            with self._generation_stack(
+                llm=llm, archive=archive, editions=editions, extra=extra
+            ):
+                rc = generate.main(["--provider", "grok"])
+            self.assertEqual(rc, 1)
+            self.assertEqual(llm.call_count, 2)
+            self.assertFalse(narrative_json.exists())
+            self.assertFalse(wire_json.exists())
+            self.assertEqual(
+                {p.name for p in editions.iterdir()}, {f"{self.SLUG}.json"}
+            )
+            saved = json.loads(archive.read_text(encoding="utf-8"))
+            self.assertEqual(len(saved), 1)
+            self.assertEqual(saved[0]["headline"], self.HEADLINE)
+
+    def test_new_headline_is_accepted_without_retry(self):
+        llm = Mock(return_value=(self._unique_raw(), "grok"))
+        with tempfile.TemporaryDirectory() as tmp:
+            archive, editions = self._seed_archive(Path(tmp))
+            with self._generation_stack(llm=llm, archive=archive, editions=editions):
+                result = generate.build("grok", persist_schedule=False)
+        self.assertEqual(llm.call_count, 1)
+        self.assertEqual(
+            result["narrative"]["headline"], self._unique_raw()["headline"]
+        )
+        first_user = llm.call_args.args[2]
+        self.assertIn("DO NOT REUSE these recent titles", first_user)
+        self.assertNotIn("yesterday's title was", first_user)
+        self.assertNotIn("UNIQUENESS RETRY", first_user)
+
+    def test_offline_clone_is_refused(self):
+        llm = Mock(side_effect=AssertionError("offline path must not call the LLM"))
+        with tempfile.TemporaryDirectory() as tmp:
+            archive, editions = self._seed_archive(Path(tmp))
+            with self._generation_stack(llm=llm, archive=archive, editions=editions):
+                with self.assertRaises(generate.DuplicateNarrativeError):
+                    generate.build("offline", persist_schedule=False)
+        self.assertEqual(llm.call_count, 0)
 
 
 class ScheduleScores(unittest.TestCase):

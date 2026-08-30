@@ -25,6 +25,13 @@ import sys
 from . import collect, config, diagrams, odds, offline, phase as phase_mod
 from . import prompts, providers, schema
 
+# How many published headlines to show the writer as "do not reuse".
+RECENT_HEADLINE_LIMIT = 8
+
+
+class DuplicateNarrativeError(RuntimeError):
+    """Raised when an edition still clones the most recent published copy after retry."""
+
 
 def _slugify(text: str) -> str:
     text = re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
@@ -105,6 +112,137 @@ def _edition_slug(narrative: dict) -> str:
     """Stable per-edition slug from the generation timestamp, e.g. 2026-07-25-1930."""
     stamp = (narrative.get("generatedAt") or config.iso_now())[:16]  # YYYY-MM-DDTHH:MM
     return stamp.replace("T", "-").replace(":", "")
+
+
+def normalize_copy(text) -> str:
+    """Case-insensitive, whitespace-normalized copy key for uniqueness checks."""
+    return " ".join(str(text or "").lower().split())
+
+
+def _norm_copy(text) -> str:
+    return normalize_copy(text)
+
+
+def _edition_snapshot(payload: dict) -> dict:
+    return {
+        "generatedAt": payload.get("generatedAt") or "",
+        "slug": payload.get("slug") or "",
+        "headline": payload.get("headline") or "",
+        "dek": payload.get("dek") or "",
+        "theEdge": payload.get("theEdge") or "",
+    }
+
+
+def _load_archive_snapshots(limit: int) -> list[dict]:
+    try:
+        archive = json.loads(config.ARCHIVE_JSON.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 - missing or corrupt archive is "no history"
+        return []
+    if not isinstance(archive, list):
+        return []
+    out = []
+    for row in archive:
+        if not isinstance(row, dict):
+            continue
+        out.append(_edition_snapshot(row))
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _load_recent_editions(limit: int = RECENT_HEADLINE_LIMIT) -> list[dict]:
+    """Newest-first published editions from disk (not the live website).
+
+    Prefers ``config.EDITIONS_DIR`` sorted by generatedAt, then filename.
+    Falls back to ``config.ARCHIVE_JSON`` only when the editions directory
+    has nothing usable.
+    """
+    rows: list[tuple[str, str, dict]] = []
+    editions_dir = config.EDITIONS_DIR
+    if editions_dir.is_dir():
+        for path in editions_dir.glob("*.json"):
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except Exception:  # noqa: BLE001
+                continue
+            if not isinstance(payload, dict):
+                continue
+            stamp = (payload.get("generatedAt") or "").strip() or path.stem
+            rows.append((stamp, path.name, _edition_snapshot(payload)))
+    if rows:
+        rows.sort(key=lambda row: (row[0], row[1]), reverse=True)
+        return [snap for _, _, snap in rows[:limit]]
+    return _load_archive_snapshots(limit)
+
+
+def _matched_copy_fields(narrative: dict, previous: dict | None) -> list[str]:
+    """Fields whose normalized copy matches the most recent published edition.
+
+    Empty strings do not match — a missing dek/theEdge is not a clone.
+    """
+    if not previous:
+        return []
+    matched = []
+    for field in ("headline", "dek", "theEdge"):
+        left = normalize_copy(narrative.get(field) or "")
+        right = normalize_copy(previous.get(field) or "")
+        if left and right and left == right:
+            matched.append(field)
+    return matched
+
+
+def is_clone(candidate: dict | None, previous: dict | None) -> bool:
+    """True if headline, dek, or theEdge matches the previous edition."""
+    if not candidate:
+        return False
+    return bool(_matched_copy_fields(candidate, previous))
+
+
+def _uniqueness_retry_instruction(previous: dict, matched: list[str]) -> str:
+    bits = []
+    if "headline" in matched:
+        bits.append(f"yesterday's title was {previous.get('headline')}, write a new one")
+    if "dek" in matched:
+        bits.append(f"yesterday's dek was {previous.get('dek')}, write a new one")
+    if "theEdge" in matched:
+        bits.append(f"yesterday's theEdge was {previous.get('theEdge')}, write a new one")
+    if not bits:
+        bits.append("write a new headline, dek, and theEdge")
+    return (
+        "UNIQUENESS RETRY: the previous published edition already used this copy. "
+        + " ".join(bits)
+        + " Headline, dek, and theEdge must all be new — do not reprint yesterday."
+    )
+
+
+def _draft_raw(
+    name: str, system: str, user: str, signals: dict, ph: dict, upcoming: list
+) -> tuple[dict, str]:
+    """LLM path with the existing offline fallback. Never hard-fails on provider errors."""
+    raw = None
+    generator_label = "offline"
+    if name != "offline":
+        try:
+            raw, generator_label = providers.generate_via_llm(name, system, user)
+            print(f"  [writer] LLM reply parsed ({generator_label})")
+        except Exception as exc:  # noqa: BLE001 - fall back, never hard-fail
+            print(f"  [writer] provider '{name}' failed ({exc}); using offline writer")
+            raw = None
+    if raw is None:
+        raw = offline.write(signals, ph, upcoming)
+        generator_label = "offline"
+    return raw, generator_label
+
+
+def _assemble_narrative(
+    raw: dict, ph: dict, meta: dict, signals: dict, upcoming: list
+) -> dict:
+    narrative = schema.normalize(raw, phase=ph, meta=meta)
+    narrative["slug"] = _edition_slug(narrative)
+    _ensure_next_game(narrative, ph)
+    _ensure_desk_sections(narrative, signals, ph, upcoming)
+    _ensure_six_xsandos(narrative, signals, ph, upcoming)
+    return narrative
 
 
 def _render_diagrams(narrative: dict) -> None:
@@ -214,42 +352,55 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
     next_game = ph.get("nextGame") or (upcoming[0] if upcoming else None)
     signals["markets"] = odds.collect_markets(next_game)
 
-    # 4. Choose a writer.
+    # 4. Choose a writer. Feed recent published titles so the model does not reprint them.
     name = provider_name or providers.resolve_provider()
     print(f"  [writer] provider = {name}")
     if name in ("grok", "xai"):
         print(f"  [writer] model = {providers.grok_model()}")
 
-    raw = None
-    generator_label = "offline"
-    if name != "offline":
-        try:
-            system = prompts.SYSTEM_PROMPT
-            user = prompts.build_user_prompt(signals, ph, upcoming)
-            raw, generator_label = providers.generate_via_llm(name, system, user)
-            print(f"  [writer] LLM reply parsed ({generator_label})")
-        except Exception as exc:  # noqa: BLE001 - fall back, never hard-fail
-            print(f"  [writer] provider '{name}' failed ({exc}); using offline writer")
-            raw = None
+    recent = _load_recent_editions()
+    previous = recent[0] if recent else None
+    system = prompts.SYSTEM_PROMPT
+    user = prompts.build_user_prompt(
+        signals, ph, upcoming, prior_editions=recent
+    )
 
-    if raw is None:
-        raw = offline.write(signals, ph, upcoming)
-        generator_label = "offline"
+    raw, generator_label = _draft_raw(name, system, user, signals, ph, upcoming)
 
-    # 5. Normalize + validate.
+    # 5. Normalize + uniqueness. A clone of the most recent edition retries once,
+    # then hard-fails — never publish yesterday's headline/dek/theEdge again.
     meta = {
         "generatedAt": config.iso_now(),
         "generator": generator_label,
         "record": config.TEAM["last_season_record"],
         "markets": signals.get("markets", {}),
     }
-    narrative = schema.normalize(raw, phase=ph, meta=meta)
-    narrative["slug"] = _edition_slug(narrative)
-    _ensure_next_game(narrative, ph)
-    _ensure_desk_sections(narrative, signals, ph, upcoming)
+    narrative = _assemble_narrative(raw, ph, meta, signals, upcoming)
+    matched = _matched_copy_fields(narrative, previous)
+    if matched:
+        print(
+            "  [writer] uniqueness: cloned "
+            + ", ".join(matched)
+            + " from the most recent edition; retrying once"
+        )
+        retry_user = user + "\n\n" + _uniqueness_retry_instruction(previous, matched)
+        raw, generator_label = _draft_raw(
+            name, system, retry_user, signals, ph, upcoming
+        )
+        meta["generatedAt"] = config.iso_now()
+        meta["generator"] = generator_label
+        narrative = _assemble_narrative(raw, ph, meta, signals, upcoming)
+        matched = _matched_copy_fields(narrative, previous)
+        if matched:
+            slug = (previous or {}).get("slug") or ""
+            raise DuplicateNarrativeError(
+                "Chiefs Narrative uniqueness failed after retry: cloned "
+                + ", ".join(matched)
+                + (f" from {slug}" if slug else " from the most recent edition")
+                + ". Refusing to publish a clone."
+            )
 
-    # 6. Guarantee six X&O cards, then render diagrams and attach files.
-    _ensure_six_xsandos(narrative, signals, ph, upcoming)
+    # 6. Render diagrams only after uniqueness has passed.
     _render_diagrams(narrative)
 
     return {
@@ -276,7 +427,12 @@ def main(argv=None) -> int:
         print(f"  slate: {len(games)} games")
         return 0
 
-    result = build(args.provider, persist_schedule=not args.dry_run)
+    try:
+        result = build(args.provider, persist_schedule=not args.dry_run)
+    except DuplicateNarrativeError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
     narrative = result["narrative"]
 
     if args.dry_run:
