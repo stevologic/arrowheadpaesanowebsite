@@ -1,5 +1,13 @@
 [
   {
+    "generatedAt": "2026-09-01T15:32:18+00:00",
+    "slug": "2026-09-01-1532",
+    "edition": "2026 Offseason",
+    "phase": "Offseason",
+    "headline": "Offseason build: needs, additions, and the path to next season",
+    "theEdge": "Model/market read: the model gives KC 58.5%; Vegas has it KC -3; Polymarket prices the Chiefs at 6.2% to win it all."
+  },
+  {
     "generatedAt": "2026-08-31T18:03:56+00:00",
     "slug": "2026-08-31-1803",
     "edition": "2026 Training Camp · The 53",
@@ -230,13 +238,5 @@
     "phase": "Training Camp",
     "headline": "Pads On, Identity Open: Mahomes’ Ramp and the Battles That Decide Week 1",
     "theEdge": "A strong padded camp that settles the OL and WR depth while Spagnuolo’s group keeps pressing Mahomes is the clearest path from a 6-11 hangover to a favored home opener."
-  },
-  {
-    "generatedAt": "2026-08-02T12:15:15+00:00",
-    "slug": "2026-08-02-1215",
-    "edition": "2026 Training Camp · Vol. 4",
-    "phase": "Training Camp",
-    "headline": "Pads Monday, Broncos on the Horizon: Camp Is Already Sorting the Roster",
-    "theEdge": "A strong camp that stabilizes the edge, settles the secondary, and gets Mahomes full-speed in Bieniemy’s install is the only path from a 6-11 hangover to a credible September against Denver."
   }
 ]
