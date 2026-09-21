@@ -78,10 +78,10 @@
     "homeAway": "home",
     "venue": "Arrowhead Stadium",
     "tv": "NBC",
-    "completed": false,
+    "completed": true,
     "inProgress": false,
-    "kcScore": null,
-    "oppScore": null,
+    "kcScore": 33,
+    "oppScore": 30,
     "kickoff": "Sun, Sep 20 · 7:20 PM CT"
   },
   {
