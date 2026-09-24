@@ -14,6 +14,7 @@ providers use plain ``requests`` so there is no SDK to install in CI.
 from __future__ import annotations
 
 import json
+import time
 import re
 import shutil
 import subprocess
@@ -69,7 +70,7 @@ def extract_json(text: str) -> dict:
 # API providers
 # ---------------------------------------------------------------------------
 def _chat_completions(label: str, base: str, key: str, model: str,
-                      system: str, user: str) -> str:
+                      system: str, user: str, stream: bool = False) -> str:
     """Call any OpenAI-compatible /chat/completions endpoint.
 
     Used by both OpenAI and Grok (xAI), whose APIs share this wire format. If the
@@ -84,7 +85,10 @@ def _chat_completions(label: str, base: str, key: str, model: str,
             f"{base.rstrip('/')}/chat/completions",
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
             json=payload,
-            timeout=llm_timeout(),
+            # (connect, read-between-bytes). Streaming keeps bytes flowing, so the
+            # read timeout is an idle limit, not a whole-generation limit.
+            timeout=(20, llm_timeout()),
+            stream=bool(payload.get("stream")),
         )
 
     payload = {
@@ -96,17 +100,67 @@ def _chat_completions(label: str, base: str, key: str, model: str,
         "temperature": 0.55,
         "response_format": {"type": "json_object"},
     }
-    resp = _post(payload)
-    if resp.status_code == 400:
-        # Some models/endpoints do not accept response_format — retry plain.
-        payload.pop("response_format", None)
+    if stream:
+        payload["stream"] = True
+    try:
         resp = _post(payload)
-    if resp.status_code >= 400:
-        raise ProviderError(f"{label} {resp.status_code}: {resp.text[:300]}")
+        if resp.status_code == 400:
+            # Some models/endpoints do not accept response_format — retry plain.
+            payload.pop("response_format", None)
+            resp = _post(payload)
+        if resp.status_code >= 400:
+            raise ProviderError(f"{label} {resp.status_code}: {resp.text[:300]}")
+        if stream:
+            return _read_stream(label, resp)
+    except requests.RequestException as exc:
+        raise ProviderError(f"{label}: {exc}") from exc
     try:
         return resp.json()["choices"][0]["message"]["content"]
     except (KeyError, IndexError, ValueError) as exc:
         raise ProviderError(f"{label}: unexpected response shape ({exc})") from exc
+
+
+def llm_deadline() -> int:
+    """Wall-clock cap for one streamed generation (seconds)."""
+    try:
+        return int(config.env("LLM_DEADLINE") or 420)
+    except ValueError:
+        return 420
+
+
+def _read_stream(label: str, resp) -> str:
+    """Accumulate an OpenAI-compatible SSE stream into the final content string.
+
+    A non-streamed frontier-model call can sit silent for minutes while it
+    reasons, and api.x.ai (or a proxy in front of it) drops idle connections
+    ("Remote end closed connection" / 300s read timeout). Streaming keeps the
+    socket busy and lets us enforce a wall-clock deadline ourselves.
+    """
+    started = time.monotonic()
+    parts: list[str] = []
+    for raw in resp.iter_lines(decode_unicode=True):
+        if time.monotonic() - started > llm_deadline():
+            resp.close()
+            raise ProviderError(f"{label}: stream exceeded {llm_deadline()}s deadline")
+        if not raw or not raw.startswith("data:"):
+            continue
+        data = raw[5:].strip()
+        if data == "[DONE]":
+            break
+        try:
+            chunk = json.loads(data)
+        except ValueError:
+            continue
+        if chunk.get("error"):
+            raise ProviderError(f"{label}: stream error {str(chunk['error'])[:300]}")
+        for choice in chunk.get("choices") or []:
+            piece = (choice.get("delta") or {}).get("content")
+            if piece:
+                parts.append(piece)
+    text = "".join(parts)
+    if not text.strip():
+        raise ProviderError(f"{label}: empty streamed reply")
+    return text
 
 
 # --- OpenAI ---------------------------------------------------------------
@@ -149,15 +203,26 @@ def grok_model() -> str:
     return config.env("GROK_MODEL") or config.env("XAI_MODEL") or GROK_DEFAULT_MODEL
 
 
+def grok_fallback_models() -> list[str]:
+    """Optional comma-separated GROK_FALLBACK_MODELS tried after the primary."""
+    raw = config.env("GROK_FALLBACK_MODELS") or ""
+    return [m.strip() for m in raw.split(",") if m.strip() and m.strip() != grok_model()]
+
+
 def _grok(system: str, user: str) -> str:
-    return _chat_completions(
-        "Grok",
-        config.env("XAI_BASE_URL") or config.env("GROK_BASE_URL") or GROK_DEFAULT_BASE,
-        grok_key(),
-        grok_model(),
-        system,
-        user,
-    )
+    base = config.env("XAI_BASE_URL") or config.env("GROK_BASE_URL") or GROK_DEFAULT_BASE
+    errors = []
+    for model in [grok_model(), *grok_fallback_models()]:
+        try:
+            if model != grok_model():
+                print(f"  [writer] grok fallback model = {model}")
+            return _chat_completions(
+                "Grok", base, grok_key(), model, system, user, stream=True
+            )
+        except ProviderError as exc:
+            errors.append(f"{model}: {exc}")
+            print(f"  [writer] grok model {model} failed ({exc})")
+    raise ProviderError("; ".join(errors) or "Grok: no model configured")
 
 
 def _anthropic(system: str, user: str) -> str:

@@ -13,6 +13,7 @@ points rather than invented events.
 from __future__ import annotations
 
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from . import config, phase as phase_mod
 
@@ -687,6 +688,26 @@ def _camp_matchups(opp: str, markets: dict) -> list[dict]:
     ]
 
 
+def _desk_day() -> str:
+    """Desk date in Kansas City time, e.g. 'Thursday Sep 24'."""
+    now = datetime.now(ZoneInfo("America/Chicago"))
+    return f"{now:%A} {now:%b} {now.day}"
+
+
+def _dated_dek(last_review: dict, opp: str, phase: dict) -> str:
+    """Offline dek keyed to the actual last result, next opponent, and desk day.
+
+    A fixed dek made every offline edition a clone of the previous one, which the
+    uniqueness guard (correctly) refused to publish.
+    """
+    day = _desk_day()
+    last = (last_review or {}).get("lede") or ""
+    last = last.rstrip(".").split(" — ")[0]
+    if last:
+        return f"{day} desk: {last}. Where the Chiefs stand now, and the plan for {opp}."
+    return f"{day} desk: where the Chiefs stand, and the plan for {opp}."
+
+
 def _generic(signals, phase, next_games) -> dict:
     """Preview/review/offseason/preseason/playoffs — driven by live data."""
     t = config.TEAM
@@ -698,7 +719,8 @@ def _generic(signals, phase, next_games) -> dict:
     mkt = _markets_note(markets)
 
     if ptype in ("regular", "postseason"):
-        head = f"{ng_fmt.get('label','Next up')}: {t['abbr']} {ng_fmt.get('opponent','')}"
+        head = (f"{ng_fmt.get('label','Next up')}: {t['abbr']} {ng_fmt.get('opponent','')}"
+                f" — {_desk_day().split(' ')[0]} desk")
         lede = (
             f"Kansas City turns the page to {opp}. "
             + (f"{mkt}. " if mkt else "")
@@ -799,7 +821,7 @@ def _generic(signals, phase, next_games) -> dict:
     return {
         "edition": edition,
         "headline": head,
-        "dek": "Last game on the tape, where the Chiefs stand, and the plan for who's next.",
+        "dek": _dated_dek(last_review, opp, phase),
         "videoHook": f"Let's get into it — {t['abbr']}: the last game, where we stand, and {opp}.",
         "theEdge": (f"Model/market read: {mkt}." if mkt else
                     "The margins are in the trenches and on early downs."),

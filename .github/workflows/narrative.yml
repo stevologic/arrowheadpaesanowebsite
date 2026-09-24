@@ -91,6 +91,7 @@ jobs:
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
           GROK_API_KEY: ${{ secrets.GROK_API_KEY }}
           GROK_MODEL: ${{ vars.GROK_MODEL }}
+          GROK_FALLBACK_MODELS: ${{ vars.GROK_FALLBACK_MODELS }}
           XAI_BASE_URL: ${{ vars.XAI_BASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
@@ -102,6 +103,16 @@ jobs:
           from tools.chiefs_narrative.providers import grok_model
           print(f"GROK_MODEL env={__import__('os').environ.get('GROK_MODEL', '')!r}")
           print(f"resolved grok model={grok_model()}")
+          import os, requests
+          key = os.environ.get("XAI_API_KEY") or os.environ.get("GROK_API_KEY")
+          if key:
+              try:
+                  r = requests.get("https://api.x.ai/v1/models",
+                                   headers={"Authorization": f"Bearer {key}"}, timeout=20)
+                  ids = sorted(m.get("id", "") for m in r.json().get("data", []))
+                  print(f"xai models ({r.status_code}): {', '.join(ids)}")
+              except Exception as exc:  # diagnostics only
+                  print(f"xai models probe failed: {exc}")
           PY
           python -m tools.chiefs_narrative.generate
 
