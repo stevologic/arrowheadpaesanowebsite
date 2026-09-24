@@ -138,6 +138,9 @@ def _read_stream(label: str, resp) -> str:
     """
     started = time.monotonic()
     parts: list[str] = []
+    # text/event-stream often arrives without a charset; requests then assumes
+    # ISO-8859-1 and turns UTF-8 "·" / "–" into mojibake ("Â·", "â€“").
+    resp.encoding = "utf-8"
     for raw in resp.iter_lines(decode_unicode=True):
         if time.monotonic() - started > llm_deadline():
             resp.close()
