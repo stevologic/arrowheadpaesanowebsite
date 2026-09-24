@@ -384,8 +384,11 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             + " from the most recent edition; retrying once"
         )
         retry_user = user + "\n\n" + _uniqueness_retry_instruction(previous, matched)
+        # If the LLM already failed and we fell back offline, don't burn another
+        # full provider timeout on the retry — the offline writer is date-aware.
+        retry_name = name if generator_label != "offline" else "offline"
         raw, generator_label = _draft_raw(
-            name, system, retry_user, signals, ph, upcoming
+            retry_name, system, retry_user, signals, ph, upcoming
         )
         meta["generatedAt"] = config.iso_now()
         meta["generator"] = generator_label
