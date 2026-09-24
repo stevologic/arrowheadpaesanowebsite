@@ -1051,3 +1051,44 @@ class ScheduleScores(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StreamingAndOfflineDekTests(unittest.TestCase):
+    """Sep 2026 outage: grok-4.6 non-streamed calls idled out, offline dek was fixed."""
+
+    def test_read_stream_accumulates_sse_content(self):
+        from tools.chiefs_narrative import providers as prov
+
+        class FakeResp:
+            def iter_lines(self, decode_unicode=True):
+                yield ": keep-alive"
+                yield 'data: {"choices":[{"delta":{"content":"{\\"a\\":"}}]}'
+                yield ""
+                yield 'data: {"choices":[{"delta":{"content":"1}"}}]}'
+                yield "data: [DONE]"
+
+            def close(self):
+                pass
+
+        self.assertEqual(prov._read_stream("Grok", FakeResp()), '{"a":1}')
+
+    def test_read_stream_empty_raises(self):
+        from tools.chiefs_narrative import providers as prov
+
+        class FakeResp:
+            def iter_lines(self, decode_unicode=True):
+                yield "data: [DONE]"
+
+            def close(self):
+                pass
+
+        with self.assertRaises(prov.ProviderError):
+            prov._read_stream("Grok", FakeResp())
+
+    def test_offline_dek_is_not_the_old_fixed_string(self):
+        raw = offline.write(SIGNALS, WEEK_PHASE, NEXT)
+        self.assertNotEqual(
+            raw["dek"],
+            "Last game on the tape, where the Chiefs stand, and the plan for who's next.",
+        )
+        self.assertIn("desk:", raw["dek"])
