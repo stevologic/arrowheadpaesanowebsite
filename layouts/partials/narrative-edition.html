@@ -12,6 +12,10 @@
 {{ $archive := .archive }}
 {{ $currentSlug := .currentSlug }}
 {{ $rec := .n.record }}
+{{- /* Season for the record label: edition prefix ("2026 Week 3 …"), else generatedAt year. */ -}}
+{{ $season := "" }}
+{{ with .n.edition }}{{ $m := findRE `^\d{4}` . 1 }}{{ with $m }}{{ $season = index . 0 }}{{ end }}{{ end }}
+{{ if and (not $season) .n.generatedAt }}{{ $season = substr .n.generatedAt 0 4 }}{{ end }}
 {{ $edgeClass := dict "KC" "edge--kc" "OPP" "edge--opp" "PUSH" "edge--push" }}
 {{ $edgeText := dict "KC" "Chiefs edge" "OPP" "Opponent edge" "PUSH" "Even" }}
 
@@ -60,7 +64,7 @@
             <ul class="nrt-nextgame__facts">
               {{ with .at }}<li><span>Where</span>{{ . }}</li>{{ end }}
               {{ with .tv }}<li><span>TV</span>{{ . }}</li>{{ end }}
-              <li><span>2025</span>{{ $rec }} record</li>
+              <li><span>KC{{ with $season }} {{ . }}{{ end }} record</span>{{ $rec }}</li>
             </ul>
             {{ with .note }}<p class="nrt-nextgame__note">{{ . }}</p>{{ end }}
           {{ end }}
