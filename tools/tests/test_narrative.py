@@ -1060,7 +1060,10 @@ class StreamingAndOfflineDekTests(unittest.TestCase):
         from tools.chiefs_narrative import providers as prov
 
         class FakeResp:
+            encoding = None
+
             def iter_lines(self, decode_unicode=True):
+                assert self.encoding == "utf-8"
                 yield ": keep-alive"
                 yield 'data: {"choices":[{"delta":{"content":"{\\"a\\":"}}]}'
                 yield ""
@@ -1076,6 +1079,8 @@ class StreamingAndOfflineDekTests(unittest.TestCase):
         from tools.chiefs_narrative import providers as prov
 
         class FakeResp:
+            encoding = None
+
             def iter_lines(self, decode_unicode=True):
                 yield "data: [DONE]"
 
