@@ -102,10 +102,20 @@ def _ensure_desk_sections(
     last = ph.get("lastGame")
     if last and review:
         header = phase_mod.format_last_game(last)
+        # ESPN slate facts win over writer copy: date, result, and score are not
+        # the model's to invent (a UTC-dated "Mon Sep 21" shipped for a Sunday game).
         for key in ("opponent", "label", "result", "score"):
-            if not review.get(key) and header.get(key):
+            if header.get(key):
                 review[key] = header[key]
         narrative["lastGameReview"] = review
+
+    nxt = narrative.get("nextGame") or {}
+    if ph.get("nextGame") and nxt:
+        card = phase_mod.format_next_game(ph["nextGame"])
+        for key in ("opponent", "label", "at", "tv"):
+            if card.get(key):
+                nxt[key] = card[key]
+        narrative["nextGame"] = nxt
 
 
 def _edition_slug(narrative: dict) -> str:
