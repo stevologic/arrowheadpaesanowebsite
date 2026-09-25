@@ -8,7 +8,8 @@ name: CI gates
 # triggers the Pages deploy workflow as usual.
 #
 # The daily narrative bot's own PRs (narrative/update-*) are excluded —
-# that workflow already merges its own work.
+# those editions are gated inside narrative.yml because PRs opened by
+# GITHUB_TOKEN don't trigger CI without approval.
 
 on:
   pull_request:
@@ -28,6 +29,8 @@ env:
 
 jobs:
   gates:
+    # Narrative PRs are gated inside narrative.yml because PRs opened by
+    # GITHUB_TOKEN don't trigger CI without approval.
     if: ${{ !startsWith(github.head_ref, 'narrative/update-') }}
     runs-on: ubuntu-latest
     steps:
@@ -58,6 +61,8 @@ jobs:
 
   automerge:
     needs: gates
+    # Narrative PRs are gated inside narrative.yml because PRs opened by
+    # GITHUB_TOKEN don't trigger CI without approval.
     if: >-
       ${{ !startsWith(github.head_ref, 'narrative/update-') &&
           github.event.pull_request.draft == false &&
