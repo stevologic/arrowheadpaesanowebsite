@@ -326,13 +326,20 @@ class GrokModelSelection(unittest.TestCase):
 
     def test_workflow_refreshes_slate_beyond_narrative_text(self):
         yaml = (Path(__file__).resolve().parents[2] / ".github" / "workflows" / "narrative.yml").read_text(encoding="utf-8")
-        self.assertIn("10 11 * * *", yaml)
-        self.assertIn("20 4 * * *", yaml)
+        self.assertIn("37 9 * * *", yaml)
+        self.assertIn("43 3 * * *", yaml)
         self.assertIn("20 7 * * 0,1,2", yaml)
+        self.assertIn('github.event.schedule }}" = "37 9 * * *"', yaml)
         self.assertIn("--schedule-only", yaml)
         self.assertIn("python -m tools.chiefs_narrative.generate --schedule-only", yaml)
         self.assertIn("Chiefs schedule: refresh 2026 slate", yaml)
         self.assertNotIn("*/15", yaml)
+        self.assertNotIn("10 11 * * *", yaml)
+        self.assertNotIn("20 4 * * *", yaml)
+        gate = "python -m unittest discover -s tools/tests -v"
+        self.assertIn(gate, yaml)
+        self.assertLess(yaml.index(gate), yaml.index("Open and auto-merge pull request"))
+        self.assertLess(yaml.index("hugo --gc --minify"), yaml.index("Open and auto-merge pull request"))
 
 
 def _espn_event(
