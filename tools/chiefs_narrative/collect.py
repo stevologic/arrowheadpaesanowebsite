@@ -98,6 +98,18 @@ def local_date_label(iso: str) -> str:
         return ""
 
 
+def kickoff_prompt(iso: str) -> str:
+    """Prompt-facing kickoff in CT, e.g. 'Sun Oct 4, 3:25 PM CT'."""
+    if not iso:
+        return ""
+    try:
+        local = _central(iso)
+        hour = local.strftime("%I").lstrip("0") or "12"
+        return f"{local.strftime('%a %b')} {local.day}, {hour}:{local.strftime('%M %p')} CT"
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def load_cached_schedule() -> list[dict]:
     """Last good slate written to data/schedule_2026.json."""
     try:
@@ -453,6 +465,107 @@ def _box_stats(team_block: dict) -> dict:
     return stats
 
 
+_YARDS_RE = re.compile(r"(\d+)\s*(?:Yd|Yds|yard|yards)\b", re.IGNORECASE)
+
+
+def _play_type(play: dict) -> str:
+    scoring = play.get("scoringType")
+    if isinstance(scoring, dict):
+        label = (
+            scoring.get("abbreviation")
+            or scoring.get("displayName")
+            or scoring.get("name")
+            or ""
+        )
+        if label:
+            return str(label).strip()
+    typ = play.get("type")
+    if isinstance(typ, dict):
+        return str(typ.get("text") or typ.get("abbreviation") or "").strip()
+    return ""
+
+
+def _play_player(play: dict) -> str:
+    athletes = play.get("athletesInvolved") or []
+    names = [
+        (a.get("displayName") or "").strip()
+        for a in athletes
+        if isinstance(a, dict) and (a.get("displayName") or "").strip()
+    ]
+    if not names:
+        return ""
+    typ = _play_type(play).lower()
+    # Passing TDs list passer then receiver; the scorer is the receiver.
+    if "pass" in typ and len(names) >= 2:
+        return names[1]
+    return names[0]
+
+
+def _play_yards(play: dict):
+    raw = play.get("statYardage")
+    if raw is not None and raw != "":
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            pass
+    text = play.get("text") or ""
+    match = _YARDS_RE.search(text)
+    return int(match.group(1)) if match else None
+
+
+def _kc_home_from_summary(data: dict) -> bool | None:
+    comps = ((data.get("header") or {}).get("competitions") or [])
+    if comps and isinstance(comps[0], dict):
+        for row in comps[0].get("competitors") or []:
+            if not isinstance(row, dict):
+                continue
+            abbr = ((row.get("team") or {}).get("abbreviation") or "").upper()
+            if abbr == "KC":
+                return row.get("homeAway") == "home"
+    for block in (data.get("boxscore") or {}).get("teams") or []:
+        if not isinstance(block, dict):
+            continue
+        abbr = ((block.get("team") or {}).get("abbreviation") or "").upper()
+        if abbr == "KC" and block.get("homeAway") in ("home", "away"):
+            return block.get("homeAway") == "home"
+    return None
+
+
+def parse_scoring_plays(plays: list, kc_home: bool | None = None) -> list[dict]:
+    """Structured ESPN scoring plays for the prompt and the fact-check."""
+    out = []
+    for play in plays or []:
+        if not isinstance(play, dict):
+            continue
+        period = (play.get("period") or {}).get("number")
+        clock = (play.get("clock") or {}).get("displayValue") or ""
+        team = ((play.get("team") or {}).get("abbreviation") or "").upper()
+        away = _to_int(play.get("awayScore"))
+        home = _to_int(play.get("homeScore"))
+        kc_score = opp_score = None
+        if kc_home is True:
+            kc_score, opp_score = home, away
+        elif kc_home is False:
+            kc_score, opp_score = away, home
+        score_after = ""
+        if kc_score is not None and opp_score is not None:
+            score_after = f"KC {kc_score}–{opp_score}"
+        row = {
+            "quarter": period,
+            "clock": clock,
+            "type": _play_type(play),
+            "player": _play_player(play),
+            "yards": _play_yards(play),
+            "team": team,
+            "scoreAfter": score_after,
+            "kcScore": kc_score,
+            "oppScore": opp_score,
+        }
+        if row["type"] or row["player"] or (play.get("text") or "").strip() or score_after:
+            out.append(row)
+    return out
+
+
 def _scoring_lines(plays: list, limit: int = 8) -> list[str]:
     out = []
     for play in plays or []:
@@ -488,7 +601,14 @@ def fetch_game_recap(event_id: str) -> dict:
     if not isinstance(data, dict):
         return {}
 
-    recap = {"eventId": str(event_id), "kc": {}, "opp": {}, "scoring": [], "leaders": []}
+    recap = {
+        "eventId": str(event_id),
+        "kc": {},
+        "opp": {},
+        "scoring": [],
+        "scoringPlays": [],
+        "leaders": [],
+    }
     box = data.get("boxscore") or {}
     for block in box.get("teams") or []:
         if not isinstance(block, dict):
@@ -501,7 +621,9 @@ def fetch_game_recap(event_id: str) -> dict:
             recap["opp"] = stats
             recap["oppAbbr"] = abbr
 
-    recap["scoring"] = _scoring_lines(data.get("scoringPlays") or [])
+    raw_plays = data.get("scoringPlays") or []
+    recap["scoring"] = _scoring_lines(raw_plays)
+    recap["scoringPlays"] = parse_scoring_plays(raw_plays, _kc_home_from_summary(data))
 
     for group in data.get("leaders") or []:
         if not isinstance(group, dict):
@@ -527,7 +649,13 @@ def fetch_game_recap(event_id: str) -> dict:
                 break
         break
 
-    if not recap["kc"] and not recap["opp"] and not recap["scoring"] and not recap["leaders"]:
+    if (
+        not recap["kc"]
+        and not recap["opp"]
+        and not recap["scoring"]
+        and not recap["scoringPlays"]
+        and not recap["leaders"]
+    ):
         return {}
     return recap
 

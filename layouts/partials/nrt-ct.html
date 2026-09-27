@@ -1,0 +1,14 @@
+{{- /*
+  Format an ISO timestamp in America/Chicago.
+
+  Hugo's `time.AsTime stamp zone` does not convert an already-offset
+  stamp (e.g. 2026-09-27T20:20:32+00:00). Parse, then pipe through
+  time.In so 20:20Z becomes 3:20 PM CT and a post-7 PM CDT stamp
+  stays on the Central calendar date.
+
+  Context (dict):
+    t      — ISO timestamp (generatedAt)
+    layout — Go time layout string
+*/ -}}
+{{- $t := time.AsTime .t | time.In "America/Chicago" -}}
+{{- $t.Format .layout -}}

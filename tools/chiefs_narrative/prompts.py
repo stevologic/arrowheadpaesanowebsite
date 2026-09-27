@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 
-from . import config, diagrams
+from . import collect, config, diagrams
 
 
 SYSTEM_PROMPT = """\
@@ -31,7 +31,8 @@ scores, or quotes.
 
 Cite sources using ONLY the provided news items (match the publisher + url). If \
 a claim is general football knowledge, you do not need a citation. Do not \
-fabricate URLs.
+fabricate URLs. Never state a kickoff day or time other than the CT string \
+supplied for that game — no "noon", "Sunday night", or invented windows.
 
 Return a SINGLE JSON object. No markdown, no prose outside the JSON.\
 """
@@ -53,14 +54,19 @@ def _game_status_note(game: dict) -> str:
     return " [completed, no official score yet — do not invent one]"
 
 
+def _kickoff_when(game: dict) -> str:
+    """CT kickoff the writer must use verbatim, e.g. 'Sun Oct 4, 3:25 PM CT'."""
+    return collect.kickoff_prompt(game.get("date") or "") or (game.get("kickoff") or "").strip()
+
+
 def _schedule_brief(schedule: list[dict], next_games: list[dict]) -> str:
     def line(g):
         loc = "vs" if g.get("homeAway") == "home" else "@"
         wk = g.get("week")
-        date = (g.get("date") or "")[:10]
+        when = _kickoff_when(g) or (g.get("date") or "")[:10]
         res = _game_status_note(g)
         tv = f" ({g['tv']})" if g.get("tv") else ""
-        return f"  {g.get('seasonType','reg')} wk{wk} {date} KC {loc} {g.get('opponent')}{tv}{res}"
+        return f"  {g.get('seasonType','reg')} wk{wk} {when} KC {loc} {g.get('opponent')}{tv}{res}"
 
     lines = ["FULL 2026 SCHEDULE:"]
     lines += [line(g) for g in schedule]
@@ -86,7 +92,7 @@ def _live_game_brief(phase: dict) -> str:
             f"LIVE GAME ({state} — do not review as a final, do not invent a "
             "result or score, leave lastGameReview.result and lastGameReview.score empty):",
             f"  {game.get('seasonType','reg')} wk{game.get('week')} "
-            f"{(game.get('date') or '')[:10]} KC {loc} {game.get('opponent')} "
+            f"{_kickoff_when(game) or (game.get('date') or '')[:10]} KC {loc} {game.get('opponent')} "
             f"at {game.get('venue') or '—'}{snap}",
         ]
     )
@@ -114,7 +120,7 @@ def _last_game_brief(signals: dict, phase: dict) -> str:
     lines = [
         lead,
         f"  {game.get('seasonType','reg')} wk{game.get('week')} "
-        f"{(game.get('date') or '')[:10]} KC {loc} {game.get('opponent')}"
+        f"{_kickoff_when(game) or (game.get('date') or '')[:10]} KC {loc} {game.get('opponent')}"
         f"{status} at {game.get('venue') or '—'}",
     ]
     if live:
@@ -129,8 +135,25 @@ def _last_game_brief(signals: dict, phase: dict) -> str:
         if opp:
             label = recap.get("oppAbbr") or "OPP"
             lines.append(f"    {label}: " + ", ".join(f"{k}={v}" for k, v in opp.items() if v))
-    for play in recap.get("scoring") or []:
-        lines.append(f"  score: {play}")
+    plays = recap.get("scoringPlays") or []
+    if plays:
+        lines.append(
+            "  SCORING PLAYS (ESPN — quarter, clock, type, player, yards, "
+            "score after; use these exact facts, do not invent a different sequence):"
+        )
+        for play in plays:
+            quarter = f"Q{play['quarter']}" if play.get("quarter") else "Q?"
+            clock = play.get("clock") or ""
+            typ = play.get("type") or "score"
+            player = play.get("player") or "unknown"
+            yards = play.get("yards")
+            ytxt = f"{yards} yd" if yards is not None else "yd n/a"
+            after = play.get("scoreAfter") or ""
+            tail = f" — {after}" if after else ""
+            lines.append(f"    {quarter} {clock} {typ} — {player} ({ytxt}){tail}")
+    else:
+        for play in recap.get("scoring") or []:
+            lines.append(f"  score: {play}")
     for leader in recap.get("leaders") or []:
         lines.append(
             f"  KC leader: {leader.get('player')} — {leader.get('category')} "
@@ -162,7 +185,7 @@ def _concept_menu() -> str:
 def _schema_hint(phase: dict) -> str:
     return json.dumps(
         {
-            "edition": "string — e.g. '2026 Training Camp · Vol. 3' or '2026 Week 5 Preview'",
+            "edition": "omit — the desk writes the edition header",
             "record": config.TEAM["last_season_record"] + " or current record",
             "headline": "punchy edition headline",
             "dek": "one-sentence standfirst",
@@ -362,6 +385,10 @@ def build_user_prompt(
             _concept_menu(),
             "Return JSON with EXACTLY these keys (values are hints, replace them):\n"
             + _schema_hint(phase),
+            "KICKOFF RULE: every game line includes its official America/Chicago "
+            "kickoff (e.g. 'Sun Oct 4, 3:25 PM CT'). Never state a kickoff day or "
+            "time other than that supplied string. Do not write 'noon', 'Sunday "
+            "night', 'prime time', or any other invented window.\n"
             "Rules: Always fill lastGameReview (unless LAST GAME says none), "
             "currentState, and gamePlan with specific, non-generic analysis. "
             "EXACTLY 6 xsandos cards — four offense, two defense — each "

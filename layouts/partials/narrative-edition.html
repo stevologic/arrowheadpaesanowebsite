@@ -24,7 +24,7 @@
 
   {{ if not $isCurrent }}
   <div class="nrt-archive-note">
-    <span>Archived edition · {{ dateFormat "Monday, Jan 2, 2006" .generatedAt }}</span>
+    <span>Archived edition · {{ partial "nrt-ct.html" (dict "t" .generatedAt "layout" "Monday, Jan 2, 2006") }}</span>
     <a href="{{ "narrative/" | relURL }}">Read the current edition →</a>
   </div>
   {{ end }}
@@ -36,7 +36,7 @@
       <div class="nrt-hero__meta">
         <span class="nrt-phase"><span class="live-beacon" aria-hidden="true"></span>{{ .phase.label }}</span>
         <span class="nrt-edition">{{ .edition }}</span>
-        <time class="nrt-stamp" datetime="{{ .generatedAt }}">Updated {{ dateFormat "Monday, Jan 2, 2006" .generatedAt }}</time>
+        <time class="nrt-stamp" datetime="{{ .generatedAt }}">Updated {{ partial "nrt-ct.html" (dict "t" .generatedAt "layout" "Monday, Jan 2, 2006") }}</time>
       </div>
       <h1 class="nrt-headline">{{ .headline }}</h1>
       {{ with .dek }}<p class="nrt-dek">{{ . }}</p>{{ end }}
@@ -526,7 +526,7 @@
       <li class="nrt-timeline__item{{ if and $slug (eq $slug $currentSlug) }} nrt-timeline__item--current{{ end }}">
         {{ if and $slug (ne $slug $currentSlug) }}
         <a class="nrt-timeline__link" href="{{ printf "narrative/%s/" $slug | relURL }}">
-          <time datetime="{{ .generatedAt }}">{{ dateFormat "Jan 2" .generatedAt }}</time>
+          <time datetime="{{ .generatedAt }}">{{ partial "nrt-ct.html" (dict "t" .generatedAt "layout" "Jan 2") }}</time>
           <div>
             <span class="nrt-timeline__phase">{{ .phase }}</span>
             <strong>{{ .headline }}</strong>
@@ -536,7 +536,7 @@
         </a>
         {{ else }}
         <div class="nrt-timeline__link nrt-timeline__link--static">
-          <time datetime="{{ .generatedAt }}">{{ dateFormat "Jan 2" .generatedAt }}</time>
+          <time datetime="{{ .generatedAt }}">{{ partial "nrt-ct.html" (dict "t" .generatedAt "layout" "Jan 2") }}</time>
           <div>
             <span class="nrt-timeline__phase">{{ .phase }}</span>
             <strong>{{ .headline }}</strong>
@@ -594,8 +594,7 @@
       </div>
       <div class="nrt-colophon__meta">
         <span>Generator</span><strong>{{ .generator }}</strong>
-        {{- $updated := time.AsTime .generatedAt "America/Chicago" -}}
-        <span>Updated</span><strong>{{ $updated.Format "Jan 2, 2006 · 3:04 PM" }} CT</strong>
+        <span>Updated</span><strong>{{ partial "nrt-ct.html" (dict "t" .generatedAt "layout" "Jan 2, 2006 · 3:04 PM") }} CT</strong>
         <span>Phase</span><strong>{{ .phase.label }}</strong>
       </div>
     </div>

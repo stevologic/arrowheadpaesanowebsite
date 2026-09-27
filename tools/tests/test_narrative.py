@@ -6,6 +6,7 @@ merge gate. Run with:  python -m unittest discover -s tools/tests -v
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -17,6 +18,7 @@ from unittest.mock import Mock, patch
 from tools.chiefs_narrative import (
     collect,
     diagrams,
+    facts,
     generate,
     odds,
     offline,
@@ -26,6 +28,16 @@ from tools.chiefs_narrative import (
     schema,
     x_embeds,
 )
+
+def _hugo_bin() -> str | None:
+    found = shutil.which("hugo")
+    if found:
+        return found
+    fallback = Path.home() / ".local" / "hugo" / "hugo"
+    if fallback.is_file():
+        return str(fallback)
+    return None
+
 
 # Canned inputs: the writers only use .get() lookups, so minimal dicts work.
 CAMP_PHASE = {"type": "training-camp", "label": "Training Camp",
@@ -333,6 +345,9 @@ class DeskSections(unittest.TestCase):
         self.assertEqual(recap["oppAbbr"], "TB")
         self.assertTrue(recap["scoring"][0].startswith("Q4"))
         self.assertEqual(recap["leaders"][0]["player"], "Patrick Mahomes")
+        self.assertEqual(recap["scoringPlays"][0]["quarter"], 4)
+        self.assertEqual(recap["scoringPlays"][0]["clock"], "0:12")
+        self.assertEqual(recap["scoringPlays"][0]["yards"], 29)
 
     def test_fetch_game_recap_empty_on_blank_payload(self):
         with patch.object(collect, "_get_json", return_value={"boxscore": {}}):
@@ -390,7 +405,7 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("--schedule-only", yaml)
         self.assertIn("python -m tools.chiefs_narrative.generate --schedule-only", yaml)
         self.assertIn("Chiefs schedule: refresh 2026 slate", yaml)
-        self.assertIn("phase.any_in_progress", yaml)
+        self.assertIn("phase.any_live", yaml)
         self.assertIn("steps.live.outputs.skip", yaml)
         self.assertIn("skipping new edition and PR", yaml)
         self.assertNotIn("*/15", yaml)
@@ -619,8 +634,10 @@ class SeasonClock(unittest.TestCase):
         hugo = (root / "hugo.yaml").read_text(encoding="utf-8")
         self.assertIn('timeZone: "America/Chicago"', hugo)
         edition = (root / "layouts" / "partials" / "narrative-edition.html").read_text(encoding="utf-8")
-        self.assertIn('time.AsTime .generatedAt "America/Chicago"', edition)
+        self.assertIn('partial "nrt-ct.html"', edition)
         self.assertIn("CT</strong>", edition)
+        ct = (root / "layouts" / "partials" / "nrt-ct.html").read_text(encoding="utf-8")
+        self.assertIn('time.AsTime .t | time.In "America/Chicago"', ct)
         slate = (root / "layouts" / "partials" / "season-slate.html").read_text(encoding="utf-8")
         wire = (root / "layouts" / "partials" / "wire-headlines.html").read_text(encoding="utf-8")
         self.assertIn('partial "season-slate.html"', index)
@@ -1179,6 +1196,8 @@ class LiveGamePhase(unittest.TestCase):
         self.assertEqual(ph["nextGame"]["week"], 4)
         self.assertFalse(phase.any_in_progress([]))
         self.assertTrue(phase.any_in_progress([self.WEEK3_LIVE]))
+        self.assertTrue(phase.any_live([self.WEEK3_LIVE], now=self.NOW))
+        self.assertEqual(ph["edition"], "2026 Week 3 · Preview")
 
     def test_past_kickoff_without_completed_is_live(self):
         unfinished = dict(self.WEEK3_LIVE)
@@ -1296,17 +1315,439 @@ class LiveGamePhase(unittest.TestCase):
         self.assertIn("Sep 20", week2["label"])
         self.assertNotIn("Sep 21", week2["label"])
 
+    def test_past_kickoff_skips_publish(self):
+        unfinished = dict(self.WEEK3_LIVE)
+        unfinished["inProgress"] = False
+        unfinished["kcScore"] = None
+        unfinished["oppScore"] = None
+        self.assertTrue(phase.is_live(unfinished, now=self.NOW))
+        self.assertTrue(phase.any_live([unfinished], now=self.NOW))
+        self.assertFalse(phase.any_in_progress([unfinished]))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            narrative_json = root / "narrative.json"
+            wire_json = root / "wire.json"
+            editions = root / "editions"
+            editions.mkdir()
+            archive = root / "archive.json"
+            archive.write_text("[]\n", encoding="utf-8")
+            with patch.object(
+                collect,
+                "collect_all",
+                return_value={
+                    "schedule": [self.WEEK2, unfinished, self.WEEK4],
+                    "news": [],
+                    "markets": {},
+                },
+            ), patch.object(generate, "_write_schedule"), patch.object(
+                generate.config, "NARRATIVE_JSON", narrative_json
+            ), patch.object(
+                generate.config, "WIRE_JSON", wire_json
+            ), patch.object(
+                generate.config, "EDITIONS_DIR", editions
+            ), patch.object(
+                generate.config, "ARCHIVE_JSON", archive
+            ), patch.object(
+                generate, "_render_diagrams"
+            ), patch.object(
+                phase, "any_live", return_value=True
+            ):
+                rc = generate.main(["--provider", "offline"])
+            self.assertEqual(rc, 0)
+            self.assertFalse(narrative_json.exists())
+            self.assertFalse(wire_json.exists())
+            self.assertEqual(list(editions.iterdir()), [])
+
+    def test_review_edition_header_names_both_weeks(self):
+        now = datetime(2026, 9, 28, 15, 0, tzinfo=timezone.utc)
+        week3 = {
+            "id": "w3f",
+            "week": 3,
+            "seasonType": "reg",
+            "date": "2026-09-27T17:00:00Z",
+            "opponent": "Miami Dolphins",
+            "completed": True,
+            "inProgress": False,
+            "kcScore": 24,
+            "oppScore": 10,
+            "kickoff": "Sun, Sep 27 · 12:00 PM CT",
+        }
+        ph = phase.detect([self.WEEK2, week3, self.WEEK4], now=now)
+        self.assertEqual(ph["mode"], "review")
+        self.assertEqual(ph["week"], 4)
+        self.assertEqual(ph["edition"], "2026 Week 4 · Week 3 Review")
+        self.assertEqual(phase.format_edition(ph), "2026 Week 4 · Week 3 Review")
+
+    def test_preview_edition_header(self):
+        now = datetime(2026, 10, 2, 15, 0, tzinfo=timezone.utc)
+        week3 = {
+            "id": "w3f",
+            "week": 3,
+            "seasonType": "reg",
+            "date": "2026-09-27T17:00:00Z",
+            "opponent": "Miami Dolphins",
+            "completed": True,
+            "inProgress": False,
+            "kcScore": 24,
+            "oppScore": 10,
+        }
+        ph = phase.detect([self.WEEK2, week3, self.WEEK4], now=now)
+        self.assertEqual(ph["mode"], "preview")
+        self.assertEqual(ph["week"], 4)
+        self.assertEqual(ph["edition"], "2026 Week 4 · Preview")
+
+    def test_prompt_uses_ct_kickoff_not_utc_date(self):
+        ph = phase.detect([self.WEEK2, self.WEEK4], now=datetime(2026, 9, 29, 15, 0, tzinfo=timezone.utc))
+        text = prompts.build_user_prompt(
+            {"news": [], "markets": {}, "schedule": [self.WEEK2, self.WEEK4]},
+            ph,
+            [self.WEEK4],
+        )
+        self.assertIn("Sun Oct 4, 3:25 PM CT", text)
+        self.assertIn("KICKOFF RULE", text)
+        self.assertIn("Never state a kickoff", text)
+        self.assertNotIn("2026-10-04 KC", text)
+
+    def test_prompt_includes_structured_scoring_plays(self):
+        last = dict(self.WEEK2)
+        last["week"] = 3
+        last["kcScore"] = 24
+        last["oppScore"] = 10
+        last["opponent"] = "Miami Dolphins"
+        ph = {
+            "type": "regular",
+            "label": "Week 4",
+            "mode": "review",
+            "week": 4,
+            "edition": "2026 Week 4 · Week 3 Review",
+            "lastGame": last,
+            "nextGame": self.WEEK4,
+        }
+        text = prompts.build_user_prompt(
+            {
+                "news": [],
+                "markets": {},
+                "schedule": [last, self.WEEK4],
+                "lastGameRecap": {
+                    "kc": {"totalYards": "280"},
+                    "opp": {"totalYards": "310"},
+                    "oppAbbr": "MIA",
+                    "scoringPlays": [
+                        {
+                            "quarter": 2,
+                            "clock": "2:00",
+                            "type": "INT",
+                            "player": "Trent McDuffie",
+                            "yards": 0,
+                            "scoreAfter": "KC 14–7",
+                            "kcScore": 14,
+                            "oppScore": 7,
+                        },
+                        {
+                            "quarter": 3,
+                            "clock": "8:12",
+                            "type": "TD",
+                            "player": "Travis Kelce",
+                            "yards": 11,
+                            "scoreAfter": "KC 21–7",
+                            "kcScore": 21,
+                            "oppScore": 7,
+                        },
+                    ],
+                    "leaders": [],
+                },
+            },
+            ph,
+            [self.WEEK4],
+        )
+        self.assertIn("SCORING PLAYS", text)
+        self.assertIn("Q2 2:00 INT — Trent McDuffie (0 yd) — KC 14–7", text)
+        self.assertIn("Q3 8:12 TD — Travis Kelce (11 yd)", text)
+
     def test_footer_shows_ct(self):
-        root = Path(__file__).resolve().parents[2]
-        edition = (root / "layouts" / "partials" / "narrative-edition.html").read_text(
+        hugo_bin = _hugo_bin()
+        self.assertTrue(hugo_bin, "hugo must be on PATH (or ~/.local/hugo/hugo) for this gate")
+        repo = Path(__file__).resolve().parents[2]
+        edition = (repo / "layouts" / "partials" / "narrative-edition.html").read_text(
             encoding="utf-8"
         )
-        hugo = (root / "hugo.yaml").read_text(encoding="utf-8")
-        self.assertIn('time.AsTime .generatedAt "America/Chicago"', edition)
+        hugo_cfg = (repo / "hugo.yaml").read_text(encoding="utf-8")
+        self.assertIn('partial "nrt-ct.html"', edition)
         self.assertIn("CT</strong>", edition)
-        self.assertIn('timeZone: "America/Chicago"', hugo)
+        self.assertIn('timeZone: "America/Chicago"', hugo_cfg)
         self.assertEqual(collect.local_date_label("2026-09-15T00:15:00Z"), "Mon Sep 14")
         self.assertEqual(collect.local_date_label("2026-09-21T00:20:00Z"), "Sun Sep 20")
+        self.assertEqual(collect.kickoff_prompt("2026-10-04T20:25:00Z"), "Sun Oct 4, 3:25 PM CT")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "hugo.yaml").write_text(
+                'baseURL: "/"\ntimeZone: "America/Chicago"\npublishDir: "dist"\n',
+                encoding="utf-8",
+            )
+            layouts = root / "layouts"
+            layouts.mkdir()
+            partials = layouts / "partials"
+            partials.mkdir()
+            (partials / "nrt-ct.html").write_text(
+                (repo / "layouts" / "partials" / "nrt-ct.html").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            (layouts / "index.html").write_text(
+                '{{ $n := dict "generatedAt" "2026-09-27T20:20:32+00:00" }}\n'
+                "FOOTER={{ partial \"nrt-ct.html\" (dict \"t\" $n.generatedAt \"layout\" \"Jan 2, 2006 · 3:04 PM\") }} CT\n"
+                "HERO={{ partial \"nrt-ct.html\" (dict \"t\" $n.generatedAt \"layout\" \"Monday, Jan 2, 2006\") }}\n"
+                '{{ $late := dict "generatedAt" "2026-09-28T00:20:00+00:00" }}\n'
+                "LATE={{ partial \"nrt-ct.html\" (dict \"t\" $late.generatedAt \"layout\" \"Monday, Jan 2, 2006\") }}\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [hugo_bin, "--gc"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            html = (root / "dist" / "index.html").read_text(encoding="utf-8")
+        self.assertIn("Sep 27, 2026 · 3:20 PM CT", html)
+        self.assertNotIn("8:20 PM", html)
+        self.assertIn("Sunday, Sep 27, 2026", html)
+        self.assertIn("LATE=Sunday, Sep 27, 2026", html)
+        self.assertNotIn("Monday, Sep 28", html)
+
+
+class FactCheck(unittest.TestCase):
+    """Reject reviews that disagree with the ESPN box / scoring plays."""
+
+    LAST = {
+        "id": "w3",
+        "week": 3,
+        "seasonType": "reg",
+        "completed": True,
+        "kcScore": 24,
+        "oppScore": 10,
+        "opponent": "Miami Dolphins",
+    }
+    RECAP = {
+        "kc": {"totalYards": "280"},
+        "opp": {"totalYards": "310"},
+        "scoringPlays": [
+            {
+                "quarter": 1,
+                "clock": "8:12",
+                "type": "TD",
+                "player": "Isiah Pacheco",
+                "yards": 1,
+                "scoreAfter": "KC 7–0",
+                "kcScore": 7,
+                "oppScore": 0,
+            },
+            {
+                "quarter": 2,
+                "clock": "2:00",
+                "type": "INT",
+                "player": "Trent McDuffie",
+                "yards": 0,
+                "scoreAfter": "KC 14–7",
+                "kcScore": 14,
+                "oppScore": 7,
+            },
+            {
+                "quarter": 3,
+                "clock": "10:04",
+                "type": "TD",
+                "player": "Travis Kelce",
+                "yards": 11,
+                "scoreAfter": "KC 21–7",
+                "kcScore": 21,
+                "oppScore": 7,
+            },
+            {
+                "quarter": 4,
+                "clock": "6:11",
+                "type": "FG",
+                "player": "Harrison Butker",
+                "yards": 35,
+                "scoreAfter": "KC 24–10",
+                "kcScore": 24,
+                "oppScore": 10,
+            },
+        ],
+        "leaders": [
+            {
+                "player": "Patrick Mahomes",
+                "category": "Passing Yards",
+                "value": "12/18, 140 YDS",
+            },
+        ],
+    }
+
+    def _review(self, **fields):
+        base = {
+            "opponent": "Miami Dolphins",
+            "result": "W",
+            "score": "KC 24–10",
+            "lede": "Kansas City beat Miami 24–10.",
+            "analysis": ["Kelce scored on an 11-yard catch."],
+            "whatWorked": ["The 11-yard Kelce score."],
+            "whatDidnt": ["Third down was 3-of-7."],
+        }
+        base.update(fields)
+        return {"lastGameReview": base}
+
+    def test_accepts_official_final_and_score_after(self):
+        narrative = self._review(
+            whatDidnt=["The INT kept a 14-7 game from getting away."],
+        )
+        self.assertEqual(facts.check_review(narrative, self.LAST, self.RECAP), [])
+
+    def test_rejects_wrong_in_game_score(self):
+        narrative = self._review(
+            whatDidnt=["The INT kept a 14-10 game alive into the fourth."],
+        )
+        issues = facts.check_review(narrative, self.LAST, self.RECAP)
+        self.assertTrue(any("14-10" in item for item in issues))
+
+    def test_rejects_wrong_td_yardage(self):
+        narrative = self._review(
+            analysis=["Kelce scored from the 12 and those two scores were the entire 24."],
+        )
+        issues = facts.check_review(narrative, self.LAST, self.RECAP)
+        self.assertTrue(any("12" in item for item in issues))
+
+    def test_accepts_official_td_yardage(self):
+        narrative = self._review(analysis=["Kelce's 11-yard catch made it 21-7."])
+        self.assertEqual(facts.check_review(narrative, self.LAST, self.RECAP), [])
+
+    def test_ignores_records_and_completions_as_scores(self):
+        narrative = self._review(
+            lede="A 3-0 team that just went 20-of-24 still carries the 6-11 tape.",
+            analysis=["Mahomes was 12/18, 140 YDS. Third down: 3-of-7."],
+        )
+        self.assertEqual(facts.check_review(narrative, self.LAST, self.RECAP), [])
+
+    def test_rejects_wrong_passing_line(self):
+        narrative = self._review(
+            analysis=["Mahomes went 20-of-24 for 280 yards."],
+        )
+        issues = facts.check_review(narrative, self.LAST, self.RECAP)
+        self.assertTrue(any("Mahomes" in item and "20" in item for item in issues))
+
+    def test_rejects_wrong_final_when_recap_empty(self):
+        narrative = self._review(lede="Kansas City won it KC 24–7.")
+        issues = facts.check_review(narrative, self.LAST, {})
+        self.assertTrue(any("24-7" in item or "24–7" in item for item in issues))
+
+    def test_skips_when_game_not_final(self):
+        live = dict(self.LAST)
+        live["completed"] = False
+        narrative = self._review(whatDidnt=["The INT kept a 14-10 game alive."])
+        self.assertEqual(facts.check_review(narrative, live, self.RECAP), [])
+
+    def test_fact_check_retries_once_then_fails_without_publish(self):
+        bad = {
+            "headline": "Fresh title",
+            "dek": "Fresh dek",
+            "theEdge": "Fresh edge",
+            "lastGameReview": {
+                "lede": "The INT kept a 14-10 game alive into the fourth.",
+                "analysis": ["Kelce scored from the 12."],
+            },
+        }
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        last["kickoff"] = "Sun, Sep 27 · 12:00 PM CT"
+        week4 = {
+            "id": "w4",
+            "week": 4,
+            "seasonType": "reg",
+            "date": "2026-10-04T20:25:00Z",
+            "opponent": "Las Vegas Raiders",
+            "completed": False,
+            "inProgress": False,
+            "kcScore": None,
+            "oppScore": None,
+            "kickoff": "Sun, Oct 4 · 3:25 PM CT",
+        }
+        ph = {
+            "type": "regular",
+            "label": "Week 4",
+            "week": 4,
+            "mode": "review",
+            "edition": "2026 Week 4 · Week 3 Review",
+            "lastGame": last,
+            "nextGame": week4,
+            "liveGame": None,
+        }
+        llm = Mock(side_effect=[(bad, "grok"), (bad, "grok")])
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            narrative_json = root / "narrative.json"
+            wire_json = root / "wire.json"
+            editions = root / "editions"
+            editions.mkdir()
+            archive = root / "archive.json"
+            archive.write_text("[]\n", encoding="utf-8")
+            with patch.object(
+                collect,
+                "collect_all",
+                return_value={"schedule": [last, week4], "news": [], "markets": {}},
+            ), patch.object(
+                collect, "fetch_game_recap", return_value=self.RECAP
+            ), patch.object(
+                phase, "detect", return_value=ph
+            ), patch.object(
+                phase, "next_games", return_value=[week4]
+            ), patch.object(
+                phase, "any_live", return_value=False
+            ), patch.object(
+                odds, "collect_markets", return_value={}
+            ), patch.object(
+                providers, "generate_via_llm", llm
+            ), patch.object(
+                generate, "_render_diagrams"
+            ), patch.object(
+                generate, "_write_schedule"
+            ), patch.object(
+                generate.config, "NARRATIVE_JSON", narrative_json
+            ), patch.object(
+                generate.config, "WIRE_JSON", wire_json
+            ), patch.object(
+                generate.config, "EDITIONS_DIR", editions
+            ), patch.object(
+                generate.config, "ARCHIVE_JSON", archive
+            ):
+                rc = generate.main(["--provider", "grok"])
+            self.assertEqual(rc, 1)
+            self.assertEqual(llm.call_count, 2)
+            retry_user = llm.call_args_list[1].args[2]
+            self.assertIn("FACT CHECK RETRY", retry_user)
+            self.assertFalse(narrative_json.exists())
+            self.assertEqual(list(editions.iterdir()), [])
+
+
+class ArchiveDates(unittest.TestCase):
+    """Stored teaser dates must be CT calendar dates, not UTC rollover."""
+
+    ROOT = Path(__file__).resolve().parents[2]
+
+    def test_archive_and_edition_labels_use_ct_dates(self):
+        archive = (self.ROOT / "data" / "narrative_archive.json").read_text(encoding="utf-8")
+        self.assertNotIn("Tue Sep 15", archive)
+        self.assertNotIn("Mon Sep 21", archive)
+        self.assertNotIn("Sun Sep 21", archive)
+        self.assertNotIn("Mon Sep 15", archive)
+        editions = self.ROOT / "data" / "narrative_editions"
+        blob = ""
+        for path in editions.glob("*.json"):
+            blob += path.read_text(encoding="utf-8")
+        self.assertNotIn("Tue Sep 15", blob)
+        self.assertNotIn("Week 2 · Mon Sep 21", blob)
+        self.assertNotIn("Week 2 · Sun Sep 21", blob)
+        self.assertNotIn("Week 1 · Tue Sep 15", blob)
+        self.assertNotIn("Week 1 · Mon Sep 15", blob)
+        self.assertIn("Mon Sep 14", blob)
+        self.assertIn("Sun Sep 20", blob)
 
 
 if __name__ == "__main__":

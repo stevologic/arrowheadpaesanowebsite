@@ -68,6 +68,43 @@ def any_in_progress(schedule: list[dict] | None) -> bool:
     return any(bool(g.get("inProgress")) and not g.get("completed") for g in schedule or [])
 
 
+def any_live(schedule: list[dict] | None, now: datetime = None) -> bool:
+    """True when any slate row is in progress or past kickoff without a final."""
+    return any(is_live(g, now) for g in schedule or [])
+
+
+def format_edition(ph: dict | None) -> str:
+    """Desk-written edition header. The model does not own this string.
+
+    Regular review: ``2026 Week 4 · Week 3 Review`` (upcoming week, then
+    the completed week). Regular preview: ``2026 Week N · Preview``.
+    Archive grouping still uses ``phase.week`` (the upcoming / live week).
+    """
+    season = config.TEAM["season"]
+    ph = ph or {}
+    ptype = ph.get("type") or ""
+    mode = ph.get("mode") or ""
+    week = ph.get("week")
+    last = ph.get("lastGame") or {}
+    last_week = last.get("week")
+    if ptype == "regular" and week:
+        if mode == "review" and last_week:
+            return f"{season} Week {week} · Week {last_week} Review"
+        return f"{season} Week {week} · Preview"
+    existing = (ph.get("edition") or "").strip()
+    if existing:
+        return existing
+    label = (ph.get("label") or "Narrative").strip()
+    return f"{season} {label}"
+
+
+def _regular_edition(season, week, mode, last_game) -> str:
+    last_week = (last_game or {}).get("week")
+    if mode == "review" and last_week:
+        return f"{season} Week {week} · Week {last_week} Review"
+    return f"{season} Week {week} · Preview"
+
+
 def detect(schedule: list[dict], now: datetime = None) -> dict:
     """Return a phase descriptor.
 
@@ -149,7 +186,8 @@ def detect(schedule: list[dict], now: datetime = None) -> dict:
                 next_game, last_game, live_game,
             )
         return _wrap(
-            "regular", f"Week {wk}", wk, mode, f"{season} · Week {wk}",
+            "regular", f"Week {wk}", wk, mode,
+            _regular_edition(season, wk, mode, last_game),
             next_game, last_game, live_game,
         )
 
