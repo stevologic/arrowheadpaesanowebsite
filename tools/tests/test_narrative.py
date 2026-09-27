@@ -29,6 +29,18 @@ from tools.chiefs_narrative import (
     x_embeds,
 )
 
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
+
+
+def _fixture(name: str) -> Path:
+    """Frozen edition/archive payload. Tests must not read live data/ editions."""
+    return FIXTURES / name
+
+
+def _load_fixture(name: str):
+    return json.loads(_fixture(name).read_text(encoding="utf-8"))
+
+
 def _hugo_bin() -> str | None:
     found = shutil.which("hugo")
     if found:
@@ -1747,15 +1759,11 @@ class FactCheck(unittest.TestCase):
         self.assertEqual(issues, [])
 
     def test_published_review_does_not_invent_mahomes_line(self):
-        """Full live lastGameReview vs ESPN 20/24: no passing-line false positive."""
-        payload = json.loads(
-            (Path(__file__).resolve().parents[2] / "data" / "narrative.json").read_text(
-                encoding="utf-8"
-            )
-        )
+        """Frozen bbc7dd2 lastGameReview vs ESPN 20/24: no passing-line false positive."""
+        payload = _load_fixture("bbc7dd2_last_game_review.json")
         issues = facts.check_review(payload, self.LAST, self.RUN_RECAP)
         self.assertFalse(any("passing line" in item for item in issues), issues)
-        # Karen's original 14-10 claim is still in whatDidnt and must stay a hit.
+        # Karen's original 14-10 claim is frozen in the fixture and must stay a hit.
         self.assertTrue(any("14-10" in item for item in issues), issues)
 
     def test_rejects_wrong_final_when_recap_empty(self):
@@ -1854,18 +1862,18 @@ class FactCheck(unittest.TestCase):
 class ArchiveDates(unittest.TestCase):
     """Stored teaser dates must be CT calendar dates, not UTC rollover."""
 
-    ROOT = Path(__file__).resolve().parents[2]
-
     def test_archive_and_edition_labels_use_ct_dates(self):
-        archive = (self.ROOT / "data" / "narrative_archive.json").read_text(encoding="utf-8")
+        archive = _fixture("archive_ct_dates.json").read_text(encoding="utf-8")
         self.assertNotIn("Tue Sep 15", archive)
         self.assertNotIn("Mon Sep 21", archive)
         self.assertNotIn("Sun Sep 21", archive)
         self.assertNotIn("Mon Sep 15", archive)
-        editions = self.ROOT / "data" / "narrative_editions"
-        blob = ""
-        for path in editions.glob("*.json"):
-            blob += path.read_text(encoding="utf-8")
+        blob = archive
+        for name in (
+            "edition_2026-09-18-1502.json",
+            "edition_2026-09-14-1701.json",
+        ):
+            blob += _fixture(name).read_text(encoding="utf-8")
         self.assertNotIn("Tue Sep 15", blob)
         self.assertNotIn("Week 2 · Mon Sep 21", blob)
         self.assertNotIn("Week 2 · Sun Sep 21", blob)
@@ -1873,6 +1881,39 @@ class ArchiveDates(unittest.TestCase):
         self.assertNotIn("Week 1 · Mon Sep 15", blob)
         self.assertIn("Mon Sep 14", blob)
         self.assertIn("Sun Sep 20", blob)
+
+    def test_tests_do_not_read_live_edition_json(self):
+        """A fresh daily edition must not be able to break the gates.
+
+        Temp files named narrative.json are fine. Only live data/ edition
+        paths (and DATA_DIR joins that resolve to them) are forbidden.
+        """
+        tests_dir = Path(__file__).resolve().parent
+        slug = "narrative"
+        needles = (
+            f"data/{slug}.json",
+            f"data/{slug}_archive.json",
+            f"data/{slug}_editions",
+            f'/ "data" / "{slug}.json"',
+            f"/ 'data' / '{slug}.json'",
+            f'/ "data" / "{slug}_archive.json"',
+            f"/ 'data' / '{slug}_archive.json'",
+            f'/ "data" / "{slug}_editions"',
+            f"/ 'data' / '{slug}_editions'",
+            f'DATA_DIR / "{slug}.json"',
+            f"DATA_DIR / '{slug}.json'",
+            f'DATA_DIR / "{slug}_archive.json"',
+            f"DATA_DIR / '{slug}_archive.json'",
+            f'DATA_DIR / "{slug}_editions"',
+            f"DATA_DIR / '{slug}_editions'",
+        )
+        offenders = []
+        for path in tests_dir.rglob("*.py"):
+            text = path.read_text(encoding="utf-8")
+            for needle in needles:
+                if needle in text:
+                    offenders.append(f"{path.name}: {needle}")
+        self.assertEqual(offenders, [])
 
 
 if __name__ == "__main__":
@@ -2155,11 +2196,7 @@ class XEmbedSlots(unittest.TestCase):
         self.assertNotIn("#8a8490", label)
 
     def test_latest_backfill_uses_verified_status_urls(self):
-        payload = json.loads(
-            (self.ROOT / "data" / "narrative_editions" / "2026-09-26-1355.json").read_text(
-                encoding="utf-8"
-            )
-        )
+        payload = _load_fixture("edition_2026-09-26-1355.json")
         players = payload["playerEmbeds"]
         self.assertEqual(len(players), 2)
         for item in players:
@@ -2179,11 +2216,7 @@ class XEmbedSlots(unittest.TestCase):
         self.assertIsNotNone(schema._norm_x_embed(analysis[2]["embed"]))
 
     def test_older_edition_stays_on_zero_embed_path(self):
-        older = json.loads(
-            (self.ROOT / "data" / "narrative_editions" / "2026-09-25-1552.json").read_text(
-                encoding="utf-8"
-            )
-        )
+        older = _load_fixture("edition_2026-09-25-1552.json")
         self.assertFalse(older.get("playerEmbeds"))
         for para in older["lastGameReview"]["analysis"]:
             self.assertIsInstance(para, str)

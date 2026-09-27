@@ -1,0 +1,526 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-26T13:55:30+00:00",
+  "generator": "grok:grok-4.6",
+  "phase": {
+    "type": "regular",
+    "label": "Week 3",
+    "week": 3,
+    "mode": "preview"
+  },
+  "edition": "2026 Week 3 Preview",
+  "record": "2-0",
+  "headline": "The offense found its voice. Miami will ask if the front has one.",
+  "dek": "A 33-30 overtime win over Indianapolis produced 29 first downs, 382 from Patrick Mahomes, and 117 from Kenneth Walker III; Sunday noon in Miami is the 3-0 chase against a Dolphins defense starting rookies, and the pass rush that went quiet against Daniel Jones is the open item on Steve Spagnuolo's desk.",
+  "videoHook": "Twenty-nine first downs and we still needed overtime. That is not a flex — that is a warning. Noon in Miami, the rookies are starting, and the pass rush is on the clock.",
+  "theEdge": "A 10-point road favorite on a 45.5 total (DraftKings) with ESPN FPI at 85.4 percent still sits at 9.4 percent to win the Super Bowl and 16.5 percent to win the AFC on Polymarket — the market will pay Sunday in Miami, it just will not pay the long ticket until the defense stops treating 30-point nights as a rounding error.",
+  "playerEmbeds": [
+    {
+      "url": "https://x.com/Chiefs/status/2101899387639115937",
+      "account": "@Chiefs",
+      "label": "Postgame at Arrowhead"
+    },
+    {
+      "url": "https://x.com/Chiefs/status/2101838746643812537",
+      "account": "@Chiefs",
+      "label": "Travis Kelce"
+    }
+  ],
+  "storyline": {
+    "lede": "Kansas City is 2-0 and finally looks like an Andy Reid offense again — Kenneth Walker III leaning downhill, Travis Kelce eating in the middle, Patrick Mahomes throwing it 47 times when the game asked him to — but the tape from Arrowhead is not a coronation. The Colts hung 30, the third-down offense stalled at 5-of-13, and Steve Spagnuolo's front spent a prime-time night tackling more than it hunted. Sunday at noon in Miami is the first time this roster has left GEHA Field at Arrowhead Stadium, and it is the first time a young Dolphins defense full of rookies at linebacker, safety, and corner gets to decide whether 523 yards was identity or just a home-field sample.",
+    "body": [
+      "Week 1 was a statement run game. Week 2 was a volume passing night that still needed overtime. That is the real 2-0 story: Eric Bieniemy can feature Walker for 24 carries and still need Mahomes at 32-of-47 because the defense would not put the game away. Indianapolis ran 119 and scored on a 24-yard Jonathan Taylor burst; Nick Bolton led the Chiefs with 13 tackles, which is another way of saying the football kept finding the second level. Arrowhead Pride already framed the problem in plain language — the pass rush must improve after a quiet Colts game, especially after the Denver opener had looked like a different unit.",
+      "Miami is the wrong place to drag that problem. It is a noon CBS kick, a first road environment, and a Dolphins defense that Arrowhead Pride notes is starting rookies at the money positions. That is a leverage gift for Kelce, Xavier Worthy, and a play-action boot game off Walker's inside zone — if Kansas City does not get cute and if Spagnuolo actually manufactures pressure instead of hoping a four-man rush suddenly appears. Chamarri Conner being doubtful only raises the cost of a coverage bust on the road.",
+      "The market already has an opinion. ESPN FPI hangs an 85.4 percent win probability on this trip and DraftKings lays Kansas City -10 on a 45.5 total, but Polymarket still prices the Chiefs at 9.4 percent to win the Super Bowl and 16.5 percent to win the AFC. That is the honest split: Sunday in Miami is supposed to be a professional beating of a young defense, and the long ticket will not move until this team proves the Colts' 30 points were an outlier. The 3-0 chase starts at noon, not in the power rankings."
+    ]
+  },
+  "lastGameReview": {
+    "opponent": "Indianapolis Colts",
+    "label": "Week 2 · Sun, Sep 20 · 7:20 PM CT",
+    "result": "W",
+    "score": "KC 33–30",
+    "lede": "Kansas City survived Indianapolis 33-30 in overtime at Arrowhead after a 523-yard night that never felt safe. Daniel Jones hit Tyler Warren from a yard out to open the scoring, Harrison Butker answered from 46, and Mahomes found Kelce from 13 to take the first lead; the Colts then stacked field goals from Spencer Shrader (42 and 49) before Mahomes snuck Xavier Worthy in from a yard. Jonathan Taylor's 24-yard sprint put Indianapolis back in front 20-17 late in the half, Jalen Royals' 1-yard catch in the third made it 24-20, and the Chiefs still had to finish it in overtime after 37:00 of possession and zero turnovers.",
+    "analysis": [
+      "The box score says dominance. The down-to-down tape says a team that moved the chains and then leaked. Twenty-nine first downs and 523 yards with Mahomes at 382 should bury a visitor; 5-of-13 on third down is why they were still playing after dark. Bieniemy got the look he wanted on early downs — Walker 24-for-117 as the identity back, 152 as a team — but the drive-ending snaps kept arriving, which is how a 37-minute possession night becomes a one-score overtime instead of a statement.",
+      {
+        "body": "Mahomes' 32-of-47 was not garbage time. It was the offense admitting the run game, good as it was, could not close a game that the defense would not close. Kelce (9-101-1) was the adult in the room: the 13-yard score, the middle-of-the-field answers, the reason Indianapolis could not just load the box on Walker. Worthy and Royals both finishing from the 1-yard line is the other tell — Reid is using speed and the young receivers as finishers, not just as vertical window dressing. That is progress from a Week 1 night that asked whether the pass game could cash Walker's checks.",
+        "embed": {
+          "url": "https://x.com/Chiefs/status/2101835926779347261",
+          "account": "@Chiefs",
+          "label": "Kelce from 13 yards"
+        }
+      },
+      {
+        "body": "The defensive problem is schematic, not effort. Bolton's 13 tackles are a MIKE playing a lot of football because the front did not wreck the timing. Indianapolis still put up 24 first downs and 329 yards, Taylor popped the 24-yard touchdown, and Jones had enough clean drops to hit Warren in the red zone. Arrowhead Pride put the contrast on the board: four sacks of Bo Nix in the opener, then a quiet prime-time pass rush against the Colts. Spagnuolo can live with 5-of-12 on third down from the opponent. He cannot live with 30 points allowed if this is supposed to be a Super Bowl roster.",
+        "embed": {
+          "url": "https://x.com/NFL/status/2101849509382738110",
+          "account": "@NFL",
+          "label": "Jonathan Taylor touchdown"
+        }
+      },
+      "The hidden number is the turnover margin (KC 0, IND 1) plus the time of possession. Kansas City did not beat itself. Indianapolis needed a long, physical night and got one. That is credit to Shane Steichen's group as much as it is a warning for Arrowhead: when you hand a visitor 33 minutes and a 119-yard ground game, you are one missed tackle from overtime even with 382 from Mahomes."
+    ],
+    "takeaways": [
+      {
+        "title": "Early-down identity is real",
+        "body": "Walker at 24 carries and 117 yards, plus 152 as a team, is not a cameo. Bieniemy is building the offense through inside zone and play-action, and Kelce is the play-action tax Indianapolis kept paying. Miami's rookie linebacker will see that tape immediately."
+      },
+      {
+        "title": "Third down is the leak in a 523-yard night",
+        "body": "Five of 13 on third down with 29 first downs means the explosives and the volume are there, and the money downs are not. That is how you possess the ball for 37 minutes and still need overtime. Cleaner protection and tighter route spacing on 3rd-and-5 will decide whether Miami becomes a romp or another grind."
+      },
+      {
+        "title": "The rush was a no-show when it mattered",
+        "body": "Bolton leading the team with 13 tackles is the second-level alarm bell. If the four-man rush does not move the quarterback, Spagnuolo has to manufacture it with simulated pressure, because a noon road kick will not gift him the same Arrowhead noise he had against Indianapolis."
+      }
+    ],
+    "whatWorked": [
+      "Walker as a 24-carry feature back (117 yards) that forced Indianapolis to defend the run on early downs",
+      "Mahomes' volume night (32/47, 382, 3 TD) with zero turnovers",
+      "Kelce as the chain-mover and red-zone adult (9-101-1)",
+      "Worthy and Royals finishing from the 1-yard line instead of settling for field goals",
+      "Time of possession (37:00) and 29 first downs that kept the Colts' offense on the sideline longer than it wanted"
+    ],
+    "whatDidnt": [
+      "Third-down offense at 5-of-13 despite 523 total yards",
+      "A pass rush that went quiet after a four-sack opener against Denver",
+      "Thirty points allowed, including Taylor's 24-yard touchdown run",
+      "A defense that put Bolton in a 13-tackle tracking contest instead of a hunt"
+    ]
+  },
+  "currentState": {
+    "lede": "The Chiefs are 2-0 with a smash-mouth opener and a high-volume overtime escape, which is a good start and a messy tape. The next Sunday is not another home night: it is a noon road kick in Miami against a defense built on rookies, with Chamarri Conner doubtful and a pass rush that has already been told the Colts game was too quiet.",
+    "record": "2-0",
+    "workOn": [
+      {
+        "title": "Manufacture a pass rush, do not wait for it",
+        "body": "The Denver tape (four sacks of Nix) and the Colts tape do not match. Miami at noon will not create pressure for Kansas City; Spagnuolo has to bring simulated heat and second-level rushers so the young Dolphins offensive line is playing ghosts, not a static four-man."
+      },
+      {
+        "title": "Fix 3rd-and-medium without abandoning Walker",
+        "body": "Five of 13 on third down is how 523 yards become overtime. Mesh, boots off inside zone, and Kelce on the money down should be the answers against a rookie-heavy Miami secondary, not another 47-attempt grind that asks Mahomes to be the entire plan."
+      },
+      {
+        "title": "Protect the deep middle if Conner sits",
+        "body": "Chamarri Conner is doubtful for the first road trip. That is a Cover-2 and match-zone week, not a week to get isolated over the top in a noon stadium that will try to steal one explosive and hang around against a double-digit favorite."
+      }
+    ],
+    "thinkAbout": [
+      {
+        "title": "Is 2-0 identity or just two home games?",
+        "body": "Walker and Kelce have been real. The defense has been a split tape. Miami is the first data point away from Arrowhead, and the market's 85.4 percent FPI number will look silly if the front repeats the Colts night."
+      },
+      {
+        "title": "How fast do you unleash Worthy as more than a 1-yard finisher?",
+        "body": "He scored from a yard out, and Arrowhead Pride is already asking when the offense will see the best of him. Against rookie corners in Miami, the vertical and the mesh speed cut are the reasons you drafted him — not just the goal-line package."
+      },
+      {
+        "title": "How much simulated pressure is too much with a young Miami offense?",
+        "body": "Spagnuolo's signature is showing heat and dropping a lineman. If he over-blitzes a team that will take the cheap screen and the checkdown, Bolton ends up with another 13-tackle night. The balance is the whole game."
+      }
+    ]
+  },
+  "gamePlan": {
+    "opponent": "Miami Dolphins",
+    "lede": "First road Sunday of 2026, noon on CBS, Kansas City -10, and a Dolphins defense starting rookies at linebacker, safety, and corner. The assignment is to make Miami's youth play NFL speed for 60 minutes and to stop this from becoming another 30-point track meet because the rush took the week off.",
+    "howTheyMatch": "Styles collide in Kansas City's favor on paper: Bieniemy's downhill inside zone and Mahomes' play-action boot game against a defense that Arrowhead Pride describes as inexperienced at the money spots, with one of Miami's only veterans a former Chiefs favorite. The leverage flips if Spagnuolo cannot get off the field. Kansas City just allowed 30 and 119 on the ground; a quiet four-man rush on the road is how a 10-point favorite wanders into a 45.5-total slog. Conner being doubtful means the secondary cannot play hero ball. The Chiefs should win with Walker, Kelce, and patience — and they can lose with explosives given up and third downs left on the field.",
+    "keys": [
+      {
+        "title": "Run Walker at the rookie MIKE until Miami's safeties creep",
+        "body": "Twenty-four carries against Indianapolis is the tell. Inside zone, then play-action boot, then four verts when the young safety cheats the run. Do not get bored in the first quarter just because you are a 10-point road favorite."
+      },
+      {
+        "title": "Attack man coverage with mesh and Kelce",
+        "body": "Rookie corners and a rookie safety are mesh food. Kelce as the rub and the sit, Worthy as the speed crosser, checkdown as the adult outlet. This is the 3rd-and-5 fix from the Colts tape."
+      },
+      {
+        "title": "Create pressure without emptying the coverage",
+        "body": "Zone-blitz and simulated looks, not all-out hero hunts. The Colts night proved the four-man rush can vanish. Drop a lineman, bring a second-level rusher, keep two deep behind it so a Conner-less secondary is not the story of the noon window."
+      },
+      {
+        "title": "Take the cheap yards and leave with 3-0",
+        "body": "RB screens, boots, and first-down zone runs keep Mahomes off 47-dropback volume. Miami's youth will take bad angles; Kansas City should make them tackle. A 45.5 total and a -10 number want a professional, slightly boring win, not another overtime special."
+      }
+    ],
+    "script": [
+      "Open in under-center inside zone to Walker and make the rookie middle linebacker play downhill for three straight first-down snaps.",
+      "Second series: play-action boot to Kelce in the flat/over combination off the same zone action — the Colts tape already sold it.",
+      "On the first 3rd-and-5, mesh with Worthy as the speed crosser and Kelce as the rub; do not live in empty if Miami shows man.",
+      "If Miami's safety sits on Walker, hit four verts and make the rookie choose between the seam and Worthy over the top.",
+      "Defensively, start in a Cover-2 shell on early downs with Conner doubtful, then sprinkle zone blitz on 2nd-and-8 rather than waiting until 3rd-and-long.",
+      "Keep Bolton as the tackle-and-spy piece, not the entire pass rush — use him as the add rusher, not the cleanup crew."
+    ]
+  },
+  "nextGame": {
+    "id": "",
+    "label": "Week 3 · Sun, Sep 27 · 12:00 PM CT",
+    "opponent": "Miami Dolphins",
+    "at": "@ Hard Rock Stadium",
+    "tv": "CBS",
+    "note": "First road game of 2026; 2-0 Chiefs chasing 3-0 in the noon window as a double-digit favorite."
+  },
+  "markets": {
+    "game": {
+      "opponent": "Miami Dolphins",
+      "label": "Sun, Sep 27 · 12:00 PM CT",
+      "homeAway": "away",
+      "kcWin": 85.4,
+      "spreadDetail": "KC -10",
+      "overUnder": 45.5,
+      "source": "ESPN FPI game projection",
+      "url": "https://www.espn.com/nfl/game/_/gameId/401872952"
+    },
+    "model": {
+      "kcWin": 85.4,
+      "oppWin": 14.5,
+      "label": "ESPN FPI game projection",
+      "source": "ESPN FPI",
+      "url": "https://www.espn.com/nfl/fpi"
+    },
+    "vegas": {
+      "provider": "DraftKings",
+      "spreadDetail": "KC -10",
+      "overUnder": 45.5,
+      "homeMoneyline": 470.0,
+      "awayMoneyline": -650.0,
+      "source": "ESPN / DraftKings",
+      "url": "https://www.espn.com/nfl/lines"
+    },
+    "consensus": null,
+    "futures": [
+      {
+        "label": "Pro Football: 2027 Champion",
+        "chiefsPct": 9.4,
+        "source": "Polymarket",
+        "url": "https://polymarket.com/event/pro-football-2027-champion-20260729185915366"
+      },
+      {
+        "label": "Pro Football: 2027 AFC Champion",
+        "chiefsPct": 16.5,
+        "source": "Polymarket",
+        "url": "https://polymarket.com/event/pro-football-2027-afc-champion"
+      }
+    ]
+  },
+  "spotlight": [
+    {
+      "tag": "Road test",
+      "title": "2-0 has not left Arrowhead yet",
+      "body": "Both wins came at GEHA Field. Arrowhead Addict called this a completely different kind of test, and that is the whole show: noon, CBS, first true road environment, and a favorite's number that will look ugly if the Colts defensive tape repeats."
+    },
+    {
+      "tag": "Youth vs. age",
+      "title": "Miami is starting rookies in the money spots",
+      "body": "Arrowhead Pride notes the Dolphins' top players at middle linebacker, safety, and corner are rookies, with one of the only veterans a former Kansas City favorite. That is a schematic green light for Kelce, mesh, and play-action — not a reason to get sloppy."
+    },
+    {
+      "tag": "Pass rush",
+      "title": "The quiet Colts night is now a week-to-week question",
+      "body": "Four sacks in the Denver opener, then a front that let Bolton post 13 tackles against Indianapolis. If that carries to Miami, the 85.4 percent FPI number is a trap. Spagnuolo has to cook, not hope."
+    },
+    {
+      "tag": "Walker",
+      "title": "The feature back is no longer a theory",
+      "body": "Twenty-four carries, 117 yards, and a 152-yard team ground game after a 220-yard opener against Denver. Bieniemy's downhill identity is the best friend Mahomes has — and the best way to keep a young Miami defense in conflict."
+    },
+    {
+      "tag": "Worthy",
+      "title": "The 1-yard touchdown cannot be the whole package",
+      "body": "He finished against Indianapolis. Arrowhead Pride is already asking when the offense will see the best of Xavier Worthy. Rookie corners in Miami are the week you find out if the speed is a real constraint or just a red-zone toy."
+    },
+    {
+      "tag": "Conner",
+      "title": "Doubtful in the secondary on the first road trip",
+      "body": "Chamarri Conner is doubtful, per the final Week 3 injury report. That is not a reason to panic-blitz. It is a reason to play two-deep, tackle well, and refuse to let one missed assignment become the noon story."
+    }
+  ],
+  "matchups": [
+    {
+      "unit": "Chiefs run game vs. Dolphins rookie linebacker",
+      "chiefs": "Kenneth Walker III / Eric Bieniemy inside zone",
+      "opponent": "Miami's rookie middle linebacker",
+      "edge": "KC",
+      "note": "Walker just took 24 carries for 117. A first-year MIKE playing downhill against Reid/Bieniemy zone action is the clearest personnel mismatch on the field."
+    },
+    {
+      "unit": "Mahomes-Kelce vs. Miami rookie secondary",
+      "chiefs": "Patrick Mahomes, Travis Kelce, Xavier Worthy",
+      "opponent": "Rookie corner and safety starters",
+      "edge": "KC",
+      "note": "Kelce's 9-101-1 and Worthy's speed against inexperienced man and a young deep middle. Experience is the whole Arrowhead Pride preview for a reason."
+    },
+    {
+      "unit": "Chiefs pass rush vs. Miami protection",
+      "chiefs": "Spagnuolo front / simulated pressure",
+      "opponent": "Dolphins offensive line",
+      "edge": "PUSH",
+      "note": "Denver tape said hunt; Colts tape said whisper. Until the four-man rush or the zone blitz actually lands on the road, this is not a Chiefs edge you can cash."
+    },
+    {
+      "unit": "Chiefs secondary (Conner doubtful) vs. Miami explosives",
+      "chiefs": "Cover-2 shell, Nick Bolton rally",
+      "opponent": "Dolphins skill players looking for one shot",
+      "edge": "PUSH",
+      "note": "Conner doubtful on the first road trip means Kansas City should not win a tracking contest. Two-deep and tackle; one bust and the 45.5 total starts looking thin."
+    },
+    {
+      "unit": "Third-down offense vs. young Miami money downs",
+      "chiefs": "Mesh / boot / Kelce",
+      "opponent": "Rookie DBs in man and a young MIKE in space",
+      "edge": "KC",
+      "note": "The Colts held Kansas City to 5-of-13. Miami's inexperience should be the cleanup week if Reid does not overthink 3rd-and-5."
+    }
+  ],
+  "xsandos": [
+    {
+      "title": "Walker downhill at the rookie MIKE",
+      "situation": "1st-and-10, opening script in Miami, 21/12 personnel",
+      "concept": "inside_zone",
+      "why": "Walker just ran 24 for 117 against Indianapolis and the team posted 152 on the ground; Arrowhead Pride's Miami preview is built on a rookie middle linebacker. This is the snap that forces the young MIKE to play downhill and pulls the rookie safety up, which is the entire Bieniemy identity after two home wins.",
+      "coaching": "Bieniemy wants zone steps and one cut — Walker presses the play-side A gap and does not bounce into a rookie who is hunting the edge. Kelce and the play-side linemen have to win first contact so Mahomes is handing it, not guessing.",
+      "labels": {
+        "x": "stalk block",
+        "z": "stalk block",
+        "te": "down block / seal"
+      },
+      "diagram": "images/narrative/2026-09-26-1355/xo-inside_zone.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Boot it when the safety creeps",
+      "situation": "2nd-and-6 after a Walker inside-zone gain, under center",
+      "concept": "play_action_boot",
+      "why": "One hundred fifty-two rushing yards against the Colts sold this fake; Miami's rookie safety and corner will be the first to bite the run. Mahomes on the perimeter with Kelce leaking is how you punish youth without asking the quarterback for another 47-dropback night on the road.",
+      "coaching": "Reid/Bieniemy: sell the mesh point, get Mahomes's shoulders downhill, first read is Kelce in the flat, second is the deep over. Do not hold and invite a scramble that a noon road crowd will turn into a strip.",
+      "labels": {
+        "x": "over / post",
+        "z": "comeback",
+        "te": "leak to flat"
+      },
+      "diagram": "images/narrative/2026-09-26-1355/xo-play_action_boot.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Mesh the rookies on 3rd-and-5",
+      "situation": "3rd-and-5, 11 personnel, Miami showing man from rookie DBs",
+      "concept": "mesh",
+      "why": "Kansas City was 5-of-13 on third down while piling up 523 yards — that is the Colts leak. Miami starting rookies at corner and safety is the week you fix it with rubs. Kelce (9-101-1) is the adult rubber; Worthy is the speed crosser who just scored from a yard out and is the reason Arrowhead Pride is asking when we see his best.",
+      "coaching": "Kelce must create the contact without a pick flag; Worthy runs through the window, does not dance. Mahomes takes the first opening and lives with the checkdown. This is not a hero-ball down on the first road trip.",
+      "labels": {
+        "x": "shallow mesh",
+        "z": "corner / sit",
+        "te": "opposite mesh"
+      },
+      "diagram": "images/narrative/2026-09-26-1355/xo-mesh.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Four verts when Miami loads the box",
+      "situation": "2nd-and-7, safety walked down toward Walker, Cover-3 look from a rookie deep middle",
+      "concept": "four_verts",
+      "why": "If the inside zone works, Miami's young safety will cheat. Worthy over the top and seams at the hashes are how a 382-yard Mahomes night becomes a 10-point road win instead of another overtime. A rookie safety is the exact Cover-3 stress this concept is built for.",
+      "coaching": "Seams bend to the hash, outsides run through the corner's cushion. Kelce occupies the hook so the rookie cannot drive the seam. Mahomes throws the window, not the highlight — Conner is doubtful, so do not turn this into a track meet the other way.",
+      "labels": {
+        "x": "seam",
+        "z": "go",
+        "te": "seam / bend"
+      },
+      "diagram": "images/narrative/2026-09-26-1355/xo-four_verts.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Two-deep because Conner is doubtful",
+      "situation": "Early downs and 3rd-and-long on the road, first series in Miami",
+      "concept": "cover_two",
+      "why": "Chamarri Conner is doubtful on the first road trip, and the Colts just hung 30. Spagnuolo cannot play isolated man and hope. Two deep, five under, take away the shot, and let Bolton rally — the 13-tackle night against Indianapolis is the reminder that this unit has to tackle when it does not sack.",
+      "coaching": "Corners squat and break on the throw; safeties split the field and do not get nosy on play-action. Bolton is the hook-to-curl fitter, not a free rusher on every snap. The noon game is won by eliminating explosives, not by gambling for a strip-sack graphic.",
+      "labels": {
+        "x": "deep half taken away",
+        "z": "deep half taken away",
+        "te": "hook / curl wall"
+      },
+      "diagram": "images/narrative/2026-09-26-1355/xo-cover_two.svg",
+      "side": "defense"
+    },
+    {
+      "title": "Simulated heat after a quiet Colts rush",
+      "situation": "2nd-and-8, first half in Miami, four-man rush having won nothing",
+      "concept": "zone_blitz",
+      "why": "Arrowhead Pride's own headline is the scouting report: the pass rush must improve after a quiet Colts game, following a four-sack opener against Denver. Spagnuolo's signature — show heat, drop a lineman, rush the second level — is how you pressure a young Miami offense without leaving a Conner-less secondary on an island.",
+      "coaching": "Show five, bring Bolton or a nickel off the edge, drop a defensive lineman into the throwing lane Jones-style hot. Do not send the house on 2nd-and-8 and hand Miami the cheap screen. The point is confusion, not a minus-one box that recreates Taylor's 24-yard touchdown.",
+      "labels": {
+        "x": "hot / fade watched",
+        "z": "out watched",
+        "te": "flat / swing accounted"
+      },
+      "diagram": "images/narrative/2026-09-26-1355/xo-zone_blitz.svg",
+      "side": "defense"
+    }
+  ],
+  "coaching": [
+    {
+      "topic": "Andy Reid on a noon road kick",
+      "detail": "Reid's first true road Sunday of 2026 is a trap window, not a bye. Script Walker and Kelce, take the points, and do not turn a -10 into a track meet because the call sheet got bored."
+    },
+    {
+      "topic": "Eric Bieniemy vs. a rookie front seven",
+      "detail": "The downhill identity is 2-0's best truth. Keep Walker on schedule, boot off it, and use Miami's inexperience at MIKE as the reason you stay under center instead of emptying the backfield."
+    },
+    {
+      "topic": "Steve Spagnuolo has to cook",
+      "detail": "The Colts night put the four-man rush on blast. Zone blitz and Cover-2 are not optional extras this week — they are how you survive Conner being doubtful and still get off the field."
+    },
+    {
+      "topic": "Experience as a coaching edge",
+      "detail": "Arrowhead Pride's Miami preview is about rookies at LB, S, and CB against an experienced Chiefs offense. That only matters if Reid makes them play 60 minutes of NFL tempo instead of giving them freebees on third down."
+    }
+  ],
+  "injuries": [
+    {
+      "player": "Chamarri Conner",
+      "status": "Doubtful",
+      "note": "Final Week 3 injury report ahead of the Miami trip lists Conner as doubtful for the first road game of the season.",
+      "source": "Arrowhead Pride"
+    }
+  ],
+  "personnel": [
+    {
+      "move": "Kenneth Walker III as the feature back",
+      "detail": "Twenty-four carries and 117 yards against Indianapolis, on the heels of a 220-yard team rushing night in Week 1, is a full-on Bieniemy identity, not a timeshare cameo."
+    },
+    {
+      "move": "Xavier Worthy as a red-zone finisher with more coming",
+      "detail": "The 1-yard touchdown against the Colts put him on the finish list next to Jalen Royals. The Miami rookie corners are the week the staff should ask him to be more than a goal-line dart."
+    },
+    {
+      "move": "Rookie pass-rush depth has to matter",
+      "detail": "Arrowhead Addict flags R Mason Thomas turning flashes into production in a room that needs it. After a quiet Colts rush, that depth is not a luxury — it is the plan B if the four-man rush stays stuck."
+    },
+    {
+      "move": "Tyquan Thornton as the overlooked WR piece",
+      "detail": "Arrowhead Addict argues Thornton is more valuable to this offense than the room's reputation suggests. Against a young Miami secondary, the extra speed body is how you keep Kelce from seeing every bracket."
+    }
+  ],
+  "strategies": [
+    "Stay under center and run inside zone at Miami's rookie MIKE until the safeties cheat.",
+    "Boot Mahomes off that run action so the young corners have to tackle in space.",
+    "Use mesh as the 3rd-and-5 answer instead of another 47-attempt volume night.",
+    "Play Cover-2 early with Conner doubtful; do not isolate a backup over the top in a noon stadium.",
+    "Manufacture pressure with zone blitz on 2nd-and-8 rather than waiting for a four-man rush that vanished against Indianapolis.",
+    "Take the points. A -10 road number and a 45.5 total want a professional win, not another overtime special."
+  ],
+  "debates": [
+    "Was the Colts pass-rush tape a blip or the real Week 2 version of this front?",
+    "How many carries is too many for Walker if Miami starts stacking the box in the second half?",
+    "Do you still trust 85.4 percent FPI on the road when the last opponent scored 30?",
+    "Is Worthy's next step a full vertical plan this week, or is he still a finisher until the midseason?",
+    "If Conner sits, is this a two-deep game all afternoon or does Spagnuolo still hunt?"
+  ],
+  "runOfShow": [
+    {
+      "segment": "Cold open",
+      "length": "0:00-1:15",
+      "talkTrack": "Twenty-nine first downs, 523 yards, overtime anyway. Welcome to 2-0 that still owes you a pass rush. Noon in Miami is not a parade."
+    },
+    {
+      "segment": "Last-game film",
+      "length": "1:15-6:30",
+      "talkTrack": "Walk through the Colts tape: Walker 24-117, Mahomes 32/47 for 382 and three scores, Kelce 9-101-1, Bolton's 13 tackles, 5-of-13 on third down, and why 30 points allowed is the problem, not the footnote."
+    },
+    {
+      "segment": "Where 2-0 actually stands",
+      "length": "6:30-9:30",
+      "talkTrack": "Home identity vs. road proof. Conner doubtful. FPI 85.4 and DraftKings -10 against a 9.4 percent Super Bowl ticket. The long market is not buying the sample yet."
+    },
+    {
+      "segment": "Miami matchup desk",
+      "length": "9:30-14:00",
+      "talkTrack": "Rookie LB, safety, and corner. Experience edge for Kelce and Mahomes. First road environment. How Bieniemy should attack it and how Spagnuolo cannot repeat the quiet rush."
+    },
+    {
+      "segment": "Xs and Os cards",
+      "length": "14:00-19:30",
+      "talkTrack": "Six calls: inside zone, boot, mesh, four verts, Cover-2, zone blitz — each tied to Walker, Kelce, Worthy, Bolton, and Conner's status."
+    },
+    {
+      "segment": "The Edge and close",
+      "length": "19:30-22:00",
+      "talkTrack": "Pay Sunday, do not pay the long ticket until the defense proves 30 was a one-off. Look ahead to Las Vegas in Week 4 only after you survive noon."
+    }
+  ],
+  "sources": [
+    {
+      "title": "Chiefs News: Dolphins’ young defense gearing up for experienced Chiefs",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/211371/chiefs-news-dolphins-young-defense-gearing-up-experienced-chiefs",
+      "note": "Frames the Week 3 leverage: Miami starting rookies at MIKE, safety, and corner against an experienced Chiefs offense."
+    },
+    {
+      "title": "Chiefs' perfect start is about to face a completely different kind of test",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/chiefs-perfect-start-is-about-to-face-a-completely-different-kind-of-test?utm_source=RSS",
+      "note": "2-0 heading into a different test — the first road Sunday."
+    },
+    {
+      "title": "How to Watch and Listen | Week 3: Chiefs vs. Dolphins",
+      "publisher": "Chiefs.com",
+      "url": "https://www.chiefs.com/news/how-to-watch-and-listen-week-3-chiefs-vs-dolphins",
+      "note": "Confirms the Week 3 viewing window for the Miami trip."
+    },
+    {
+      "title": "Chiefs-Dolphins Week 3 final injury report: Chamarri Conner doubtful",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-injuries/211359/chiefs-dolphins-week-3-final-injury-report-chamarri-conner-doubtful",
+      "note": "Final report: Conner doubtful for the first road game."
+    },
+    {
+      "title": "Week 3 Injury Report | Chiefs vs. Dolphins",
+      "publisher": "Chiefs.com",
+      "url": "https://www.chiefs.com/news/week-3-injury-report-chiefs-vs-dolphins-2026",
+      "note": "Club injury report for the Miami matchup."
+    },
+    {
+      "title": "Chiefs-Dolphins: 5 things to watch in the Week 3 matchup",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/211101/chiefs-dolphins-5-things-watch-week-3-matchup",
+      "note": "Noon CBS kick, 2-0 after the overtime win over Indianapolis, first look at the Miami keys."
+    },
+    {
+      "title": "Nobody is talking about Patrick Mahomes’ knee anymore and that says everything",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/nobody-talking-about-patrick-mahomes-knee-anymore-and-that-says-everything?utm_source=RSS",
+      "note": "Mahomes is no longer a medical story — the conversation has moved back to the football."
+    },
+    {
+      "title": "Will the Chiefs’ offense see the best of Xavier Worthy soon?",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/211305/chiefs-offense-see-best-xavier-worthy-soon",
+      "note": "Worthy’s next step after the 1-yard finish against Indianapolis."
+    },
+    {
+      "title": "Chiefs pass rush must improve after quiet Colts game",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/211283/chiefs-pass-rush-improve-quiet-colts-game",
+      "note": "The defensive split tape: four sacks in Denver, then a quiet rush against the Colts."
+    },
+    {
+      "title": "Chiefs rookie R Mason Thomas is turning early flashes into real production",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/chiefs-rookie-r-mason-thomas-is-turning-early-flashes-into-real-production-01m36vwms27w?utm_source=RSS",
+      "note": "Pass-rush depth that has to matter if the four-man rush stays quiet."
+    },
+    {
+      "title": "Kansas City Chiefs vs Miami Dolphins: How, When, and Where to Watch NFL Week 3 ?",
+      "publisher": "Chiefs.com",
+      "url": "https://www.chiefs.com/news/kansas-city-chiefs-vs-miami-dolphins-how-when-and-where-to-watch-nfl-week-3",
+      "note": "First road game of the season, 2-0 into Miami."
+    },
+    {
+      "title": "Tyquan Thornton is more valuable to Chiefs offense than most think",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/tyquan-thornton-is-more-valuable-to-chiefs-offense-than-most-think-01m39c5jj6xj?utm_source=RSS",
+      "note": "WR-room context for a week against a young Dolphins secondary."
+    }
+  ],
+  "slug": "2026-09-26-1355"
+}
