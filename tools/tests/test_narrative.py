@@ -1315,8 +1315,9 @@ class XEmbedSlots(unittest.TestCase):
         self.assertIn("overflow-x: hidden", css)
         self.assertIn("@media (min-width: 901px)", css)
         self.assertIn("grid-template-columns: minmax(0, 1fr) minmax(240px, 22rem)", css)
-        self.assertIn("color: #5c5660", css)
-        self.assertNotIn("color: #8a8490", css)
+        label = css[css.find(".nrt-x-embed__label {"):css.find(".nrt-x-embed__label::before")]
+        self.assertIn("color: #5c5660", label)
+        self.assertNotIn("#8a8490", label)
 
     def test_latest_backfill_uses_verified_status_urls(self):
         payload = json.loads((self.ROOT / "data" / "narrative.json").read_text(encoding="utf-8"))

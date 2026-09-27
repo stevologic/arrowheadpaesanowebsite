@@ -65,20 +65,17 @@ def _obj_list(value, keys: dict, limit=12) -> list[dict]:
 def _norm_x_embed(value) -> dict | None:
     """Keep an official X status URL + visible account credit, or drop it.
 
-    Accepts a URL string or a dict with url/account/label (and snake_case
-    aliases). Invented or non-status URLs are discarded so the template never
-    renders an empty box.
+    Accepts a URL string or a dict with url/label (and snake_case aliases).
+    Account credit always comes from the status URL handle. Invented or
+    non-status URLs are discarded so the template never renders an empty box.
     """
     if isinstance(value, str):
-        url, account, label = _s(value), "", ""
+        url, label = _s(value), ""
     elif isinstance(value, dict):
         url = _s(
             value.get("url")
             or value.get("embedUrl")
             or value.get("embed_url")
-        )
-        account = _s(
-            value.get("account") or value.get("source") or value.get("handle")
         )
         label = _s(value.get("label") or value.get("caption") or value.get("player"))
     else:
@@ -93,10 +90,11 @@ def _norm_x_embed(value) -> dict | None:
         return None
     if not status_id.isdigit():
         return None
-    account = account.lstrip("@") or handle
+    # Credit the handle from the status URL. A writer-supplied account is
+    # ignored so a mismatched label cannot attach someone else's post.
     embed = {
         "url": f"https://x.com/{handle}/status/{status_id}",
-        "account": f"@{account}",
+        "account": f"@{handle}",
     }
     if label:
         embed["label"] = label

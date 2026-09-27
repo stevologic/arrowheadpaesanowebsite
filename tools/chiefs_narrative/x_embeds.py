@@ -77,7 +77,7 @@ OFFICIAL_X_ACCOUNTS = frozenset(
 def handle_from_author_url(author_url: str) -> str:
     path = urlparse(author_url or "").path.strip("/")
     handle = path.split("/")[0] if path else ""
-    return handle.lstrip("@").lower()
+    return handle.lstrip("@")
 
 
 def fetch_oembed(url: str, *, timeout: float = OEMBED_TIMEOUT_SEC) -> dict | None:
@@ -113,8 +113,9 @@ def verify_x_embed(value, *, oembed_fetch=None) -> dict | None:
     if not payload:
         return None
     handle = handle_from_author_url(payload.get("author_url") or "")
-    if handle not in OFFICIAL_X_ACCOUNTS:
+    if handle.lower() not in OFFICIAL_X_ACCOUNTS:
         return None
+    # Keep the oEmbed author's casing (e.g. @NFL, not @nfl).
     embed["account"] = f"@{handle}" if handle else embed["account"]
     return embed
 
