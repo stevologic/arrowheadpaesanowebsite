@@ -118,6 +118,13 @@ def _schema_hint(phase: dict) -> str:
             "dek": "one-sentence standfirst",
             "videoHook": "spoken cold-open line for the YouTube episode",
             "theEdge": "one-sentence thesis on where the season is trending",
+            "playerEmbeds": [
+                {
+                    "url": "optional official X status URL (x.com or twitter.com /status/ID) from a team, league, or beat-reporter account — omit the array if none; NEVER invent a status ID",
+                    "account": "@handle",
+                    "label": "optional player or caption",
+                }
+            ],
             "storyline": {
                 "lede": "the evolving story, one strong paragraph",
                 "body": ["2-4 more paragraphs building the arc, looking ahead"],
@@ -130,6 +137,12 @@ def _schema_hint(phase: dict) -> str:
                 "lede": "one-paragraph recap of what actually happened",
                 "analysis": [
                     "2-4 paragraphs of film-room analysis — not a box-score recitation"
+                ],
+                "keyPlayEmbeds": [
+                    {
+                        "url": "optional official X status URL aligned to analysis[i] (key-play photo/clip) — omit if none; NEVER invent a status ID",
+                        "account": "@handle",
+                    }
                 ],
                 "takeaways": [{"title": "takeaway", "body": "2-3 sentences"}],
                 "whatWorked": ["concrete things that held up"],
@@ -324,6 +337,10 @@ def build_user_prompt(
             "could run any week. 4-6 matchups. "
             "5-8 spotlight/strategies/debates. Every injuries[].source and every "
             "sources[] entry must correspond to a provided news item or be omitted. "
+            "playerEmbeds (max 2) and lastGameReview.keyPlayEmbeds are optional "
+            "official X embeds only — real team/league/reporter status URLs, "
+            "never invented IDs, never downloaded media. Omit them when you "
+            "do not have a verified URL. "
             "Output ONLY the JSON object.",
         ]
     )

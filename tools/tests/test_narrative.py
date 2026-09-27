@@ -1104,3 +1104,241 @@ class StreamingAndOfflineDekTests(unittest.TestCase):
             "Last game on the tape, where the Chiefs stand, and the plan for who's next.",
         )
         self.assertIn("desk:", raw["dek"])
+
+
+class XEmbedSlots(unittest.TestCase):
+    """Official X embed slots: zero-embed layout stays tight; real URLs persist."""
+
+    ROOT = Path(__file__).resolve().parents[2]
+    REAL_KELCE = "https://x.com/Chiefs/status/2101838746643812537"
+    REAL_TAYLOR = "https://x.com/Colts/status/2101868233905098798"
+
+    def _normalize(self, raw):
+        return schema.normalize(
+            raw,
+            phase=WEEK_PHASE,
+            meta={
+                "generatedAt": "2026-09-26T13:55:00+00:00",
+                "generator": "test",
+                "record": "2-0",
+                "markets": {},
+            },
+        )
+
+    def test_schema_zero_embeds_omits_empty_slots(self):
+        raw = offline.write(
+            {
+                "news": [],
+                "markets": {},
+                "schedule": [DeskSections.LAST],
+                "lastGameRecap": {
+                    "kc": {"totalYards": "280"},
+                    "opp": {"totalYards": "310"},
+                    "oppAbbr": "TB",
+                    "scoring": [],
+                    "leaders": [],
+                },
+            },
+            DeskSections.PHASE,
+            NEXT,
+        )
+        narrative = schema.normalize(
+            raw,
+            phase=DeskSections.PHASE,
+            meta={
+                "generatedAt": "2026-09-26T13:55:00+00:00",
+                "generator": "test",
+                "record": "0-1",
+                "markets": {},
+            },
+        )
+        self.assertEqual(narrative["playerEmbeds"], [])
+        analysis = narrative["lastGameReview"]["analysis"]
+        self.assertTrue(analysis)
+        for para in analysis:
+            self.assertIn("body", para)
+            self.assertNotIn("embed", para)
+
+    def test_schema_keeps_two_player_embeds_and_key_play_url(self):
+        narrative = self._normalize(
+            {
+                "headline": "Tape",
+                "player_embeds": [
+                    {
+                        "url": self.REAL_KELCE,
+                        "account": "Chiefs",
+                        "label": "Travis Kelce",
+                    },
+                    "https://twitter.com/Chiefs/status/2101899387639115937",
+                    {
+                        "url": "https://x.com/Chiefs/status/2101846672024191421",
+                        "account": "@Chiefs",
+                    },
+                ],
+                "lastGameReview": {
+                    "opponent": "Indianapolis Colts",
+                    "result": "W",
+                    "score": "KC 33–30",
+                    "lede": "Overtime at Arrowhead.",
+                    "analysis": [
+                        "Walker set the early-down identity.",
+                        {
+                            "body": "Kelce was the adult in the room.",
+                            "embed": {
+                                "url": "https://twitter.com/Chiefs/status/2101835926779347261",
+                                "account": "@Chiefs",
+                            },
+                        },
+                    ],
+                    "key_play_embeds": [
+                        None,
+                        None,
+                    ],
+                },
+            }
+        )
+        players = narrative["playerEmbeds"]
+        self.assertEqual(len(players), 2)
+        self.assertEqual(players[0]["url"], self.REAL_KELCE)
+        self.assertEqual(players[0]["account"], "@Chiefs")
+        self.assertEqual(players[0]["label"], "Travis Kelce")
+        self.assertEqual(
+            players[1]["url"],
+            "https://x.com/Chiefs/status/2101899387639115937",
+        )
+        analysis = narrative["lastGameReview"]["analysis"]
+        self.assertNotIn("embed", analysis[0])
+        self.assertEqual(
+            analysis[1]["embed"]["url"],
+            "https://x.com/Chiefs/status/2101835926779347261",
+        )
+        self.assertEqual(analysis[1]["embed"]["account"], "@Chiefs")
+
+    def test_schema_key_play_embeds_align_by_index(self):
+        narrative = self._normalize(
+            {
+                "lastGameReview": {
+                    "lede": "Recap",
+                    "analysis": [
+                        "First paragraph, no clip.",
+                        "Taylor popped the 24-yard touchdown.",
+                    ],
+                    "keyPlayEmbeds": [
+                        "",
+                        {"url": self.REAL_TAYLOR, "account": "@Colts"},
+                    ],
+                }
+            }
+        )
+        analysis = narrative["lastGameReview"]["analysis"]
+        self.assertNotIn("embed", analysis[0])
+        self.assertEqual(analysis[1]["embed"]["url"], self.REAL_TAYLOR)
+        self.assertEqual(analysis[1]["embed"]["account"], "@Colts")
+
+    def test_schema_drops_invalid_non_status_and_invented_hosts(self):
+        narrative = self._normalize(
+            {
+                "playerEmbeds": [
+                    "https://example.com/status/1",
+                    "https://x.com/Chiefs/photo/123",
+                    "https://x.com/i/status/2101838746643812537",
+                    "/Chiefs/status/2101838746643812537",
+                    {"url": "not-a-url", "account": "@Chiefs"},
+                ],
+                "lastGameReview": {
+                    "lede": "Recap",
+                    "analysis": [
+                        {
+                            "body": "A paragraph",
+                            "embed": {"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+                        }
+                    ],
+                },
+            }
+        )
+        self.assertEqual(narrative["playerEmbeds"], [])
+        self.assertNotIn("embed", narrative["lastGameReview"]["analysis"][0])
+
+    def test_template_zero_embed_path_has_no_unconditional_boxes(self):
+        edition = (self.ROOT / "layouts" / "partials" / "narrative-edition.html").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('{{ with .playerEmbeds }}', edition)
+        self.assertIn("nrt-player-embeds", edition)
+        self.assertIn("nrt-keyplay", edition)
+        self.assertIn("reflect.IsMap", edition)
+        self.assertIn("{{ if and $body $embed }}", edition)
+        self.assertIn("{{ else if $body }}", edition)
+        self.assertIn('partial "nrt-x-embed.html"', edition)
+        # Embed markup is gated — a missing URL must not leave a reserved frame.
+        self.assertNotRegex(edition, r"nrt-x-embed__frame(?![^<]*\{\{)")
+
+    def test_embed_partial_is_official_blockquote_with_visible_credit(self):
+        partial = (self.ROOT / "layouts" / "partials" / "nrt-x-embed.html").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('class="twitter-tweet"', partial)
+        self.assertIn("nrt-x-embed__credit", partial)
+        self.assertIn("Source:", partial)
+        self.assertIn("data-nrt-x-embed", partial)
+        self.assertNotIn("widgets.js", partial)
+        self.assertNotIn("pbs.twimg.com", partial)
+        self.assertNotIn("video.twimg.com", partial)
+
+    def test_js_lazy_loads_widgets_once_near_viewport(self):
+        js = (self.ROOT / "public" / "js" / "main.js").read_text(encoding="utf-8")
+        self.assertIn("function initNarrativeXEmbeds", js)
+        self.assertIn("IntersectionObserver", js)
+        self.assertIn("platform.twitter.com/widgets.js", js)
+        self.assertIn("function ensureTwitterWidgets", js)
+        self.assertIn("initNarrativeXEmbeds(root)", js)
+        self.assertLess(js.index("ensureTwitterWidgets"), js.index("initNarrativeXEmbeds"))
+
+    def test_css_reserves_space_and_stays_responsive(self):
+        css = (self.ROOT / "public" / "css" / "narrative.css").read_text(encoding="utf-8")
+        self.assertIn(".nrt-x-embed__frame", css)
+        self.assertIn("min-height: 320px", css)
+        self.assertIn("max-width: 100%", css)
+        self.assertIn("overflow-x: hidden", css)
+        self.assertIn("@media (min-width: 901px)", css)
+        self.assertIn("grid-template-columns: minmax(0, 1fr) minmax(240px, 22rem)", css)
+
+    def test_latest_backfill_uses_verified_status_urls(self):
+        payload = json.loads((self.ROOT / "data" / "narrative.json").read_text(encoding="utf-8"))
+        self.assertEqual(payload["slug"], "2026-09-26-1355")
+        players = payload["playerEmbeds"]
+        self.assertEqual(len(players), 2)
+        for item in players:
+            self.assertIsNotNone(schema._norm_x_embed(item))
+            self.assertTrue(item["account"].startswith("@"))
+        analysis = payload["lastGameReview"]["analysis"]
+        self.assertIsInstance(analysis[0], str)
+        self.assertIsInstance(analysis[3], str)
+        self.assertEqual(analysis[1]["embed"]["account"], "@Chiefs")
+        self.assertEqual(analysis[2]["embed"]["account"], "@Colts")
+        self.assertIsNotNone(schema._norm_x_embed(analysis[1]["embed"]))
+        self.assertIsNotNone(schema._norm_x_embed(analysis[2]["embed"]))
+
+    def test_older_edition_stays_on_zero_embed_path(self):
+        older = json.loads(
+            (self.ROOT / "data" / "narrative_editions" / "2026-09-25-1552.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertFalse(older.get("playerEmbeds"))
+        for para in older["lastGameReview"]["analysis"]:
+            self.assertIsInstance(para, str)
+
+    def test_prompt_documents_optional_embeds_without_inventing(self):
+        text = prompts.build_user_prompt(SIGNALS, WEEK_PHASE, NEXT)
+        self.assertIn("playerEmbeds", text)
+        self.assertIn("keyPlayEmbeds", text)
+        self.assertIn("NEVER invent a status ID", text)
+
+    def test_workflow_schedule_untouched(self):
+        yaml = (self.ROOT / ".github" / "workflows" / "narrative.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("37 9 * * *", yaml)
+        self.assertIn("43 3 * * *", yaml)
+        self.assertIn("20 7 * * 0,1,2", yaml)

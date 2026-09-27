@@ -476,25 +476,70 @@ function initLogoOverride() {
   });
 }
 
-let xWidgetsScriptLoading = false;
+let xWidgetsReady = null;
+
+function ensureTwitterWidgets() {
+  if (window.twttr?.widgets) {
+    return Promise.resolve(window.twttr);
+  }
+  if (xWidgetsReady) {
+    return xWidgetsReady;
+  }
+  xWidgetsReady = new Promise((resolve) => {
+    const existing = document.querySelector('script[src*="platform.twitter.com/widgets.js"]');
+    const done = () => resolve(window.twttr);
+    if (existing) {
+      if (window.twttr?.widgets) {
+        done();
+        return;
+      }
+      existing.addEventListener('load', done, { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.async = true;
+    script.charset = 'utf-8';
+    script.src = 'https://platform.twitter.com/widgets.js';
+    script.onload = done;
+    document.head.appendChild(script);
+  });
+  return xWidgetsReady;
+}
 
 function initXWidgets(root = document) {
   const feeds = $$('[data-x-feed]:not([data-x-bound])', root);
   if (!feeds.length) return;
   feeds.forEach((feed) => { feed.dataset.xBound = 'true'; });
-  const loadWidgets = () => window.twttr?.widgets?.load?.(root);
-  if (document.querySelector('script[src*="platform.twitter.com/widgets.js"]')) {
-    loadWidgets();
+  ensureTwitterWidgets().then((twttr) => twttr?.widgets?.load?.(root));
+}
+
+function initNarrativeXEmbeds(root = document) {
+  const embeds = $$('[data-nrt-x-embed]:not([data-nrt-x-bound])', root);
+  if (!embeds.length) return;
+  embeds.forEach((el) => { el.dataset.nrtXBound = 'true'; });
+
+  const hydrate = (el) => {
+    if (el.dataset.nrtXHydrated === 'true') return;
+    el.dataset.nrtXHydrated = 'true';
+    ensureTwitterWidgets().then((twttr) => {
+      twttr?.widgets?.load?.(el);
+    });
+  };
+
+  if (typeof IntersectionObserver !== 'function') {
+    embeds.forEach(hydrate);
     return;
   }
-  if (xWidgetsScriptLoading) return;
-  xWidgetsScriptLoading = true;
-  const script = document.createElement('script');
-  script.async = true;
-  script.charset = 'utf-8';
-  script.src = 'https://platform.twitter.com/widgets.js';
-  script.onload = loadWidgets;
-  document.head.appendChild(script);
+
+  const io = new IntersectionObserver((entries, observer) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      hydrate(entry.target);
+      observer.unobserve(entry.target);
+    });
+  }, { rootMargin: '240px 0px', threshold: 0.01 });
+
+  embeds.forEach((el) => io.observe(el));
 }
 
 function initDynamicUI(root = document) {
@@ -504,6 +549,7 @@ function initDynamicUI(root = document) {
   initVideoCards(root);
   initShopButtons(root);
   initXWidgets(root);
+  initNarrativeXEmbeds(root);
 }
 
 initMobileNav();
