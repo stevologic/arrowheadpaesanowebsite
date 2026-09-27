@@ -14,6 +14,18 @@
   "dek": "A 33-30 overtime win over Indianapolis produced 29 first downs, 382 from Patrick Mahomes, and 117 from Kenneth Walker III; Sunday noon in Miami is the 3-0 chase against a Dolphins defense starting rookies, and the pass rush that went quiet against Daniel Jones is the open item on Steve Spagnuolo's desk.",
   "videoHook": "Twenty-nine first downs and we still needed overtime. That is not a flex — that is a warning. Noon in Miami, the rookies are starting, and the pass rush is on the clock.",
   "theEdge": "A 10-point road favorite on a 45.5 total (DraftKings) with ESPN FPI at 85.4 percent still sits at 9.4 percent to win the Super Bowl and 16.5 percent to win the AFC on Polymarket — the market will pay Sunday in Miami, it just will not pay the long ticket until the defense stops treating 30-point nights as a rounding error.",
+  "playerEmbeds": [
+    {
+      "url": "https://x.com/Chiefs/status/2101899387639115937",
+      "account": "@Chiefs",
+      "label": "Postgame at Arrowhead"
+    },
+    {
+      "url": "https://x.com/Chiefs/status/2101838746643812537",
+      "account": "@Chiefs",
+      "label": "Travis Kelce"
+    }
+  ],
   "storyline": {
     "lede": "Kansas City is 2-0 and finally looks like an Andy Reid offense again — Kenneth Walker III leaning downhill, Travis Kelce eating in the middle, Patrick Mahomes throwing it 47 times when the game asked him to — but the tape from Arrowhead is not a coronation. The Colts hung 30, the third-down offense stalled at 5-of-13, and Steve Spagnuolo's front spent a prime-time night tackling more than it hunted. Sunday at noon in Miami is the first time this roster has left GEHA Field at Arrowhead Stadium, and it is the first time a young Dolphins defense full of rookies at linebacker, safety, and corner gets to decide whether 523 yards was identity or just a home-field sample.",
     "body": [
@@ -30,8 +42,22 @@
     "lede": "Kansas City survived Indianapolis 33-30 in overtime at Arrowhead after a 523-yard night that never felt safe. Daniel Jones hit Tyler Warren from a yard out to open the scoring, Harrison Butker answered from 46, and Mahomes found Kelce from 13 to take the first lead; the Colts then stacked field goals from Spencer Shrader (42 and 49) before Mahomes snuck Xavier Worthy in from a yard. Jonathan Taylor's 24-yard sprint put Indianapolis back in front 20-17 late in the half, Jalen Royals' 1-yard catch in the third made it 24-20, and the Chiefs still had to finish it in overtime after 37:00 of possession and zero turnovers.",
     "analysis": [
       "The box score says dominance. The down-to-down tape says a team that moved the chains and then leaked. Twenty-nine first downs and 523 yards with Mahomes at 382 should bury a visitor; 5-of-13 on third down is why they were still playing after dark. Bieniemy got the look he wanted on early downs — Walker 24-for-117 as the identity back, 152 as a team — but the drive-ending snaps kept arriving, which is how a 37-minute possession night becomes a one-score overtime instead of a statement.",
-      "Mahomes' 32-of-47 was not garbage time. It was the offense admitting the run game, good as it was, could not close a game that the defense would not close. Kelce (9-101-1) was the adult in the room: the 13-yard score, the middle-of-the-field answers, the reason Indianapolis could not just load the box on Walker. Worthy and Royals both finishing from the 1-yard line is the other tell — Reid is using speed and the young receivers as finishers, not just as vertical window dressing. That is progress from a Week 1 night that asked whether the pass game could cash Walker's checks.",
-      "The defensive problem is schematic, not effort. Bolton's 13 tackles are a MIKE playing a lot of football because the front did not wreck the timing. Indianapolis still put up 24 first downs and 329 yards, Taylor popped the 24-yard touchdown, and Jones had enough clean drops to hit Warren in the red zone. Arrowhead Pride put the contrast on the board: four sacks of Bo Nix in the opener, then a quiet prime-time pass rush against the Colts. Spagnuolo can live with 5-of-12 on third down from the opponent. He cannot live with 30 points allowed if this is supposed to be a Super Bowl roster.",
+      {
+        "body": "Mahomes' 32-of-47 was not garbage time. It was the offense admitting the run game, good as it was, could not close a game that the defense would not close. Kelce (9-101-1) was the adult in the room: the 13-yard score, the middle-of-the-field answers, the reason Indianapolis could not just load the box on Walker. Worthy and Royals both finishing from the 1-yard line is the other tell — Reid is using speed and the young receivers as finishers, not just as vertical window dressing. That is progress from a Week 1 night that asked whether the pass game could cash Walker's checks.",
+        "embed": {
+          "url": "https://x.com/Chiefs/status/2101835926779347261",
+          "account": "@Chiefs",
+          "label": "Kelce from 13 yards"
+        }
+      },
+      {
+        "body": "The defensive problem is schematic, not effort. Bolton's 13 tackles are a MIKE playing a lot of football because the front did not wreck the timing. Indianapolis still put up 24 first downs and 329 yards, Taylor popped the 24-yard touchdown, and Jones had enough clean drops to hit Warren in the red zone. Arrowhead Pride put the contrast on the board: four sacks of Bo Nix in the opener, then a quiet prime-time pass rush against the Colts. Spagnuolo can live with 5-of-12 on third down from the opponent. He cannot live with 30 points allowed if this is supposed to be a Super Bowl roster.",
+        "embed": {
+          "url": "https://x.com/NFL/status/2101849509382738110",
+          "account": "@NFL",
+          "label": "Jonathan Taylor touchdown"
+        }
+      },
       "The hidden number is the turnover margin (KC 0, IND 1) plus the time of possession. Kansas City did not beat itself. Indianapolis needed a long, physical night and got one. That is credit to Shane Steichen's group as much as it is a warning for Arrowhead: when you hand a visitor 33 minutes and a 119-yard ground game, you are one missed tackle from overtime even with 382 from Mahomes."
     ],
     "takeaways": [
