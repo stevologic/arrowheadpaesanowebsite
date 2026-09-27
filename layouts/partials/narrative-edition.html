@@ -124,11 +124,11 @@
         {{ end }}
         {{ if and $body $embed }}
         <div class="nrt-keyplay">
-          <p>{{ $body }}</p>
+          <p class="nrt-analysis">{{ $body }}</p>
           {{ partial "nrt-x-embed.html" $embed }}
         </div>
         {{ else if $body }}
-        <p>{{ $body }}</p>
+        <p class="nrt-analysis">{{ $body }}</p>
         {{ end }}
       {{ end }}
       {{ if or .whatWorked .whatDidnt }}

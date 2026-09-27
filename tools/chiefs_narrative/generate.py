@@ -23,7 +23,7 @@ import re
 import sys
 
 from . import collect, config, diagrams, odds, offline, phase as phase_mod
-from . import prompts, providers, schema
+from . import prompts, providers, schema, x_embeds
 
 # How many published headlines to show the writer as "do not reuse".
 RECENT_HEADLINE_LIMIT = 8
@@ -252,6 +252,9 @@ def _assemble_narrative(
     _ensure_next_game(narrative, ph)
     _ensure_desk_sections(narrative, signals, ph, upcoming)
     _ensure_six_xsandos(narrative, signals, ph, upcoming)
+    # Models are not given X data and must not invent status IDs. Keep an
+    # embed only when oEmbed 200s for an allowlisted official account.
+    x_embeds.strip_unverified_embeds(narrative)
     return narrative
 
 

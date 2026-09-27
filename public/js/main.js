@@ -477,6 +477,7 @@ function initLogoOverride() {
 }
 
 let xWidgetsReady = null;
+const NRT_X_FALLBACK_MS = 5000;
 
 function ensureTwitterWidgets() {
   if (window.twttr?.widgets) {
@@ -485,15 +486,23 @@ function ensureTwitterWidgets() {
   if (xWidgetsReady) {
     return xWidgetsReady;
   }
-  xWidgetsReady = new Promise((resolve) => {
+  xWidgetsReady = new Promise((resolve, reject) => {
     const existing = document.querySelector('script[src*="platform.twitter.com/widgets.js"]');
-    const done = () => resolve(window.twttr);
+    const done = () => {
+      if (window.twttr?.widgets) {
+        resolve(window.twttr);
+        return;
+      }
+      reject(new Error('X widgets unavailable'));
+    };
+    const fail = () => reject(new Error('X widgets blocked'));
     if (existing) {
       if (window.twttr?.widgets) {
-        done();
+        resolve(window.twttr);
         return;
       }
       existing.addEventListener('load', done, { once: true });
+      existing.addEventListener('error', fail, { once: true });
       return;
     }
     const script = document.createElement('script');
@@ -501,6 +510,7 @@ function ensureTwitterWidgets() {
     script.charset = 'utf-8';
     script.src = 'https://platform.twitter.com/widgets.js';
     script.onload = done;
+    script.onerror = fail;
     document.head.appendChild(script);
   });
   return xWidgetsReady;
@@ -510,7 +520,55 @@ function initXWidgets(root = document) {
   const feeds = $$('[data-x-feed]:not([data-x-bound])', root);
   if (!feeds.length) return;
   feeds.forEach((feed) => { feed.dataset.xBound = 'true'; });
-  ensureTwitterWidgets().then((twttr) => twttr?.widgets?.load?.(root));
+  ensureTwitterWidgets().then((twttr) => twttr?.widgets?.load?.(root)).catch(() => {});
+}
+
+function nrtXHasRendered(el) {
+  return !!(el.querySelector('iframe') || el.querySelector('twitter-widget'));
+}
+
+function nrtXMarkReady(el) {
+  if (el._nrtXFallbackTimer) {
+    clearTimeout(el._nrtXFallbackTimer);
+    el._nrtXFallbackTimer = null;
+  }
+  el.classList.remove('is-loading');
+  el.classList.add('is-ready');
+}
+
+function nrtXMarkFallback(el) {
+  if (el.classList.contains('is-ready') || nrtXHasRendered(el)) {
+    nrtXMarkReady(el);
+    return;
+  }
+  if (el._nrtXFallbackTimer) {
+    clearTimeout(el._nrtXFallbackTimer);
+    el._nrtXFallbackTimer = null;
+  }
+  el.classList.remove('is-loading');
+  el.classList.add('is-fallback');
+  const fallback = el.querySelector('.nrt-x-embed__fallback');
+  if (fallback) fallback.hidden = false;
+}
+
+function nrtXWatchRender(el) {
+  if (nrtXHasRendered(el)) {
+    nrtXMarkReady(el);
+    return;
+  }
+  const mo = new MutationObserver(() => {
+    if (nrtXHasRendered(el)) {
+      mo.disconnect();
+      nrtXMarkReady(el);
+    }
+  });
+  mo.observe(el, { childList: true, subtree: true });
+  window.twttr?.events?.bind?.('rendered', (widget) => {
+    if (widget && (el === widget || el.contains(widget))) {
+      mo.disconnect();
+      nrtXMarkReady(el);
+    }
+  });
 }
 
 function initNarrativeXEmbeds(root = document) {
@@ -521,9 +579,17 @@ function initNarrativeXEmbeds(root = document) {
   const hydrate = (el) => {
     if (el.dataset.nrtXHydrated === 'true') return;
     el.dataset.nrtXHydrated = 'true';
-    ensureTwitterWidgets().then((twttr) => {
-      twttr?.widgets?.load?.(el);
-    });
+    el.classList.add('is-loading');
+    el._nrtXFallbackTimer = setTimeout(() => nrtXMarkFallback(el), NRT_X_FALLBACK_MS);
+    ensureTwitterWidgets()
+      .then((twttr) => {
+        nrtXWatchRender(el);
+        return twttr?.widgets?.load?.(el);
+      })
+      .then(() => {
+        if (nrtXHasRendered(el)) nrtXMarkReady(el);
+      })
+      .catch(() => nrtXMarkFallback(el));
   };
 
   if (typeof IntersectionObserver !== 'function') {
