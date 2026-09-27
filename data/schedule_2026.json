@@ -96,7 +96,7 @@
     "venue": "Hard Rock Stadium",
     "tv": "CBS",
     "completed": false,
-    "inProgress": true,
+    "inProgress": false,
     "kcScore": null,
     "oppScore": null,
     "kickoff": "Sun, Sep 27 · 12:00 PM CT"
