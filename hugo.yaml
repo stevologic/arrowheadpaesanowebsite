@@ -21,6 +21,8 @@ params:
   shopifyStorefrontPublicToken: ""
   shopifyApiVersion: "2026-04"
   shopifyCollectionHandle: ""
+  commentsApiUrl: ""
+  commentsTurnstileSiteKey: ""
   nav:
     - href: ""
       label: "Home"

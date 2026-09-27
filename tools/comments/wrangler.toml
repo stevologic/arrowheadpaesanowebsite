@@ -1,0 +1,13 @@
+name = "arrowhead-paesano-comments"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+# Create a KV namespace once (free), then paste the id:
+#   wrangler kv namespace create COMMENTS
+[[kv_namespaces]]
+binding = "COMMENTS"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Secrets (never commit):
+#   wrangler secret put COMMENTS_ADMIN_TOKEN
+#   wrangler secret put TURNSTILE_SECRET

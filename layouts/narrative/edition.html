@@ -11,6 +11,9 @@
     "isCurrent" false
     "archive" $archive
     "currentSlug" $slug) }}
+{{ partial "narrative-comments.html" (dict
+    "site" $.Site
+    "slug" $slug) }}
 {{ else }}
 <section class="page-head"><span class="kicker">The Chiefs Narrative</span><h1>Edition not found.</h1><p class="lede"><a href="{{ "narrative/" | relURL }}">Back to the current edition</a></p></section>
 {{ end }}
