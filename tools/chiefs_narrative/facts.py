@@ -37,10 +37,21 @@ _TD_YARDS = re.compile(
     re.IGNORECASE,
 )
 
+# Completions only: "20/24" or "20-of-24". A bare "24-10" is a score, not a line.
 _PASS_LINE = re.compile(
-    r"(\d+)\s*(?:/|-of-|–of–|-)\s*(\d+)(?:\s*,\s*(\d+)\s*(?:YDS|yards))?",
+    r"(\d{1,2})\s*(?:/|-of-)\s*(\d{1,2})(?:\s*,\s*(\d{2,3})\s*(?:YDS|yards))?",
     re.IGNORECASE,
 )
+
+# Team rates, not a passer line. Checked around the N-of-M token.
+_DOWN_CTX = re.compile(
+    r"(?:third\s+down|fourth\s+down|on\s+third|red\s+zone|conversions?)",
+    re.IGNORECASE,
+)
+
+# Bind the line to the player in the same clause. Prefer a miss over a
+# false positive: no 96-character "vicinity" windows.
+_BIND_VERBS = r"(?:went|was|finished|threw|completed|at)"
 
 _TD_TYPES = frozenset(
     {
@@ -222,8 +233,46 @@ def _parse_pass_line(value: str):
     return comp, att, yds
 
 
-def _check_stat_lines(text: str, recap: dict) -> list[str]:
+def _final_score_pairs(last_game: dict | None) -> set[tuple[int, int]]:
+    pair = _int_pair((last_game or {}).get("kcScore"), (last_game or {}).get("oppScore"))
+    if not pair:
+        return set()
+    return {pair, (pair[1], pair[0])}
+
+
+def _down_context(text: str, start: int, end: int, pad: int = 48) -> bool:
+    window = text[max(0, start - pad) : min(len(text), end + pad)]
+    return bool(_DOWN_CTX.search(window))
+
+
+def _bound_pass_matches(text: str, last_name: str):
+    """Yield (match, comp, att, yds) only when the line is bound to last_name."""
+    if not last_name or not text:
+        return
+    name = re.escape(last_name)
+    token = (
+        r"(\d{1,2})\s*(?:/|-of-)\s*(\d{1,2})"
+        r"(?:\s*,\s*(\d{2,3})\s*(?:YDS|yards))?"
+    )
+    patterns = (
+        # "Mahomes went 20-of-24" / "Mahomes was 20/24" / "Mahomes' 20-of-24"
+        rf"{name}(?:['’]s)?(?:\s+{_BIND_VERBS})?\s+{token}",
+        # "Mahomes (20/24, 246 YDS)"
+        rf"{name}\s*\(\s*{token}",
+        # "20-of-24 from Mahomes" / "20-of-24, Mahomes finished"
+        rf"{token}\s+(?:from\s+)?(?:{_BIND_VERBS}\s+)?{name}",
+    )
+    for raw in patterns:
+        rx = re.compile(raw, re.IGNORECASE)
+        for match in rx.finditer(text):
+            claimed = _parse_pass_line(match.group(0))
+            if claimed:
+                yield match, claimed
+
+
+def _check_stat_lines(text: str, recap: dict, last_game: dict | None = None) -> list[str]:
     issues = []
+    finals = _final_score_pairs(last_game)
     for leader in (recap or {}).get("leaders") or []:
         if not isinstance(leader, dict):
             continue
@@ -235,15 +284,17 @@ def _check_stat_lines(text: str, recap: dict) -> list[str]:
         official = _parse_pass_line(value)
         if not official:
             continue
-        window_rx = re.compile(
-            re.escape(last) + r".{0,96}",
-            re.IGNORECASE | re.DOTALL,
-        )
-        for window in window_rx.finditer(text):
-            claimed = _parse_pass_line(window.group(0))
-            if not claimed:
+        seen: set[tuple[int, int]] = set()
+        for match, claimed in _bound_pass_matches(text, last):
+            if _down_context(text, match.start(), match.end()):
                 continue
-            if (claimed[0], claimed[1]) != (official[0], official[1]):
+            pair = (claimed[0], claimed[1])
+            if pair in finals:
+                continue
+            if pair in seen:
+                continue
+            seen.add(pair)
+            if pair != (official[0], official[1]):
                 issues.append(
                     f"{player} passing line {claimed[0]}-of-{claimed[1]} "
                     f"disagrees with ESPN {official[0]}/{official[1]}"
@@ -283,7 +334,7 @@ def check_review(
     issues = _check_scores(text, last_game, recap)
     if recap.get("scoringPlays") or recap.get("leaders") or recap.get("kc"):
         issues.extend(_check_td_yards(text, recap))
-        issues.extend(_check_stat_lines(text, recap))
+        issues.extend(_check_stat_lines(text, recap, last_game))
     # Dedup while keeping order.
     out = []
     seen = set()

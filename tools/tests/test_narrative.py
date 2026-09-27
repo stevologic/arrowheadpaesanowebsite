@@ -1633,6 +1633,131 @@ class FactCheck(unittest.TestCase):
         issues = facts.check_review(narrative, self.LAST, self.RECAP)
         self.assertTrue(any("Mahomes" in item and "20" in item for item in issues))
 
+    # ESPN box from daily run 36351314122 (event 401872952): Mahomes 20/24.
+    RUN_RECAP = {
+        "kc": {"totalYards": "334"},
+        "opp": {"totalYards": "310"},
+        "scoringPlays": [
+            {
+                "quarter": 1,
+                "type": "TD",
+                "player": "Kenneth Walker III",
+                "yards": 10,
+                "scoreAfter": "KC 7–0",
+                "kcScore": 7,
+                "oppScore": 0,
+            },
+            {
+                "quarter": 1,
+                "type": "TD",
+                "player": "Ollie Gordon II",
+                "yards": 3,
+                "scoreAfter": "KC 7–7",
+                "kcScore": 7,
+                "oppScore": 7,
+            },
+            {
+                "quarter": 2,
+                "type": "TD",
+                "player": "Kenneth Walker III",
+                "yards": 5,
+                "scoreAfter": "KC 14–7",
+                "kcScore": 14,
+                "oppScore": 7,
+            },
+            {
+                "quarter": 4,
+                "type": "FG",
+                "player": "Harrison Butker",
+                "yards": 34,
+                "scoreAfter": "KC 17–7",
+                "kcScore": 17,
+                "oppScore": 7,
+            },
+            {
+                "quarter": 4,
+                "type": "TD",
+                "player": "Travis Kelce",
+                "yards": 11,
+                "scoreAfter": "KC 24–10",
+                "kcScore": 24,
+                "oppScore": 10,
+            },
+        ],
+        "leaders": [
+            {
+                "player": "Patrick Mahomes",
+                "category": "Passing Yards",
+                "value": "20/24, 246 YDS",
+            }
+        ],
+    }
+
+    def test_run_lede_final_score_near_mahomes_is_not_a_pass_line(self):
+        """Daily run 36351314122: '24-10' after Mahomes was read as 24-of-10.
+
+        Draft was not persisted (fact-check aborted publish). The logged
+        24-of-10 hit is this lastGameReview.lede from the live edition.
+        """
+        recap = self.RUN_RECAP
+        narrative = self._review(
+            lede=(
+                "Kansas City opened Hard Rock Stadium with a 10-yard Kenneth "
+                "Walker III run, answered Ollie Gordon II’s 3-yard score with "
+                "a 5-yard Walker touchdown catch, then spent the middle of the "
+                "game in a slog before Harrison Butker’s 34-yard field goal and "
+                "Travis Kelce’s 11-yard catch from Patrick Mahomes at 2:55 of "
+                "the fourth made it 24-10. It was a grind, not a coronation: "
+                "334 total yards, one turnover, and a defense that won the "
+                "scoreboard while losing the clock."
+            ),
+            analysis=["Kelce scored on an 11-yard catch."],
+            whatDidnt=["The hidden game was possession, not the 24-10 final."],
+        )
+        issues = facts.check_review(narrative, self.LAST, recap)
+        self.assertEqual(issues, [])
+        self.assertFalse(any("passing line" in item for item in issues))
+
+    def test_run_third_down_near_mahomes_is_not_a_pass_line(self):
+        """Daily run 36351314122 retry: '3-of-7' next to Mahomes is third down."""
+        recap = self.RUN_RECAP
+        narrative = self._review(
+            analysis=[
+                "Kelce’s 11-yard catch from Patrick Mahomes at 2:55 of the "
+                "fourth closed it. Third down at 3-of-7 is how you post "
+                "25:39 of possession. That is not a Mahomes problem.",
+            ],
+            takeaways=[
+                {
+                    "title": "Efficiency without the hammer",
+                    "body": (
+                        "Mahomes at 20-of-24 with a 119.8 passer rating is a "
+                        "winning quarterback night. It is not a winning "
+                        "offensive identity if Walker is at 3.9 a carry and "
+                        "the unit is 3-of-7 on third down."
+                    ),
+                }
+            ],
+            whatDidnt=[
+                "Third-down offense at 3-of-7, the simplest reason the "
+                "possession time died."
+            ],
+        )
+        issues = facts.check_review(narrative, self.LAST, recap)
+        self.assertEqual(issues, [])
+
+    def test_published_review_does_not_invent_mahomes_line(self):
+        """Full live lastGameReview vs ESPN 20/24: no passing-line false positive."""
+        payload = json.loads(
+            (Path(__file__).resolve().parents[2] / "data" / "narrative.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        issues = facts.check_review(payload, self.LAST, self.RUN_RECAP)
+        self.assertFalse(any("passing line" in item for item in issues), issues)
+        # Karen's original 14-10 claim is still in whatDidnt and must stay a hit.
+        self.assertTrue(any("14-10" in item for item in issues), issues)
+
     def test_rejects_wrong_final_when_recap_empty(self):
         narrative = self._review(lede="Kansas City won it KC 24–7.")
         issues = facts.check_review(narrative, self.LAST, {})
