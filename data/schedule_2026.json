@@ -95,10 +95,10 @@
     "homeAway": "away",
     "venue": "Hard Rock Stadium",
     "tv": "CBS",
-    "completed": false,
+    "completed": true,
     "inProgress": false,
-    "kcScore": null,
-    "oppScore": null,
+    "kcScore": 24,
+    "oppScore": 10,
     "kickoff": "Sun, Sep 27 · 12:00 PM CT"
   },
   {
