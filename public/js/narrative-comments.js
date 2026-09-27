@@ -127,6 +127,15 @@
     button.classList.toggle("is-retry", retry);
     button.setAttribute("aria-label", retry ? OLDER_ERROR_COPY : OLDER_COPY);
     button.onclick = cursor || retry ? onLoad : null;
+    let note = $("[data-older-error]", root);
+    if (!note) {
+      note = document.createElement("p");
+      note.className = "nrt-comments__older-error";
+      note.setAttribute("data-older-error", "");
+      button.after(note);
+    }
+    note.hidden = !retry;
+    note.textContent = retry ? OLDER_ERROR_COPY : "";
   }
 
   async function api(url, options, retryOnTransient) {
@@ -209,6 +218,27 @@
     }
     if (isLocalHost() && !siteKey) return "test-pass";
     return "";
+  }
+
+  function waitForFreshTurnstile(siteKey, widgetId) {
+    if (!siteKey || !window.turnstile || widgetId === null) {
+      return Promise.resolve(turnstileToken(siteKey, widgetId));
+    }
+    window.turnstile.reset(widgetId);
+    return new Promise((resolve) => {
+      let ticks = 0;
+      const timer = window.setInterval(() => {
+        ticks += 1;
+        const token = window.turnstile.getResponse(widgetId) || "";
+        if (token) {
+          window.clearInterval(timer);
+          resolve(token);
+        } else if (ticks > 40) {
+          window.clearInterval(timer);
+          resolve("");
+        }
+      }, 150);
+    });
   }
 
   async function initThread(root) {
@@ -300,9 +330,8 @@
       submit.disabled = true;
       setStatus(status, "Posting…", false);
       try {
-        const data = await api(
-          apiBase + "/comments",
-          {
+        async function postOnce(turnstile) {
+          return api(apiBase + "/comments", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -311,11 +340,20 @@
               body,
               requestId,
               [HONEYPOT_FIELD]: honeypot ? honeypot.value : "",
-              turnstileToken: token,
+              turnstileToken: turnstile,
             }),
-          },
-          true
-        );
+          });
+        }
+        let data;
+        try {
+          data = await postOnce(token);
+        } catch (err) {
+          const transient = !err.status || err.status >= 500;
+          if (!transient) throw err;
+          const fresh = await waitForFreshTurnstile(siteKey, widgetId);
+          if (!fresh) throw err;
+          data = await postOnce(fresh);
+        }
         if (data.comment) {
           loaded = [data.comment].concat(loaded.filter((row) => row.id !== data.comment.id));
           render();
@@ -360,7 +398,6 @@
           const query = apiBase + "/comments?all=1" + (cursor ? "&after=" + encodeURIComponent(cursor) : "");
           const data = await api(query, { headers });
           comments.push(...(data.comments || []));
-          if (data.capped) capped = true;
           const leftovers = data.nextBySlug || {};
           for (const [slug, start] of Object.entries(leftovers)) {
             let after = start;

@@ -14,6 +14,8 @@ import {
   THREAD_LIST_LIMIT,
   corsOrigin,
   handleRequest,
+  expireSlugFetchBackoff,
+  expireSlugList,
   migrateThreadSchema,
   rateKey,
   resetSlugCache,
@@ -148,13 +150,34 @@ function request(method, path, { body, headers, origin, env, ctx } = {}) {
   );
 }
 
+const usedTurnstile = new Set();
+let turnstileCalls = 0;
+let tokenSeq = 0;
+
+function nextTurnstileToken() {
+  tokenSeq += 1;
+  return `ok-token-${tokenSeq}`;
+}
+
+function turnstileResponseFrom(init) {
+  const raw = init && init.body;
+  if (!raw) return "";
+  if (typeof raw.get === "function") return String(raw.get("response") || "");
+  return new URLSearchParams(String(raw)).get("response") || "";
+}
+
 async function withTurnstile(fn, success = true) {
   const previous = globalThis.fetch;
-  globalThis.fetch = async (url) => {
+  globalThis.fetch = async (url, init) => {
     if (String(url).includes("turnstile")) {
-      return Response.json({ success });
+      turnstileCalls += 1;
+      if (!success) return Response.json({ success: false });
+      const token = turnstileResponseFrom(init);
+      if (!token || usedTurnstile.has(token)) return Response.json({ success: false });
+      usedTurnstile.add(token);
+      return Response.json({ success: true });
     }
-    return previous(url);
+    return previous(url, init);
   };
   try {
     return await fn();
@@ -177,7 +200,7 @@ async function postComment(env, overrides = {}) {
         body: "The pass rush is the whole story.",
         requestId: requestId("1"),
         [HONEYPOT_FIELD]: "",
-        turnstileToken: "ok-token",
+        turnstileToken: nextTurnstileToken(),
         ...overrides,
       },
     })
@@ -194,7 +217,7 @@ function dirGets(env) {
 
 test("honeypot is accepted but not stored", async () => {
   const env = createDoEnv();
-  const res = await postComment(env, { [HONEYPOT_FIELD]: "http://spam.example" });
+  const res = await postComment(env, { [HONEYPOT_FIELD]: "http://spam.example", requestId: "" });
   assert.equal(res.status, 201);
   const data = await res.json();
   assert.equal(data.ignored, true);
@@ -485,7 +508,30 @@ test("admin ?all and ?hidden=1 page a thread past 50", async () => {
   assert.equal(rest.comments.length, 1);
 });
 
-test("public GET uses cache: 1 thread DO on miss, 0 on hit, no directory", async () => {
+test("workers.dev has no Cache API so x-comments-cache is always miss", async () => {
+  const env = createDoEnv({ __cache: null });
+  env.THREADS.get(env.THREADS.idFromName(SLUG));
+  const thread = env.__threads.get(SLUG);
+  await thread.ready;
+  thread.store().insert({
+    id: `${SLUG}~cache0`,
+    slug: SLUG,
+    name: "Fan",
+    body: "Uncached take.",
+    createdAt: "2026-09-26T13:55:00Z",
+    requestId: requestId("7"),
+  });
+  env.__doGets.length = 0;
+  const first = await request("GET", `/comments?slug=${SLUG}`, { env });
+  const second = await request("GET", `/comments?slug=${SLUG}`, { env });
+  assert.equal(first.headers.get("x-comments-cache"), "miss");
+  assert.equal(second.headers.get("x-comments-cache"), "miss");
+  assert.equal(first.headers.get("cache-control"), "no-store");
+  assert.equal(listGets(env).length, 2);
+  assert.equal(dirGets(env).length, 0);
+});
+
+test("custom-domain Cache API only: 1 thread DO on miss, 0 on hit, no directory", async () => {
   const env = createDoEnv();
   env.THREADS.get(env.THREADS.idFromName(SLUG));
   const thread = env.__threads.get(SLUG);
@@ -634,6 +680,25 @@ test("migrateThreadSchema upgrades an old-shape comments table", () => {
     "Old row before requestId.",
     "2026-09-26T13:55:00Z"
   );
+  sql.exec(
+    `INSERT INTO comments (id, slug, name, body, createdAt, hidden)
+     VALUES (?, ?, ?, ?, ?, 0)`,
+    `${SLUG}~old2`,
+    SLUG,
+    "Pat",
+    "Second old row.",
+    "2026-09-26T13:56:00Z"
+  );
+  sql.exec(
+    `INSERT INTO comments (id, slug, name, body, createdAt, hidden)
+     VALUES (?, ?, ?, ?, ?, 0)`,
+    `${SLUG}~old3`,
+    SLUG,
+    "Andy",
+    "Third old row.",
+    "2026-09-26T13:57:00Z"
+  );
+  migrateThreadSchema(sql);
   migrateThreadSchema(sql);
   const columns = sql.exec(`PRAGMA table_info(comments)`).toArray().map((row) => row.name);
   assert.ok(columns.includes("requestId"));
@@ -643,9 +708,13 @@ test("migrateThreadSchema upgrades an old-shape comments table", () => {
     .exec(`SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'comments_request_id'`)
     .toArray();
   assert.equal(indexes.length, 1);
-  const leftover = sql.exec(`SELECT name, requestId FROM comments WHERE id = ?`, `${SLUG}~old`).toArray();
+  const leftover = sql.exec(`SELECT name, requestId FROM comments ORDER BY createdAt`).toArray();
+  assert.equal(leftover.length, 3);
+  assert.deepEqual(
+    leftover.map((row) => row.requestId),
+    [null, null, null]
+  );
   assert.equal(leftover[0].name, "Fan");
-  assert.equal(leftover[0].requestId, null);
 });
 
 test("unknown slug refetches the origin at most once per 60s", async () => {
@@ -685,6 +754,105 @@ test("requestId replay runs before the 20s post limit", async () => {
   const again = await replay.json();
   assert.equal(again.comment.id, created.comment.id);
   assert.equal(again.replayed, true);
+});
+
+test("requestId replay skips Turnstile so a spent token does not insert a duplicate", async () => {
+  const env = createDoEnv();
+  const id = requestId("c");
+  const spent = "spent-turnstile-token";
+  const first = await postComment(env, {
+    requestId: id,
+    body: "Saved then the 5xx happened.",
+    turnstileToken: spent,
+  });
+  assert.equal(first.status, 201);
+  const created = await first.json();
+  const calls = turnstileCalls;
+  const replay = await postComment(env, {
+    requestId: id,
+    body: "Saved then the 5xx happened.",
+    turnstileToken: spent,
+  });
+  assert.equal(replay.status, 201);
+  const again = await replay.json();
+  assert.equal(again.comment.id, created.comment.id);
+  assert.equal(again.replayed, true);
+  assert.equal(turnstileCalls, calls);
+  const invalid = await postComment(env, {
+    requestId: id,
+    body: "Saved then the 5xx happened.",
+    turnstileToken: "garbage-or-reused",
+  });
+  assert.equal(invalid.status, 201);
+  assert.equal((await invalid.json()).comment.id, created.comment.id);
+  const listed = await (await request("GET", `/comments?slug=${SLUG}`, { env })).json();
+  assert.equal(listed.comments.length, 1);
+});
+
+test("concurrent cold slug fetches share one in-flight origin request", async () => {
+  resetSlugCache();
+  let fetches = 0;
+  let release;
+  const previous = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    if (String(url).includes("comments-slugs")) {
+      fetches += 1;
+      return new Promise((resolve) => {
+        release = () => resolve(Response.json({ slugs: [SLUG] }));
+      });
+    }
+    return previous(url);
+  };
+  try {
+    const env = createDoEnv({ COMMENTS_KNOWN_SLUGS: "" });
+    const first = request("GET", `/comments?slug=${SLUG}`, { env });
+    const second = request("GET", `/comments?slug=${SLUG}`, { env });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(fetches, 1);
+    release();
+    const [a, b] = await Promise.all([first, second]);
+    assert.equal(a.status, 200);
+    assert.equal(b.status, 200);
+  } finally {
+    globalThis.fetch = previous;
+    resetSlugCache();
+  }
+});
+
+test("failed slug fetch uses last good list and retries after a short backoff", async () => {
+  resetSlugCache();
+  let fetches = 0;
+  let ok = false;
+  const previous = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    if (String(url).includes("comments-slugs")) {
+      fetches += 1;
+      if (!ok) return new Response("no", { status: 503 });
+      return Response.json({ slugs: [SLUG] });
+    }
+    return previous(url);
+  };
+  try {
+    const env = createDoEnv({ COMMENTS_KNOWN_SLUGS: "" });
+    const first = await request("GET", `/comments?slug=${SLUG}`, { env });
+    assert.equal(first.status, 503);
+    const blocked = await request("GET", `/comments?slug=${SLUG}`, { env });
+    assert.equal(blocked.status, 503);
+    assert.equal(fetches, 1);
+    expireSlugFetchBackoff();
+    ok = true;
+    const recovered = await request("GET", `/comments?slug=${SLUG}`, { env });
+    assert.equal(recovered.status, 200);
+    assert.equal(fetches, 2);
+    expireSlugList();
+    ok = false;
+    const stale = await request("GET", `/comments?slug=${SLUG}`, { env });
+    assert.equal(stale.status, 200);
+    assert.equal(fetches, 3);
+  } finally {
+    globalThis.fetch = previous;
+    resetSlugCache();
+  }
 });
 
 test("admin ?all lists at most 4 slugs and one page each", async () => {

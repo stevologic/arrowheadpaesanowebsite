@@ -86,6 +86,14 @@
 .nrt-comments__older.is-retry {
   color: #b42318;
 }
+.nrt-comments__older-error {
+  margin: -8px 0 20px;
+  font-size: 14px;
+  color: #b42318;
+}
+.nrt-comments__older-error[hidden] {
+  display: none !important;
+}
 .nrt-comments__form:has(fieldset:disabled) {
   opacity: 0.55;
   filter: grayscale(0.15);

@@ -41,14 +41,24 @@ export const ADMIN_SLUG_PAGE = 4;
 export const ADMIN_PARALLEL = 4;
 export const LIST_CACHE_TTL_SEC = 45;
 export const SLUGS_TTL_MS = 60 * 1000;
+export const SLUGS_FAIL_BACKOFF_MS = 5 * 1000;
 export const SCHEMA_VERSION = 1;
 const DIR_NAME = "__directory__";
 const DEFAULT_SLUGS_URL = "https://arrowheadpaesano.com/comments-slugs.json";
 
-let slugCache = { at: 0, slugs: null, lastFetchAt: 0 };
+let slugCache = { at: 0, slugs: null, lastFetchAt: 0, failedAt: 0, inflight: null };
 
 export function resetSlugCache() {
-  slugCache = { at: 0, slugs: null, lastFetchAt: 0 };
+  slugCache = { at: 0, slugs: null, lastFetchAt: 0, failedAt: 0, inflight: null };
+}
+
+export function expireSlugFetchBackoff() {
+  if (slugCache.failedAt) slugCache.failedAt = Date.now() - SLUGS_FAIL_BACKOFF_MS - 1;
+}
+
+export function expireSlugList() {
+  if (slugCache.at) slugCache.at -= SLUGS_TTL_MS + 1;
+  if (slugCache.lastFetchAt) slugCache.lastFetchAt -= SLUGS_TTL_MS + 1;
 }
 
 function clean(value, limit) {
@@ -186,6 +196,12 @@ function bundledSlugs(env) {
   return bundled.length ? new Set(bundled) : null;
 }
 
+function slugListUnavailable() {
+  const err = new Error("Story list is unavailable.");
+  err.status = 503;
+  return err;
+}
+
 export async function knownSlugs(env, { force = false } = {}) {
   const pinned = bundledSlugs(env);
   if (pinned) return pinned;
@@ -193,24 +209,37 @@ export async function knownSlugs(env, { force = false } = {}) {
   const haveList = slugCache.slugs instanceof Set;
   const fresh = haveList && now - slugCache.at < SLUGS_TTL_MS;
   if (!force && fresh) return slugCache.slugs;
-  const fetchedRecently = slugCache.lastFetchAt > 0 && now - slugCache.lastFetchAt < SLUGS_TTL_MS;
-  if (fetchedRecently) {
+  if (slugCache.inflight) return slugCache.inflight;
+  const failedRecently = slugCache.failedAt > 0 && now - slugCache.failedAt < SLUGS_FAIL_BACKOFF_MS;
+  if (failedRecently) {
     if (haveList) return slugCache.slugs;
-    const err = new Error("Story list is unavailable.");
-    err.status = 503;
-    throw err;
+    throw slugListUnavailable();
   }
-  slugCache.lastFetchAt = now;
-  const url = String(env.COMMENTS_SLUGS_URL || "").trim() || DEFAULT_SLUGS_URL;
-  const res = await fetch(url);
-  if (!res.ok) {
-    const err = new Error("Story list is unavailable.");
-    err.status = 503;
-    throw err;
-  }
-  const slugs = parseKnownSlugs(await res.json().catch(() => []));
-  slugCache = { at: Date.now(), slugs, lastFetchAt: slugCache.lastFetchAt };
-  return slugs;
+  const fetchedRecently = slugCache.lastFetchAt > 0 && now - slugCache.lastFetchAt < SLUGS_TTL_MS;
+  if (fetchedRecently && haveList) return slugCache.slugs;
+  const pending = (async () => {
+    try {
+      const url = String(env.COMMENTS_SLUGS_URL || "").trim() || DEFAULT_SLUGS_URL;
+      const res = await fetch(url);
+      if (!res.ok) throw slugListUnavailable();
+      const slugs = parseKnownSlugs(await res.json().catch(() => []));
+      slugCache.at = Date.now();
+      slugCache.slugs = slugs;
+      slugCache.lastFetchAt = Date.now();
+      slugCache.failedAt = 0;
+      return slugs;
+    } catch (err) {
+      slugCache.lastFetchAt = Date.now();
+      slugCache.failedAt = Date.now();
+      if (slugCache.slugs instanceof Set) return slugCache.slugs;
+      if (!err.status) err.status = 503;
+      throw err;
+    } finally {
+      if (slugCache.inflight === pending) slugCache.inflight = null;
+    }
+  })();
+  slugCache.inflight = pending;
+  return pending;
 }
 
 async function assertKnownSlug(env, slug) {
@@ -253,7 +282,11 @@ export function migrateThreadSchema(sql) {
   }
   sql.exec(`CREATE UNIQUE INDEX IF NOT EXISTS comments_request_id ON comments (requestId)`);
   sql.exec(`CREATE INDEX IF NOT EXISTS comments_slug_created ON comments (slug, createdAt, id)`);
-  sql.exec(`INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', ${SCHEMA_VERSION})`);
+  const schema = sql.exec(`SELECT value FROM meta WHERE key = 'schema_version'`).toArray();
+  const current = schema.length ? Number(schema[0].value) : 0;
+  if (current !== SCHEMA_VERSION) {
+    sql.exec(`INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', ${SCHEMA_VERSION})`);
+  }
 }
 
 export function initThreadSchema(sql) {
@@ -558,6 +591,8 @@ async function readCachedVersion(env, slug) {
 }
 
 async function writeCachedVersion(env, slug, version) {
+  // Best-effort Cache API pointer. On workers.dev the Cache API is a no-op,
+  // so this compare-then-put only matters on a custom Cloudflare domain.
   const current = Number(await readCachedVersion(env, slug));
   const next = Number(version);
   if (Number.isFinite(current) && Number.isFinite(next) && next < current) return false;
@@ -709,14 +744,19 @@ export async function handleRequest(request, env, ctx = {}) {
 
     if (request.method === "POST" && parts.length === 1 && parts[0] === "comments") {
       const body = await request.json().catch(() => ({}));
+      const nextSlug = clean(body.slug, 80);
+      const requestId = String(body.requestId || body.request_id || "").trim();
+      if (requestId && REQUEST_ID_RE.test(requestId)) {
+        await assertKnownSlug(env, nextSlug);
+        const replayed = await findExistingByRequestId(env, nextSlug, requestId);
+        if (replayed) return json(request, env, 201, { comment: replayed, replayed: true });
+      }
       await verifyTurnstile(body.turnstileToken || request.headers.get("X-Turnstile-Token"), ip, env);
       if (clean(body[HONEYPOT_FIELD], 200)) {
         return json(request, env, 201, { ok: true, ignored: true });
       }
-      const nextSlug = clean(body.slug, 80);
       const name = clean(body.name, MAX_NAME);
       const text = clean(body.body, MAX_BODY);
-      const requestId = String(body.requestId || body.request_id || "").trim();
       await assertKnownSlug(env, nextSlug);
       if (requestId && !REQUEST_ID_RE.test(requestId)) {
         const err = new Error("Invalid request id.");
@@ -732,10 +772,6 @@ export async function handleRequest(request, env, ctx = {}) {
         const err = new Error("Comment is too short.");
         err.status = 400;
         throw err;
-      }
-      if (requestId) {
-        const replayed = await findExistingByRequestId(env, nextSlug, requestId);
-        if (replayed) return json(request, env, 201, { comment: replayed, replayed: true });
       }
       const limited = await rateCall(env, "/hit", ip);
       if (!limited.ok) {

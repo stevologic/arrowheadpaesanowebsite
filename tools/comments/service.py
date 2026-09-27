@@ -197,6 +197,11 @@ class CommentStore:
         ip: str,
         turnstile_token: str,
     ) -> dict[str, Any] | None:
+        request_id = str(payload.get("requestId") or payload.get("request_id") or "").strip()
+        if request_id:
+            for existing in self._comments.values():
+                if existing.get("requestId") == request_id:
+                    return public_comment(existing)
         validate_turnstile(turnstile_token, self.turnstile_mode)
         if str(payload.get(HONEYPOT_FIELD) or "").strip():
             # Pretend success so bots do not retry, but do not store.
@@ -210,11 +215,6 @@ class CommentStore:
         if len(body) < MIN_BODY:
             raise CommentError("Comment is too short.")
 
-        request_id = str(payload.get("requestId") or payload.get("request_id") or "").strip()
-        if request_id:
-            for existing in self._comments.values():
-                if existing.get("requestId") == request_id:
-                    return public_comment(existing)
         self._enforce_rate_limit(ip)
         row = {
             "id": f"{slug}~{uuid.uuid4().hex}",

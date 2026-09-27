@@ -168,6 +168,18 @@ class CommentStoreTests(unittest.TestCase):
         )
         self.assertEqual(first["id"], second["id"])
         self.assertEqual(len(store.list_public("2026-09-26-1355")["comments"]), 1)
+        reused = store.post(
+            {
+                "slug": "2026-09-26-1355",
+                "name": "Travis",
+                "body": "Once is enough.",
+                "requestId": "11111111-1111-4111-8111-111111111111",
+            },
+            ip="203.0.113.12",
+            turnstile_token=TURNSTILE_FAIL_TOKEN,
+        )
+        self.assertEqual(first["id"], reused["id"])
+        self.assertEqual(len(store.list_public("2026-09-26-1355")["comments"]), 1)
 
     def test_unknown_slug_is_404_without_storing(self):
         store = _store()
@@ -356,8 +368,12 @@ class CommentWiringTests(unittest.TestCase):
         self.assertIn("Load older comments", js)
         self.assertIn("Retry", js)
         self.assertIn('mode === "retry"', js)
+        self.assertIn("Couldn't load older comments.", configured)
+        self.assertIn("Couldn't load older comments.", js)
+        self.assertIn("data-older-error", configured)
         self.assertIn("requestId", js)
-        self.assertIn("retryOnTransient", js)
+        self.assertIn("waitForFreshTurnstile", js)
+        self.assertIn("turnstile.reset", js)
         self.assertIn("Reached the page cap", js)
         css = (ROOT / "public/css/comments.css").read_text(encoding="utf-8")
         self.assertIn("fieldset:disabled", css)

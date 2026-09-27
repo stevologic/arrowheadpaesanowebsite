@@ -30,15 +30,21 @@ is not the cost control.
   successful insert the Worker returns 201 even if directory registration
   fails; `ctx.waitUntil` retries `INSERT OR IGNORE`.
 - Posts send a client `requestId` (UUID). The thread stores it `UNIQUE`.
-  The Worker looks up that id **before** the 20s post rate limit, so a
-  retry after a 500 cannot double-post and does not consume the interval.
-  The browser retries the same `requestId` once on a network error or 5xx.
+  The Worker looks that id up in the thread DO **before Turnstile and
+  before** the 20s post rate limit. If the row is already there, the
+  Worker returns it (replay) without calling siteverify. That covers the
+  “saved, then 5xx on the way back” case, where the Turnstile token is
+  already spent. A retry of an **unsaved** post still needs a fresh
+  token: the browser resets the widget and waits before retrying once.
+  Replay does not make a brand-new post impossible to duplicate if the
+  client throws away the `requestId` and submits again.
 - Public `GET /comments?slug=` ignores any caller `limit` and always
   returns the newest **50**. Browsers get `Cache-Control: no-store` so a
   hide or delete is visible on the next page load. Optional edge cache
   (only if the Worker later sits on a Cloudflare zone) is keyed by
-  **slug + cursor + version**; a put is skipped when the incoming version
-  is older than the pointer already stored.
+  **slug + cursor + version**. The version pointer compare-then-put is
+  best-effort and **only matters on a custom domain**; on `workers.dev`
+  the Cache API is a no-op, so `x-comments-cache` is always `miss`.
 - One `RateBucket` Durable Object per IPv4 or IPv6 `/64` for **posts**
   and the 5-minute admin-token lockout. Public reads do **not** touch
   `RATES`. If `RATES` is missing, post and admin routes fail closed
@@ -57,15 +63,15 @@ is not the cost control.
 | `POST /comments` (new) | **3**: thread `/by-request-id` + `RATES /hit` + thread `/insert` (+ directory write-behind, not on the response path) | 1 comment lookup + 1 rate write + 1 comment insert + 1 version bump |
 | `POST /comments` (same `requestId`) | **1** thread `/by-request-id` | 1 comment lookup |
 | Hide / unhide / delete | 1 `RATES /auth` + 1 thread write | 1 comment + 1 version bump |
-| Admin `GET ?all=1` | 1 directory + **≤4** thread `/list` (4 slugs × 1 page). The client follows `nextSlug` / `nextBySlug`. | 4 × 50 hidden rows |
+| Admin `GET ?all=1` | 1 `RATES /auth` + 1 directory + **≤4** thread `/list` (4 slugs × 1 page). The client follows `nextSlug` / `nextBySlug`. | 1 auth + 4 × 50 hidden rows |
 
 ## Pagination
 
 The public thread shows the **newest 50** comments. If more exist, the
 API returns `next` (`createdAt|id`, older than that cursor, id as
 tiebreak). The page has a **Load older comments** button that follows
-`next`. A failed older-page fetch shows **Retry** on that button and
-does **not** disable the form.
+`next`. A failed older-page fetch shows **Couldn't load older comments.**
+plus **Retry** and does **not** disable the form.
 
 `/moderate/` pages the directory (`nextSlug`, 4 slugs per request, one
 hidden page each) and follows `/comments?slug=&hidden=1` `next` so every
@@ -109,20 +115,35 @@ Workers Free (the real ceiling on `workers.dev`):
   13,000 GB-s duration / day
 
 Without the Cache API, every public list is 1 Worker request + 1 DO
-request + ~50 row reads:
+request + a `LIMIT 51` scan plus a `meta.version` read (**52 row
+reads** if the thread is full):
 
-- 100k Worker requests/day = **100k public reads/day** if every
-  Worker request is a list (about 69 reads/minute if spread evenly).
-  The DO request quota is the same 100k/day, so it binds 1:1 with
-  the Worker cap on this path.
-- Those 100k lists × ~50 rows ≈ **5M row reads/day** — at the DO row
-  cap if every Worker request is a public list. In practice posts,
-  admin, Turnstile, and slug-list fetches share the 100k Worker
-  requests, so row reads stay under 5M.
+- The Worker and DO **request** caps are both 100k/day. A 100k-list
+  day would be 100k × 52 = **5.2 million row reads**, which is over
+  the 5M row-read cap.
+- The binding quota on a full-thread day is therefore **row reads**:
+  5,000,000 / 52 ≈ **96,000 public lists/day** (~67/minute if spread
+  evenly). Empty or short threads read fewer rows.
 - Writes (post / hide / delete) stay tiny versus the 100k write cap.
 - Directory traffic is admin-only.
 
 Stay off paid KV/D1/R2.
+
+## Quota abuse on workers.dev
+
+Public reads are **unlimited** from the application's point of view:
+there is no per-IP GET limiter (a RateBucket on every read would
+double DO cost). A script at about **100 requests/second** burns the
+**100k Worker requests/day** in about **17 minutes**. Cloudflare then
+returns **error 1027** for that account until the free-tier daily
+reset at **00:00 UTC (5 PM Pacific)**. That 1027 blocks **everything**
+on the Worker, including posting and `/moderate/`.
+
+The only real fix is to move DNS to Cloudflare (free) and attach
+`comments.arrowheadpaesano.com`, then add a **free WAF rate-limiting
+rule** on that hostname. The Cache API also starts working on that
+custom domain. On today's `workers.dev` deploy there is no WAF and
+no Cache API.
 
 ## Optional: move DNS to Cloudflare (free)
 
