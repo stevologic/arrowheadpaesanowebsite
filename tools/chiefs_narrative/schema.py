@@ -8,7 +8,17 @@ raising, because a daily automation must not hard-fail on a flaky model reply.
 """
 from __future__ import annotations
 
+import re
+
 from . import config, diagrams
+
+# Official X/Twitter status URLs only. Media is never downloaded or rehosted —
+# the site renders publish.twitter.com oEmbed / widgets.js blockquotes.
+_X_STATUS_RE = re.compile(
+    r"^https://(?:www\.)?(?:twitter|x)\.com/([A-Za-z0-9_]+)/status/(\d+)/?(?:\?.*)?$",
+    re.IGNORECASE,
+)
+_X_RESERVED_HANDLES = frozenset({"i", "intent", "share", "home", "explore", "search"})
 
 
 def _s(value, default="") -> str:
@@ -52,6 +62,91 @@ def _obj_list(value, keys: dict, limit=12) -> list[dict]:
     return out
 
 
+def _norm_x_embed(value) -> dict | None:
+    """Keep an official X status URL + visible account credit, or drop it.
+
+    Accepts a URL string or a dict with url/label (and snake_case aliases).
+    Account credit always comes from the status URL handle. Invented or
+    non-status URLs are discarded so the template never renders an empty box.
+    """
+    if isinstance(value, str):
+        url, label = _s(value), ""
+    elif isinstance(value, dict):
+        url = _s(
+            value.get("url")
+            or value.get("embedUrl")
+            or value.get("embed_url")
+        )
+        label = _s(value.get("label") or value.get("caption") or value.get("player"))
+    else:
+        return None
+    if not url:
+        return None
+    match = _X_STATUS_RE.match(url.split("#", 1)[0])
+    if not match:
+        return None
+    handle, status_id = match.group(1), match.group(2)
+    if handle.lower() in _X_RESERVED_HANDLES:
+        return None
+    if not status_id.isdigit():
+        return None
+    # Credit the handle from the status URL. A writer-supplied account is
+    # ignored so a mismatched label cannot attach someone else's post.
+    embed = {
+        "url": f"https://x.com/{handle}/status/{status_id}",
+        "account": f"@{handle}",
+    }
+    if label:
+        embed["label"] = label
+    return embed
+
+
+def _norm_x_embeds(value, limit=2) -> list[dict]:
+    out = []
+    for item in _list(value):
+        embed = _norm_x_embed(item)
+        if embed:
+            out.append(embed)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _norm_analysis(value, key_play_embeds=None) -> list[dict]:
+    """Film-room paragraphs, optionally paired with an official X play embed.
+
+    Strings stay valid (legacy editions). Objects may carry ``embed`` or a
+    parallel ``keyPlayEmbeds`` list aligned by index. Paragraphs without a
+    real status URL keep only ``body`` so Hugo renders a normal ``<p>``.
+    """
+    extras = _list(key_play_embeds)
+    out = []
+    for index, item in enumerate(_list(value)):
+        embed = None
+        if isinstance(item, str):
+            body = _s(item)
+        elif isinstance(item, dict):
+            body = _s(item.get("body") or item.get("text") or item.get("paragraph"))
+            embed = _norm_x_embed(
+                item.get("embed")
+                or item.get("embedUrl")
+                or item.get("embed_url")
+            )
+        else:
+            continue
+        if not body:
+            continue
+        if embed is None and index < len(extras):
+            embed = _norm_x_embed(extras[index])
+        row = {"body": body}
+        if embed:
+            row["embed"] = embed
+        out.append(row)
+        if len(out) >= 6:
+            break
+    return out
+
+
 def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
     """Return a fully-populated, validated narrative dict."""
     raw = raw or {}
@@ -73,6 +168,10 @@ def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
         "dek": _s(raw.get("dek")),
         "videoHook": _s(raw.get("videoHook")),
         "theEdge": _s(raw.get("theEdge")),
+        "playerEmbeds": _norm_x_embeds(
+            raw.get("playerEmbeds") or raw.get("player_embeds"),
+            limit=2,
+        ),
         "storyline": _norm_storyline(raw.get("storyline")),
         "lastGameReview": _norm_last_game_review(raw.get("lastGameReview")),
         "currentState": _norm_current_state(raw.get("currentState")),
@@ -143,7 +242,10 @@ def _norm_last_game_review(value) -> dict:
         "result": _s(value.get("result")).upper(),
         "score": _s(value.get("score")),
         "lede": _s(value.get("lede")),
-        "analysis": _str_list(value.get("analysis"), limit=6),
+        "analysis": _norm_analysis(
+            value.get("analysis"),
+            value.get("keyPlayEmbeds") or value.get("key_play_embeds"),
+        ),
         "takeaways": _obj_list(
             value.get("takeaways"), {"title": "", "body": ""}, limit=6
         ),

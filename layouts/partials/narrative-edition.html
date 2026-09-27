@@ -73,6 +73,18 @@
     </div>
   </section>
 
+  <!-- ===================== PLAYER EMBEDS (official X, 0–2) ===================== -->
+  {{ with .playerEmbeds }}
+  <section class="nrt-player-embeds" aria-label="Player posts from X">
+    <div class="nrt-player-embeds__inner">
+      <span class="nrt-player-embeds__kicker">From the locker room · X</span>
+      <div class="nrt-player-embeds__grid">
+        {{ range . }}{{ partial "nrt-x-embed.html" . }}{{ end }}
+      </div>
+    </div>
+  </section>
+  {{ end }}
+
   <!-- ===================== THE EDGE ===================== -->
   {{ with .theEdge }}
   <section class="nrt-edge">
@@ -101,7 +113,24 @@
         {{ with .score }}<b class="nrt-lastgame__score">{{ . }}</b>{{ end }}
       </div>
       {{ with .lede }}<p class="nrt-lastgame__lede">{{ . }}</p>{{ end }}
-      {{ range .analysis }}<p>{{ . }}</p>{{ end }}
+      {{ range .analysis }}
+        {{ $body := "" }}
+        {{ $embed := false }}
+        {{ if reflect.IsMap . }}
+          {{ $body = .body }}
+          {{ $embed = .embed }}
+        {{ else }}
+          {{ $body = . }}
+        {{ end }}
+        {{ if and $body $embed }}
+        <div class="nrt-keyplay">
+          <p class="nrt-analysis">{{ $body }}</p>
+          {{ partial "nrt-x-embed.html" $embed }}
+        </div>
+        {{ else if $body }}
+        <p class="nrt-analysis">{{ $body }}</p>
+        {{ end }}
+      {{ end }}
       {{ if or .whatWorked .whatDidnt }}
       <div class="nrt-lastgame__split">
         {{ with .whatWorked }}

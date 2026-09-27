@@ -1,0 +1,27 @@
+{{- /*
+  Official X status embed. Media is never downloaded or rehosted — the
+  platform widget script (lazy-loaded once, near viewport) turns the
+  blockquote into the live embed. Reserved height is applied in JS only
+  while loading; a blocked or failed widget collapses to a compact link.
+  Context: dict with url, account, optional label.
+*/ -}}
+{{- $url := .url -}}
+{{- $account := .account -}}
+{{- $label := .label -}}
+{{- if $url }}
+<figure class="nrt-x-embed" data-nrt-x-embed data-nrt-x-url="{{ $url }}"{{ with $account }} data-nrt-x-account="{{ . }}"{{ end }}>
+  <div class="nrt-x-embed__frame">
+    <blockquote class="twitter-tweet" data-dnt="true" data-conversation="none">
+      <a href="{{ $url }}">View post{{ with $account }} from {{ . }}{{ end }} on X</a>
+    </blockquote>
+  </div>
+  <p class="nrt-x-embed__fallback" hidden>
+    <a href="{{ $url }}" target="_blank" rel="noopener">View {{ $account | default "X" }} post on X →</a>
+  </p>
+  <figcaption class="nrt-x-embed__credit">
+    Source:
+    <a href="{{ $url }}" target="_blank" rel="noopener">{{ $account | default "X" }}</a>
+    {{- with $label }}<span class="nrt-x-embed__label">{{ . }}</span>{{ end }}
+  </figcaption>
+</figure>
+{{- end -}}

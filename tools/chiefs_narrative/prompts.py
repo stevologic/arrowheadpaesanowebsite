@@ -324,6 +324,8 @@ def build_user_prompt(
             "could run any week. 4-6 matchups. "
             "5-8 spotlight/strategies/debates. Every injuries[].source and every "
             "sources[] entry must correspond to a provided news item or be omitted. "
+            "Do not invent or include X/Twitter status URLs — the desk "
+            "attaches official embeds separately after oEmbed verification. "
             "Output ONLY the JSON object.",
         ]
     )

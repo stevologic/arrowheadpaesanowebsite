@@ -6,6 +6,7 @@ merge gate. Run with:  python -m unittest discover -s tools/tests -v
 from __future__ import annotations
 
 import json
+import subprocess
 import tempfile
 import unittest
 from contextlib import ExitStack
@@ -23,6 +24,7 @@ from tools.chiefs_narrative import (
     prompts,
     providers,
     schema,
+    x_embeds,
 )
 
 # Canned inputs: the writers only use .get() lookups, so minimal dicts work.
@@ -1104,3 +1106,465 @@ class StreamingAndOfflineDekTests(unittest.TestCase):
             "Last game on the tape, where the Chiefs stand, and the plan for who's next.",
         )
         self.assertIn("desk:", raw["dek"])
+
+
+class XEmbedSlots(unittest.TestCase):
+    """Official X embed slots: zero-embed layout stays tight; real URLs persist."""
+
+    ROOT = Path(__file__).resolve().parents[2]
+    REAL_KELCE = "https://x.com/Chiefs/status/2101838746643812537"
+    REAL_TAYLOR = "https://x.com/NFL/status/2101849509382738110"
+
+    def _normalize(self, raw):
+        return schema.normalize(
+            raw,
+            phase=WEEK_PHASE,
+            meta={
+                "generatedAt": "2026-09-26T13:55:00+00:00",
+                "generator": "test",
+                "record": "2-0",
+                "markets": {},
+            },
+        )
+
+    def test_schema_zero_embeds_omits_empty_slots(self):
+        raw = offline.write(
+            {
+                "news": [],
+                "markets": {},
+                "schedule": [DeskSections.LAST],
+                "lastGameRecap": {
+                    "kc": {"totalYards": "280"},
+                    "opp": {"totalYards": "310"},
+                    "oppAbbr": "TB",
+                    "scoring": [],
+                    "leaders": [],
+                },
+            },
+            DeskSections.PHASE,
+            NEXT,
+        )
+        narrative = schema.normalize(
+            raw,
+            phase=DeskSections.PHASE,
+            meta={
+                "generatedAt": "2026-09-26T13:55:00+00:00",
+                "generator": "test",
+                "record": "0-1",
+                "markets": {},
+            },
+        )
+        self.assertEqual(narrative["playerEmbeds"], [])
+        analysis = narrative["lastGameReview"]["analysis"]
+        self.assertTrue(analysis)
+        for para in analysis:
+            self.assertIn("body", para)
+            self.assertNotIn("embed", para)
+
+    def test_schema_keeps_two_player_embeds_and_key_play_url(self):
+        narrative = self._normalize(
+            {
+                "headline": "Tape",
+                "player_embeds": [
+                    {
+                        "url": self.REAL_KELCE,
+                        "account": "Chiefs",
+                        "label": "Travis Kelce",
+                    },
+                    "https://twitter.com/Chiefs/status/2101899387639115937",
+                    {
+                        "url": "https://x.com/Chiefs/status/2101846672024191421",
+                        "account": "@Chiefs",
+                    },
+                ],
+                "lastGameReview": {
+                    "opponent": "Indianapolis Colts",
+                    "result": "W",
+                    "score": "KC 33–30",
+                    "lede": "Overtime at Arrowhead.",
+                    "analysis": [
+                        "Walker set the early-down identity.",
+                        {
+                            "body": "Kelce was the adult in the room.",
+                            "embed": {
+                                "url": "https://twitter.com/Chiefs/status/2101835926779347261",
+                                "account": "@Chiefs",
+                            },
+                        },
+                    ],
+                    "key_play_embeds": [
+                        None,
+                        None,
+                    ],
+                },
+            }
+        )
+        players = narrative["playerEmbeds"]
+        self.assertEqual(len(players), 2)
+        self.assertEqual(players[0]["url"], self.REAL_KELCE)
+        self.assertEqual(players[0]["account"], "@Chiefs")
+        self.assertEqual(players[0]["label"], "Travis Kelce")
+        self.assertEqual(
+            players[1]["url"],
+            "https://x.com/Chiefs/status/2101899387639115937",
+        )
+        analysis = narrative["lastGameReview"]["analysis"]
+        self.assertNotIn("embed", analysis[0])
+        self.assertEqual(
+            analysis[1]["embed"]["url"],
+            "https://x.com/Chiefs/status/2101835926779347261",
+        )
+        self.assertEqual(analysis[1]["embed"]["account"], "@Chiefs")
+
+    def test_schema_key_play_embeds_align_by_index(self):
+        narrative = self._normalize(
+            {
+                "lastGameReview": {
+                    "lede": "Recap",
+                    "analysis": [
+                        "First paragraph, no clip.",
+                        "Taylor popped the 24-yard touchdown.",
+                    ],
+                    "keyPlayEmbeds": [
+                        "",
+                        {"url": self.REAL_TAYLOR, "account": "@Colts"},
+                    ],
+                }
+            }
+        )
+        analysis = narrative["lastGameReview"]["analysis"]
+        self.assertNotIn("embed", analysis[0])
+        self.assertEqual(analysis[1]["embed"]["url"], self.REAL_TAYLOR)
+        self.assertEqual(analysis[1]["embed"]["account"], "@NFL")
+
+    def test_schema_drops_invalid_non_status_and_invented_hosts(self):
+        narrative = self._normalize(
+            {
+                "playerEmbeds": [
+                    "https://example.com/status/1",
+                    "https://x.com/Chiefs/photo/123",
+                    "https://x.com/i/status/2101838746643812537",
+                    "/Chiefs/status/2101838746643812537",
+                    {"url": "not-a-url", "account": "@Chiefs"},
+                ],
+                "lastGameReview": {
+                    "lede": "Recap",
+                    "analysis": [
+                        {
+                            "body": "A paragraph",
+                            "embed": {"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+                        }
+                    ],
+                },
+            }
+        )
+        self.assertEqual(narrative["playerEmbeds"], [])
+        self.assertNotIn("embed", narrative["lastGameReview"]["analysis"][0])
+
+    def test_template_zero_embed_path_has_no_unconditional_boxes(self):
+        edition = (self.ROOT / "layouts" / "partials" / "narrative-edition.html").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('{{ with .playerEmbeds }}', edition)
+        self.assertIn("nrt-player-embeds", edition)
+        self.assertIn("nrt-keyplay", edition)
+        self.assertIn("reflect.IsMap", edition)
+        self.assertIn("{{ if and $body $embed }}", edition)
+        self.assertIn("{{ else if $body }}", edition)
+        self.assertIn('partial "nrt-x-embed.html"', edition)
+        # Embed markup is gated — a missing URL must not leave a reserved frame.
+        self.assertNotRegex(edition, r"nrt-x-embed__frame(?![^<]*\{\{)")
+
+    def test_embed_partial_is_official_blockquote_with_visible_credit(self):
+        partial = (self.ROOT / "layouts" / "partials" / "nrt-x-embed.html").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('class="twitter-tweet"', partial)
+        self.assertIn("nrt-x-embed__credit", partial)
+        self.assertIn("nrt-x-embed__fallback", partial)
+        self.assertIn("View {{ $account | default \"X\" }} post on X", partial)
+        self.assertIn("Source:", partial)
+        self.assertIn("data-nrt-x-embed", partial)
+        self.assertNotIn("widgets.js", partial)
+        self.assertNotIn("pbs.twimg.com", partial)
+        self.assertNotIn("video.twimg.com", partial)
+
+    def test_js_lazy_loads_widgets_once_near_viewport(self):
+        js = (self.ROOT / "public" / "js" / "main.js").read_text(encoding="utf-8")
+        self.assertIn("function initNarrativeXEmbeds", js)
+        self.assertIn("IntersectionObserver", js)
+        self.assertIn("platform.twitter.com/widgets.js", js)
+        self.assertIn("function ensureTwitterWidgets", js)
+        self.assertIn("initNarrativeXEmbeds(root)", js)
+        self.assertIn("NRT_X_FALLBACK_MS = 5000", js)
+        self.assertIn("nrtXMarkFallback", js)
+        self.assertIn("is-fallback", js)
+        self.assertIn("script.onerror", js)
+        self.assertIn("events?.bind?.('rendered'", js)
+        self.assertIn("nrtXWidgetFromRendered", js)
+        self.assertIn("event.target", js)
+        ready = js[js.find("function nrtXMarkReady"):js.find("function nrtXMarkFallback")]
+        self.assertIn("is-fallback", ready)
+        self.assertIn("fallback.hidden = true", ready)
+        self.assertLess(js.index("ensureTwitterWidgets"), js.index("initNarrativeXEmbeds"))
+
+    def test_late_widget_recovery_sequence(self):
+        script = self.ROOT / "tools" / "tests" / "nrt_x_embed_recovery.js"
+        result = subprocess.run(
+            ["node", str(script)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("ok", result.stdout)
+
+    def test_css_reserves_space_only_while_loading(self):
+        css = (self.ROOT / "public" / "css" / "narrative.css").read_text(encoding="utf-8")
+        self.assertIn(".nrt-x-embed__frame", css)
+        self.assertIn(".nrt-x-embed.is-loading .nrt-x-embed__frame", css)
+        frame = css[css.find(".nrt-x-embed__frame {"):css.find(".nrt-x-embed.is-loading")]
+        self.assertIn("min-height: 0", frame)
+        self.assertNotIn("min-height: 320px", frame)
+        self.assertIn("min-height: 320px", css[css.find(".nrt-x-embed.is-loading"):])
+        self.assertIn(".nrt-x-embed.is-fallback:not(.is-ready) .nrt-x-embed__frame", css)
+        self.assertIn(".nrt-x-embed.is-ready .nrt-x-embed__fallback", css)
+        self.assertIn("max-width: 100%", css)
+        self.assertIn("overflow-x: hidden", css)
+        self.assertIn("@media (min-width: 901px)", css)
+        self.assertIn("grid-template-columns: minmax(0, 1fr) minmax(240px, 22rem)", css)
+        label = css[css.find(".nrt-x-embed__label {"):css.find(".nrt-x-embed__label::before")]
+        self.assertIn("color: #5c5660", label)
+        self.assertNotIn("#8a8490", label)
+
+    def test_latest_backfill_uses_verified_status_urls(self):
+        payload = json.loads((self.ROOT / "data" / "narrative.json").read_text(encoding="utf-8"))
+        self.assertEqual(payload["slug"], "2026-09-26-1355")
+        players = payload["playerEmbeds"]
+        self.assertEqual(len(players), 2)
+        for item in players:
+            self.assertIsNotNone(schema._norm_x_embed(item))
+            self.assertTrue(item["account"].startswith("@"))
+        analysis = payload["lastGameReview"]["analysis"]
+        self.assertIsInstance(analysis[0], str)
+        self.assertIsInstance(analysis[3], str)
+        self.assertEqual(analysis[1]["embed"]["account"], "@Chiefs")
+        self.assertEqual(analysis[2]["embed"]["account"], "@NFL")
+        self.assertEqual(
+            analysis[2]["embed"]["url"],
+            "https://x.com/NFL/status/2101849509382738110",
+        )
+        self.assertEqual(analysis[2]["embed"]["label"], "Jonathan Taylor touchdown")
+        self.assertIsNotNone(schema._norm_x_embed(analysis[1]["embed"]))
+        self.assertIsNotNone(schema._norm_x_embed(analysis[2]["embed"]))
+
+    def test_older_edition_stays_on_zero_embed_path(self):
+        older = json.loads(
+            (self.ROOT / "data" / "narrative_editions" / "2026-09-25-1552.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertFalse(older.get("playerEmbeds"))
+        for para in older["lastGameReview"]["analysis"]:
+            self.assertIsInstance(para, str)
+
+    def test_prompt_does_not_ask_the_model_for_status_urls(self):
+        text = prompts.build_user_prompt(SIGNALS, WEEK_PHASE, NEXT)
+        self.assertNotIn("keyPlayEmbeds", text)
+        self.assertNotIn("x.com/OfficialAccount", text)
+        self.assertNotIn("NEVER invent a status ID", text)
+        self.assertIn("Do not invent or include X/Twitter status URLs", text)
+        hint = text[text.find("Return JSON with EXACTLY these keys"):]
+        self.assertNotIn('"playerEmbeds"', hint)
+
+    def test_generated_embeds_are_stripped_unless_oembed_allowlisted(self):
+        fake_id = "https://x.com/Chiefs/status/9999999999999999999"
+        raw = {
+            "headline": "Tape",
+            "playerEmbeds": [
+                {"url": fake_id, "account": "@Chiefs", "label": "Hallucinated"},
+                {
+                    "url": self.REAL_KELCE,
+                    "account": "@Chiefs",
+                    "label": "Travis Kelce",
+                },
+            ],
+            "lastGameReview": {
+                "lede": "Recap",
+                "analysis": [
+                    {
+                        "body": "Taylor popped the 24-yard touchdown.",
+                        "embed": {
+                            "url": self.REAL_TAYLOR,
+                            "account": "@NFL",
+                        },
+                    },
+                    {
+                        "body": "A random invented clip.",
+                        "embed": {"url": fake_id, "account": "@Chiefs"},
+                    },
+                ],
+            },
+        }
+
+        def fake_oembed(url):
+            if "9999999999999999999" in url:
+                return None
+            if "2101838746643812537" in url:
+                return {"author_url": "https://x.com/Chiefs", "html": "<blockquote>"}
+            if "2101849509382738110" in url:
+                return {"author_url": "https://x.com/NFL", "html": "<blockquote>"}
+            if "randomfan" in url:
+                return {"author_url": "https://x.com/randomfan", "html": "<blockquote>"}
+            return None
+
+        narrative = self._normalize(raw)
+        self.assertEqual(len(narrative["playerEmbeds"]), 2)
+        x_embeds.strip_unverified_embeds(narrative, oembed_fetch=fake_oembed)
+        self.assertEqual(len(narrative["playerEmbeds"]), 1)
+        self.assertEqual(narrative["playerEmbeds"][0]["url"], self.REAL_KELCE)
+        analysis = narrative["lastGameReview"]["analysis"]
+        self.assertEqual(analysis[0]["embed"]["url"], self.REAL_TAYLOR)
+        self.assertEqual(analysis[0]["embed"]["account"], "@NFL")
+        self.assertNotIn("embed", analysis[1])
+
+        narrative = self._normalize(
+            {
+                "playerEmbeds": [
+                    {"url": "https://x.com/randomfan/status/2101838746643812538"},
+                ]
+            }
+        )
+        x_embeds.strip_unverified_embeds(narrative, oembed_fetch=fake_oembed)
+        self.assertEqual(narrative["playerEmbeds"], [])
+
+        narrative = self._normalize(
+            {"playerEmbeds": [{"url": self.REAL_KELCE, "account": "@Chiefs"}]}
+        )
+        x_embeds.strip_unverified_embeds(
+            narrative,
+            oembed_fetch=lambda url: (_ for _ in ()).throw(RuntimeError("no net")),
+        )
+        self.assertEqual(narrative["playerEmbeds"], [])
+
+        narrative = self._normalize(
+            {"playerEmbeds": [{"url": self.REAL_KELCE, "account": "@Chiefs"}]}
+        )
+        x_embeds.strip_unverified_embeds(narrative, oembed_fetch=lambda url: None)
+        self.assertEqual(narrative["playerEmbeds"], [])
+
+    def test_assemble_strips_unverified_embeds_by_default(self):
+        raw = {
+            "headline": "Tape",
+            "playerEmbeds": [
+                {
+                    "url": "https://x.com/Chiefs/status/9999999999999999999",
+                    "account": "@Chiefs",
+                }
+            ],
+        }
+        with patch.object(x_embeds, "fetch_oembed", return_value=None):
+            narrative = generate._assemble_narrative(
+                raw,
+                WEEK_PHASE,
+                {
+                    "generatedAt": "2026-09-26T13:55:00+00:00",
+                    "generator": "test",
+                    "record": "2-0",
+                    "markets": {},
+                },
+                SIGNALS,
+                NEXT,
+            )
+        self.assertEqual(narrative["playerEmbeds"], [])
+
+    def test_official_allowlist_is_exactly_nfl_and_32_teams(self):
+        verified = frozenset(
+            {
+                "nfl",
+                "azcardinals",
+                "atlantafalcons",
+                "ravens",
+                "buffalobills",
+                "panthers",
+                "chicagobears",
+                "bengals",
+                "browns",
+                "dallascowboys",
+                "broncos",
+                "lions",
+                "packers",
+                "houstontexans",
+                "colts",
+                "jaguars",
+                "chiefs",
+                "raiders",
+                "chargers",
+                "ramsnfl",
+                "miamidolphins",
+                "vikings",
+                "patriots",
+                "saints",
+                "giants",
+                "nyjets",
+                "eagles",
+                "steelers",
+                "49ers",
+                "seahawks",
+                "buccaneers",
+                "titans",
+                "commanders",
+            }
+        )
+        self.assertEqual(x_embeds.OFFICIAL_X_ACCOUNTS, verified)
+        self.assertEqual(len(x_embeds.OFFICIAL_X_ACCOUNTS), 33)
+        rejected = {
+            "bills",
+            "cardinals",
+            "rams",
+            "texans",
+            "tennesseetitans",
+            "buffalobillsnfl",
+            "byherbie",
+            "adamteicher",
+            "arrowheadpride",
+            "nflnetwork",
+            "espnnfl",
+        }
+        self.assertTrue(rejected.isdisjoint(x_embeds.OFFICIAL_X_ACCOUNTS))
+
+    def test_verify_matches_author_url_handle_not_author_name(self):
+        def fake_oembed(_url):
+            return {
+                "author_name": "NFL",
+                "author_url": "https://x.com/randomfan",
+                "html": "<blockquote>",
+            }
+
+        kept = x_embeds.verify_x_embed(
+            {"url": self.REAL_KELCE, "account": "@Chiefs"},
+            oembed_fetch=fake_oembed,
+        )
+        self.assertIsNone(kept)
+
+        def official_url_spoofed_name(_url):
+            return {
+                "author_name": "Not the Chiefs",
+                "author_url": "https://x.com/Chiefs",
+                "html": "<blockquote>",
+            }
+
+        kept = x_embeds.verify_x_embed(
+            {"url": self.REAL_KELCE},
+            oembed_fetch=official_url_spoofed_name,
+        )
+        self.assertIsNotNone(kept)
+        self.assertEqual(kept["account"], "@Chiefs")
+
+    def test_workflow_schedule_untouched(self):
+        yaml = (self.ROOT / ".github" / "workflows" / "narrative.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("37 9 * * *", yaml)
+        self.assertIn("43 3 * * *", yaml)
+        self.assertIn("20 7 * * 0,1,2", yaml)
