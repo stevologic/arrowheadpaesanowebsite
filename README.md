@@ -149,11 +149,16 @@ One-time owner setup (all free tiers) and the exact moderation steps live in
 Stephen hides or deletes a comment at `/moderate/` by pasting the admin token,
 or from the story itself after that token is saved in the tab.
 
-Local preview:
+If `commentsApiUrl` or `commentsTurnstileSiteKey` is unset, the comment
+block is omitted entirely — no heading, empty state, or form.
+
+Local preview (both public values must be set or the section will not render):
 
 ```bash
 COMMENTS_ADMIN_TOKEN=dev-admin python tools/comments/server.py
 # in another shell
+HUGO_COMMENTS_API_URL=http://127.0.0.1:8787 \
+HUGO_TURNSTILE_SITE_KEY=1x00000000000000000000AA \
 npm run dev
 ```
 

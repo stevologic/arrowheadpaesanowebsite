@@ -12,10 +12,12 @@ from pathlib import Path
 from tools.comments.service import (
     EMPTY_STATE,
     HONEYPOT_FIELD,
+    NOT_CONNECTED_COPY,
     TURNSTILE_FAIL_TOKEN,
     TURNSTILE_PASS_TOKEN,
     CommentError,
     CommentStore,
+    is_comments_ui_enabled,
 )
 from tools.comments.server import handle
 
@@ -230,6 +232,33 @@ class CommentHttpTests(unittest.TestCase):
 
 
 class CommentWiringTests(unittest.TestCase):
+    def test_unset_config_renders_nothing(self):
+        self.assertFalse(is_comments_ui_enabled("", ""))
+        self.assertFalse(is_comments_ui_enabled(None, None))
+        self.assertFalse(is_comments_ui_enabled("https://comments.example.workers.dev", ""))
+        self.assertFalse(is_comments_ui_enabled("", "1x00000000000000000000AA"))
+        self.assertFalse(is_comments_ui_enabled("  ", "  "))
+        self.assertTrue(
+            is_comments_ui_enabled(
+                "https://comments.example.workers.dev",
+                "1x00000000000000000000AA",
+            )
+        )
+
+        yaml = (ROOT / "hugo.yaml").read_text(encoding="utf-8")
+        self.assertRegex(yaml, r'commentsApiUrl:\s*""')
+        self.assertRegex(yaml, r'commentsTurnstileSiteKey:\s*""')
+
+        partial = (ROOT / "layouts/partials/narrative-comments.html").read_text(encoding="utf-8")
+        guard = partial.index("if and $api $turnstile")
+        for needle in ("nrt-comments", "No comments yet. Be the first.", "data-comments-form", "Comments"):
+            self.assertGreater(partial.index(needle), guard, needle)
+        self.assertGreater(partial.rfind("end"), partial.index("nrt-comments"))
+
+        js = (ROOT / "public/js/narrative-comments.js").read_text(encoding="utf-8")
+        self.assertNotIn(NOT_CONNECTED_COPY, js)
+        self.assertNotIn("127.0.0.1:8787", js)
+
     def test_partial_empty_state_and_page_includes(self):
         partial = (ROOT / "layouts/partials/narrative-comments.html").read_text(encoding="utf-8")
         self.assertIn("No comments yet. Be the first.", partial)

@@ -7,6 +7,8 @@
 {{ $slug := .slug | default "" }}
 {{ $api := getenv "HUGO_COMMENTS_API_URL" | default $site.Params.commentsApiUrl | default "" }}
 {{ $turnstile := getenv "HUGO_TURNSTILE_SITE_KEY" | default $site.Params.commentsTurnstileSiteKey | default "" }}
+{{- /* Unset Worker URL or Turnstile site key: render nothing. No form, no empty state. */ -}}
+{{ if and $api $turnstile }}
 <link rel="stylesheet" href="{{ "css/comments.css" | relURL }}" />
 <section class="nrt-comments" id="comments" data-comments
   data-slug="{{ $slug }}"
@@ -49,3 +51,4 @@
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 {{ end }}
 <script src="{{ "js/narrative-comments.js" | relURL }}" defer></script>
+{{ end }}

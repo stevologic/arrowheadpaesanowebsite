@@ -27,10 +27,7 @@
 
   function resolveApi(root) {
     const configured = (root.getAttribute("data-api") || "").trim();
-    if (configured) return configured.replace(/\/$/, "");
-    const host = window.location.hostname;
-    if (host === "localhost" || host === "127.0.0.1") return "http://127.0.0.1:8787";
-    return "";
+    return configured ? configured.replace(/\/$/, "") : "";
   }
 
   function adminToken() {
@@ -187,10 +184,7 @@
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      if (!apiBase) {
-        setStatus(status, "Comments are not connected yet.", true);
-        return;
-      }
+      if (!apiBase) return;
       const submit = $("[data-comments-submit]", form);
       const honeypot = form.elements.namedItem("company");
       const name = String((form.elements.namedItem("name") || {}).value || "").trim();

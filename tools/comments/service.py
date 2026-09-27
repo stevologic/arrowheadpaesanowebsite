@@ -23,6 +23,7 @@ RATE_WINDOW_SEC = 10 * 60
 RATE_MAX = 5
 RATE_MIN_INTERVAL_SEC = 20
 EMPTY_STATE = "No comments yet. Be the first."
+NOT_CONNECTED_COPY = "Comments are not connected yet."
 
 # Offline Turnstile stand-ins. Production Worker always calls siteverify.
 TURNSTILE_PASS_TOKEN = "test-pass"
@@ -34,6 +35,11 @@ class CommentError(Exception):
         super().__init__(message)
         self.message = message
         self.status = status
+
+
+def is_comments_ui_enabled(api_url: str | None, turnstile_site_key: str | None) -> bool:
+    """Public comment block renders only when both free-tier settings are set."""
+    return bool(str(api_url or "").strip() and str(turnstile_site_key or "").strip())
 
 
 def _utc_now() -> str:

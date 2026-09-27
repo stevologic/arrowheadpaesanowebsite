@@ -10,6 +10,6 @@ Fans do not need a GitHub (or any) account. Stephen moderates with
 ``COMMENTS_ADMIN_TOKEN`` (env/secret — never commit the real value).
 """
 
-from .service import CommentError, CommentStore
+from .service import CommentError, CommentStore, is_comments_ui_enabled
 
-__all__ = ["CommentError", "CommentStore"]
+__all__ = ["CommentError", "CommentStore", "is_comments_ui_enabled"]
