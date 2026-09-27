@@ -96,9 +96,13 @@ its page cap, it shows a notice.
 thread DO:
 
 - `CREATE TABLE IF NOT EXISTS` for `comments`, `slugs`, and `meta`
-- `schema_version` in `meta` (currently `1`)
+- `schema_version` in `meta` (currently `2`)
 - `ALTER TABLE comments ADD COLUMN requestId` when the column is missing
 - `CREATE UNIQUE INDEX IF NOT EXISTS comments_request_id`
+- `CREATE INDEX IF NOT EXISTS comments_created_id` on `(createdAt, id)`
+  for admin lists, and `comments_hidden_created` on
+  `(hidden, createdAt, id)` for public lists, so a `LIMIT 51` stops
+  in the index instead of scanning the thread
 
 Nothing has been deployed yet; the migration is still written so an
 old-shape table upgrades in place.
@@ -115,13 +119,16 @@ Workers Free (the real ceiling on `workers.dev`):
   13,000 GB-s duration / day
 
 Without the Cache API, every public list is 1 Worker request + 1 DO
-request + a `LIMIT 51` scan plus a `meta.version` read (**52 row
-reads** if the thread is full):
+request. The per-thread query is an index range on
+`(hidden, createdAt, id)` with `LIMIT 51`, plus one `meta.version`
+read — **52 row reads**, whether the thread has 51 comments or 5,000.
+A full-table `SCAN comments` + sort would have billed every row in
+the thread; that path is gone.
 
 - The Worker and DO **request** caps are both 100k/day. A 100k-list
   day would be 100k × 52 = **5.2 million row reads**, which is over
   the 5M row-read cap.
-- The binding quota on a full-thread day is therefore **row reads**:
+- The binding quota is therefore still **row reads**:
   5,000,000 / 52 ≈ **96,000 public lists/day** (~67/minute if spread
   evenly). Empty or short threads read fewer rows.
 - Writes (post / hide / delete) stay tiny versus the 100k write cap.
@@ -136,7 +143,7 @@ there is no per-IP GET limiter (a RateBucket on every read would
 double DO cost). A script at about **100 requests/second** burns the
 **100k Worker requests/day** in about **17 minutes**. Cloudflare then
 returns **error 1027** for that account until the free-tier daily
-reset at **00:00 UTC (5 PM Pacific)**. That 1027 blocks **everything**
+reset at **00:00 UTC (5 PM MST / PDT)**. That 1027 blocks **everything**
 on the Worker, including posting and `/moderate/`.
 
 The only real fix is to move DNS to Cloudflare (free) and attach

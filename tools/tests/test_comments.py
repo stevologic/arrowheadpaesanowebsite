@@ -374,6 +374,8 @@ class CommentWiringTests(unittest.TestCase):
         self.assertIn("requestId", js)
         self.assertIn("waitForFreshTurnstile", js)
         self.assertIn("turnstile.reset", js)
+        self.assertIn("postWithReplay", js)
+        self.assertIn("__nrtPostWithReplay", js)
         self.assertIn("Reached the page cap", js)
         css = (ROOT / "public/css/comments.css").read_text(encoding="utf-8")
         self.assertIn("fieldset:disabled", css)
@@ -404,6 +406,9 @@ class CommentWiringTests(unittest.TestCase):
         self.assertIn("blockConcurrencyWhile", worker)
         self.assertIn("schema_version", worker)
         self.assertIn("ALTER TABLE comments ADD COLUMN requestId", worker)
+        self.assertIn("comments_created_id", worker)
+        self.assertIn("comments_hidden_created", worker)
+        self.assertIn("PUBLIC_LIST_SQL", worker)
         self.assertIn("no-store", worker)
         self.assertIn("by-request-id", worker)
 

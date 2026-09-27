@@ -1,12 +1,18 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
 import {
+  ADMIN_LIST_AFTER_SQL,
+  ADMIN_LIST_SQL,
   ADMIN_SLUG_PAGE,
   AUTH_FAIL_MAX,
   AUTH_FAIL_WINDOW_SEC,
   CommentThread,
   HONEYPOT_FIELD,
+  PUBLIC_LIST_AFTER_SQL,
+  PUBLIC_LIST_SQL,
   RATE_MAX,
   RateBucket,
   SCHEMA_VERSION,
@@ -39,7 +45,7 @@ function sqlShim() {
         const count = (sql.match(/\?/g) || []).length;
         const args = binds.slice(offset, offset + count);
         offset += count;
-        if (/^\s*(select|pragma)/i.test(sql)) {
+        if (/^\s*(select|pragma|explain)/i.test(sql)) {
           rows = db.prepare(sql).all(...args);
         } else {
           db.prepare(sql).run(...args);
@@ -654,7 +660,7 @@ test("migrateThreadSchema upgrades an old-shape comments table", () => {
         const count = (text.match(/\?/g) || []).length;
         const args = binds.slice(offset, offset + count);
         offset += count;
-        if (/^\s*(select|pragma)/i.test(text)) {
+        if (/^\s*(select|pragma|explain)/i.test(text)) {
           rows = db.prepare(text).all(...args);
         } else {
           db.prepare(text).run(...args);
@@ -705,9 +711,13 @@ test("migrateThreadSchema upgrades an old-shape comments table", () => {
   const schema = sql.exec(`SELECT value FROM meta WHERE key = 'schema_version'`).toArray();
   assert.equal(Number(schema[0].value), SCHEMA_VERSION);
   const indexes = sql
-    .exec(`SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'comments_request_id'`)
-    .toArray();
-  assert.equal(indexes.length, 1);
+    .exec(
+      `SELECT name FROM sqlite_master WHERE type = 'index' AND name IN ('comments_request_id', 'comments_created_id', 'comments_hidden_created') ORDER BY name`
+    )
+    .toArray()
+    .map((row) => row.name);
+  assert.deepEqual(indexes, ["comments_created_id", "comments_hidden_created", "comments_request_id"]);
+  assert.equal(SCHEMA_VERSION, 2);
   const leftover = sql.exec(`SELECT name, requestId FROM comments ORDER BY createdAt`).toArray();
   assert.equal(leftover.length, 3);
   assert.deepEqual(
@@ -948,4 +958,149 @@ test("CORS allows only configured production origins unless COMMENTS_DEV is set"
     origin: "http://localhost:1515",
   });
   assert.equal(denied.headers.get("access-control-allow-origin"), null);
+});
+
+function assertIndexPlan(plans, indexName) {
+  const details = plans.map((row) => row.detail).join("\n");
+  assert.match(details, new RegExp("INDEX " + indexName));
+  assert.doesNotMatch(details, /TEMP B-TREE/);
+  assert.doesNotMatch(details, /SCAN comments$/m);
+}
+
+test("public and admin list queries use the createdAt index and skip TEMP B-TREE", () => {
+  const sql = sqlShim();
+  migrateThreadSchema(sql);
+  for (let i = 0; i < 80; i += 1) {
+    sql.exec(
+      `INSERT INTO comments (id, slug, name, body, createdAt, hidden, requestId)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `${SLUG}~p${i}`,
+      SLUG,
+      "Fan",
+      `Row ${i}`,
+      `2026-09-26T13:${String(i).padStart(2, "0")}:00Z`,
+      i % 7 === 0 ? 1 : 0,
+      `77777777-7777-4777-8777-${String(i).padStart(12, "0")}`
+    );
+  }
+  assertIndexPlan(sql.exec(`EXPLAIN QUERY PLAN ${PUBLIC_LIST_SQL}`, 51).toArray(), "comments_hidden_created");
+  assertIndexPlan(
+    sql.exec(`EXPLAIN QUERY PLAN ${PUBLIC_LIST_AFTER_SQL}`, "2026-09-26T13:40:00Z", `${SLUG}~p40`, 51).toArray(),
+    "comments_hidden_created"
+  );
+  assertIndexPlan(sql.exec(`EXPLAIN QUERY PLAN ${ADMIN_LIST_SQL}`, 51).toArray(), "comments_created_id");
+  assertIndexPlan(
+    sql.exec(`EXPLAIN QUERY PLAN ${ADMIN_LIST_AFTER_SQL}`, "2026-09-26T13:40:00Z", `${SLUG}~p40`, 51).toArray(),
+    "comments_created_id"
+  );
+});
+
+test("replay of a hidden comment returns only id and status", async () => {
+  const env = createDoEnv();
+  const id = requestId("d");
+  const created = await (await postComment(env, { requestId: id, body: "Hide this chair." })).json();
+  const hidden = await request("POST", `/comments/${created.comment.id}/hide`, {
+    env,
+    headers: { Authorization: "Bearer secret-admin" },
+  });
+  assert.equal(hidden.status, 200);
+  const replay = await postComment(env, {
+    requestId: id,
+    body: "Hide this chair.",
+    turnstileToken: "garbage-after-hide",
+  });
+  assert.equal(replay.status, 201);
+  const payload = await replay.json();
+  assert.equal(payload.replayed, true);
+  assert.deepEqual(payload.comment, { id: created.comment.id, status: "hidden" });
+  assert.equal(payload.comment.body, undefined);
+  assert.equal(payload.comment.name, undefined);
+});
+
+test("client retries requestId replay before asking for a fresh Turnstile token", async () => {
+  const code = readFileSync(new URL("../../public/js/narrative-comments.js", import.meta.url), "utf8");
+  const sandbox = {
+    document: { querySelectorAll: () => [] },
+    window: {},
+  };
+  sandbox.globalThis = sandbox;
+  sandbox.window = sandbox;
+  vm.createContext(sandbox);
+  vm.runInContext(code, sandbox);
+  const postWithReplay = sandbox.__nrtPostWithReplay;
+  assert.equal(typeof postWithReplay, "function");
+
+  const replayCalls = [];
+  const replayed = await postWithReplay({
+    async postOnce(token) {
+      replayCalls.push(token);
+      if (replayCalls.length === 1) {
+        const err = new Error("upstream 502");
+        err.status = 502;
+        throw err;
+      }
+      return { comment: { id: "1", body: "saved" }, replayed: true };
+    },
+    async waitForFreshToken() {
+      replayCalls.push("fresh");
+      return "fresh-token";
+    },
+    firstToken: "spent-token",
+    onSpentToken() {
+      replayCalls.push("reset");
+    },
+  });
+  assert.deepEqual(replayCalls, ["spent-token", "spent-token"]);
+  assert.equal(replayed.replayed, true);
+
+  const unsavedCalls = [];
+  const saved = await postWithReplay({
+    async postOnce(token) {
+      unsavedCalls.push(token);
+      if (unsavedCalls.length === 1) {
+        const err = new Error("upstream 502");
+        err.status = 502;
+        throw err;
+      }
+      if (token === "spent-token") {
+        const err = new Error("Spam check failed.");
+        err.status = 400;
+        throw err;
+      }
+      return { comment: { id: "2", body: "new save" } };
+    },
+    async waitForFreshToken() {
+      unsavedCalls.push("fresh");
+      return "fresh-token";
+    },
+    firstToken: "spent-token",
+    onSpentToken() {
+      unsavedCalls.push("reset");
+    },
+  });
+  assert.deepEqual(unsavedCalls, ["spent-token", "spent-token", "fresh", "fresh-token"]);
+  assert.equal(saved.comment.id, "2");
+
+  const spentCalls = [];
+  await assert.rejects(
+    () =>
+      postWithReplay({
+        async postOnce(token) {
+          spentCalls.push(token);
+          const err = new Error("Spam check failed.");
+          err.status = 400;
+          throw err;
+        },
+        async waitForFreshToken() {
+          spentCalls.push("fresh");
+          return "fresh-token";
+        },
+        firstToken: "spent-token",
+        onSpentToken() {
+          spentCalls.push("reset");
+        },
+      }),
+    (err) => err.status === 400
+  );
+  assert.deepEqual(spentCalls, ["spent-token", "reset"]);
 });

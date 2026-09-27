@@ -42,7 +42,8 @@ export const ADMIN_PARALLEL = 4;
 export const LIST_CACHE_TTL_SEC = 45;
 export const SLUGS_TTL_MS = 60 * 1000;
 export const SLUGS_FAIL_BACKOFF_MS = 5 * 1000;
-export const SCHEMA_VERSION = 1;
+export const SLUGS_FETCH_TIMEOUT_MS = 4 * 1000;
+export const SCHEMA_VERSION = 2;
 const DIR_NAME = "__directory__";
 const DEFAULT_SLUGS_URL = "https://arrowheadpaesano.com/comments-slugs.json";
 
@@ -79,6 +80,28 @@ function publicComment(row) {
     hidden: Boolean(row.hidden),
   };
 }
+
+export function replayComment(row) {
+  if (!row) return null;
+  if (row.hidden) return { id: row.id, status: "hidden" };
+  return publicComment(row);
+}
+
+export const PUBLIC_LIST_SQL = `SELECT id, slug, name, body, createdAt, hidden FROM comments
+         WHERE hidden = 0
+         ORDER BY createdAt DESC, id DESC
+         LIMIT ?`;
+export const PUBLIC_LIST_AFTER_SQL = `SELECT id, slug, name, body, createdAt, hidden FROM comments
+         WHERE hidden = 0 AND (createdAt, id) < (?, ?)
+         ORDER BY createdAt DESC, id DESC
+         LIMIT ?`;
+export const ADMIN_LIST_SQL = `SELECT id, slug, name, body, createdAt, hidden FROM comments
+         ORDER BY createdAt DESC, id DESC
+         LIMIT ?`;
+export const ADMIN_LIST_AFTER_SQL = `SELECT id, slug, name, body, createdAt, hidden FROM comments
+         WHERE (createdAt, id) < (?, ?)
+         ORDER BY createdAt DESC, id DESC
+         LIMIT ?`;
 
 function parseThreadId(id) {
   const text = String(id || "");
@@ -215,12 +238,13 @@ export async function knownSlugs(env, { force = false } = {}) {
     if (haveList) return slugCache.slugs;
     throw slugListUnavailable();
   }
-  const fetchedRecently = slugCache.lastFetchAt > 0 && now - slugCache.lastFetchAt < SLUGS_TTL_MS;
+  const fetchedRecently =
+    !slugCache.failedAt && slugCache.lastFetchAt > 0 && now - slugCache.lastFetchAt < SLUGS_TTL_MS;
   if (fetchedRecently && haveList) return slugCache.slugs;
   const pending = (async () => {
     try {
       const url = String(env.COMMENTS_SLUGS_URL || "").trim() || DEFAULT_SLUGS_URL;
-      const res = await fetch(url);
+      const res = await fetch(url, { signal: AbortSignal.timeout(SLUGS_FETCH_TIMEOUT_MS) });
       if (!res.ok) throw slugListUnavailable();
       const slugs = parseKnownSlugs(await res.json().catch(() => []));
       slugCache.at = Date.now();
@@ -282,6 +306,8 @@ export function migrateThreadSchema(sql) {
   }
   sql.exec(`CREATE UNIQUE INDEX IF NOT EXISTS comments_request_id ON comments (requestId)`);
   sql.exec(`CREATE INDEX IF NOT EXISTS comments_slug_created ON comments (slug, createdAt, id)`);
+  sql.exec(`CREATE INDEX IF NOT EXISTS comments_created_id ON comments (createdAt, id)`);
+  sql.exec(`CREATE INDEX IF NOT EXISTS comments_hidden_created ON comments (hidden, createdAt, id)`);
   const schema = sql.exec(`SELECT value FROM meta WHERE key = 'schema_version'`).toArray();
   const current = schema.length ? Number(schema[0].value) : 0;
   if (current !== SCHEMA_VERSION) {
@@ -338,27 +364,20 @@ export class SqliteThreadStore {
     return this.version();
   }
 
-  list(slug, { includeHidden = false, limit = THREAD_LIST_LIMIT, after = "" } = {}) {
+  list(options = {}, maybeOpts) {
+    const opts = typeof options === "object" && options ? options : maybeOpts || {};
+    const { includeHidden = false, limit = THREAD_LIST_LIMIT, after = "" } = opts;
     const cap = clampLimit(limit, THREAD_LIST_LIMIT);
     const cursor = parseCursor(after);
-    const rows = this.sql
-      .exec(
-        `SELECT id, slug, name, body, createdAt, hidden FROM comments
-         WHERE (? = '' OR slug = ?)
-           AND (? = 1 OR hidden = 0)
-           AND (? = '' OR createdAt < ? OR (createdAt = ? AND id < ?))
-         ORDER BY createdAt DESC, id DESC
-         LIMIT ?`,
-        slug || "",
-        slug || "",
-        includeHidden ? 1 : 0,
-        cursor.created,
-        cursor.created,
-        cursor.created,
-        cursor.id,
-        cap + 1
-      )
-      .toArray();
+    const rows = (
+      includeHidden
+        ? cursor.created
+          ? this.sql.exec(ADMIN_LIST_AFTER_SQL, cursor.created, cursor.id, cap + 1)
+          : this.sql.exec(ADMIN_LIST_SQL, cap + 1)
+        : cursor.created
+          ? this.sql.exec(PUBLIC_LIST_AFTER_SQL, cursor.created, cursor.id, cap + 1)
+          : this.sql.exec(PUBLIC_LIST_SQL, cap + 1)
+    ).toArray();
     const hasMore = rows.length > cap;
     const page = rows.slice(0, cap);
     const last = page[page.length - 1];
@@ -377,7 +396,7 @@ export class SqliteThreadStore {
         requestId
       )
       .toArray();
-    return rows.length ? publicComment({ ...rows[0], hidden: Boolean(rows[0].hidden) }) : null;
+    return rows.length ? replayComment({ ...rows[0], hidden: Boolean(rows[0].hidden) }) : null;
   }
 
   insert(row) {
@@ -857,7 +876,7 @@ export class CommentThread {
     const store = this.store();
     if (url.pathname === "/list") {
       return Response.json(
-        store.list("", {
+        store.list({
           includeHidden: url.searchParams.get("hidden") === "1",
           limit: url.searchParams.get("limit"),
           after: url.searchParams.get("after") || "",

@@ -220,6 +220,29 @@
     return "";
   }
 
+  async function postWithReplay({ postOnce, waitForFreshToken, firstToken, onSpentToken }) {
+    try {
+      return await postOnce(firstToken);
+    } catch (err) {
+      const transient = !err.status || err.status >= 500;
+      if (!transient) {
+        if (onSpentToken) onSpentToken();
+        throw err;
+      }
+      try {
+        return await postOnce(firstToken);
+      } catch (err2) {
+        const fresh = await waitForFreshToken();
+        if (!fresh) throw err2;
+        return await postOnce(fresh);
+      }
+    }
+  }
+
+  if (typeof globalThis !== "undefined") {
+    globalThis.__nrtPostWithReplay = postWithReplay;
+  }
+
   function waitForFreshTurnstile(siteKey, widgetId) {
     if (!siteKey || !window.turnstile || widgetId === null) {
       return Promise.resolve(turnstileToken(siteKey, widgetId));
@@ -344,17 +367,15 @@
             }),
           });
         }
-        let data;
-        try {
-          data = await postOnce(token);
-        } catch (err) {
-          const transient = !err.status || err.status >= 500;
-          if (!transient) throw err;
-          const fresh = await waitForFreshTurnstile(siteKey, widgetId);
-          if (!fresh) throw err;
-          data = await postOnce(fresh);
-        }
-        if (data.comment) {
+        const data = await postWithReplay({
+          postOnce,
+          waitForFreshToken: () => waitForFreshTurnstile(siteKey, widgetId),
+          firstToken: token,
+          onSpentToken: () => {
+            if (siteKey && window.turnstile && widgetId !== null) window.turnstile.reset(widgetId);
+          },
+        });
+        if (data.comment && data.comment.body) {
           loaded = [data.comment].concat(loaded.filter((row) => row.id !== data.comment.id));
           render();
         }
@@ -362,6 +383,9 @@
         if (siteKey && window.turnstile && widgetId !== null) window.turnstile.reset(widgetId);
         setStatus(status, "Posted. Thanks for sitting at the table.", false);
       } catch (err) {
+        if (err.status && err.status < 500 && siteKey && window.turnstile && widgetId !== null) {
+          window.turnstile.reset(widgetId);
+        }
         setStatus(status, err.message, true);
       } finally {
         submit.disabled = false;
