@@ -73,7 +73,6 @@
 .nrt-comments__form fieldset:disabled input,
 .nrt-comments__form fieldset:disabled textarea,
 .nrt-comments__form fieldset:disabled button {
-  opacity: 0.55;
   cursor: not-allowed;
   pointer-events: none;
 }
@@ -83,6 +82,9 @@
 }
 .nrt-comments__older[hidden] {
   display: none !important;
+}
+.nrt-comments__older.is-retry {
+  color: #b42318;
 }
 .nrt-comments__form:has(fieldset:disabled) {
   opacity: 0.55;

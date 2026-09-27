@@ -8,6 +8,18 @@ Python stand-in for previews and screenshots.
 Node **>= 22** is required (`node:sqlite` in the Worker test suite). CI
 uses Node 22.
 
+## Deploy target
+
+`arrowheadpaesano.com` DNS is on **Namecheap**
+(`dns1`/`dns2.registrar-servers.com`). The apex points at GitHub Pages.
+It is **not** a Cloudflare zone.
+
+The Worker therefore runs on `*.workers.dev`. On `workers.dev` the
+Workers **Cache API is a no-op** (`caches.default` never stores). Cost
+math must not assume cache hits. The versioned cache code stays in the
+Worker only so it is harmless and correct if the zone later moves; it
+is not the cost control.
+
 ## Architecture
 
 - One `CommentThread` Durable Object per **known** story slug. That object
@@ -17,58 +29,116 @@ uses Node 22.
   for `/moderate/` only. It is **never** on the public read path. After a
   successful insert the Worker returns 201 even if directory registration
   fails; `ctx.waitUntil` retries `INSERT OR IGNORE`.
-- Posts send a client `requestId` (UUID). The thread stores it `UNIQUE`,
-  so a retry after a 500 cannot double-post.
-- Public `GET /comments?slug=` is served from the Workers Cache API
-  (`caches.default`, 45s TTL) keyed by **slug + cursor + version**. A
-  cache hit costs **0 Durable Object requests**. A miss costs **exactly
-  one** thread `/list`. Writes bump a per-slug version in the thread DO
-  and in cache so the next read misses.
+- Posts send a client `requestId` (UUID). The thread stores it `UNIQUE`.
+  The Worker looks up that id **before** the 20s post rate limit, so a
+  retry after a 500 cannot double-post and does not consume the interval.
+  The browser retries the same `requestId` once on a network error or 5xx.
+- Public `GET /comments?slug=` ignores any caller `limit` and always
+  returns the newest **50**. Browsers get `Cache-Control: no-store` so a
+  hide or delete is visible on the next page load. Optional edge cache
+  (only if the Worker later sits on a Cloudflare zone) is keyed by
+  **slug + cursor + version**; a put is skipped when the incoming version
+  is older than the pointer already stored.
 - One `RateBucket` Durable Object per IPv4 or IPv6 `/64` for **posts**
-  and the 5-minute admin-token lockout. Public GET rate limiting (600/min
-  per `/64`) runs **only on cache misses**.
-- Hugo emits `/comments-slugs.json` at build time. Unknown slugs return
-  404 and never instantiate a thread DO.
+  and the 5-minute admin-token lockout. Public reads do **not** touch
+  `RATES`. If `RATES` is missing, post and admin routes fail closed
+  (503); reads still work.
+- Hugo emits `/comments-slugs.json` at build time. The Worker caches that
+  list in isolate memory for **60 seconds** and will refetch at most
+  **once per 60s** on an unknown-slug miss. Unknown slugs return 404 and
+  never instantiate a thread DO.
+
+## Per-request costs (workers.dev, no Cache API)
+
+| Path | Durable Object requests | SQLite rows (typical) |
+| --- | --- | --- |
+| Public `GET /comments?slug=` | **1** thread `/list` | ~50 comment rows + 1 `meta.version` |
+| Public `GET` unknown slug | **0** (slug list from memory, or 1 origin fetch if the 60s TTL expired) | 0 |
+| `POST /comments` (new) | **3**: thread `/by-request-id` + `RATES /hit` + thread `/insert` (+ directory write-behind, not on the response path) | 1 comment lookup + 1 rate write + 1 comment insert + 1 version bump |
+| `POST /comments` (same `requestId`) | **1** thread `/by-request-id` | 1 comment lookup |
+| Hide / unhide / delete | 1 `RATES /auth` + 1 thread write | 1 comment + 1 version bump |
+| Admin `GET ?all=1` | 1 directory + **≤4** thread `/list` (4 slugs × 1 page). The client follows `nextSlug` / `nextBySlug`. | 4 × 50 hidden rows |
 
 ## Pagination
 
 The public thread shows the **newest 50** comments. If more exist, the
 API returns `next` (`createdAt|id`, older than that cursor, id as
 tiebreak). The page has a **Load older comments** button that follows
-`next`.
+`next`. A failed older-page fetch shows **Retry** on that button and
+does **not** disable the form.
 
-`/moderate/` pages the directory (`nextSlug`, 8 slugs per request) and
-follows `/comments?slug=&hidden=1` `next` so every comment in a thread
-can be hidden or deleted. If the admin client hits its page cap, it
-shows a notice.
+`/moderate/` pages the directory (`nextSlug`, 4 slugs per request, one
+hidden page each) and follows `/comments?slug=&hidden=1` `next` so every
+comment in a thread can be hidden or deleted. If the admin client hits
+its page cap, it shows a notice.
 
 ## Slug allowlist
 
 - Default: fetch `COMMENTS_SLUGS_URL` (or
   `https://arrowheadpaesano.com/comments-slugs.json`) and cache it in
-  Worker memory for **60 seconds**.
-- A 404 for an unknown slug **refetches once** so a brand-new edition
-  does not stay 404 until the TTL ends.
+  Worker isolate memory for **60 seconds**.
+- An unknown slug may trigger **at most one origin refetch per 60s**.
+  A brand-new edition can stay 404 until that TTL elapses or the isolate
+  refetches.
 - `COMMENTS_KNOWN_SLUGS` is an optional comma-separated pin (tests or an
   emergency override). When it is set, the Worker does not fetch the
   JSON list.
 
+## Schema
+
+`migrateThreadSchema` runs inside `blockConcurrencyWhile` on every
+thread DO:
+
+- `CREATE TABLE IF NOT EXISTS` for `comments`, `slugs`, and `meta`
+- `schema_version` in `meta` (currently `1`)
+- `ALTER TABLE comments ADD COLUMN requestId` when the column is missing
+- `CREATE UNIQUE INDEX IF NOT EXISTS comments_request_id`
+
+Nothing has been deployed yet; the migration is still written so an
+old-shape table upgrades in place.
+
 ## Free-tier math
 
-Workers Free: 100,000 Worker requests/day, 10 ms CPU; SQLite DOs:
-5 million row reads/day, 100,000 row writes/day, 5 GB.
+Workers Free (the real ceiling on `workers.dev`):
 
-Cache hits still count as Worker requests (the 100k cap is unchanged)
-but they do **not** touch Durable Objects. The scarce quota is DO row
-reads/writes:
+- **100,000 Worker requests / day** — this is the scarce quota. Every
+  page view that hits the comments Worker counts, cache or not.
+- 10 ms CPU / request
+- SQLite Durable Objects: **100,000 DO requests / day**, **5 million
+  row reads / day**, **100,000 row writes / day**, 5 GB storage,
+  13,000 GB-s duration / day
 
-- One live edition, 45s first-page TTL: `86400 / 45 ≈ 1,920` list
-  fills/day × ~50 rows ≈ **96k row reads/day** — well under 5M.
-- Before this cache, every page view was 1 thread DO + 1 rate DO.
+Without the Cache API, every public list is 1 Worker request + 1 DO
+request + ~50 row reads:
+
+- 100k Worker requests/day = **100k public reads/day** if every
+  Worker request is a list (about 69 reads/minute if spread evenly).
+  The DO request quota is the same 100k/day, so it binds 1:1 with
+  the Worker cap on this path.
+- Those 100k lists × ~50 rows ≈ **5M row reads/day** — at the DO row
+  cap if every Worker request is a public list. In practice posts,
+  admin, Turnstile, and slug-list fetches share the 100k Worker
+  requests, so row reads stay under 5M.
 - Writes (post / hide / delete) stay tiny versus the 100k write cap.
 - Directory traffic is admin-only.
 
 Stay off paid KV/D1/R2.
+
+## Optional: move DNS to Cloudflare (free)
+
+Namecheap can keep the registration. Point the nameservers at
+Cloudflare (free zone). Then attach a **custom domain** such as
+`comments.arrowheadpaesano.com` to this Worker.
+
+On a Cloudflare zone the Cache API works. Versioned list entries can
+then serve a hit at **0 Durable Object requests**. Browsers still
+receive `Cache-Control: no-store`, so a hide or delete appears on the
+next load. Residual delay if you later enable an edge cache: an
+in-flight miss that listed before a hide finished could serve one stale
+response; the version pointer is never moved backwards, and that
+in-flight body expires with the 45s edge TTL. On today's `workers.dev`
+deploy there is no edge cache, so the next GET always sees the new
+version.
 
 ## One-time owner setup (all free tiers)
 
@@ -127,7 +197,8 @@ never written to `localStorage` or `sessionStorage`.
   from one IPv4 (or IPv6 `/64`) lock that address for **5 minutes**. A
   later correct token from the same address still gets 429 until the
   window expires. Other addresses are unaffected.
-- If the `RATES` binding is missing, admin routes fail closed (503).
+- If the `RATES` binding is missing, **post and admin** routes fail
+  closed (503). Public reads do not use `RATES`.
 
 ## Tests
 

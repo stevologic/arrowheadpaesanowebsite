@@ -354,7 +354,10 @@ class CommentWiringTests(unittest.TestCase):
         self.assertNotIn("sessionStorage", js)
         self.assertIn("Load older comments", configured)
         self.assertIn("Load older comments", js)
+        self.assertIn("Retry", js)
+        self.assertIn('mode === "retry"', js)
         self.assertIn("requestId", js)
+        self.assertIn("retryOnTransient", js)
         self.assertIn("Reached the page cap", js)
         css = (ROOT / "public/css/comments.css").read_text(encoding="utf-8")
         self.assertIn("fieldset:disabled", css)
@@ -383,6 +386,10 @@ class CommentWiringTests(unittest.TestCase):
         self.assertIn('parts[2] === "hide"', worker)
         self.assertIn("DELETE FROM comments", worker)
         self.assertIn("blockConcurrencyWhile", worker)
+        self.assertIn("schema_version", worker)
+        self.assertIn("ALTER TABLE comments ADD COLUMN requestId", worker)
+        self.assertIn("no-store", worker)
+        self.assertIn("by-request-id", worker)
 
 
 if __name__ == "__main__":

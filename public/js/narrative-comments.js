@@ -3,6 +3,8 @@
   const LOAD_ERROR_COPY = "Couldn't load comments.";
   const TURNSTILE_FAIL_COPY = "Spam check didn't load, refresh.";
   const OLDER_COPY = "Load older comments";
+  const OLDER_RETRY_COPY = "Retry";
+  const OLDER_ERROR_COPY = "Couldn't load older comments.";
   const ADMIN_PAGE_CAP = 32;
   const ADMIN_CAP_COPY = "Reached the page cap. Reload to keep paging.";
   const HONEYPOT_FIELD = "nrt_hp_x7";
@@ -108,31 +110,43 @@
     visible.forEach((row) => list.appendChild(renderComment(row, canModerate)));
   }
 
-  function setOlderButton(root, cursor, onLoad) {
+  function setOlderButton(root, cursor, onLoad, mode) {
     let button = $("[data-load-older]", root);
     if (!button) {
       button = document.createElement("button");
       button.type = "button";
       button.className = "btn btn-ghost nrt-comments__older";
       button.setAttribute("data-load-older", "");
-      button.textContent = OLDER_COPY;
       const list = $("[data-comments-list]", root);
       if (list && list.parentNode) list.after(button);
     }
-    button.hidden = !cursor;
-    button.disabled = !cursor;
-    button.onclick = cursor ? onLoad : null;
+    const retry = mode === "retry";
+    button.hidden = !cursor && !retry;
+    button.disabled = !cursor && !retry;
+    button.textContent = retry ? OLDER_RETRY_COPY : OLDER_COPY;
+    button.classList.toggle("is-retry", retry);
+    button.setAttribute("aria-label", retry ? OLDER_ERROR_COPY : OLDER_COPY);
+    button.onclick = cursor || retry ? onLoad : null;
   }
 
-  async function api(url, options) {
-    const response = await fetch(url, options);
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const error = new Error(data.error || "Request failed.");
-      error.status = response.status;
-      throw error;
+  async function api(url, options, retryOnTransient) {
+    async function once() {
+      const response = await fetch(url, options);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const error = new Error(data.error || "Request failed.");
+        error.status = response.status;
+        throw error;
+      }
+      return data;
     }
-    return data;
+    try {
+      return await once();
+    } catch (err) {
+      const transient = !err.status || err.status >= 500;
+      if (retryOnTransient && transient) return once();
+      throw err;
+    }
   }
 
   function bindModeration(root, list, reload) {
@@ -248,9 +262,11 @@
           next = null;
           list.innerHTML = "";
           list.appendChild(errorNode(() => loadPage(true)));
+          setOlderButton(root, null);
+          setFormEnabled(root, false);
+        } else {
+          setOlderButton(root, next, () => loadPage(false), "retry");
         }
-        setOlderButton(root, null);
-        setFormEnabled(root, false);
         return false;
       }
     }
@@ -284,18 +300,22 @@
       submit.disabled = true;
       setStatus(status, "Posting…", false);
       try {
-        const data = await api(apiBase + "/comments", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            slug,
-            name,
-            body,
-            requestId,
-            [HONEYPOT_FIELD]: honeypot ? honeypot.value : "",
-            turnstileToken: token,
-          }),
-        });
+        const data = await api(
+          apiBase + "/comments",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              slug,
+              name,
+              body,
+              requestId,
+              [HONEYPOT_FIELD]: honeypot ? honeypot.value : "",
+              turnstileToken: token,
+            }),
+          },
+          true
+        );
         if (data.comment) {
           loaded = [data.comment].concat(loaded.filter((row) => row.id !== data.comment.id));
           render();

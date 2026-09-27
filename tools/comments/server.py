@@ -71,8 +71,7 @@ def _handle(method: str, path: str, body: dict[str, Any], headers: dict[str, str
         if query.get("all") == "1" or query.get("hidden") == "1":
             STORE.require_admin(headers.get("authorization"), ip)
             return _json_bytes({"comments": STORE.list_admin(slug or None), "nextSlug": None})
-        STORE.hit_get(ip)
-        return _json_bytes(STORE.list_public(slug, limit=query.get("limit"), after=query.get("after", "")))
+        return _json_bytes(STORE.list_public(slug, after=query.get("after", "")))
 
     if method == "POST" and parts == ["comments"]:
         row = STORE.post(
@@ -125,6 +124,8 @@ class Handler(BaseHTTPRequestHandler):
         if extra:
             for key, value in extra.items():
                 self.send_header(key, value)
+        if self.command == "GET" and "all=1" not in self.path and "hidden=1" not in self.path:
+            self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
         if payload:

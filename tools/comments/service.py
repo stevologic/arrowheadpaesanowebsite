@@ -25,8 +25,6 @@ MIN_BODY = 2
 RATE_WINDOW_SEC = 10 * 60
 RATE_MAX = 5
 RATE_MIN_INTERVAL_SEC = 20
-GET_RATE_WINDOW_SEC = 60
-GET_RATE_MAX = 600
 AUTH_FAIL_MAX = 8
 AUTH_FAIL_WINDOW_SEC = 5 * 60
 THREAD_LIST_LIMIT = 50
@@ -129,16 +127,6 @@ def public_comment(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _clamp_limit(value: Any, maximum: int) -> int:
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
-        return maximum
-    if parsed < 1:
-        return maximum
-    return min(parsed, maximum)
-
-
 @dataclass
 class CommentStore:
     admin_token: str
@@ -146,12 +134,9 @@ class CommentStore:
     rate_window_sec: int = RATE_WINDOW_SEC
     rate_max: int = RATE_MAX
     rate_min_interval_sec: int = RATE_MIN_INTERVAL_SEC
-    get_rate_window_sec: int = GET_RATE_WINDOW_SEC
-    get_rate_max: int = GET_RATE_MAX
     known_slugs: set[str] | None = None
     _comments: dict[str, dict[str, Any]] = field(default_factory=dict)
     _hits: dict[str, list[float]] = field(default_factory=dict)
-    _get_hits: dict[str, list[float]] = field(default_factory=dict)
     _auth_fails: dict[str, list[float]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -188,7 +173,7 @@ class CommentStore:
                 for row in rows
                 if (row["createdAt"], row["id"]) < (created, ident)
             ]
-        cap = _clamp_limit(limit, THREAD_LIST_LIMIT)
+        cap = THREAD_LIST_LIMIT
         page = rows[:cap]
         nxt = None
         if len(rows) > cap and page:
@@ -275,15 +260,6 @@ class CommentStore:
             fails.append(now)
             self._auth_fails[key] = fails
             raise CommentError("Unauthorized.", 401)
-
-    def hit_get(self, ip: str) -> None:
-        key = rate_key(ip)
-        now = time.time()
-        hits = [stamp for stamp in self._get_hits.get(key, []) if now - stamp < self.get_rate_window_sec]
-        if len(hits) >= self.get_rate_max:
-            raise CommentError("Too many requests. Try again later.", 429)
-        hits.append(now)
-        self._get_hits[key] = hits
 
     def _enforce_rate_limit(self, ip: str) -> None:
         key = rate_key(ip)

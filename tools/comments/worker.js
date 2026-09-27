@@ -5,10 +5,13 @@
  * known story slug so post/hide/delete are atomic; RateBucket DO per IPv4
  * or IPv6 /64 for post limits and bad-admin-token lockout.
  *
- * Public GET /comments?slug= is served from caches.default (45s TTL,
- * keyed by slug + cursor + version). A cache hit costs 0 DO requests.
- * A miss costs exactly one thread DO list. The directory DO is never
- * on the read path.
+ * Deploy target: arrowheadpaesano.com DNS is on Namecheap, apex → GitHub
+ * Pages. The Worker runs on *.workers.dev, where the Cache API is a
+ * no-op. Public GET /comments?slug= therefore costs exactly one thread
+ * DO /list. Do not put a RateBucket on that path. caches.default is
+ * kept only so a later custom-domain move can reuse versioned keys;
+ * browsers always get Cache-Control: no-store. Never put an older
+ * version over a newer one.
  *
  * Secrets (never commit):
  *   wrangler secret put COMMENTS_ADMIN_TOKEN
@@ -31,23 +34,21 @@ const MIN_BODY = 2;
 export const RATE_WINDOW_SEC = 10 * 60;
 export const RATE_MAX = 5;
 export const RATE_MIN_INTERVAL_SEC = 20;
-export const GET_RATE_WINDOW_SEC = 60;
-export const GET_RATE_MAX = 600;
 export const AUTH_FAIL_MAX = 8;
 export const AUTH_FAIL_WINDOW_SEC = 5 * 60;
 export const THREAD_LIST_LIMIT = 50;
-export const ADMIN_SLUG_PAGE = 8;
+export const ADMIN_SLUG_PAGE = 4;
 export const ADMIN_PARALLEL = 4;
-export const ADMIN_THREAD_PAGES = 40;
 export const LIST_CACHE_TTL_SEC = 45;
 export const SLUGS_TTL_MS = 60 * 1000;
+export const SCHEMA_VERSION = 1;
 const DIR_NAME = "__directory__";
 const DEFAULT_SLUGS_URL = "https://arrowheadpaesano.com/comments-slugs.json";
 
-let slugCache = { at: 0, slugs: null };
+let slugCache = { at: 0, slugs: null, lastFetchAt: 0 };
 
 export function resetSlugCache() {
-  slugCache = { at: 0, slugs: null };
+  slugCache = { at: 0, slugs: null, lastFetchAt: 0 };
 }
 
 function clean(value, limit) {
@@ -188,7 +189,18 @@ function bundledSlugs(env) {
 export async function knownSlugs(env, { force = false } = {}) {
   const pinned = bundledSlugs(env);
   if (pinned) return pinned;
-  if (!force && slugCache.slugs && Date.now() - slugCache.at < SLUGS_TTL_MS) return slugCache.slugs;
+  const now = Date.now();
+  const haveList = slugCache.slugs instanceof Set;
+  const fresh = haveList && now - slugCache.at < SLUGS_TTL_MS;
+  if (!force && fresh) return slugCache.slugs;
+  const fetchedRecently = slugCache.lastFetchAt > 0 && now - slugCache.lastFetchAt < SLUGS_TTL_MS;
+  if (fetchedRecently) {
+    if (haveList) return slugCache.slugs;
+    const err = new Error("Story list is unavailable.");
+    err.status = 503;
+    throw err;
+  }
+  slugCache.lastFetchAt = now;
   const url = String(env.COMMENTS_SLUGS_URL || "").trim() || DEFAULT_SLUGS_URL;
   const res = await fetch(url);
   if (!res.ok) {
@@ -197,7 +209,7 @@ export async function knownSlugs(env, { force = false } = {}) {
     throw err;
   }
   const slugs = parseKnownSlugs(await res.json().catch(() => []));
-  slugCache = { at: Date.now(), slugs };
+  slugCache = { at: Date.now(), slugs, lastFetchAt: slugCache.lastFetchAt };
   return slugs;
 }
 
@@ -206,20 +218,25 @@ async function assertKnownSlug(env, slug) {
   const known = await knownSlugs(env);
   if (known.has(slug)) return;
   if (bundledSlugs(env)) throw unknownStory();
-  resetSlugCache();
   const again = await knownSlugs(env, { force: true });
   if (!again.has(slug)) throw unknownStory();
 }
 
-export function initThreadSchema(sql) {
+function tableColumns(sql, table) {
+  return sql
+    .exec(`PRAGMA table_info(${table})`)
+    .toArray()
+    .map((row) => row.name);
+}
+
+export function migrateThreadSchema(sql) {
   sql.exec(`CREATE TABLE IF NOT EXISTS comments (
     id TEXT PRIMARY KEY,
     slug TEXT NOT NULL,
     name TEXT NOT NULL,
     body TEXT NOT NULL,
     createdAt TEXT NOT NULL,
-    hidden INTEGER NOT NULL DEFAULT 0,
-    requestId TEXT UNIQUE
+    hidden INTEGER NOT NULL DEFAULT 0
   )`);
   sql.exec(`CREATE TABLE IF NOT EXISTS slugs (
     slug TEXT PRIMARY KEY
@@ -229,15 +246,22 @@ export function initThreadSchema(sql) {
     value INTEGER NOT NULL
   )`);
   sql.exec(`INSERT OR IGNORE INTO meta (key, value) VALUES ('version', 0)`);
+  sql.exec(`INSERT OR IGNORE INTO meta (key, value) VALUES ('schema_version', 0)`);
+  const columns = new Set(tableColumns(sql, "comments"));
+  if (!columns.has("requestId")) {
+    sql.exec(`ALTER TABLE comments ADD COLUMN requestId TEXT`);
+  }
+  sql.exec(`CREATE UNIQUE INDEX IF NOT EXISTS comments_request_id ON comments (requestId)`);
   sql.exec(`CREATE INDEX IF NOT EXISTS comments_slug_created ON comments (slug, createdAt, id)`);
+  sql.exec(`INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', ${SCHEMA_VERSION})`);
+}
+
+export function initThreadSchema(sql) {
+  migrateThreadSchema(sql);
 }
 
 export function initRateSchema(sql) {
   sql.exec(`CREATE TABLE IF NOT EXISTS hits (
-    ip TEXT NOT NULL,
-    stamp REAL NOT NULL
-  )`);
-  sql.exec(`CREATE TABLE IF NOT EXISTS gethits (
     ip TEXT NOT NULL,
     stamp REAL NOT NULL
   )`);
@@ -246,7 +270,6 @@ export function initRateSchema(sql) {
     stamp REAL NOT NULL
   )`);
   sql.exec(`CREATE INDEX IF NOT EXISTS hits_ip_stamp ON hits (ip, stamp)`);
-  sql.exec(`CREATE INDEX IF NOT EXISTS gethits_ip_stamp ON gethits (ip, stamp)`);
   sql.exec(`CREATE INDEX IF NOT EXISTS authfails_ip_stamp ON authfails (ip, stamp)`);
 }
 
@@ -385,7 +408,6 @@ export class SqliteRateStore {
 
   _prune(table, windowSec, now) {
     if (table === "hits") this.sql.exec(`DELETE FROM hits WHERE stamp < ?`, now - windowSec);
-    else if (table === "gethits") this.sql.exec(`DELETE FROM gethits WHERE stamp < ?`, now - windowSec);
     else if (table === "authfails") this.sql.exec(`DELETE FROM authfails WHERE stamp < ?`, now - windowSec);
   }
 
@@ -403,17 +425,6 @@ export class SqliteRateStore {
       return { ok: false, status: 429, message: "Too many comments. Try again later." };
     }
     this.sql.exec(`INSERT INTO hits (ip, stamp) VALUES (?, ?)`, key, now);
-    return { ok: true };
-  }
-
-  getHit(ip, now = Date.now() / 1000) {
-    const key = ip || "unknown";
-    this._prune("gethits", GET_RATE_WINDOW_SEC, now);
-    const stamps = this.sql.exec(`SELECT stamp FROM gethits WHERE ip = ?`, key).toArray();
-    if (stamps.length >= GET_RATE_MAX) {
-      return { ok: false, status: 429, message: "Too many requests. Try again later." };
-    }
-    this.sql.exec(`INSERT INTO gethits (ip, stamp) VALUES (?, ?)`, key, now);
     return { ok: true };
   }
 
@@ -547,11 +558,22 @@ async function readCachedVersion(env, slug) {
 }
 
 async function writeCachedVersion(env, slug, version) {
+  const current = Number(await readCachedVersion(env, slug));
+  const next = Number(version);
+  if (Number.isFinite(current) && Number.isFinite(next) && next < current) return false;
   await cachePut(
     env,
     cacheUrl("ver", slug),
     new Response(String(version), { headers: { "cache-control": "max-age=" + LIST_CACHE_TTL_SEC } })
   );
+  return true;
+}
+
+function publicListHeaders(state) {
+  return {
+    "cache-control": "no-store",
+    "x-comments-cache": state,
+  };
 }
 
 async function rememberDirectory(env, slug) {
@@ -600,20 +622,13 @@ async function listThread(env, slug, { includeHidden = false, limit, after } = {
   return res.json();
 }
 
-async function drainThread(env, slug, includeHidden) {
-  const comments = [];
-  let after = "";
-  let version = 0;
-  let capped = false;
-  for (let page = 0; page < ADMIN_THREAD_PAGES; page += 1) {
-    const data = await listThread(env, slug, { includeHidden, after });
-    comments.push(...(data.comments || []));
-    version = data.version;
-    after = data.next || "";
-    if (!after) break;
-    if (page === ADMIN_THREAD_PAGES - 1) capped = true;
-  }
-  return { comments, next: after || null, version, capped };
+async function findExistingByRequestId(env, slug, requestId) {
+  if (!requestId) return null;
+  const res = await threadStub(env, slug).fetch(
+    new Request("https://do/by-request-id?id=" + encodeURIComponent(requestId))
+  );
+  const data = await res.json().catch(() => ({}));
+  return data.comment || null;
 }
 
 async function listAdminDirectory(env, url) {
@@ -626,52 +641,36 @@ async function listAdminDirectory(env, url) {
   const slugs = page.slugs || [];
   const comments = [];
   const nextBySlug = {};
-  let capped = false;
   for (let i = 0; i < slugs.length; i += ADMIN_PARALLEL) {
     const batch = slugs.slice(i, i + ADMIN_PARALLEL);
-    const parts = await Promise.all(batch.map((item) => drainThread(env, item, true)));
+    const parts = await Promise.all(batch.map((item) => listThread(env, item, { includeHidden: true })));
     parts.forEach((part, index) => {
-      comments.push(...part.comments);
+      comments.push(...(part.comments || []));
       if (part.next) nextBySlug[batch[index]] = part.next;
-      if (part.capped) capped = true;
     });
   }
   comments.sort((a, b) => {
     const time = String(b.createdAt).localeCompare(String(a.createdAt));
     return time !== 0 ? time : String(b.id).localeCompare(String(a.id));
   });
-  return { comments, nextSlug: page.nextSlug || null, nextBySlug, capped };
+  return { comments, nextSlug: page.nextSlug || null, nextBySlug };
 }
 
-async function publicList(request, env, slug, url, ip) {
+async function publicList(request, env, slug, url) {
   const after = url.searchParams.get("after") || "";
-  const limit = url.searchParams.get("limit");
   const cachedVersion = await readCachedVersion(env, slug);
   if (cachedVersion !== "") {
     const hit = await cacheMatch(env, listCacheUrl(slug, after, cachedVersion));
     if (hit) {
-      return json(request, env, 200, await hit.json(), {
-        "cache-control": "public, max-age=" + LIST_CACHE_TTL_SEC,
-        "x-comments-cache": "hit",
-      });
+      return json(request, env, 200, await hit.json(), publicListHeaders("hit"));
     }
   }
-  if (env.RATES) {
-    const limited = await rateCall(env, "/get", ip);
-    if (!limited.ok) {
-      const err = new Error(limited.message);
-      err.status = limited.status;
-      throw err;
-    }
-  }
-  const data = await listThread(env, slug, { limit, after });
-  await writeCachedVersion(env, slug, data.version ?? 0);
-  const extra = {
-    "cache-control": "public, max-age=" + LIST_CACHE_TTL_SEC,
-    "x-comments-cache": "miss",
-  };
+  const data = await listThread(env, slug, { after });
+  const extra = publicListHeaders("miss");
   const response = json(request, env, 200, data, extra);
-  await cachePut(env, listCacheUrl(slug, after, data.version ?? 0), response.clone());
+  if (await writeCachedVersion(env, slug, data.version ?? 0)) {
+    await cachePut(env, listCacheUrl(slug, after, data.version ?? 0), response.clone());
+  }
   return response;
 }
 
@@ -705,7 +704,7 @@ export async function handleRequest(request, env, ctx = {}) {
         );
       }
       await assertKnownSlug(env, slug);
-      return await publicList(request, env, slug, url, ip);
+      return await publicList(request, env, slug, url);
     }
 
     if (request.method === "POST" && parts.length === 1 && parts[0] === "comments") {
@@ -733,6 +732,10 @@ export async function handleRequest(request, env, ctx = {}) {
         const err = new Error("Comment is too short.");
         err.status = 400;
         throw err;
+      }
+      if (requestId) {
+        const replayed = await findExistingByRequestId(env, nextSlug, requestId);
+        if (replayed) return json(request, env, 201, { comment: replayed, replayed: true });
       }
       const limited = await rateCall(env, "/hit", ip);
       if (!limited.ok) {
@@ -805,7 +808,7 @@ export class CommentThread {
   constructor(ctx, env) {
     this.ctx = ctx;
     this.env = env;
-    this.ready = runInit(ctx, () => initThreadSchema(this.ctx.storage.sql));
+    this.ready = runInit(ctx, () => migrateThreadSchema(this.ctx.storage.sql));
   }
 
   store() {
@@ -824,6 +827,9 @@ export class CommentThread {
           after: url.searchParams.get("after") || "",
         })
       );
+    }
+    if (url.pathname === "/by-request-id") {
+      return Response.json({ comment: store.findByRequestId(url.searchParams.get("id")) });
     }
     if (url.pathname === "/insert") {
       const row = await request.json();
@@ -864,7 +870,6 @@ export class RateBucket {
     const url = new URL(request.url);
     const ip = url.searchParams.get("ip") || "unknown";
     if (url.pathname === "/hit") return Response.json(this.store().hit(ip));
-    if (url.pathname === "/get") return Response.json(this.store().getHit(ip));
     if (url.pathname === "/auth") {
       return Response.json(this.store().authAttempt(ip, url.searchParams.get("valid") === "1"));
     }
