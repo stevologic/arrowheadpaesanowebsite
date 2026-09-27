@@ -1,6 +1,7 @@
 baseURL: "https://arrowheadpaesano.com/"
 languageCode: "en-us"
 title: "Arrowhead Paesano"
+timeZone: "America/Chicago"
 publishDir: "dist"
 staticDir:
   - "public"

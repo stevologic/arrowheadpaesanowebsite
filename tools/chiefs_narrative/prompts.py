@@ -37,14 +37,28 @@ Return a SINGLE JSON object. No markdown, no prose outside the JSON.\
 """
 
 
+def _game_status_note(game: dict) -> str:
+    """Tell the writer whether a slate row is final, live, or unfinished."""
+    if game.get("completed") and game.get("kcScore") is not None and game.get("oppScore") is not None:
+        return f" [final KC {game['kcScore']}-{game['oppScore']}]"
+    if game.get("inProgress"):
+        snap = ""
+        if game.get("kcScore") is not None and game.get("oppScore") is not None:
+            snap = f" unofficial live KC {game['kcScore']}-{game['oppScore']}"
+        return (
+            f" [IN PROGRESS{snap} — NOT FINAL; do not invent a result or score]"
+        )
+    if not game.get("completed"):
+        return " [not final — do not invent a result or score]"
+    return " [completed, no official score yet — do not invent one]"
+
+
 def _schedule_brief(schedule: list[dict], next_games: list[dict]) -> str:
     def line(g):
         loc = "vs" if g.get("homeAway") == "home" else "@"
         wk = g.get("week")
         date = (g.get("date") or "")[:10]
-        res = ""
-        if g.get("completed") and g.get("kcScore") is not None:
-            res = f" [final KC {g['kcScore']}-{g['oppScore']}]"
+        res = _game_status_note(g)
         tv = f" ({g['tv']})" if g.get("tv") else ""
         return f"  {g.get('seasonType','reg')} wk{wk} {date} KC {loc} {g.get('opponent')}{tv}{res}"
 
@@ -55,20 +69,56 @@ def _schedule_brief(schedule: list[dict], next_games: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _live_game_brief(phase: dict) -> str:
+    game = (phase or {}).get("liveGame")
+    if not game:
+        return ""
+    loc = "vs" if game.get("homeAway") == "home" else "@"
+    snap = ""
+    if game.get("kcScore") is not None and game.get("oppScore") is not None:
+        snap = (
+            f" ESPN live snapshot KC {game['kcScore']}-{game['oppScore']} "
+            "(NOT a final)."
+        )
+    state = "IN PROGRESS" if game.get("inProgress") else "NOT FINAL (past kickoff, ESPN has not marked completed)"
+    return "\n".join(
+        [
+            f"LIVE GAME ({state} — do not review as a final, do not invent a "
+            "result or score, leave lastGameReview.result and lastGameReview.score empty):",
+            f"  {game.get('seasonType','reg')} wk{game.get('week')} "
+            f"{(game.get('date') or '')[:10]} KC {loc} {game.get('opponent')} "
+            f"at {game.get('venue') or '—'}{snap}",
+        ]
+    )
+
+
 def _last_game_brief(signals: dict, phase: dict) -> str:
+    live = _live_game_brief(phase)
     game = (phase or {}).get("lastGame")
     if not game:
-        return "LAST GAME: none on the current slate yet — skip lastGameReview."
+        none = (
+            "LAST COMPLETED GAME: none — do not invent a prior result."
+            if live
+            else "LAST GAME: none on the current slate yet — skip lastGameReview."
+        )
+        return "\n\n".join(p for p in (live, none) if p)
     loc = "vs" if game.get("homeAway") == "home" else "@"
-    score = ""
-    if game.get("kcScore") is not None:
-        score = f" [final KC {game['kcScore']}-{game['oppScore']}]"
+    status = _game_status_note(game)
+    if game.get("completed") and game.get("kcScore") is not None:
+        lead = "LAST GAME (review this with real analysis; do not invent a different score):"
+    else:
+        lead = (
+            "LAST GAME is not a final. Do not invent a result or score; "
+            "leave lastGameReview.result and lastGameReview.score empty:"
+        )
     lines = [
-        "LAST GAME (review this with real analysis; do not invent a different score):",
+        lead,
         f"  {game.get('seasonType','reg')} wk{game.get('week')} "
         f"{(game.get('date') or '')[:10]} KC {loc} {game.get('opponent')}"
-        f"{score} at {game.get('venue') or '—'}",
+        f"{status} at {game.get('venue') or '—'}",
     ]
+    if live:
+        lines = live.split("\n") + [""] + lines
     recap = (signals or {}).get("lastGameRecap") or {}
     kc = recap.get("kc") or {}
     opp = recap.get("opp") or {}

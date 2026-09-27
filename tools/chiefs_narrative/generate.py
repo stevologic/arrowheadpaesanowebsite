@@ -33,6 +33,10 @@ class DuplicateNarrativeError(RuntimeError):
     """Raised when an edition still clones the most recent published copy after retry."""
 
 
+class LiveGameSkip(RuntimeError):
+    """A Chiefs game is in progress; do not mint a new edition."""
+
+
 def _slugify(text: str) -> str:
     text = re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
     return text or "play"
@@ -100,13 +104,22 @@ def _ensure_desk_sections(
 
     review = narrative.get("lastGameReview") or {}
     last = ph.get("lastGame")
-    if last and review:
-        header = phase_mod.format_last_game(last)
-        # ESPN slate facts win over writer copy: date, result, and score are not
-        # the model's to invent (a UTC-dated "Mon Sep 21" shipped for a Sunday game).
-        for key in ("opponent", "label", "result", "score"):
-            if header.get(key):
-                review[key] = header[key]
+    if review:
+        if last:
+            header = phase_mod.format_last_game(last)
+            # ESPN slate facts win over writer copy: date, result, and score
+            # are not the model's to invent. Empty ESPN fields must also win
+            # so a score-less row cannot leak a model 7–7.
+            for key in ("opponent", "label"):
+                if header.get(key):
+                    review[key] = header[key]
+        if last and phase_mod.is_final(last):
+            header = phase_mod.format_last_game(last)
+            review["result"] = header.get("result") or ""
+            review["score"] = header.get("score") or ""
+        else:
+            review["result"] = ""
+            review["score"] = ""
         narrative["lastGameReview"] = review
 
     nxt = narrative.get("nextGame") or {}
@@ -351,6 +364,11 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
     if persist_schedule:
         _write_schedule(schedule)
 
+    if phase_mod.any_in_progress(schedule):
+        raise LiveGameSkip(
+            "Chiefs game in progress (ESPN state=in); skipping new edition"
+        )
+
     # 2. Determine phase + upcoming games.
     ph = phase_mod.detect(schedule)
     upcoming = phase_mod.next_games(schedule, count=3)
@@ -445,6 +463,9 @@ def main(argv=None) -> int:
 
     try:
         result = build(args.provider, persist_schedule=not args.dry_run)
+    except LiveGameSkip as exc:
+        print(f"  [generate] {exc}")
+        return 0
     except DuplicateNarrativeError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

@@ -228,6 +228,61 @@ class DeskSections(unittest.TestCase):
         self.assertIn("final KC 15-16", text)
         self.assertIn("totalYards=280", text)
 
+    def test_espn_override_strips_model_score_when_not_final(self):
+        live = {
+            "id": "live3",
+            "week": 3,
+            "seasonType": "reg",
+            "date": "2026-09-27T17:00:00Z",
+            "opponent": "Miami Dolphins",
+            "completed": False,
+            "inProgress": True,
+            "kcScore": 14,
+            "oppScore": 7,
+            "kickoff": "Sun, Sep 27 · 12:00 PM CT",
+        }
+        narrative = {
+            "lastGameReview": {
+                "lede": "invented recap",
+                "opponent": "Hallucinated",
+                "result": "T",
+                "score": "KC 7–7",
+            }
+        }
+        generate._ensure_desk_sections(
+            narrative, {"news": [], "markets": {}, "schedule": [live]},
+            {"lastGame": live, "liveGame": live}, NEXT,
+        )
+        self.assertEqual(narrative["lastGameReview"]["result"], "")
+        self.assertEqual(narrative["lastGameReview"]["score"], "")
+        self.assertEqual(narrative["lastGameReview"]["opponent"], "Miami Dolphins")
+
+    def test_espn_override_clears_scoreless_completed_row(self):
+        last = {
+            "id": "done",
+            "week": 2,
+            "seasonType": "reg",
+            "date": "2026-09-21T00:20:00Z",
+            "opponent": "Indianapolis Colts",
+            "completed": True,
+            "kcScore": None,
+            "oppScore": None,
+            "kickoff": "Sun, Sep 20 · 7:20 PM CT",
+        }
+        narrative = {
+            "lastGameReview": {
+                "lede": "invented recap",
+                "result": "W",
+                "score": "KC 7–7",
+            }
+        }
+        generate._ensure_desk_sections(
+            narrative, {"news": [], "markets": {}, "schedule": [last]},
+            {"lastGame": last}, NEXT,
+        )
+        self.assertEqual(narrative["lastGameReview"]["result"], "")
+        self.assertEqual(narrative["lastGameReview"]["score"], "")
+
     def test_fetch_game_recap_reads_espn_summary(self):
         payload = {
             "boxscore": {
@@ -335,6 +390,9 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("--schedule-only", yaml)
         self.assertIn("python -m tools.chiefs_narrative.generate --schedule-only", yaml)
         self.assertIn("Chiefs schedule: refresh 2026 slate", yaml)
+        self.assertIn("phase.any_in_progress", yaml)
+        self.assertIn("steps.live.outputs.skip", yaml)
+        self.assertIn("skipping new edition and PR", yaml)
         self.assertNotIn("*/15", yaml)
         self.assertNotIn("10 11 * * *", yaml)
         self.assertNotIn("20 4 * * *", yaml)
@@ -558,7 +616,11 @@ class SeasonClock(unittest.TestCase):
         self.assertIn("press-hero__actions", index)
         hero_actions = index[index.find("press-hero__actions"):index.find("press-hero__proof")]
         self.assertIn("narrative/", hero_actions)
+        hugo = (root / "hugo.yaml").read_text(encoding="utf-8")
+        self.assertIn('timeZone: "America/Chicago"', hugo)
         edition = (root / "layouts" / "partials" / "narrative-edition.html").read_text(encoding="utf-8")
+        self.assertIn('time.AsTime .generatedAt "America/Chicago"', edition)
+        self.assertIn("CT</strong>", edition)
         slate = (root / "layouts" / "partials" / "season-slate.html").read_text(encoding="utf-8")
         wire = (root / "layouts" / "partials" / "wire-headlines.html").read_text(encoding="utf-8")
         self.assertIn('partial "season-slate.html"', index)
@@ -1056,6 +1118,195 @@ class ScheduleScores(unittest.TestCase):
         self.assertEqual(games[0]["kcScore"], 12)
         self.assertEqual(games[0]["oppScore"], 20)
         self.assertTrue(games[0]["completed"])
+
+
+class LiveGamePhase(unittest.TestCase):
+    """A live or unfinished game must never become last week · review."""
+
+    WEEK2 = {
+        "id": "w2",
+        "week": 2,
+        "seasonType": "reg",
+        "date": "2026-09-21T00:20:00Z",
+        "opponent": "Indianapolis Colts",
+        "homeAway": "home",
+        "venue": "GEHA Field at Arrowhead Stadium",
+        "completed": True,
+        "inProgress": False,
+        "kcScore": 33,
+        "oppScore": 30,
+        "kickoff": "Sun, Sep 20 · 7:20 PM CT",
+    }
+    WEEK3_LIVE = {
+        "id": "w3",
+        "week": 3,
+        "seasonType": "reg",
+        "date": "2026-09-27T17:00:00Z",
+        "opponent": "Miami Dolphins",
+        "homeAway": "away",
+        "venue": "Hard Rock Stadium",
+        "completed": False,
+        "inProgress": True,
+        "kcScore": 14,
+        "oppScore": 7,
+        "kickoff": "Sun, Sep 27 · 12:00 PM CT",
+    }
+    WEEK4 = {
+        "id": "w4",
+        "week": 4,
+        "seasonType": "reg",
+        "date": "2026-10-04T20:25:00Z",
+        "opponent": "Las Vegas Raiders",
+        "homeAway": "away",
+        "venue": "Allegiant Stadium",
+        "completed": False,
+        "inProgress": False,
+        "kcScore": None,
+        "oppScore": None,
+        "kickoff": "Sun, Oct 4 · 3:25 PM CT",
+    }
+    NOW = datetime(2026, 9, 27, 17, 37, tzinfo=timezone.utc)
+
+    def test_in_progress_is_not_review_and_keeps_own_week(self):
+        ph = phase.detect([self.WEEK2, self.WEEK3_LIVE, self.WEEK4], now=self.NOW)
+        self.assertEqual(ph["week"], 3)
+        self.assertEqual(ph["label"], "Week 3")
+        self.assertNotEqual(ph["mode"], "review")
+        self.assertEqual(ph["mode"], "preview")
+        self.assertEqual(ph["liveGame"]["week"], 3)
+        self.assertEqual(ph["lastGame"]["week"], 2)
+        self.assertTrue(ph["lastGame"]["completed"])
+        self.assertEqual(ph["nextGame"]["week"], 4)
+        self.assertFalse(phase.any_in_progress([]))
+        self.assertTrue(phase.any_in_progress([self.WEEK3_LIVE]))
+
+    def test_past_kickoff_without_completed_is_live(self):
+        unfinished = dict(self.WEEK3_LIVE)
+        unfinished["inProgress"] = False
+        unfinished["kcScore"] = None
+        unfinished["oppScore"] = None
+        self.assertTrue(phase.is_live(unfinished, now=self.NOW))
+        self.assertFalse(phase.is_final(unfinished))
+        ph = phase.detect([self.WEEK2, unfinished, self.WEEK4], now=self.NOW)
+        self.assertEqual(ph["week"], 3)
+        self.assertEqual(ph["label"], "Week 3")
+        self.assertNotEqual(ph["mode"], "review")
+        self.assertEqual(ph["liveGame"]["week"], 3)
+        self.assertFalse(phase.any_in_progress([unfinished]))
+
+    def test_completed_with_both_scores_allows_review(self):
+        now = datetime(2026, 9, 28, 15, 0, tzinfo=timezone.utc)
+        week3 = {
+            "id": "w3f",
+            "week": 3,
+            "seasonType": "reg",
+            "date": "2026-09-27T17:00:00Z",
+            "opponent": "Miami Dolphins",
+            "completed": True,
+            "inProgress": False,
+            "kcScore": 24,
+            "oppScore": 17,
+            "kickoff": "Sun, Sep 27 · 12:00 PM CT",
+        }
+        self.assertTrue(phase.is_final(week3))
+        ph = phase.detect([self.WEEK2, week3, self.WEEK4], now=now)
+        self.assertEqual(ph["mode"], "review")
+        self.assertEqual(ph["lastGame"]["week"], 3)
+        self.assertEqual(ph["week"], 4)
+        self.assertIsNone(ph["liveGame"])
+
+    def test_completed_without_scores_is_not_review(self):
+        now = datetime(2026, 9, 28, 15, 0, tzinfo=timezone.utc)
+        week3 = {
+            "id": "w3ns",
+            "week": 3,
+            "seasonType": "reg",
+            "date": "2026-09-27T17:00:00Z",
+            "opponent": "Miami Dolphins",
+            "completed": True,
+            "inProgress": False,
+            "kcScore": None,
+            "oppScore": None,
+        }
+        ph = phase.detect([self.WEEK2, week3, self.WEEK4], now=now)
+        self.assertNotEqual(ph["mode"], "review")
+
+    def test_in_progress_skips_publish(self):
+        live = dict(self.WEEK3_LIVE)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            narrative_json = root / "narrative.json"
+            wire_json = root / "wire.json"
+            editions = root / "editions"
+            editions.mkdir()
+            archive = root / "archive.json"
+            archive.write_text("[]\n", encoding="utf-8")
+            with patch.object(
+                collect,
+                "collect_all",
+                return_value={"schedule": [self.WEEK2, live, self.WEEK4], "news": [], "markets": {}},
+            ), patch.object(generate, "_write_schedule"), patch.object(
+                generate.config, "NARRATIVE_JSON", narrative_json
+            ), patch.object(
+                generate.config, "WIRE_JSON", wire_json
+            ), patch.object(
+                generate.config, "EDITIONS_DIR", editions
+            ), patch.object(
+                generate.config, "ARCHIVE_JSON", archive
+            ), patch.object(
+                generate, "_render_diagrams"
+            ):
+                rc = generate.main(["--provider", "offline"])
+            self.assertEqual(rc, 0)
+            self.assertFalse(narrative_json.exists())
+            self.assertFalse(wire_json.exists())
+            self.assertEqual(list(editions.iterdir()), [])
+
+    def test_prompt_names_live_status_and_forbids_invented_score(self):
+        ph = phase.detect([self.WEEK2, self.WEEK3_LIVE, self.WEEK4], now=self.NOW)
+        text = prompts.build_user_prompt(
+            {"news": [], "markets": {}, "schedule": [self.WEEK2, self.WEEK3_LIVE, self.WEEK4]},
+            ph,
+            [self.WEEK4],
+        )
+        self.assertIn("IN PROGRESS", text)
+        self.assertIn("NOT FINAL", text)
+        self.assertIn("Miami Dolphins", text)
+        self.assertNotIn("final KC 14-7", text)
+
+    def test_fmt_game_uses_central_calendar_date(self):
+        week1 = offline._fmt_game(
+            {
+                "date": "2026-09-15T00:15:00Z",
+                "week": 1,
+                "opponent": "Denver Broncos",
+                "homeAway": "home",
+            }
+        )
+        self.assertIn("Sep 14", week1["label"])
+        self.assertNotIn("Sep 15", week1["label"])
+        week2 = offline._fmt_game(
+            {
+                "date": "2026-09-21T00:20:00Z",
+                "week": 2,
+                "opponent": "Indianapolis Colts",
+                "homeAway": "home",
+            }
+        )
+        self.assertIn("Sep 20", week2["label"])
+        self.assertNotIn("Sep 21", week2["label"])
+
+    def test_footer_shows_ct(self):
+        root = Path(__file__).resolve().parents[2]
+        edition = (root / "layouts" / "partials" / "narrative-edition.html").read_text(
+            encoding="utf-8"
+        )
+        hugo = (root / "hugo.yaml").read_text(encoding="utf-8")
+        self.assertIn('time.AsTime .generatedAt "America/Chicago"', edition)
+        self.assertIn("CT</strong>", edition)
+        self.assertIn('timeZone: "America/Chicago"', hugo)
+        self.assertEqual(collect.local_date_label("2026-09-15T00:15:00Z"), "Mon Sep 14")
+        self.assertEqual(collect.local_date_label("2026-09-21T00:20:00Z"), "Sun Sep 20")
 
 
 if __name__ == "__main__":
