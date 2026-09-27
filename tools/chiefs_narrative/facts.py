@@ -1,15 +1,16 @@
-"""Deterministic ESPN fact-check for last-game review copy.
+"""Deterministic ESPN fact-check for generated edition copy.
 
 The writer is allowed to interpret the tape. It is not allowed to invent a
-final score, a player stat line, or a TD yardage that disagrees with the
-ESPN box / scoring plays we already handed it. Checks are regex-vs-box so
-the same wrong sentence fails every time.
+final score, a player stat line, a TD/FG yardage, or a team FG/TD count
+that disagrees with the ESPN box / scoring plays we already handed it.
+Checks are regex-vs-box so the same wrong sentence fails every time.
+Every generated section is scanned — not just lastGameReview.
 """
 from __future__ import annotations
 
 import re
 
-from . import phase as phase_mod
+from . import collect, phase as phase_mod
 
 # Completions and similar "X-of-Y" / "X/Y" lines must not be read as scores.
 _OF_LINE = re.compile(r"\d+\s*[-–]?\s*of\s*[-–]?\s*\d+", re.IGNORECASE)
@@ -67,6 +68,60 @@ _TD_TYPES = frozenset(
     }
 )
 
+_FG_TYPES = frozenset({"fg", "field goal", "field-goal"})
+
+_DAYTIME = frozenset({"morning", "midday", "afternoon"})
+
+_WORD_COUNTS = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+}
+
+_EDITION_KEYS = (
+    "headline",
+    "dek",
+    "videoHook",
+    "theEdge",
+    "storyline",
+    "lastGameReview",
+    "currentState",
+    "gamePlan",
+    "nextGame",
+    "matchups",
+    "xsandos",
+    "strategies",
+    "spotlight",
+    "coaching",
+    "debates",
+)
+
+_FG_YARD = re.compile(r"(\d{1,2})[-\s]yard(?:s)?\s+field goal", re.IGNORECASE)
+_FG_LIST = re.compile(r"field goals?\s*\(([^)]+)\)", re.IGNORECASE)
+_FG_COUNT = re.compile(
+    r"\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+"
+    r"([A-Za-z][A-Za-z ]{1,24}?)?\s*field goals?\b",
+    re.IGNORECASE,
+)
+_TD_COUNT = re.compile(
+    r"\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+"
+    r"([A-Za-z][A-Za-z ]{1,24}?)?\s*touchdowns?\b",
+    re.IGNORECASE,
+)
+_YARD_NIGHT = re.compile(
+    r"\d+(?:\.\d+)?[-\s]yard(?:s)?\s+night\b",
+    re.IGNORECASE,
+)
+_FINISHED_NIGHT = re.compile(r"\bfinished the night\b", re.IGNORECASE)
+_QB_NIGHT = re.compile(r"\bquarterback night\b", re.IGNORECASE)
+
 
 class FactCheckError(RuntimeError):
     """Raised when the review still disagrees with ESPN after one retry."""
@@ -98,6 +153,167 @@ def review_text(narrative: dict | None) -> str:
             if item:
                 parts.append(str(item))
     return "\n".join(p for p in parts if p)
+
+
+def _walk_prose(value, parts: list[str]) -> None:
+    if value is None or isinstance(value, (int, float, bool)):
+        return
+    if isinstance(value, str):
+        if value.strip():
+            parts.append(value)
+        return
+    if isinstance(value, dict):
+        for item in value.values():
+            _walk_prose(item, parts)
+        return
+    if isinstance(value, list):
+        for item in value:
+            _walk_prose(item, parts)
+
+
+def edition_text(narrative: dict | None) -> str:
+    """Flatten every generated section the writer can put a score into."""
+    payload = narrative or {}
+    parts: list[str] = []
+    for key in _EDITION_KEYS:
+        _walk_prose(payload.get(key), parts)
+    return "\n".join(p for p in parts if p)
+
+
+def _play_team(play: dict) -> str:
+    return (play.get("team") or "").strip().upper()
+
+
+def _play_kind(play: dict) -> str:
+    typ = (play.get("type") or "").strip().lower()
+    if typ in _FG_TYPES or typ == "fg":
+        return "fg"
+    if typ in _TD_TYPES or "touchdown" in typ or typ == "td":
+        return "td"
+    return ""
+
+
+def _play_yards(play: dict):
+    value = play.get("yards")
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _team_aliases(last_game: dict | None, recap: dict | None) -> dict[str, str]:
+    aliases = {
+        "kc": "KC",
+        "chiefs": "KC",
+        "kansas city": "KC",
+    }
+    opp = ((recap or {}).get("oppAbbr") or "").strip().upper()
+    if opp:
+        aliases[opp.lower()] = opp
+    name = ((last_game or {}).get("opponent") or "").strip()
+    tokens = [t for t in re.findall(r"[A-Za-z]+", name) if t.lower() not in ("the",)]
+    for token in tokens:
+        aliases[token.lower()] = opp or token[:3].upper()
+    if len(tokens) >= 2:
+        aliases[name.lower()] = opp or tokens[-1][:3].upper()
+    return aliases
+
+
+def _player_teams(recap: dict | None) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for play in (recap or {}).get("scoringPlays") or []:
+        if not isinstance(play, dict):
+            continue
+        team = _play_team(play)
+        player = (play.get("player") or "").strip()
+        if not team or not player:
+            continue
+        out[player.lower()] = team
+        last = player.split()[-1]
+        if len(last) >= 3:
+            out[last.lower()] = team
+    return out
+
+
+def _bound_team(
+    text: str,
+    start: int,
+    end: int,
+    aliases: dict[str, str],
+    player_teams: dict[str, str],
+) -> str:
+    window_start = max(0, start - 96)
+    window = text[window_start : min(len(text), end + 40)]
+    best = ""
+    best_dist = None
+    for name in sorted(player_teams, key=len, reverse=True):
+        for hit in re.finditer(rf"\b{re.escape(name)}\b", window, re.IGNORECASE):
+            abs_pos = window_start + hit.start()
+            dist = min(abs(start - abs_pos), abs(end - (window_start + hit.end())))
+            if best_dist is None or dist < best_dist:
+                best_dist = dist
+                best = player_teams[name]
+    if best:
+        return best
+    for alias in sorted(aliases, key=len, reverse=True):
+        if len(alias) < 3:
+            continue
+        if re.search(rf"\b{re.escape(alias)}\b", window, re.IGNORECASE):
+            return aliases[alias]
+    return ""
+
+
+def _parse_count_word(raw: str):
+    token = (raw or "").strip().lower()
+    if token in _WORD_COUNTS:
+        return _WORD_COUNTS[token]
+    try:
+        return int(token)
+    except (TypeError, ValueError):
+        return None
+
+
+def _alias_team(phrase: str, aliases: dict[str, str]) -> str:
+    token = " ".join((phrase or "").lower().split())
+    if not token:
+        return ""
+    if token in aliases:
+        return aliases[token]
+    for alias in sorted(aliases, key=len, reverse=True):
+        if len(alias) < 3:
+            continue
+        if re.search(rf"\b{re.escape(alias)}\b", token, re.IGNORECASE):
+            return aliases[alias]
+    return ""
+
+
+def official_yards_by_team(recap: dict | None, kind: str) -> dict[str, set[int]]:
+    by_team: dict[str, set[int]] = {}
+    for play in (recap or {}).get("scoringPlays") or []:
+        if not isinstance(play, dict):
+            continue
+        if kind and _play_kind(play) != kind:
+            continue
+        yards = _play_yards(play)
+        if yards is None:
+            continue
+        team = _play_team(play) or "?"
+        by_team.setdefault(team, set()).add(yards)
+    return by_team
+
+
+def official_count_by_team(recap: dict | None, kind: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for play in (recap or {}).get("scoringPlays") or []:
+        if not isinstance(play, dict):
+            continue
+        if _play_kind(play) != kind:
+            continue
+        team = _play_team(play) or "?"
+        counts[team] = counts.get(team, 0) + 1
+    return counts
 
 
 def _mask_stat_lookalikes(text: str) -> str:
@@ -193,26 +409,164 @@ def _check_scores(text: str, last_game: dict, recap: dict) -> list[str]:
     return issues
 
 
-def _check_td_yards(text: str, recap: dict) -> list[str]:
+def _check_td_yards(
+    text: str, recap: dict, last_game: dict | None = None
+) -> list[str]:
     allowed = official_score_yards(recap)
     if not allowed:
         return []
+    by_team = official_yards_by_team(recap, "td")
+    aliases = _team_aliases(last_game, recap)
+    players = _player_teams(recap)
     issues = []
-    seen: set[int] = set()
+    seen: set[tuple[str, int]] = set()
     for match in _TD_YARDS.finditer(text):
         raw = match.group(1) or match.group(2)
         try:
             yards = int(raw)
         except (TypeError, ValueError):
             continue
-        if yards in seen:
+        team = _bound_team(text, match.start(), match.end(), aliases, players)
+        key = (team or "*", yards)
+        if key in seen:
             continue
-        seen.add(yards)
+        seen.add(key)
+        if team:
+            team_td = by_team.get(team, set())
+            if yards not in team_td:
+                issues.append(
+                    f"scoring yardage {yards} is not a {team} ESPN touchdown "
+                    f"({match.group(0)!r}; {team} TD yards "
+                    f"{sorted(team_td) or 'none'})"
+                )
+            continue
         if yards not in allowed:
             issues.append(
                 f"scoring yardage {yards} is not on the ESPN scoring-play list "
                 f"({match.group(0)!r}; official yards {sorted(allowed)})"
             )
+    return issues
+
+
+def _check_fg_claims(
+    text: str, recap: dict, last_game: dict | None = None
+) -> list[str]:
+    by_team = official_yards_by_team(recap, "fg")
+    if not by_team:
+        return []
+    aliases = _team_aliases(last_game, recap)
+    players = _player_teams(recap)
+    counts = official_count_by_team(recap, "fg")
+    td_counts = official_count_by_team(recap, "td")
+    issues = []
+
+    for match in _FG_LIST.finditer(text):
+        yards = []
+        for raw in re.findall(r"\d{1,2}", match.group(1) or ""):
+            try:
+                yards.append(int(raw))
+            except (TypeError, ValueError):
+                continue
+        if not yards:
+            continue
+        team = _bound_team(text, match.start(), match.end(), aliases, players)
+        owners = []
+        for value in yards:
+            hit = [abbr for abbr, bag in by_team.items() if value in bag]
+            owners.append(set(hit))
+        shared = owners[0]
+        for bag in owners[1:]:
+            shared &= bag
+        if team:
+            team_fg = by_team.get(team, set())
+            bad = [v for v in yards if v not in team_fg]
+            if bad:
+                issues.append(
+                    f"field goals {yards} credited to {team} are not that "
+                    f"team's ESPN kicks ({match.group(0)!r}; {team} FG yards "
+                    f"{sorted(team_fg) or 'none'})"
+                )
+        elif not shared:
+            issues.append(
+                f"field-goal yardage {yards} mixes teams or is not on the "
+                f"ESPN FG list ({match.group(0)!r})"
+            )
+
+    for match in _FG_YARD.finditer(text):
+        try:
+            yards = int(match.group(1))
+        except (TypeError, ValueError):
+            continue
+        team = _bound_team(text, match.start(), match.end(), aliases, players)
+        all_fg = set().union(*by_team.values()) if by_team else set()
+        if team:
+            if yards not in by_team.get(team, set()):
+                issues.append(
+                    f"field-goal yardage {yards} is not a {team} ESPN kick "
+                    f"({match.group(0)!r})"
+                )
+        elif yards not in all_fg:
+            issues.append(
+                f"field-goal yardage {yards} is not on the ESPN FG list "
+                f"({match.group(0)!r})"
+            )
+
+    for match in _FG_COUNT.finditer(text):
+        claimed = _parse_count_word(match.group(1))
+        team = _alias_team(match.group(2) or "", aliases)
+        if claimed is None or not team:
+            continue
+        official = counts.get(team, 0)
+        if claimed != official:
+            issues.append(
+                f"{team} field-goal count {claimed} disagrees with ESPN "
+                f"{official} ({match.group(0)!r})"
+            )
+
+    for match in _TD_COUNT.finditer(text):
+        claimed = _parse_count_word(match.group(1))
+        team = _alias_team(match.group(2) or "", aliases)
+        if claimed is None or not team:
+            continue
+        official = td_counts.get(team, 0)
+        if claimed != official:
+            issues.append(
+                f"{team} touchdown count {claimed} disagrees with ESPN "
+                f"{official} ({match.group(0)!r})"
+            )
+    return issues
+
+
+def _check_part_of_day(text: str, last_game: dict | None) -> list[str]:
+    part = collect.kickoff_part_of_day((last_game or {}).get("date") or "")
+    if part not in _DAYTIME or not text:
+        return []
+    aliases = _team_aliases(last_game, None)
+    issues = []
+    for alias in sorted(aliases, key=len, reverse=True):
+        if len(alias) < 3:
+            continue
+        rx = re.compile(rf"\b{re.escape(alias)}\s+night\b", re.IGNORECASE)
+        match = rx.search(text)
+        if match:
+            issues.append(
+                f"kickoff is {part}; do not call the game a night "
+                f"({match.group(0)!r})"
+            )
+            break
+    if _YARD_NIGHT.search(text):
+        issues.append(
+            f"kickoff is {part}; do not write a 'yard night' "
+            f"({_YARD_NIGHT.search(text).group(0)!r})"
+        )
+    if _FINISHED_NIGHT.search(text):
+        issues.append(
+            f"kickoff is {part}; do not write 'finished the night'"
+        )
+    if _QB_NIGHT.search(text):
+        issues.append(
+            f"kickoff is {part}; do not write 'quarterback night'"
+        )
     return issues
 
 
@@ -316,24 +670,27 @@ def check_review(
     last_game: dict | None,
     recap: dict | None,
 ) -> list[str]:
-    """Return human-readable violations, or an empty list when the review is clean.
+    """Return human-readable violations, or an empty list when the edition is clean.
 
-    If the recap is empty, only final-score contexts are checked against
-    ``lastGame`` scores. Completions (3-of-7), records (6-11, 3-0), and
-    similar non-score numbers are ignored.
+    Scans every generated section (review, story, currentState, gamePlan,
+    xsandos, matchups, strategies, …). If the recap is empty, only
+    final-score contexts are checked against ``lastGame`` scores.
+    Completions (3-of-7), records (6-11, 3-0), and similar non-score
+    numbers are ignored.
     """
     if not last_game or not phase_mod.is_final(last_game):
         return []
-    review = (narrative or {}).get("lastGameReview") or {}
-    if not isinstance(review, dict) or not review:
-        return []
-    text = review_text(narrative)
+    text = edition_text(narrative)
+    if not text.strip():
+        text = review_text(narrative)
     if not text.strip():
         return []
     recap = recap or {}
     issues = _check_scores(text, last_game, recap)
+    issues.extend(_check_part_of_day(text, last_game))
     if recap.get("scoringPlays") or recap.get("leaders") or recap.get("kc"):
-        issues.extend(_check_td_yards(text, recap))
+        issues.extend(_check_td_yards(text, recap, last_game))
+        issues.extend(_check_fg_claims(text, recap, last_game))
         issues.extend(_check_stat_lines(text, recap, last_game))
     # Dedup while keeping order.
     out = []
@@ -349,10 +706,12 @@ def check_review(
 def retry_instruction(violations: list[str]) -> str:
     bullets = "\n".join(f"- {v}" for v in violations)
     return (
-        "FACT CHECK RETRY: the last-game review disagrees with the ESPN box "
+        "FACT CHECK RETRY: the generated edition disagrees with the ESPN box "
         "and scoring plays we supplied:\n"
         f"{bullets}\n"
-        "Rewrite lastGameReview so every final score, in-game score, player "
-        "stat line, and TD yardage matches those ESPN facts exactly. Do not "
-        "invent a different score, a different scorer, or a different yardage."
+        "Rewrite every section (lastGameReview, storyline, currentState, "
+        "gamePlan, xsandos, matchups, strategies) so every final score, "
+        "in-game score, player stat line, TD/FG yardage, and FG/TD count "
+        "matches those ESPN facts by team. Credit the kicking team. Do not "
+        "call a morning/midday/afternoon kickoff a night."
     )

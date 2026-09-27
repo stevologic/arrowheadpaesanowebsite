@@ -334,6 +334,23 @@ class DeskSections(unittest.TestCase):
                     "clock": {"displayValue": "0:12"},
                 }
             ],
+            "drives": {
+                "previous": [
+                    {
+                        "team": {"abbreviation": "KC"},
+                        "result": "MISSED FG",
+                        "start": {
+                            "period": {"number": 4},
+                            "clock": {"displayValue": "1:54"},
+                        },
+                        "plays": [
+                            {
+                                "text": "H.Butker 50 yard field goal is No Good, Wide Left"
+                            }
+                        ],
+                    }
+                ]
+            },
             "leaders": [
                 {
                     "team": {"abbreviation": "KC"},
@@ -360,6 +377,11 @@ class DeskSections(unittest.TestCase):
         self.assertEqual(recap["scoringPlays"][0]["quarter"], 4)
         self.assertEqual(recap["scoringPlays"][0]["clock"], "0:12")
         self.assertEqual(recap["scoringPlays"][0]["yards"], 29)
+        self.assertEqual(recap["scoringPlays"][0]["team"], "TB")
+        self.assertEqual(recap["driveResults"][0]["team"], "KC")
+        self.assertEqual(recap["driveResults"][0]["result"], "missed FG")
+        self.assertEqual(recap["driveResults"][0]["clock"], "1:54")
+        self.assertEqual(recap["driveResults"][0]["yards"], 50)
 
     def test_fetch_game_recap_empty_on_blank_payload(self):
         with patch.object(collect, "_get_json", return_value={"boxscore": {}}):
@@ -376,6 +398,35 @@ class Diagrams(unittest.TestCase):
                 self.assertTrue(svg.startswith("<svg"))
                 self.assertTrue(svg.rstrip().endswith("</svg>"))
                 self.assertEqual(info["side"], diagrams.CONCEPTS[key]["side"])
+                self.assertIn('text x="16"', svg)
+
+    def test_caption_wraps_inside_viewbox(self):
+        long = (
+            "Show heat, drop a lineman, rush the second level — "
+            "Spagnuolo's signature."
+        )
+        lines = diagrams._wrap_caption(long, width=64)
+        self.assertGreaterEqual(len(lines), 1)
+        self.assertLessEqual(len(lines), 2)
+        for line in lines:
+            self.assertLessEqual(len(line), 64)
+
+    def test_xo_grid_does_not_overflow_narrow_viewports(self):
+        css = (
+            Path(__file__).resolve().parents[2] / "public" / "css" / "narrative.css"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            "grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr))",
+            css,
+        )
+        self.assertNotIn(
+            "grid-template-columns: repeat(auto-fill, minmax(340px, 1fr))",
+            css,
+        )
+        self.assertIn(".nrt-xo-card {", css)
+        card = css[css.find(".nrt-xo-card {") : css.find(".nrt-xo-card__board {")]
+        self.assertIn("min-width: 0", card)
+        self.assertIn("max-width: 100%", css[css.find(".nrt-xo-card__board img") :])
 
 
 class EditionSlugs(unittest.TestCase):
@@ -425,8 +476,21 @@ class GrokModelSelection(unittest.TestCase):
         self.assertNotIn("20 4 * * *", yaml)
         gate = "python -m unittest discover -s tools/tests -v"
         self.assertIn(gate, yaml)
-        self.assertLess(yaml.index(gate), yaml.index("Open and auto-merge pull request"))
-        self.assertLess(yaml.index("hugo --gc --minify"), yaml.index("Open and auto-merge pull request"))
+        self.assertLess(yaml.index(gate), yaml.index("Open pull request and wait for CI gates"))
+        self.assertLess(yaml.index("hugo --gc --minify"), yaml.index("Open pull request and wait for CI gates"))
+        self.assertIn("gh pr checks", yaml)
+        self.assertIn("--watch --fail-fast", yaml)
+        self.assertLess(yaml.index("gh pr checks"), yaml.index('gh pr merge "$PR_URL" --squash --delete-branch'))
+        self.assertNotIn("|| gh pr merge", yaml)
+
+    def test_edition_prs_run_ci_gates_before_merge(self):
+        """Skipping every CI job was a workflow-file failure; #106 still merged."""
+        ci = (
+            Path(__file__).resolve().parents[2] / ".github" / "workflows" / "ci.yml"
+        ).read_text(encoding="utf-8")
+        gates = ci.split("automerge:")[0]
+        self.assertNotIn("startsWith(github.head_ref", gates)
+        self.assertIn("narrative/update-", ci.split("automerge:")[1])
 
 
 def _espn_event(
@@ -1451,6 +1515,7 @@ class LiveGamePhase(unittest.TestCase):
                             "type": "INT",
                             "player": "Trent McDuffie",
                             "yards": 0,
+                            "team": "KC",
                             "scoreAfter": "KC 14–7",
                             "kcScore": 14,
                             "oppScore": 7,
@@ -1461,10 +1526,21 @@ class LiveGamePhase(unittest.TestCase):
                             "type": "TD",
                             "player": "Travis Kelce",
                             "yards": 11,
+                            "team": "KC",
                             "scoreAfter": "KC 21–7",
                             "kcScore": 21,
                             "oppScore": 7,
                         },
+                    ],
+                    "driveResults": [
+                        {
+                            "quarter": 4,
+                            "clock": "1:54",
+                            "team": "KC",
+                            "result": "missed FG",
+                            "yards": 50,
+                            "detail": "H.Butker 50 yard field goal is No Good, Wide Left",
+                        }
                     ],
                     "leaders": [],
                 },
@@ -1473,8 +1549,11 @@ class LiveGamePhase(unittest.TestCase):
             [self.WEEK4],
         )
         self.assertIn("SCORING PLAYS", text)
-        self.assertIn("Q2 2:00 INT — Trent McDuffie (0 yd) — KC 14–7", text)
-        self.assertIn("Q3 8:12 TD — Travis Kelce (11 yd)", text)
+        self.assertIn("Q2 2:00 KC INT — Trent McDuffie (0 yd) — KC 14–7", text)
+        self.assertIn("Q3 8:12 KC TD — Travis Kelce (11 yd)", text)
+        self.assertIn("NON-SCORING DRIVE RESULTS", text)
+        self.assertIn("Q4 1:54 KC missed FG — 50 yd", text)
+        self.assertIn("KICKOFF WINDOW", text)
 
     def test_footer_shows_ct(self):
         hugo_bin = _hugo_bin()
@@ -1543,6 +1622,7 @@ class FactCheck(unittest.TestCase):
     RECAP = {
         "kc": {"totalYards": "280"},
         "opp": {"totalYards": "310"},
+        "oppAbbr": "MIA",
         "scoringPlays": [
             {
                 "quarter": 1,
@@ -1550,6 +1630,7 @@ class FactCheck(unittest.TestCase):
                 "type": "TD",
                 "player": "Isiah Pacheco",
                 "yards": 1,
+                "team": "KC",
                 "scoreAfter": "KC 7–0",
                 "kcScore": 7,
                 "oppScore": 0,
@@ -1560,6 +1641,7 @@ class FactCheck(unittest.TestCase):
                 "type": "INT",
                 "player": "Trent McDuffie",
                 "yards": 0,
+                "team": "KC",
                 "scoreAfter": "KC 14–7",
                 "kcScore": 14,
                 "oppScore": 7,
@@ -1570,6 +1652,7 @@ class FactCheck(unittest.TestCase):
                 "type": "TD",
                 "player": "Travis Kelce",
                 "yards": 11,
+                "team": "KC",
                 "scoreAfter": "KC 21–7",
                 "kcScore": 21,
                 "oppScore": 7,
@@ -1580,6 +1663,7 @@ class FactCheck(unittest.TestCase):
                 "type": "FG",
                 "player": "Harrison Butker",
                 "yards": 35,
+                "team": "KC",
                 "scoreAfter": "KC 24–10",
                 "kcScore": 24,
                 "oppScore": 10,
@@ -1649,12 +1733,14 @@ class FactCheck(unittest.TestCase):
     RUN_RECAP = {
         "kc": {"totalYards": "334"},
         "opp": {"totalYards": "310"},
+        "oppAbbr": "MIA",
         "scoringPlays": [
             {
                 "quarter": 1,
                 "type": "TD",
                 "player": "Kenneth Walker III",
                 "yards": 10,
+                "team": "KC",
                 "scoreAfter": "KC 7–0",
                 "kcScore": 7,
                 "oppScore": 0,
@@ -1664,6 +1750,7 @@ class FactCheck(unittest.TestCase):
                 "type": "TD",
                 "player": "Ollie Gordon II",
                 "yards": 3,
+                "team": "MIA",
                 "scoreAfter": "KC 7–7",
                 "kcScore": 7,
                 "oppScore": 7,
@@ -1673,24 +1760,37 @@ class FactCheck(unittest.TestCase):
                 "type": "TD",
                 "player": "Kenneth Walker III",
                 "yards": 5,
+                "team": "KC",
                 "scoreAfter": "KC 14–7",
                 "kcScore": 14,
                 "oppScore": 7,
+            },
+            {
+                "quarter": 3,
+                "type": "FG",
+                "player": "Riley Patterson",
+                "yards": 37,
+                "team": "MIA",
+                "scoreAfter": "KC 14–10",
+                "kcScore": 14,
+                "oppScore": 10,
             },
             {
                 "quarter": 4,
                 "type": "FG",
                 "player": "Harrison Butker",
                 "yards": 34,
-                "scoreAfter": "KC 17–7",
+                "team": "KC",
+                "scoreAfter": "KC 17–10",
                 "kcScore": 17,
-                "oppScore": 7,
+                "oppScore": 10,
             },
             {
                 "quarter": 4,
                 "type": "TD",
                 "player": "Travis Kelce",
                 "yards": 11,
+                "team": "KC",
                 "scoreAfter": "KC 24–10",
                 "kcScore": 24,
                 "oppScore": 10,
@@ -1763,8 +1863,60 @@ class FactCheck(unittest.TestCase):
         payload = _load_fixture("bbc7dd2_last_game_review.json")
         issues = facts.check_review(payload, self.LAST, self.RUN_RECAP)
         self.assertFalse(any("passing line" in item for item in issues), issues)
-        # Karen's original 14-10 claim is frozen in the fixture and must stay a hit.
-        self.assertTrue(any("14-10" in item for item in issues), issues)
+        # 14-10 is Patterson's ESPN score-after; omitting that kick used to
+        # make this sentence look invented.
+        self.assertFalse(any("14-10" in item for item in issues), issues)
+
+    def test_4f6add1_rejects_kc_and_miami_fg_misattribution(self):
+        """Karen QA: edition 4f6add1 credited both FGs to KC and invented a second Miami kick."""
+        payload = _load_fixture("edition_4f6add1_fg_misattr.json")
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        issues = facts.check_review(payload, last, recap)
+        blob = " ".join(issues)
+        self.assertTrue(any("37" in item and "34" in item for item in issues), issues)
+        self.assertTrue(any("MIA" in item and "field-goal count" in item for item in issues), issues)
+        self.assertIn("night", blob)
+        # A clean review must not hide the same lie in later sections.
+        clean_review = dict(payload)
+        clean_review["lastGameReview"] = {
+            "lede": "Kansas City won 24-10. Butker hit from 34. Patterson hit from 37.",
+            "analysis": ["Kelce scored on an 11-yard catch."],
+        }
+        later = facts.check_review(clean_review, last, recap)
+        self.assertTrue(any("37" in item and "34" in item for item in later), later)
+        self.assertTrue(any("MIA" in item and "field-goal count" in item for item in later), later)
+
+    def test_accepts_correct_fg_attribution(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = self._review(
+            lede=(
+                "Patterson's 37-yard field goal made it 14-10. "
+                "Butker answered with a 34-yard field goal. "
+                "Kansas City also missed a 50-yarder wide left."
+            ),
+            analysis=["Kelce scored on an 11-yard catch."],
+            whatWorked=["One Miami field goal and one Kansas City field goal."],
+        )
+        self.assertEqual(facts.check_review(narrative, last, recap), [])
+
+    def test_noon_game_rejects_night_wording(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = self._review(
+            lede="The Miami night was a reminder. Walker had a 3.9-yard night.",
+        )
+        issues = facts.check_review(narrative, last, recap)
+        self.assertTrue(any("night" in item for item in issues), issues)
+
+    def test_kickoff_part_of_day(self):
+        self.assertEqual(collect.kickoff_part_of_day("2026-09-27T17:00:00Z"), "midday")
+        self.assertEqual(collect.kickoff_part_of_day("2026-10-04T20:25:00Z"), "afternoon")
+        self.assertEqual(collect.kickoff_part_of_day("2026-09-21T00:20:00Z"), "night")
 
     def test_rejects_wrong_final_when_recap_empty(self):
         narrative = self._review(lede="Kansas City won it KC 24–7.")

@@ -1,0 +1,91 @@
+{
+  "eventId": "401872952",
+  "oppAbbr": "MIA",
+  "kc": { "totalYards": "334" },
+  "opp": { "totalYards": "329" },
+  "scoringPlays": [
+    {
+      "quarter": 1,
+      "clock": "12:54",
+      "type": "TD",
+      "player": "Kenneth Walker III",
+      "yards": 10,
+      "team": "KC",
+      "scoreAfter": "KC 7–0",
+      "kcScore": 7,
+      "oppScore": 0
+    },
+    {
+      "quarter": 1,
+      "clock": "3:27",
+      "type": "TD",
+      "player": "Ollie Gordon II",
+      "yards": 3,
+      "team": "MIA",
+      "scoreAfter": "KC 7–7",
+      "kcScore": 7,
+      "oppScore": 7
+    },
+    {
+      "quarter": 2,
+      "clock": "12:58",
+      "type": "TD",
+      "player": "Kenneth Walker III",
+      "yards": 5,
+      "team": "KC",
+      "scoreAfter": "KC 14–7",
+      "kcScore": 14,
+      "oppScore": 7
+    },
+    {
+      "quarter": 3,
+      "clock": "10:10",
+      "type": "FG",
+      "player": "Riley Patterson",
+      "yards": 37,
+      "team": "MIA",
+      "scoreAfter": "KC 14–10",
+      "kcScore": 14,
+      "oppScore": 10
+    },
+    {
+      "quarter": 4,
+      "clock": "11:35",
+      "type": "FG",
+      "player": "Harrison Butker",
+      "yards": 34,
+      "team": "KC",
+      "scoreAfter": "KC 17–10",
+      "kcScore": 17,
+      "oppScore": 10
+    },
+    {
+      "quarter": 4,
+      "clock": "2:55",
+      "type": "TD",
+      "player": "Travis Kelce",
+      "yards": 11,
+      "team": "KC",
+      "scoreAfter": "KC 24–10",
+      "kcScore": 24,
+      "oppScore": 10
+    }
+  ],
+  "driveResults": [
+    {
+      "quarter": 4,
+      "clock": "1:54",
+      "team": "KC",
+      "result": "missed FG",
+      "yards": 50,
+      "detail": "H.Butker 50 yard field goal is No Good, Wide Left"
+    }
+  ],
+  "leaders": [
+    {
+      "player": "Patrick Mahomes",
+      "category": "Passing Yards",
+      "value": "20/24, 246 YDS"
+    }
+  ]
+}

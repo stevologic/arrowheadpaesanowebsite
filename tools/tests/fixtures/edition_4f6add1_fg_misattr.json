@@ -1,0 +1,57 @@
+{
+  "headline": "The Dolphins had the ball. The Chiefs had the score.",
+  "dek": "A 24-10 win at Miami.",
+  "storyline": {
+    "lede": "The Miami night was a reminder dressed up as a result.",
+    "body": [
+      "Kelce finished the night, not because Kansas City consistently got off the field."
+    ]
+  },
+  "lastGameReview": {
+    "opponent": "Miami Dolphins",
+    "result": "W",
+    "score": "KC 24–10",
+    "lede": "Kansas City won 24-10 at Hard Rock Stadium.",
+    "analysis": [
+      {
+        "body": "Walker still got the carry volume, but 70 yards is 3.9 a pop. He mostly was. One interception kept it honest. Two field goals (37 and 34) were the tax for drives that got close and stalled."
+      }
+    ],
+    "whatWorked": [
+      "Walker still getting 18 carries — the feature-back declaration survived a 3.9-yard night"
+    ]
+  },
+  "currentState": {
+    "lede": "The standings will not punish them for winning ugly.",
+    "workOn": [
+      {
+        "title": "Finish in the red zone",
+        "body": "Two field goals (37 and 34) in a game you otherwise controlled on the scoreboard is how 14-point wins start feeling like 4-point wins."
+      }
+    ]
+  },
+  "gamePlan": {
+    "lede": "Take the Miami tape to Allegiant.",
+    "keys": [
+      {
+        "title": "Cash touchdowns",
+        "body": "Two Miami field goals kept the Dolphins in earshot until Kelce ended it."
+      }
+    ]
+  },
+  "matchups": [
+    {
+      "unit": "Red zone",
+      "note": "Talent edge is real; two Miami field goals are the warning."
+    }
+  ],
+  "xsandos": [
+    {
+      "title": "Mesh vs. Man",
+      "coaching": "The Miami night was won on timing, not hero balls."
+    }
+  ],
+  "strategies": [
+    "Use mesh in the red zone; two Miami field goals are not an acceptable West-road finish."
+  ]
+}

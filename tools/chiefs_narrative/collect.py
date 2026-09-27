@@ -110,6 +110,25 @@ def kickoff_prompt(iso: str) -> str:
         return ""
 
 
+def kickoff_part_of_day(iso: str) -> str:
+    """morning / midday / afternoon / evening / night from the CT kickoff hour."""
+    if not iso:
+        return ""
+    try:
+        hour = _central(iso).hour
+    except Exception:  # noqa: BLE001
+        return ""
+    if hour < 11:
+        return "morning"
+    if hour < 14:
+        return "midday"
+    if hour < 17:
+        return "afternoon"
+    if hour < 19:
+        return "evening"
+    return "night"
+
+
 def load_cached_schedule() -> list[dict]:
     """Last good slate written to data/schedule_2026.json."""
     try:
@@ -566,6 +585,96 @@ def parse_scoring_plays(plays: list, kc_home: bool | None = None) -> list[dict]:
     return out
 
 
+_DRIVE_RESULTS = {
+    "MISSED FG": "missed FG",
+    "MISS FG": "missed FG",
+    "INT": "INT",
+    "INTERCEPTION": "INT",
+    "FUMBLE": "fumble",
+    "DOWNS": "turnover on downs",
+    "TURNOVER ON DOWNS": "turnover on downs",
+}
+
+
+def _drive_period_clock(drive: dict) -> tuple:
+    start = drive.get("start") if isinstance(drive.get("start"), dict) else {}
+    period = (start.get("period") or {}).get("number")
+    clock = (start.get("clock") or {}).get("displayValue") or ""
+    return period, clock
+
+
+def _drive_detail(drive: dict, result: str) -> tuple[str, int | None]:
+    """Last useful play text and a yardage when the result mentions one."""
+    plays = drive.get("plays") or []
+    needles = {
+        "missed FG": ("no good", "missed", "wide"),
+        "INT": ("intercept",),
+        "fumble": ("fumble",),
+        "turnover on downs": ("turnover on downs", "on downs"),
+    }.get(result, ())
+    chosen = ""
+    for play in reversed(plays):
+        if not isinstance(play, dict):
+            continue
+        text = (play.get("text") or "").strip()
+        if not text:
+            continue
+        low = text.lower()
+        if "timeout" in low or "two-minute" in low:
+            continue
+        if needles and any(n in low for n in needles):
+            chosen = text
+            break
+        if not chosen:
+            chosen = text
+    if not chosen:
+        chosen = (drive.get("description") or "").strip()
+    yards = None
+    match = _YARDS_RE.search(chosen)
+    if match:
+        try:
+            yards = int(match.group(1))
+        except (TypeError, ValueError):
+            yards = None
+    # Keep the prompt line short: drop the long official-play recitation.
+    detail = re.sub(r"\s+", " ", chosen)
+    if len(detail) > 96:
+        detail = detail[:93].rstrip() + "…"
+    return detail, yards
+
+
+def parse_drive_results(drives) -> list[dict]:
+    """Missed FG / INT / fumble / turnover-on-downs with team, quarter, clock."""
+    if isinstance(drives, dict):
+        rows = drives.get("previous") or []
+    elif isinstance(drives, list):
+        rows = drives
+    else:
+        rows = []
+    out = []
+    for drive in rows:
+        if not isinstance(drive, dict):
+            continue
+        raw = (drive.get("result") or drive.get("displayResult") or "").strip()
+        label = _DRIVE_RESULTS.get(raw.upper())
+        if not label:
+            continue
+        team = ((drive.get("team") or {}).get("abbreviation") or "").upper()
+        period, clock = _drive_period_clock(drive)
+        detail, yards = _drive_detail(drive, label)
+        out.append(
+            {
+                "quarter": period,
+                "clock": clock,
+                "team": team,
+                "result": label,
+                "yards": yards,
+                "detail": detail,
+            }
+        )
+    return out
+
+
 def _scoring_lines(plays: list, limit: int = 8) -> list[str]:
     out = []
     for play in plays or []:
@@ -607,6 +716,7 @@ def fetch_game_recap(event_id: str) -> dict:
         "opp": {},
         "scoring": [],
         "scoringPlays": [],
+        "driveResults": [],
         "leaders": [],
     }
     box = data.get("boxscore") or {}
@@ -624,6 +734,7 @@ def fetch_game_recap(event_id: str) -> dict:
     raw_plays = data.get("scoringPlays") or []
     recap["scoring"] = _scoring_lines(raw_plays)
     recap["scoringPlays"] = parse_scoring_plays(raw_plays, _kc_home_from_summary(data))
+    recap["driveResults"] = parse_drive_results(data.get("drives"))
 
     for group in data.get("leaders") or []:
         if not isinstance(group, dict):
@@ -654,6 +765,7 @@ def fetch_game_recap(event_id: str) -> dict:
         and not recap["opp"]
         and not recap["scoring"]
         and not recap["scoringPlays"]
+        and not recap["driveResults"]
         and not recap["leaders"]
     ):
         return {}

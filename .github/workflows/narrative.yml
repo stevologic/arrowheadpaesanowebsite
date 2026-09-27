@@ -151,9 +151,9 @@ jobs:
             git diff --cached --stat
           fi
 
-      # PRs opened with GITHUB_TOKEN do not trigger CI without approval, so
-      # run the same checks as ci.yml's gates job here. A failure stops the
-      # job before the open/merge step below.
+      # Same checks as ci.yml's gates job. A failure stops the job before
+      # the PR is opened. The open step then waits for the PR-triggered
+      # CI gates run to succeed before squash-merging.
       - name: Install Hugo
         run: |
           curl -fsSL --output "${{ runner.temp }}/hugo.tar.gz" \
@@ -168,7 +168,7 @@ jobs:
           python -m unittest discover -s tools/tests -v
           hugo --gc --minify
 
-      - name: Open and auto-merge pull request
+      - name: Open pull request and wait for CI gates
         if: steps.diff.outputs.changed == 'true' && steps.live.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -216,11 +216,11 @@ jobs:
             --title "$TITLE" --body "$BODY")"
 
           echo "Opened $PR_URL"
-          # Prefer GitHub auto-merge; fall back to an immediate squash merge.
-          # This step is later in the same job as "Gate generated content", so
-          # the fallback is only reachable after that gate has passed.
-          gh pr merge "$PR_URL" --squash --auto --delete-branch \
-            || gh pr merge "$PR_URL" --squash --delete-branch
+          # Wait for the pull_request CI gates job. Do not squash-merge on a
+          # failed or skipped workflow (run 36357442773 was a startup failure
+          # and #106 still merged about a second later).
+          gh pr checks "$PR_URL" --watch --fail-fast
+          gh pr merge "$PR_URL" --squash --delete-branch
 
   deploy:
     needs: update

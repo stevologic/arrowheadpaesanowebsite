@@ -59,6 +59,36 @@ def _kickoff_when(game: dict) -> str:
     return collect.kickoff_prompt(game.get("date") or "") or (game.get("kickoff") or "").strip()
 
 
+def _format_scoring_play(play: dict) -> str:
+    quarter = f"Q{play['quarter']}" if play.get("quarter") else "Q?"
+    clock = play.get("clock") or ""
+    team = (play.get("team") or "").strip().upper()
+    typ = play.get("type") or "score"
+    player = play.get("player") or "unknown"
+    yards = play.get("yards")
+    ytxt = f"{yards} yd" if yards is not None else "yd n/a"
+    after = play.get("scoreAfter") or ""
+    tail = f" — {after}" if after else ""
+    stamp = " ".join(p for p in (quarter, clock, team, typ) if p)
+    return f"    {stamp} — {player} ({ytxt}){tail}"
+
+
+def _format_drive_result(row: dict) -> str:
+    quarter = f"Q{row['quarter']}" if row.get("quarter") else "Q?"
+    clock = row.get("clock") or ""
+    team = (row.get("team") or "").strip().upper()
+    result = row.get("result") or "result"
+    stamp = " ".join(p for p in (quarter, clock, team, result) if p)
+    extra = []
+    if row.get("yards") is not None:
+        extra.append(f"{row['yards']} yd")
+    detail = (row.get("detail") or "").strip()
+    if detail:
+        extra.append(detail)
+    tail = f" — {', '.join(extra)}" if extra else ""
+    return f"    {stamp}{tail}"
+
+
 def _schedule_brief(schedule: list[dict], next_games: list[dict]) -> str:
     def line(g):
         loc = "vs" if g.get("homeAway") == "home" else "@"
@@ -117,12 +147,26 @@ def _last_game_brief(signals: dict, phase: dict) -> str:
             "LAST GAME is not a final. Do not invent a result or score; "
             "leave lastGameReview.result and lastGameReview.score empty:"
         )
+    when = _kickoff_when(game) or (game.get("date") or "")[:10]
     lines = [
         lead,
         f"  {game.get('seasonType','reg')} wk{game.get('week')} "
-        f"{_kickoff_when(game) or (game.get('date') or '')[:10]} KC {loc} {game.get('opponent')}"
+        f"{when} KC {loc} {game.get('opponent')}"
         f"{status} at {game.get('venue') or '—'}",
     ]
+    part = collect.kickoff_part_of_day(game.get("date") or "")
+    if part:
+        window = (
+            f"  KICKOFF WINDOW: {when} is {part} in America/Chicago. "
+            "Name the part of day only if you mention the window at all."
+        )
+        if part in ("morning", "midday", "afternoon"):
+            opp = game.get("opponent") or "the opponent"
+            window += (
+                f" This was not a night game — do not write 'night', "
+                f"'{opp} night', or 'yard night'."
+            )
+        lines.append(window)
     if live:
         lines = live.split("\n") + [""] + lines
     recap = (signals or {}).get("lastGameRecap") or {}
@@ -138,22 +182,23 @@ def _last_game_brief(signals: dict, phase: dict) -> str:
     plays = recap.get("scoringPlays") or []
     if plays:
         lines.append(
-            "  SCORING PLAYS (ESPN — quarter, clock, type, player, yards, "
-            "score after; use these exact facts, do not invent a different sequence):"
+            "  SCORING PLAYS (ESPN — team, quarter, clock, type, player, yards, "
+            "score after; credit the TEAM on each line, do not invent a "
+            "different sequence or give a score to the other club):"
         )
         for play in plays:
-            quarter = f"Q{play['quarter']}" if play.get("quarter") else "Q?"
-            clock = play.get("clock") or ""
-            typ = play.get("type") or "score"
-            player = play.get("player") or "unknown"
-            yards = play.get("yards")
-            ytxt = f"{yards} yd" if yards is not None else "yd n/a"
-            after = play.get("scoreAfter") or ""
-            tail = f" — {after}" if after else ""
-            lines.append(f"    {quarter} {clock} {typ} — {player} ({ytxt}){tail}")
+            lines.append(_format_scoring_play(play))
     else:
         for play in recap.get("scoring") or []:
             lines.append(f"  score: {play}")
+    drives = recap.get("driveResults") or []
+    if drives:
+        lines.append(
+            "  NON-SCORING DRIVE RESULTS (missed FG, INT, fumble, turnover on "
+            "downs — team, quarter, clock; these are not made field goals):"
+        )
+        for row in drives:
+            lines.append(_format_drive_result(row))
     for leader in recap.get("leaders") or []:
         lines.append(
             f"  KC leader: {leader.get('player')} — {leader.get('category')} "
@@ -386,9 +431,11 @@ def build_user_prompt(
             "Return JSON with EXACTLY these keys (values are hints, replace them):\n"
             + _schema_hint(phase),
             "KICKOFF RULE: every game line includes its official America/Chicago "
-            "kickoff (e.g. 'Sun Oct 4, 3:25 PM CT'). Never state a kickoff day or "
-            "time other than that supplied string. Do not write 'noon', 'Sunday "
-            "night', 'prime time', or any other invented window.\n"
+            "kickoff (e.g. 'Sun Oct 4, 3:25 PM CT') and a KICKOFF WINDOW part of "
+            "day. Never state a kickoff day or time other than that supplied "
+            "string. Do not write 'noon', 'Sunday night', 'prime time', or any "
+            "other invented window. If the last game window is morning, midday, "
+            "or afternoon, do not call that game a night.\n"
             "Rules: Always fill lastGameReview (unless LAST GAME says none), "
             "currentState, and gamePlan with specific, non-generic analysis. "
             "EXACTLY 6 xsandos cards — four offense, two defense — each "
