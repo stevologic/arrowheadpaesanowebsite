@@ -4,6 +4,7 @@ compatibility_date = "2026-09-01"
 
 [vars]
 COMMENTS_CORS_ORIGINS = "https://arrowheadpaesano.com,https://www.arrowheadpaesano.com"
+COMMENTS_SLUGS_URL = "https://arrowheadpaesano.com/comments-slugs.json"
 COMMENTS_DEV = ""
 
 [[durable_objects.bindings]]

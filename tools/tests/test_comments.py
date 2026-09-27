@@ -37,7 +37,7 @@ class CommentStoreTests(unittest.TestCase):
         store = _store()
         self.assertEqual(store.empty_state(), "No comments yet. Be the first.")
         self.assertEqual(store.empty_state(), EMPTY_STATE)
-        self.assertEqual(store.list_public("2026-09-26-1355"), [])
+        self.assertEqual(store.list_public("2026-09-26-1355")["comments"], [])
 
     def test_post_then_list(self):
         store = _store()
@@ -53,7 +53,7 @@ class CommentStoreTests(unittest.TestCase):
         )
         self.assertIsNotNone(row)
         self.assertEqual(row["name"], "Travis")
-        listed = store.list_public("2026-09-26-1355")
+        listed = store.list_public("2026-09-26-1355")["comments"]
         self.assertEqual(len(listed), 1)
         self.assertEqual(listed[0]["body"], "Great read. The pass rush is the whole story.")
         self.assertFalse(listed[0]["hidden"])
@@ -71,7 +71,7 @@ class CommentStoreTests(unittest.TestCase):
             turnstile_token=TURNSTILE_PASS_TOKEN,
         )
         self.assertIsNone(row)
-        self.assertEqual(store.list_public("2026-09-26-1355"), [])
+        self.assertEqual(store.list_public("2026-09-26-1355")["comments"], [])
 
     def test_turnstile_failure_rejects(self):
         store = _store()
@@ -86,7 +86,7 @@ class CommentStoreTests(unittest.TestCase):
                 turnstile_token=TURNSTILE_FAIL_TOKEN,
             )
         self.assertEqual(ctx.exception.status, 400)
-        self.assertEqual(store.list_public("2026-09-26-1355"), [])
+        self.assertEqual(store.list_public("2026-09-26-1355")["comments"], [])
 
     def test_missing_turnstile_token_rejects(self):
         store = _store()
@@ -113,7 +113,7 @@ class CommentStoreTests(unittest.TestCase):
                 turnstile_token=TURNSTILE_PASS_TOKEN,
             )
         self.assertEqual(ctx.exception.status, 429)
-        self.assertEqual(len(store.list_public("2026-09-26-1355")), 1)
+        self.assertEqual(len(store.list_public("2026-09-26-1355")["comments"]), 1)
 
     def test_hide_then_public_empty_admin_still_sees(self):
         store = _store()
@@ -124,7 +124,7 @@ class CommentStoreTests(unittest.TestCase):
         )
         hidden = store.hide(row["id"], True)
         self.assertTrue(hidden["hidden"])
-        self.assertEqual(store.list_public("2026-09-26-1355"), [])
+        self.assertEqual(store.list_public("2026-09-26-1355")["comments"], [])
         admin = store.list_admin("2026-09-26-1355")
         self.assertEqual(len(admin), 1)
         self.assertTrue(admin[0]["hidden"])
@@ -137,11 +137,23 @@ class CommentStoreTests(unittest.TestCase):
             turnstile_token=TURNSTILE_PASS_TOKEN,
         )
         store.delete(row["id"])
-        self.assertEqual(store.list_public("2026-09-26-1355"), [])
+        self.assertEqual(store.list_public("2026-09-26-1355")["comments"], [])
         self.assertEqual(store.list_admin("2026-09-26-1355"), [])
+        self.assertNotIn(row["id"], store._comments)
         with self.assertRaises(CommentError) as ctx:
             store.delete(row["id"])
         self.assertEqual(ctx.exception.status, 404)
+
+    def test_unknown_slug_is_404_without_storing(self):
+        store = _store()
+        with self.assertRaises(CommentError) as ctx:
+            store.post(
+                {"slug": "not-a-real-edition", "name": "Travis", "body": "Nope."},
+                ip="203.0.113.10",
+                turnstile_token=TURNSTILE_PASS_TOKEN,
+            )
+        self.assertEqual(ctx.exception.status, 404)
+        self.assertEqual(store._comments, {})
 
     def test_admin_token_required(self):
         store = _store()
@@ -233,6 +245,8 @@ class CommentHttpTests(unittest.TestCase):
 
         status, raw = handle("POST", "/comments/nope/hide", {}, {})
         self.assertEqual(status, 401)
+        status, raw = handle("GET", "/comments?all=1", {}, {})
+        self.assertEqual(status, 401)
 
 
 def _hugo_bin() -> str:
@@ -253,6 +267,7 @@ class CommentWiringTests(unittest.TestCase):
     def _build_narrative_html(self, api: str, turnstile: str) -> str:
         hugo = _hugo_bin()
         dest = Path(tempfile.mkdtemp(prefix="nrt-comments-"))
+        self._last_dest = dest
         cfg = Path(tempfile.mkdtemp(prefix="nrt-cfg-")) / "hugo.yaml"
         text = (ROOT / "hugo.yaml").read_text(encoding="utf-8")
         if re.search(r"^  commentsApiUrl:", text, re.M):
@@ -304,6 +319,10 @@ class CommentWiringTests(unittest.TestCase):
         self.assertIn("nrt-comments", configured)
         self.assertIn("challenges.cloudflare.com/turnstile/v0/api.js", configured)
         self.assertIn("nrt_hp_x7", configured)
+        slugs_path = self._last_dest / "comments-slugs.json"
+        self.assertTrue(slugs_path.is_file(), "Hugo must emit comments-slugs.json")
+        slugs = json.loads(slugs_path.read_text(encoding="utf-8"))
+        self.assertIn("2026-09-26-1355", slugs)
 
         js = (ROOT / "public/js/narrative-comments.js").read_text(encoding="utf-8")
         self.assertNotIn(NOT_CONNECTED_COPY, js)
@@ -329,6 +348,8 @@ class CommentWiringTests(unittest.TestCase):
         self.assertIn("RATE_MAX", worker)
         self.assertIn("COMMENTS_ADMIN_TOKEN", worker)
         self.assertIn('parts[2] === "hide"', worker)
+        self.assertIn("DELETE FROM comments", worker)
+        self.assertIn("blockConcurrencyWhile", worker)
 
 
 if __name__ == "__main__":

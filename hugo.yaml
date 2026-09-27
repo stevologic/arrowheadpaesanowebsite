@@ -7,6 +7,17 @@ staticDir:
 disableKinds:
   - "taxonomy"
   - "term"
+outputs:
+  home:
+    - HTML
+    - RSS
+    - commentsSlugs
+outputFormats:
+  commentsSlugs:
+    mediaType: application/json
+    baseName: comments-slugs
+    isPlainText: true
+    notAlternative: true
 params:
   tagline: "Chiefs news, honest takes, and game-day conversation served family-style."
   description: "The official home of Arrowhead Paesano: trusted Kansas City Chiefs news sources, original YouTube takes, fan resources, and Kingdom community."

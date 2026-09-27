@@ -2,8 +2,12 @@
  * Cloudflare Worker + SQLite Durable Objects for narrative comments.
  *
  * $0 on Workers Free (SQLite-backed DOs only). One CommentThread DO per
- * story slug so post/hide/delete are atomic; RateBucket DO per IP for
- * post rate limits and bad-admin-token throttling.
+ * known story slug so post/hide/delete are atomic; RateBucket DO per IPv4
+ * or IPv6 /64 for post/GET limits and bad-admin-token lockout.
+ *
+ * There is no hot global key per comment. The thread DO is the source of
+ * truth; the directory DO is an idempotent slug index used only so
+ * /moderate/ can page a handful of threads in bounded parallel.
  *
  * Secrets (never commit):
  *   wrangler secret put COMMENTS_ADMIN_TOKEN
@@ -11,6 +15,7 @@
  *
  * Vars:
  *   COMMENTS_CORS_ORIGINS  comma-separated production origins
+ *   COMMENTS_SLUGS_URL     Hugo-emitted allowlist (comments-slugs.json)
  *   COMMENTS_DEV           "1" to allow localhost CORS
  */
 export const HONEYPOT_FIELD = "nrt_hp_x7";
@@ -22,9 +27,22 @@ const MIN_BODY = 2;
 export const RATE_WINDOW_SEC = 10 * 60;
 export const RATE_MAX = 5;
 export const RATE_MIN_INTERVAL_SEC = 20;
+export const GET_RATE_WINDOW_SEC = 60;
+export const GET_RATE_MAX = 60;
 export const AUTH_FAIL_MAX = 8;
-export const AUTH_FAIL_WINDOW_SEC = 15 * 60;
+export const AUTH_FAIL_WINDOW_SEC = 5 * 60;
+export const THREAD_LIST_LIMIT = 50;
+export const ADMIN_SLUG_PAGE = 8;
+export const ADMIN_PARALLEL = 4;
 const DIR_NAME = "__directory__";
+const DEFAULT_SLUGS_URL = "https://arrowheadpaesano.com/comments-slugs.json";
+const SLUGS_TTL_MS = 5 * 60 * 1000;
+
+let slugCache = { at: 0, slugs: null };
+
+export function resetSlugCache() {
+  slugCache = { at: 0, slugs: null };
+}
 
 function clean(value, limit) {
   return String(value || "")
@@ -60,12 +78,38 @@ function clientIp(request) {
   );
 }
 
-function timingSafeEqual(a, b) {
-  const left = String(a || "");
-  const right = String(b || "");
-  if (left.length !== right.length) return false;
+function expandIPv6(ip) {
+  const bare = String(ip || "").split("%")[0].toLowerCase();
+  const [head, tail] = bare.split("::");
+  const headParts = head ? head.split(":").filter(Boolean) : [];
+  const tailParts = tail ? tail.split(":").filter(Boolean) : [];
+  const missing = Math.max(8 - headParts.length - tailParts.length, 0);
+  return [...headParts, ...Array(missing).fill("0"), ...tailParts]
+    .slice(0, 8)
+    .map((part) => part.replace(/^0+(?=\w)/, "") || "0");
+}
+
+export function rateKey(ip) {
+  const raw = String(ip || "unknown").trim() || "unknown";
+  if (raw === "unknown") return raw;
+  const bare = raw.split("%")[0];
+  if (bare.includes(".") && bare.includes(":")) {
+    return bare.slice(bare.lastIndexOf(":") + 1);
+  }
+  if (bare.includes(":")) {
+    return expandIPv6(bare).slice(0, 4).join(":") + "::/64";
+  }
+  return bare;
+}
+
+export async function timingSafeEqual(a, b) {
+  const encoder = new TextEncoder();
+  const left = await crypto.subtle.digest("SHA-256", encoder.encode(String(a || "")));
+  const right = await crypto.subtle.digest("SHA-256", encoder.encode(String(b || "")));
+  const leftBytes = new Uint8Array(left);
+  const rightBytes = new Uint8Array(right);
   let out = 0;
-  for (let i = 0; i < left.length; i += 1) out |= left.charCodeAt(i) ^ right.charCodeAt(i);
+  for (let i = 0; i < leftBytes.length; i += 1) out |= leftBytes[i] ^ rightBytes[i];
   return out === 0;
 }
 
@@ -108,201 +152,198 @@ function adminHeaders() {
   return { "X-Robots-Tag": "noindex, nofollow" };
 }
 
-export class MemoryThreadStore {
-  constructor() {
-    this.rows = new Map();
-    this.slugs = new Set();
-  }
-
-  list(slug, { includeHidden = false, includeDeleted = false } = {}) {
-    return [...this.rows.values()]
-      .filter((row) => (!slug || row.slug === slug) && (includeDeleted || !row.deleted) && (includeHidden || !row.hidden))
-      .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
-      .map(publicComment);
-  }
-
-  listAdmin() {
-    return [...this.rows.values()]
-      .filter((row) => !row.deleted)
-      .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
-      .map(publicComment);
-  }
-
-  insert(row) {
-    this.rows.set(row.id, { ...row, hidden: false, deleted: false });
-    this.slugs.add(row.slug);
-    return publicComment(row);
-  }
-
-  hide(id, hidden) {
-    const row = this.rows.get(id);
-    if (!row || row.deleted) return null;
-    row.hidden = Boolean(hidden);
-    return publicComment(row);
-  }
-
-  delete(id) {
-    const row = this.rows.get(id);
-    if (!row || row.deleted) return false;
-    row.deleted = true;
-    return true;
-  }
-
-  rememberSlug(slug) {
-    this.slugs.add(slug);
-  }
+function clampLimit(value, max) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return max;
+  return Math.min(parsed, max);
 }
 
-export class MemoryRateStore {
-  constructor() {
-    this.hits = new Map();
-    this.authFails = new Map();
-  }
-
-  hit(ip, now = Date.now() / 1000) {
-    const key = ip || "unknown";
-    const stamps = (this.hits.get(key) || []).filter((stamp) => now - stamp < RATE_WINDOW_SEC);
-    if (stamps.length && now - stamps[stamps.length - 1] < RATE_MIN_INTERVAL_SEC) {
-      return { ok: false, status: 429, message: "Please wait a moment before commenting again." };
-    }
-    if (stamps.length >= RATE_MAX) {
-      return { ok: false, status: 429, message: "Too many comments. Try again later." };
-    }
-    stamps.push(now);
-    this.hits.set(key, stamps);
-    return { ok: true };
-  }
-
-  authBlocked(ip, now = Date.now() / 1000) {
-    const stamps = (this.authFails.get(ip || "unknown") || []).filter((stamp) => now - stamp < AUTH_FAIL_WINDOW_SEC);
-    return stamps.length >= AUTH_FAIL_MAX;
-  }
-
-  authFail(ip, now = Date.now() / 1000) {
-    const key = ip || "unknown";
-    const stamps = (this.authFails.get(key) || []).filter((stamp) => now - stamp < AUTH_FAIL_WINDOW_SEC);
-    stamps.push(now);
-    this.authFails.set(key, stamps);
-    return stamps.length;
-  }
+function unknownStory() {
+  const err = new Error("Unknown story.");
+  err.status = 404;
+  return err;
 }
 
-export function createMemoryEnv(overrides = {}) {
-  const thread = overrides.threadStore || new MemoryThreadStore();
-  const rates = overrides.rateStore || new MemoryRateStore();
-  return {
-    COMMENTS_ADMIN_TOKEN: "secret-admin",
-    TURNSTILE_SECRET: "turnstile-secret",
-    COMMENTS_CORS_ORIGINS: "https://arrowheadpaesano.com,https://www.arrowheadpaesano.com",
-    COMMENTS_DEV: "",
-    __memory: { thread, rates },
-    ...overrides,
-  };
+function parseKnownSlugs(data) {
+  const list = Array.isArray(data) ? data : data && Array.isArray(data.slugs) ? data.slugs : [];
+  return new Set(list.map((item) => String(item || "").trim()).filter(Boolean));
 }
 
-class SqliteThreadStore {
+export async function knownSlugs(env) {
+  if (env.__knownSlugs instanceof Set) return env.__knownSlugs;
+  if (Array.isArray(env.__knownSlugs)) return new Set(env.__knownSlugs);
+  const bundled = String(env.COMMENTS_KNOWN_SLUGS || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (bundled.length) return new Set(bundled);
+  if (slugCache.slugs && Date.now() - slugCache.at < SLUGS_TTL_MS) return slugCache.slugs;
+  const url = String(env.COMMENTS_SLUGS_URL || "").trim() || DEFAULT_SLUGS_URL;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const err = new Error("Story list is unavailable.");
+    err.status = 503;
+    throw err;
+  }
+  const slugs = parseKnownSlugs(await res.json().catch(() => []));
+  slugCache = { at: Date.now(), slugs };
+  return slugs;
+}
+
+async function assertKnownSlug(env, slug) {
+  if (!SLUG_RE.test(slug) || slug === DIR_NAME) throw unknownStory();
+  const known = await knownSlugs(env);
+  if (!known.has(slug)) throw unknownStory();
+}
+
+export function initThreadSchema(sql) {
+  sql.exec(`CREATE TABLE IF NOT EXISTS comments (
+    id TEXT PRIMARY KEY,
+    slug TEXT NOT NULL,
+    name TEXT NOT NULL,
+    body TEXT NOT NULL,
+    createdAt TEXT NOT NULL,
+    hidden INTEGER NOT NULL DEFAULT 0
+  )`);
+  sql.exec(`CREATE TABLE IF NOT EXISTS slugs (
+    slug TEXT PRIMARY KEY
+  )`);
+  sql.exec(`CREATE INDEX IF NOT EXISTS comments_slug_created ON comments (slug, createdAt, id)`);
+}
+
+export function initRateSchema(sql) {
+  sql.exec(`CREATE TABLE IF NOT EXISTS hits (
+    ip TEXT NOT NULL,
+    stamp REAL NOT NULL
+  )`);
+  sql.exec(`CREATE TABLE IF NOT EXISTS gethits (
+    ip TEXT NOT NULL,
+    stamp REAL NOT NULL
+  )`);
+  sql.exec(`CREATE TABLE IF NOT EXISTS authfails (
+    ip TEXT NOT NULL,
+    stamp REAL NOT NULL
+  )`);
+  sql.exec(`CREATE INDEX IF NOT EXISTS hits_ip_stamp ON hits (ip, stamp)`);
+  sql.exec(`CREATE INDEX IF NOT EXISTS gethits_ip_stamp ON gethits (ip, stamp)`);
+  sql.exec(`CREATE INDEX IF NOT EXISTS authfails_ip_stamp ON authfails (ip, stamp)`);
+}
+
+function runInit(ctx, fn) {
+  if (ctx && typeof ctx.blockConcurrencyWhile === "function") {
+    return ctx.blockConcurrencyWhile(async () => {
+      fn();
+    });
+  }
+  fn();
+  return Promise.resolve();
+}
+
+export class SqliteThreadStore {
   constructor(sql) {
     this.sql = sql;
-    this.sql.exec(`
-      CREATE TABLE IF NOT EXISTS comments (
-        id TEXT PRIMARY KEY,
-        slug TEXT NOT NULL,
-        name TEXT NOT NULL,
-        body TEXT NOT NULL,
-        createdAt TEXT NOT NULL,
-        hidden INTEGER NOT NULL DEFAULT 0,
-        deleted INTEGER NOT NULL DEFAULT 0
-      );
-      CREATE TABLE IF NOT EXISTS slugs (
-        slug TEXT PRIMARY KEY
-      );
-    `);
   }
 
-  list(slug, { includeHidden = false, includeDeleted = false } = {}) {
+  list(slug, { includeHidden = false, limit = THREAD_LIST_LIMIT, after = "" } = {}) {
+    const cap = clampLimit(limit, THREAD_LIST_LIMIT);
+    let afterCreated = "";
+    let afterId = "";
+    if (after) {
+      const cut = String(after).indexOf("|");
+      if (cut > 0) {
+        afterCreated = after.slice(0, cut);
+        afterId = after.slice(cut + 1);
+      }
+    }
     const rows = this.sql
       .exec(
-        `SELECT id, slug, name, body, createdAt, hidden, deleted FROM comments
+        `SELECT id, slug, name, body, createdAt, hidden FROM comments
          WHERE (? = '' OR slug = ?)
-           AND (? = 1 OR deleted = 0)
            AND (? = 1 OR hidden = 0)
-         ORDER BY createdAt ASC`,
+           AND (? = '' OR createdAt > ? OR (createdAt = ? AND id > ?))
+         ORDER BY createdAt ASC, id ASC
+         LIMIT ?`,
         slug || "",
         slug || "",
-        includeDeleted ? 1 : 0,
-        includeHidden ? 1 : 0
+        includeHidden ? 1 : 0,
+        afterCreated,
+        afterCreated,
+        afterCreated,
+        afterId,
+        cap + 1
       )
       .toArray();
-    return rows.map((row) => publicComment({ ...row, hidden: Boolean(row.hidden) }));
-  }
-
-  listAdmin() {
-    return this.sql
-      .exec(
-        `SELECT id, slug, name, body, createdAt, hidden FROM comments
-         WHERE deleted = 0 ORDER BY createdAt DESC`
-      )
-      .toArray()
-      .map((row) => publicComment({ ...row, hidden: Boolean(row.hidden) }));
+    const hasMore = rows.length > cap;
+    const page = rows.slice(0, cap);
+    const last = page[page.length - 1];
+    return {
+      comments: page.map((row) => publicComment({ ...row, hidden: Boolean(row.hidden) })),
+      next: hasMore && last ? `${last.createdAt}|${last.id}` : null,
+    };
   }
 
   insert(row) {
     this.sql.exec(
-      `INSERT INTO comments (id, slug, name, body, createdAt, hidden, deleted)
-       VALUES (?, ?, ?, ?, ?, 0, 0)`,
+      `INSERT INTO comments (id, slug, name, body, createdAt, hidden)
+       VALUES (?, ?, ?, ?, ?, 0)`,
       row.id,
       row.slug,
       row.name,
       row.body,
       row.createdAt
     );
-    this.rememberSlug(row.slug);
+    const saved = this.sql.exec(`SELECT id FROM comments WHERE id = ?`, row.id).toArray();
+    if (!saved.length) return null;
     return publicComment(row);
   }
 
   hide(id, hidden) {
     const rows = this.sql
-      .exec(`SELECT id, slug, name, body, createdAt, hidden, deleted FROM comments WHERE id = ?`, id)
+      .exec(`SELECT id, slug, name, body, createdAt, hidden FROM comments WHERE id = ?`, id)
       .toArray();
-    if (!rows.length || rows[0].deleted) return null;
+    if (!rows.length) return null;
     this.sql.exec(`UPDATE comments SET hidden = ? WHERE id = ?`, hidden ? 1 : 0, id);
     return publicComment({ ...rows[0], hidden: Boolean(hidden) });
   }
 
   delete(id) {
-    const rows = this.sql.exec(`SELECT deleted FROM comments WHERE id = ?`, id).toArray();
-    if (!rows.length || rows[0].deleted) return false;
-    this.sql.exec(`UPDATE comments SET deleted = 1 WHERE id = ?`, id);
-    return true;
+    const rows = this.sql.exec(`SELECT id FROM comments WHERE id = ?`, id).toArray();
+    if (!rows.length) return false;
+    this.sql.exec(`DELETE FROM comments WHERE id = ?`, id);
+    const leftover = this.sql.exec(`SELECT id FROM comments WHERE id = ?`, id).toArray();
+    return leftover.length === 0;
   }
 
   rememberSlug(slug) {
     this.sql.exec(`INSERT OR IGNORE INTO slugs (slug) VALUES (?)`, slug);
+    return this.sql.exec(`SELECT slug FROM slugs WHERE slug = ?`, slug).toArray().length > 0;
   }
 
-  allSlugs() {
-    return this.sql.exec(`SELECT slug FROM slugs`).toArray().map((row) => row.slug);
+  pageSlugs(after = "", limit = ADMIN_SLUG_PAGE) {
+    const cap = clampLimit(limit, ADMIN_SLUG_PAGE);
+    const rows = this.sql
+      .exec(`SELECT slug FROM slugs WHERE slug > ? ORDER BY slug ASC LIMIT ?`, after || "", cap + 1)
+      .toArray();
+    const hasMore = rows.length > cap;
+    const slugs = rows.slice(0, cap).map((row) => row.slug);
+    return { slugs, nextSlug: hasMore ? slugs[slugs.length - 1] : null };
   }
 }
 
-class SqliteRateStore {
+export class SqliteRateStore {
   constructor(sql) {
     this.sql = sql;
-    this.sql.exec(`
-      CREATE TABLE IF NOT EXISTS hits (
-        ip TEXT NOT NULL,
-        stamp REAL NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS authfails (
-        ip TEXT NOT NULL,
-        stamp REAL NOT NULL
-      );
-    `);
+  }
+
+  _prune(table, windowSec, now) {
+    if (table === "hits") this.sql.exec(`DELETE FROM hits WHERE stamp < ?`, now - windowSec);
+    else if (table === "gethits") this.sql.exec(`DELETE FROM gethits WHERE stamp < ?`, now - windowSec);
+    else if (table === "authfails") this.sql.exec(`DELETE FROM authfails WHERE stamp < ?`, now - windowSec);
   }
 
   hit(ip, now = Date.now() / 1000) {
     const key = ip || "unknown";
-    this.sql.exec(`DELETE FROM hits WHERE stamp < ?`, now - RATE_WINDOW_SEC);
+    this._prune("hits", RATE_WINDOW_SEC, now);
     const stamps = this.sql
       .exec(`SELECT stamp FROM hits WHERE ip = ? ORDER BY stamp ASC`, key)
       .toArray()
@@ -317,22 +358,30 @@ class SqliteRateStore {
     return { ok: true };
   }
 
-  authBlocked(ip, now = Date.now() / 1000) {
+  getHit(ip, now = Date.now() / 1000) {
     const key = ip || "unknown";
-    const stamps = this.sql
-      .exec(`SELECT stamp FROM authfails WHERE ip = ? AND stamp >= ?`, key, now - AUTH_FAIL_WINDOW_SEC)
-      .toArray();
-    return stamps.length >= AUTH_FAIL_MAX;
+    this._prune("gethits", GET_RATE_WINDOW_SEC, now);
+    const stamps = this.sql.exec(`SELECT stamp FROM gethits WHERE ip = ?`, key).toArray();
+    if (stamps.length >= GET_RATE_MAX) {
+      return { ok: false, status: 429, message: "Too many requests. Try again later." };
+    }
+    this.sql.exec(`INSERT INTO gethits (ip, stamp) VALUES (?, ?)`, key, now);
+    return { ok: true };
   }
 
-  authFail(ip, now = Date.now() / 1000) {
-    this.sql.exec(`INSERT INTO authfails (ip, stamp) VALUES (?, ?)`, ip || "unknown", now);
+  authAttempt(ip, valid, now = Date.now() / 1000) {
+    const key = ip || "unknown";
+    this._prune("authfails", AUTH_FAIL_WINDOW_SEC, now);
+    const stamps = this.sql.exec(`SELECT stamp FROM authfails WHERE ip = ?`, key).toArray();
+    if (stamps.length >= AUTH_FAIL_MAX) {
+      return { ok: false, blocked: true, status: 429 };
+    }
+    if (!valid) {
+      this.sql.exec(`INSERT INTO authfails (ip, stamp) VALUES (?, ?)`, key, now);
+      return { ok: false, blocked: false, status: 401 };
+    }
+    return { ok: true, blocked: false };
   }
-}
-
-function memoryStores(env) {
-  if (!env.__memory) return null;
-  return env.__memory;
 }
 
 async function verifyTurnstile(token, ip, env) {
@@ -359,36 +408,25 @@ async function verifyTurnstile(token, ip, env) {
   }
 }
 
-async function isAuthBlocked(env, ip) {
-  const memory = memoryStores(env);
-  if (memory) return memory.rates.authBlocked(ip);
-  if (!env.RATES) return false;
-  const res = await env.RATES.get(env.RATES.idFromName(ip || "unknown")).fetch(
-    new Request("https://do/auth-blocked?ip=" + encodeURIComponent(ip || "unknown"))
-  );
-  return Boolean((await res.json()).blocked);
+function requireRates(env) {
+  if (env.RATES) return;
+  const err = new Error("Rate limiter unavailable.");
+  err.status = 503;
+  throw err;
 }
 
-async function recordAuthFail(env, ip) {
-  const memory = memoryStores(env);
-  if (memory) {
-    memory.rates.authFail(ip);
-    return;
-  }
-  if (!env.RATES) return;
-  await env.RATES.get(env.RATES.idFromName(ip || "unknown")).fetch(
-    new Request("https://do/auth-fail?ip=" + encodeURIComponent(ip || "unknown"), { method: "POST" })
-  );
+async function rateCall(env, path, ip, extra = {}) {
+  requireRates(env);
+  const key = rateKey(ip);
+  const url = new URL("https://do" + path);
+  url.searchParams.set("ip", key);
+  for (const [name, value] of Object.entries(extra)) url.searchParams.set(name, String(value));
+  const res = await env.RATES.get(env.RATES.idFromName(key)).fetch(new Request(url.toString(), { method: "POST" }));
+  return res.json();
 }
 
 async function requireAdmin(request, env, ip) {
   const extra = adminHeaders();
-  if (await isAuthBlocked(env, ip)) {
-    const err = new Error("Too many failed sign-in attempts. Try again later.");
-    err.status = 429;
-    err.extra = extra;
-    throw err;
-  }
   const expected = String(env.COMMENTS_ADMIN_TOKEN || "").trim();
   if (!expected) {
     const err = new Error("Moderation is not configured.");
@@ -396,9 +434,22 @@ async function requireAdmin(request, env, ip) {
     err.extra = extra;
     throw err;
   }
+  try {
+    requireRates(env);
+  } catch (err) {
+    err.extra = extra;
+    throw err;
+  }
   const provided = (request.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
-  if (!provided || !timingSafeEqual(provided, expected)) {
-    await recordAuthFail(env, ip);
+  const valid = Boolean(provided) && (await timingSafeEqual(provided, expected));
+  const gate = await rateCall(env, "/auth", ip, { valid: valid ? "1" : "0" });
+  if (gate.blocked) {
+    const err = new Error("Too many failed sign-in attempts. Try again later.");
+    err.status = 429;
+    err.extra = extra;
+    throw err;
+  }
+  if (!valid) {
     const err = new Error("Unauthorized.");
     err.status = 401;
     err.extra = extra;
@@ -406,17 +457,73 @@ async function requireAdmin(request, env, ip) {
   }
 }
 
-async function rateHit(env, ip) {
-  const memory = memoryStores(env);
-  if (memory) return memory.rates.hit(ip);
-  const res = await env.RATES.get(env.RATES.idFromName(ip || "unknown")).fetch(
-    new Request("https://do/hit?ip=" + encodeURIComponent(ip || "unknown"), { method: "POST" })
-  );
-  return res.json();
+function threadStub(env, name) {
+  if (!env.THREADS) {
+    const err = new Error("Comments storage is unavailable.");
+    err.status = 503;
+    throw err;
+  }
+  return env.THREADS.get(env.THREADS.idFromName(name));
 }
 
-function threadFromEnv(env) {
-  return memoryStores(env)?.thread;
+async function rememberDirectory(env, slug) {
+  const res = await threadStub(env, DIR_NAME).fetch(
+    new Request("https://do/remember", { method: "POST", body: JSON.stringify({ slug }) })
+  );
+  const data = await res.json().catch(() => ({}));
+  return Boolean(res.ok && data.ok);
+}
+
+async function insertComment(env, row) {
+  const res = await threadStub(env, row.slug).fetch(
+    new Request("https://do/insert", { method: "POST", body: JSON.stringify(row) })
+  );
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok || !data.comment) {
+    const err = new Error(data.error || "Could not save comment.");
+    err.status = res.status && res.status >= 400 ? res.status : 500;
+    throw err;
+  }
+  if (!(await rememberDirectory(env, row.slug))) {
+    await rememberDirectory(env, row.slug);
+  }
+  return data.comment;
+}
+
+async function listThread(env, slug, { includeHidden = false, limit, after } = {}) {
+  const params = new URLSearchParams();
+  if (includeHidden) params.set("hidden", "1");
+  if (limit) params.set("limit", String(limit));
+  if (after) params.set("after", after);
+  const res = await threadStub(env, slug).fetch(new Request("https://do/list?" + params.toString()));
+  const data = await res.json();
+  if ((data.comments || []).length) {
+    await rememberDirectory(env, slug);
+  }
+  return data;
+}
+
+async function listAdminDirectory(env, url) {
+  const after = url.searchParams.get("after") || "";
+  const limit = clampLimit(url.searchParams.get("limit"), ADMIN_SLUG_PAGE);
+  const dir = await threadStub(env, DIR_NAME).fetch(
+    new Request("https://do/slugs?after=" + encodeURIComponent(after) + "&limit=" + limit)
+  );
+  const page = await dir.json();
+  const slugs = page.slugs || [];
+  const comments = [];
+  for (let i = 0; i < slugs.length; i += ADMIN_PARALLEL) {
+    const batch = slugs.slice(i, i + ADMIN_PARALLEL);
+    const parts = await Promise.all(
+      batch.map(async (item) => {
+        const res = await threadStub(env, item).fetch(new Request("https://do/list?hidden=1"));
+        return (await res.json()).comments || [];
+      })
+    );
+    for (const part of parts) comments.push(...part);
+  }
+  comments.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  return { comments, nextSlug: page.nextSlug || null };
 }
 
 export async function handleRequest(request, env) {
@@ -426,40 +533,30 @@ export async function handleRequest(request, env) {
   const parts = url.pathname.split("/").filter(Boolean);
   const slug = clean(url.searchParams.get("slug") || "", 80);
   const ip = clientIp(request);
-  const store = threadFromEnv(env) || null;
 
   try {
     if (request.method === "GET" && parts.length === 1 && parts[0] === "comments") {
       if (url.searchParams.get("all") === "1" || url.searchParams.get("hidden") === "1") {
         await requireAdmin(request, env, ip);
-        const rows = store
-          ? url.searchParams.get("all") === "1"
-            ? store.listAdmin()
-            : store.list(slug, { includeHidden: true })
-          : [];
-        if (!store && env.THREADS) {
-          const dir = await env.THREADS.get(env.THREADS.idFromName(DIR_NAME)).fetch(new Request("https://do/slugs"));
-          const slugs = (await dir.json()).slugs || [];
-          const all = [];
-          for (const item of slugs) {
-            const res = await env.THREADS.get(env.THREADS.idFromName(item)).fetch(
-              new Request("https://do/list?hidden=1")
-            );
-            all.push(...((await res.json()).comments || []));
-          }
-          all.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-          return json(request, env, 200, { comments: all }, adminHeaders());
-        }
-        return json(request, env, 200, { comments: rows }, adminHeaders());
+        const payload = await listAdminDirectory(env, url);
+        return json(request, env, 200, payload, adminHeaders());
       }
-      if (!SLUG_RE.test(slug)) {
-        const err = new Error("Unknown story.");
-        err.status = 400;
+      const limited = await rateCall(env, "/get", ip);
+      if (!limited.ok) {
+        const err = new Error(limited.message);
+        err.status = limited.status;
         throw err;
       }
-      if (store) return json(request, env, 200, { comments: store.list(slug) });
-      const res = await env.THREADS.get(env.THREADS.idFromName(slug)).fetch(new Request("https://do/list"));
-      return json(request, env, 200, await res.json());
+      await assertKnownSlug(env, slug);
+      return json(
+        request,
+        env,
+        200,
+        await listThread(env, slug, {
+          limit: url.searchParams.get("limit"),
+          after: url.searchParams.get("after") || "",
+        })
+      );
     }
 
     if (request.method === "POST" && parts.length === 1 && parts[0] === "comments") {
@@ -471,11 +568,7 @@ export async function handleRequest(request, env) {
       const nextSlug = clean(body.slug, 80);
       const name = clean(body.name, MAX_NAME);
       const text = clean(body.body, MAX_BODY);
-      if (!SLUG_RE.test(nextSlug)) {
-        const err = new Error("Unknown story.");
-        err.status = 400;
-        throw err;
-      }
+      await assertKnownSlug(env, nextSlug);
       if (name.length < MIN_NAME) {
         const err = new Error("Name is required.");
         err.status = 400;
@@ -486,7 +579,7 @@ export async function handleRequest(request, env) {
         err.status = 400;
         throw err;
       }
-      const limited = await rateHit(env, ip);
+      const limited = await rateCall(env, "/hit", ip);
       if (!limited.ok) {
         const err = new Error(limited.message);
         err.status = limited.status;
@@ -500,32 +593,20 @@ export async function handleRequest(request, env) {
         createdAt: new Date().toISOString().replace(/\.\d+Z$/, "Z"),
         hidden: false,
       };
-      if (store) {
-        store.insert(row);
-        return json(request, env, 201, { comment: publicComment(row) });
-      }
-      await env.THREADS.get(env.THREADS.idFromName(nextSlug)).fetch(
-        new Request("https://do/insert", { method: "POST", body: JSON.stringify(row) })
-      );
-      await env.THREADS.get(env.THREADS.idFromName(DIR_NAME)).fetch(
-        new Request("https://do/remember", { method: "POST", body: JSON.stringify({ slug: nextSlug }) })
-      );
-      return json(request, env, 201, { comment: publicComment(row) });
+      return json(request, env, 201, { comment: await insertComment(env, row) });
     }
 
     if (request.method === "POST" && parts.length === 3 && parts[0] === "comments" && (parts[2] === "hide" || parts[2] === "unhide")) {
       await requireAdmin(request, env, ip);
       const hidden = parts[2] === "hide";
-      let updated = store ? store.hide(parts[1], hidden) : null;
-      if (!store && env.THREADS) {
-        const parsed = parseThreadId(parts[1]);
-        const res = await env.THREADS.get(env.THREADS.idFromName(parsed.slug || slug)).fetch(
-          new Request(`https://do/hide?id=${encodeURIComponent(parts[1])}&hidden=${hidden ? "1" : "0"}`, {
-            method: "POST",
-          })
-        );
-        updated = (await res.json()).comment;
-      }
+      const parsed = parseThreadId(parts[1]);
+      await assertKnownSlug(env, parsed.slug || slug);
+      const res = await threadStub(env, parsed.slug || slug).fetch(
+        new Request(`https://do/hide?id=${encodeURIComponent(parts[1])}&hidden=${hidden ? "1" : "0"}`, {
+          method: "POST",
+        })
+      );
+      const updated = (await res.json()).comment;
       if (!updated) {
         const err = new Error("Comment not found.");
         err.status = 404;
@@ -537,14 +618,12 @@ export async function handleRequest(request, env) {
 
     if (request.method === "DELETE" && parts.length === 2 && parts[0] === "comments") {
       await requireAdmin(request, env, ip);
-      let ok = store ? store.delete(parts[1]) : false;
-      if (!store && env.THREADS) {
-        const parsed = parseThreadId(parts[1]);
-        const res = await env.THREADS.get(env.THREADS.idFromName(parsed.slug || slug)).fetch(
-          new Request(`https://do/delete?id=${encodeURIComponent(parts[1])}`, { method: "POST" })
-        );
-        ok = Boolean((await res.json()).ok);
-      }
+      const parsed = parseThreadId(parts[1]);
+      await assertKnownSlug(env, parsed.slug || slug);
+      const res = await threadStub(env, parsed.slug || slug).fetch(
+        new Request(`https://do/delete?id=${encodeURIComponent(parts[1])}`, { method: "POST" })
+      );
+      const ok = Boolean((await res.json()).ok);
       if (!ok) {
         const err = new Error("Comment not found.");
         err.status = 404;
@@ -566,6 +645,7 @@ export class CommentThread {
   constructor(ctx, env) {
     this.ctx = ctx;
     this.env = env;
+    this.ready = runInit(ctx, () => initThreadSchema(this.ctx.storage.sql));
   }
 
   store() {
@@ -573,16 +653,22 @@ export class CommentThread {
   }
 
   async fetch(request) {
+    await this.ready;
     const url = new URL(request.url);
     const store = this.store();
     if (url.pathname === "/list") {
-      const includeHidden = url.searchParams.get("hidden") === "1";
-      return Response.json({ comments: store.list("", { includeHidden }) });
+      return Response.json(
+        store.list("", {
+          includeHidden: url.searchParams.get("hidden") === "1",
+          limit: url.searchParams.get("limit"),
+          after: url.searchParams.get("after") || "",
+        })
+      );
     }
     if (url.pathname === "/insert") {
       const row = await request.json();
-      store.insert(row);
-      return Response.json({ ok: true });
+      const comment = store.insert(row);
+      return Response.json({ ok: Boolean(comment), comment });
     }
     if (url.pathname === "/hide") {
       const comment = store.hide(url.searchParams.get("id"), url.searchParams.get("hidden") === "1");
@@ -592,12 +678,13 @@ export class CommentThread {
       return Response.json({ ok: store.delete(url.searchParams.get("id")) });
     }
     if (url.pathname === "/slugs") {
-      return Response.json({ slugs: store.allSlugs() });
+      return Response.json(
+        store.pageSlugs(url.searchParams.get("after") || "", url.searchParams.get("limit"))
+      );
     }
     if (url.pathname === "/remember") {
       const body = await request.json();
-      store.rememberSlug(body.slug);
-      return Response.json({ ok: true });
+      return Response.json({ ok: store.rememberSlug(body.slug) });
     }
     return new Response("no", { status: 404 });
   }
@@ -606,6 +693,7 @@ export class CommentThread {
 export class RateBucket {
   constructor(ctx) {
     this.ctx = ctx;
+    this.ready = runInit(ctx, () => initRateSchema(this.ctx.storage.sql));
   }
 
   store() {
@@ -613,15 +701,13 @@ export class RateBucket {
   }
 
   async fetch(request) {
+    await this.ready;
     const url = new URL(request.url);
     const ip = url.searchParams.get("ip") || "unknown";
     if (url.pathname === "/hit") return Response.json(this.store().hit(ip));
-    if (url.pathname === "/auth-fail") {
-      this.store().authFail(ip);
-      return Response.json({ ok: true });
-    }
-    if (url.pathname === "/auth-blocked") {
-      return Response.json({ blocked: this.store().authBlocked(ip) });
+    if (url.pathname === "/get") return Response.json(this.store().getHit(ip));
+    if (url.pathname === "/auth") {
+      return Response.json(this.store().authAttempt(ip, url.searchParams.get("valid") === "1"));
     }
     return new Response("no", { status: 404 });
   }

@@ -5,12 +5,15 @@ honeypot/rate-limit rejection, and hide/delete without keys.
 """
 from __future__ import annotations
 
+import hashlib
 import hmac
+import json
 import re
 import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 SLUG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
@@ -22,8 +25,11 @@ MIN_BODY = 2
 RATE_WINDOW_SEC = 10 * 60
 RATE_MAX = 5
 RATE_MIN_INTERVAL_SEC = 20
+GET_RATE_WINDOW_SEC = 60
+GET_RATE_MAX = 60
 AUTH_FAIL_MAX = 8
-AUTH_FAIL_WINDOW_SEC = 15 * 60
+AUTH_FAIL_WINDOW_SEC = 5 * 60
+THREAD_LIST_LIMIT = 50
 EMPTY_STATE = "No comments yet. Be the first."
 NOT_CONNECTED_COPY = "Comments are not connected yet."
 
@@ -56,6 +62,52 @@ def _clean(value: Any, limit: int) -> str:
     return text.strip()[:limit]
 
 
+def _expand_ipv6(ip: str) -> list[str]:
+    bare = ip.split("%", 1)[0].lower()
+    head, _, tail = bare.partition("::")
+    head_parts = [part for part in head.split(":") if part] if head else []
+    tail_parts = [part for part in tail.split(":") if part] if tail else []
+    missing = max(8 - len(head_parts) - len(tail_parts), 0)
+    parts = head_parts + (["0"] * missing) + tail_parts
+    return [part.lstrip("0") or "0" for part in parts[:8]]
+
+
+def rate_key(ip: str) -> str:
+    raw = (ip or "unknown").strip() or "unknown"
+    if raw == "unknown":
+        return raw
+    bare = raw.split("%", 1)[0]
+    if "." in bare and ":" in bare:
+        return bare.rsplit(":", 1)[-1]
+    if ":" in bare:
+        return ":".join(_expand_ipv6(bare)[:4]) + "::/64"
+    return bare
+
+
+def load_known_slugs(root: Path | None = None) -> set[str]:
+    base = root or Path(__file__).resolve().parents[2]
+    slugs: set[str] = set()
+    editions = base / "data" / "narrative_editions"
+    if editions.is_dir():
+        slugs.update(path.stem for path in editions.glob("*.json"))
+    current = base / "data" / "narrative.json"
+    if current.is_file():
+        try:
+            payload = json.loads(current.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            payload = {}
+        slug = str(payload.get("slug") or "").strip()
+        if slug:
+            slugs.add(slug)
+    return slugs
+
+
+def _timing_safe_equal(left: str, right: str) -> bool:
+    digest_left = hashlib.sha256(left.encode("utf-8")).digest()
+    digest_right = hashlib.sha256(right.encode("utf-8")).digest()
+    return hmac.compare_digest(digest_left, digest_right)
+
+
 def validate_turnstile(token: str, mode: str = "offline") -> None:
     """CAPTCHA-less gate. Offline mode never hits the network."""
     token = str(token or "").strip()
@@ -77,6 +129,16 @@ def public_comment(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _clamp_limit(value: Any, maximum: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return maximum
+    if parsed < 1:
+        return maximum
+    return min(parsed, maximum)
+
+
 @dataclass
 class CommentStore:
     admin_token: str
@@ -84,28 +146,61 @@ class CommentStore:
     rate_window_sec: int = RATE_WINDOW_SEC
     rate_max: int = RATE_MAX
     rate_min_interval_sec: int = RATE_MIN_INTERVAL_SEC
+    get_rate_window_sec: int = GET_RATE_WINDOW_SEC
+    get_rate_max: int = GET_RATE_MAX
+    known_slugs: set[str] | None = None
     _comments: dict[str, dict[str, Any]] = field(default_factory=dict)
     _hits: dict[str, list[float]] = field(default_factory=dict)
+    _get_hits: dict[str, list[float]] = field(default_factory=dict)
     _auth_fails: dict[str, list[float]] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.known_slugs is None:
+            self.known_slugs = load_known_slugs()
 
     def empty_state(self) -> str:
         return EMPTY_STATE
 
-    def list_public(self, slug: str) -> list[dict[str, Any]]:
+    def _assert_slug(self, slug: str) -> str:
         slug = _clean(slug, 80)
+        if not SLUG_RE.match(slug) or slug not in (self.known_slugs or set()):
+            raise CommentError("Unknown story.", 404)
+        return slug
+
+    def list_public(
+        self,
+        slug: str,
+        *,
+        limit: int = THREAD_LIST_LIMIT,
+        after: str = "",
+    ) -> dict[str, Any]:
+        slug = self._assert_slug(slug)
         rows = [
             public_comment(row)
             for row in self._comments.values()
-            if row["slug"] == slug and not row.get("hidden") and not row.get("deleted")
+            if row["slug"] == slug and not row.get("hidden")
         ]
-        rows.sort(key=lambda row: row["createdAt"])
-        return rows
+        rows.sort(key=lambda row: (row["createdAt"], row["id"]))
+        if after and "|" in after:
+            created, ident = after.split("|", 1)
+            rows = [
+                row
+                for row in rows
+                if (row["createdAt"], row["id"]) > (created, ident)
+            ]
+        cap = _clamp_limit(limit, THREAD_LIST_LIMIT)
+        page = rows[:cap]
+        nxt = None
+        if len(rows) > cap and page:
+            last = page[-1]
+            nxt = f"{last['createdAt']}|{last['id']}"
+        return {"comments": page, "next": nxt}
 
     def list_admin(self, slug: str | None = None) -> list[dict[str, Any]]:
         rows = [
             public_comment(row)
             for row in self._comments.values()
-            if (slug is None or row["slug"] == slug) and not row.get("deleted")
+            if slug is None or row["slug"] == slug
         ]
         rows.sort(key=lambda row: row["createdAt"], reverse=True)
         return rows
@@ -122,11 +217,9 @@ class CommentStore:
             # Pretend success so bots do not retry, but do not store.
             return None
 
-        slug = _clean(payload.get("slug"), 80)
+        slug = self._assert_slug(payload.get("slug"))
         name = _clean(payload.get("name"), MAX_NAME)
         body = _clean(payload.get("body"), MAX_BODY)
-        if not SLUG_RE.match(slug):
-            raise CommentError("Unknown story.")
         if len(name) < MIN_NAME:
             raise CommentError("Name is required.")
         if len(body) < MIN_BODY:
@@ -134,46 +227,60 @@ class CommentStore:
 
         self._enforce_rate_limit(ip)
         row = {
-            "id": uuid.uuid4().hex,
+            "id": f"{slug}~{uuid.uuid4().hex}",
             "slug": slug,
             "name": name,
             "body": body,
             "createdAt": _utc_now(),
             "hidden": False,
-            "deleted": False,
         }
         self._comments[row["id"]] = row
         return public_comment(row)
 
     def hide(self, comment_id: str, hidden: bool = True) -> dict[str, Any]:
         row = self._comments.get(comment_id)
-        if not row or row.get("deleted"):
+        if not row:
             raise CommentError("Comment not found.", 404)
         row["hidden"] = bool(hidden)
         return public_comment(row)
 
     def delete(self, comment_id: str) -> None:
-        row = self._comments.get(comment_id)
-        if not row or row.get("deleted"):
+        if comment_id not in self._comments:
             raise CommentError("Comment not found.", 404)
-        row["deleted"] = True
+        del self._comments[comment_id]
 
     def require_admin(self, provided: str | None, ip: str = "unknown") -> None:
+        key = rate_key(ip)
         now = time.time()
-        fails = [stamp for stamp in self._auth_fails.get(ip, []) if now - stamp < AUTH_FAIL_WINDOW_SEC]
-        if len(fails) >= AUTH_FAIL_MAX:
-            raise CommentError("Too many failed sign-in attempts. Try again later.", 429)
+        fails = [
+            stamp
+            for stamp in self._auth_fails.get(key, [])
+            if now - stamp < AUTH_FAIL_WINDOW_SEC
+        ]
+        self._auth_fails[key] = fails
         token = (provided or "").removeprefix("Bearer ").strip()
         expected = (self.admin_token or "").strip()
+        valid = bool(expected) and bool(token) and _timing_safe_equal(token, expected)
+        if len(fails) >= AUTH_FAIL_MAX:
+            raise CommentError("Too many failed sign-in attempts. Try again later.", 429)
         if not expected:
             raise CommentError("Moderation is not configured.", 503)
-        if not token or not hmac.compare_digest(token, expected):
+        if not valid:
             fails.append(now)
-            self._auth_fails[ip] = fails
+            self._auth_fails[key] = fails
             raise CommentError("Unauthorized.", 401)
 
+    def hit_get(self, ip: str) -> None:
+        key = rate_key(ip)
+        now = time.time()
+        hits = [stamp for stamp in self._get_hits.get(key, []) if now - stamp < self.get_rate_window_sec]
+        if len(hits) >= self.get_rate_max:
+            raise CommentError("Too many requests. Try again later.", 429)
+        hits.append(now)
+        self._get_hits[key] = hits
+
     def _enforce_rate_limit(self, ip: str) -> None:
-        key = (ip or "unknown").strip() or "unknown"
+        key = rate_key(ip)
         now = time.time()
         hits = [stamp for stamp in self._hits.get(key, []) if now - stamp < self.rate_window_sec]
         if hits and now - hits[-1] < self.rate_min_interval_sec:

@@ -70,10 +70,9 @@ def _handle(method: str, path: str, body: dict[str, Any], headers: dict[str, str
         slug = query.get("slug", "")
         if query.get("all") == "1" or query.get("hidden") == "1":
             STORE.require_admin(headers.get("authorization"), ip)
-            return _json_bytes({"comments": STORE.list_admin(slug or None)})
-        if not slug:
-            raise CommentError("Unknown story.")
-        return _json_bytes({"comments": STORE.list_public(slug)})
+            return _json_bytes({"comments": STORE.list_admin(slug or None), "nextSlug": None})
+        STORE.hit_get(ip)
+        return _json_bytes(STORE.list_public(slug, limit=query.get("limit"), after=query.get("after", "")))
 
     if method == "POST" and parts == ["comments"]:
         row = STORE.post(

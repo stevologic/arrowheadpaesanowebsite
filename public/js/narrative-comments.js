@@ -290,15 +290,21 @@
         return;
       }
       async function reload() {
-        const data = await api(apiBase + "/comments?all=1", {
-          headers: { Authorization: "Bearer " + memoryAdminToken },
-        });
-        paintList(list, data.comments || [], true);
+        const comments = [];
+        let cursor = "";
+        for (let page = 0; page < 32; page += 1) {
+          const query = apiBase + "/comments?all=1" + (cursor ? "&after=" + encodeURIComponent(cursor) : "");
+          const data = await api(query, {
+            headers: { Authorization: "Bearer " + memoryAdminToken },
+          });
+          comments.push(...(data.comments || []));
+          cursor = data.nextSlug || "";
+          if (!cursor) break;
+        }
+        paintList(list, comments, true);
         setStatus(
           status,
-          data.comments && data.comments.length
-            ? data.comments.length + " comment(s). Hide or delete any of them."
-            : EMPTY_COPY,
+          comments.length ? comments.length + " comment(s). Hide or delete any of them." : EMPTY_COPY,
           false
         );
       }
