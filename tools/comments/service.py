@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 SLUG_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$")
-HONEYPOT_FIELD = "company"
+HONEYPOT_FIELD = "nrt_hp_x7"
 MAX_NAME = 40
 MIN_NAME = 2
 MAX_BODY = 1000
@@ -22,6 +22,8 @@ MIN_BODY = 2
 RATE_WINDOW_SEC = 10 * 60
 RATE_MAX = 5
 RATE_MIN_INTERVAL_SEC = 20
+AUTH_FAIL_MAX = 8
+AUTH_FAIL_WINDOW_SEC = 15 * 60
 EMPTY_STATE = "No comments yet. Be the first."
 NOT_CONNECTED_COPY = "Comments are not connected yet."
 
@@ -84,6 +86,7 @@ class CommentStore:
     rate_min_interval_sec: int = RATE_MIN_INTERVAL_SEC
     _comments: dict[str, dict[str, Any]] = field(default_factory=dict)
     _hits: dict[str, list[float]] = field(default_factory=dict)
+    _auth_fails: dict[str, list[float]] = field(default_factory=dict)
 
     def empty_state(self) -> str:
         return EMPTY_STATE
@@ -93,7 +96,7 @@ class CommentStore:
         rows = [
             public_comment(row)
             for row in self._comments.values()
-            if row["slug"] == slug and not row.get("hidden")
+            if row["slug"] == slug and not row.get("hidden") and not row.get("deleted")
         ]
         rows.sort(key=lambda row: row["createdAt"])
         return rows
@@ -102,7 +105,7 @@ class CommentStore:
         rows = [
             public_comment(row)
             for row in self._comments.values()
-            if slug is None or row["slug"] == slug
+            if (slug is None or row["slug"] == slug) and not row.get("deleted")
         ]
         rows.sort(key=lambda row: row["createdAt"], reverse=True)
         return rows
@@ -137,28 +140,36 @@ class CommentStore:
             "body": body,
             "createdAt": _utc_now(),
             "hidden": False,
+            "deleted": False,
         }
         self._comments[row["id"]] = row
         return public_comment(row)
 
     def hide(self, comment_id: str, hidden: bool = True) -> dict[str, Any]:
         row = self._comments.get(comment_id)
-        if not row:
+        if not row or row.get("deleted"):
             raise CommentError("Comment not found.", 404)
         row["hidden"] = bool(hidden)
         return public_comment(row)
 
     def delete(self, comment_id: str) -> None:
-        if comment_id not in self._comments:
+        row = self._comments.get(comment_id)
+        if not row or row.get("deleted"):
             raise CommentError("Comment not found.", 404)
-        del self._comments[comment_id]
+        row["deleted"] = True
 
-    def require_admin(self, provided: str | None) -> None:
+    def require_admin(self, provided: str | None, ip: str = "unknown") -> None:
+        now = time.time()
+        fails = [stamp for stamp in self._auth_fails.get(ip, []) if now - stamp < AUTH_FAIL_WINDOW_SEC]
+        if len(fails) >= AUTH_FAIL_MAX:
+            raise CommentError("Too many failed sign-in attempts. Try again later.", 429)
         token = (provided or "").removeprefix("Bearer ").strip()
         expected = (self.admin_token or "").strip()
         if not expected:
             raise CommentError("Moderation is not configured.", 503)
         if not token or not hmac.compare_digest(token, expected):
+            fails.append(now)
+            self._auth_fails[ip] = fails
             raise CommentError("Unauthorized.", 401)
 
     def _enforce_rate_limit(self, ip: str) -> None:

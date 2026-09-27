@@ -5,9 +5,9 @@
 */ -}}
 {{ $site := .site }}
 {{ $slug := .slug | default "" }}
-{{ $api := getenv "HUGO_COMMENTS_API_URL" | default $site.Params.commentsApiUrl | default "" }}
-{{ $turnstile := getenv "HUGO_TURNSTILE_SITE_KEY" | default $site.Params.commentsTurnstileSiteKey | default "" }}
-{{- /* Unset Worker URL or Turnstile site key: render nothing. No form, no empty state. */ -}}
+{{ $api := strings.TrimSpace (getenv "HUGO_COMMENTS_API_URL" | default $site.Params.commentsApiUrl | default "") }}
+{{ $turnstile := strings.TrimSpace (getenv "HUGO_TURNSTILE_SITE_KEY" | default $site.Params.commentsTurnstileSiteKey | default "") }}
+{{- /* Unset or whitespace-only Worker URL / Turnstile key: render nothing. */ -}}
 {{ if and $api $turnstile }}
 <link rel="stylesheet" href="{{ "css/comments.css" | relURL }}" />
 <section class="nrt-comments" id="comments" data-comments
@@ -29,7 +29,8 @@
   </div>
 
   <form class="nrt-comments__form" data-comments-form novalidate>
-    <input class="nrt-comments__hp" type="text" name="company" tabindex="-1" autocomplete="off" aria-hidden="true" />
+    <fieldset data-comments-fields disabled>
+    <input class="nrt-comments__hp" type="text" name="nrt_hp_x7" tabindex="-1" autocomplete="off" aria-hidden="true" />
     <label class="nrt-comments__field">
       <span>Name</span>
       <input type="text" name="name" maxlength="40" required autocomplete="nickname" placeholder="Your name" />
@@ -45,6 +46,7 @@
       <button class="btn btn-ink" type="submit" data-comments-submit>Post comment</button>
       <p class="nrt-comments__status" data-comments-status role="status"></p>
     </div>
+    </fieldset>
   </form>
 </section>
 {{ if $turnstile }}

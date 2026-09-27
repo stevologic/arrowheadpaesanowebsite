@@ -6,6 +6,11 @@ Offline only — no network, no paid APIs, no Turnstile siteverify. Run with:
 from __future__ import annotations
 
 import json
+import os
+import re
+import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -17,7 +22,6 @@ from tools.comments.service import (
     TURNSTILE_PASS_TOKEN,
     CommentError,
     CommentStore,
-    is_comments_ui_enabled,
 )
 from tools.comments.server import handle
 
@@ -231,38 +235,85 @@ class CommentHttpTests(unittest.TestCase):
         self.assertEqual(status, 401)
 
 
+def _hugo_bin() -> str:
+    for candidate in (
+        os.environ.get("HUGO_BIN"),
+        shutil.which("hugo"),
+        str(ROOT / "node_modules" / ".bin" / "hugo"),
+        str(Path.home() / ".local" / "hugo" / "hugo"),
+    ):
+        if candidate and Path(candidate).is_file() and os.access(candidate, os.X_OK):
+            return candidate
+    raise FileNotFoundError(
+        "hugo is required for comment render tests; install it on PATH or via hugo-bin"
+    )
+
+
 class CommentWiringTests(unittest.TestCase):
-    def test_unset_config_renders_nothing(self):
-        self.assertFalse(is_comments_ui_enabled("", ""))
-        self.assertFalse(is_comments_ui_enabled(None, None))
-        self.assertFalse(is_comments_ui_enabled("https://comments.example.workers.dev", ""))
-        self.assertFalse(is_comments_ui_enabled("", "1x00000000000000000000AA"))
-        self.assertFalse(is_comments_ui_enabled("  ", "  "))
-        self.assertTrue(
-            is_comments_ui_enabled(
-                "https://comments.example.workers.dev",
-                "1x00000000000000000000AA",
+    def _build_narrative_html(self, api: str, turnstile: str) -> str:
+        hugo = _hugo_bin()
+        dest = Path(tempfile.mkdtemp(prefix="nrt-comments-"))
+        cfg = Path(tempfile.mkdtemp(prefix="nrt-cfg-")) / "hugo.yaml"
+        text = (ROOT / "hugo.yaml").read_text(encoding="utf-8")
+        if re.search(r"^  commentsApiUrl:", text, re.M):
+            text = re.sub(r"^  commentsApiUrl:.*$", f"  commentsApiUrl: {json.dumps(api)}", text, count=1, flags=re.M)
+            text = re.sub(
+                r"^  commentsTurnstileSiteKey:.*$",
+                f"  commentsTurnstileSiteKey: {json.dumps(turnstile)}",
+                text,
+                count=1,
+                flags=re.M,
             )
+        else:
+            text += (
+                f"\n  commentsApiUrl: {json.dumps(api)}\n"
+                f"  commentsTurnstileSiteKey: {json.dumps(turnstile)}\n"
+            )
+        cfg.write_text(text, encoding="utf-8")
+        env = os.environ.copy()
+        env.pop("HUGO_COMMENTS_API_URL", None)
+        env.pop("HUGO_TURNSTILE_SITE_KEY", None)
+        proc = subprocess.run(
+            [hugo, "--gc", "-d", str(dest), "--config", str(cfg)],
+            cwd=ROOT,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
         )
+        if proc.returncode != 0:
+            self.fail((proc.stderr or "") + "\n" + (proc.stdout or "") or "hugo failed")
+        return (dest / "narrative" / "index.html").read_text(encoding="utf-8")
 
-        yaml = (ROOT / "hugo.yaml").read_text(encoding="utf-8")
-        self.assertRegex(yaml, r'commentsApiUrl:\s*""')
-        self.assertRegex(yaml, r'commentsTurnstileSiteKey:\s*""')
+    def test_unset_config_renders_nothing(self):
+        """Runs Hugo with unset, whitespace, and set comment params; asserts built HTML."""
+        self.assertIn("strings.TrimSpace", (ROOT / "layouts/partials/narrative-comments.html").read_text(encoding="utf-8"))
 
-        partial = (ROOT / "layouts/partials/narrative-comments.html").read_text(encoding="utf-8")
-        guard = partial.index("if and $api $turnstile")
-        for needle in ("nrt-comments", "No comments yet. Be the first.", "data-comments-form", "Comments"):
-            self.assertGreater(partial.index(needle), guard, needle)
-        self.assertGreater(partial.rfind("end"), partial.index("nrt-comments"))
+        unset = self._build_narrative_html("", "")
+        self.assertNotIn("nrt-comments", unset)
+        self.assertNotIn("challenges.cloudflare.com/turnstile/v0/api.js", unset)
+
+        whitespace = self._build_narrative_html("   ", "   ")
+        self.assertNotIn("nrt-comments", whitespace)
+        self.assertNotIn("challenges.cloudflare.com/turnstile/v0/api.js", whitespace)
+
+        configured = self._build_narrative_html(
+            "https://comments.example.workers.dev",
+            "1x00000000000000000000AA",
+        )
+        self.assertIn("nrt-comments", configured)
+        self.assertIn("challenges.cloudflare.com/turnstile/v0/api.js", configured)
+        self.assertIn("nrt_hp_x7", configured)
 
         js = (ROOT / "public/js/narrative-comments.js").read_text(encoding="utf-8")
         self.assertNotIn(NOT_CONNECTED_COPY, js)
-        self.assertNotIn("127.0.0.1:8787", js)
+        self.assertNotIn("sessionStorage", js)
 
     def test_partial_empty_state_and_page_includes(self):
         partial = (ROOT / "layouts/partials/narrative-comments.html").read_text(encoding="utf-8")
         self.assertIn("No comments yet. Be the first.", partial)
         self.assertIn("nrt-comments", partial)
+        self.assertIn("nrt_hp_x7", partial)
         self.assertIn(HONEYPOT_FIELD, partial)
         single = (ROOT / "layouts/narrative/single.html").read_text(encoding="utf-8")
         edition = (ROOT / "layouts/narrative/edition.html").read_text(encoding="utf-8")
@@ -274,7 +325,7 @@ class CommentWiringTests(unittest.TestCase):
     def test_worker_has_spam_and_moderation_gates(self):
         worker = (ROOT / "tools/comments/worker.js").read_text(encoding="utf-8")
         self.assertIn("TURNSTILE_SECRET", worker)
-        self.assertIn("company", worker)
+        self.assertIn("nrt_hp_x7", worker)
         self.assertIn("RATE_MAX", worker)
         self.assertIn("COMMENTS_ADMIN_TOKEN", worker)
         self.assertIn('parts[2] === "hide"', worker)

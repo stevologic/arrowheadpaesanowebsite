@@ -45,8 +45,10 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r tools/requirements.txt
 
-      - name: Gate 1 — narrative engine tests
-        run: python -m unittest discover -s tools/tests -v
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
 
       - name: Install Hugo
         run: |
@@ -55,6 +57,12 @@ jobs:
           mkdir -p "${HOME}/.local/hugo"
           tar -C "${HOME}/.local/hugo" -xf "${{ runner.temp }}/hugo.tar.gz"
           echo "${HOME}/.local/hugo" >> "${GITHUB_PATH}"
+
+      - name: Gate 1 — narrative engine tests
+        run: python -m unittest discover -s tools/tests -v
+
+      - name: Gate 1b — comments Worker tests
+        run: node --test tools/comments/worker.test.mjs
 
       - name: Gate 2 — Hugo build
         run: hugo --gc --minify

@@ -1,7 +1,12 @@
 (function () {
   const EMPTY_COPY = "No comments yet. Be the first.";
+  const LOAD_ERROR_COPY = "Couldn't load comments.";
+  const TURNSTILE_FAIL_COPY = "Spam check didn't load, refresh.";
+  const HONEYPOT_FIELD = "nrt_hp_x7";
 
   const $ = (selector, root = document) => root.querySelector(selector);
+
+  let memoryAdminToken = "";
 
   function escapeHTML(value) {
     return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -11,6 +16,11 @@
       '"': "&quot;",
       "'": "&#39;",
     }[character]));
+  }
+
+  function isLocalHost() {
+    const host = window.location.hostname;
+    return host === "localhost" || host === "127.0.0.1";
   }
 
   function formatTime(value) {
@@ -31,11 +41,7 @@
   }
 
   function adminToken() {
-    try {
-      return sessionStorage.getItem("apCommentsAdminToken") || "";
-    } catch (_) {
-      return "";
-    }
+    return memoryAdminToken;
   }
 
   function setStatus(node, message, isError) {
@@ -44,11 +50,27 @@
     node.classList.toggle("is-error", Boolean(isError));
   }
 
+  function setFormEnabled(root, enabled) {
+    const fields = $("[data-comments-fields]", root);
+    const submit = $("[data-comments-submit]", root);
+    if (fields) fields.disabled = !enabled;
+    if (submit) submit.disabled = !enabled;
+  }
+
   function emptyNode() {
     const wrap = document.createElement("div");
     wrap.className = "nrt-comments__empty";
     wrap.setAttribute("data-comments-empty", "");
     wrap.innerHTML = `<p>${escapeHTML(EMPTY_COPY)}</p>`;
+    return wrap;
+  }
+
+  function errorNode(onRetry) {
+    const wrap = document.createElement("div");
+    wrap.className = "nrt-comments__error";
+    wrap.setAttribute("data-comments-error", "");
+    wrap.innerHTML = `<p>${escapeHTML(LOAD_ERROR_COPY)}</p><button type="button" class="btn btn-ghost" data-comments-retry>Retry</button>`;
+    wrap.querySelector("[data-comments-retry]").addEventListener("click", onRetry);
     return wrap;
   }
 
@@ -108,11 +130,11 @@
       const headers = { Authorization: "Bearer " + token };
       try {
         if (deleteBtn) {
-          await api(apiBaseFrom(root) + "/comments/" + encodeURIComponent(id), { method: "DELETE", headers });
+          await api(resolveApi(root) + "/comments/" + encodeURIComponent(id), { method: "DELETE", headers });
         } else {
           const hidden = item.classList.contains("is-hidden");
           const action = hidden ? "unhide" : "hide";
-          await api(apiBaseFrom(root) + "/comments/" + encodeURIComponent(id) + "/" + action, {
+          await api(resolveApi(root) + "/comments/" + encodeURIComponent(id) + "/" + action, {
             method: "POST",
             headers,
           });
@@ -122,10 +144,6 @@
         setStatus($("[data-comments-status]", root), err.message, true);
       }
     });
-  }
-
-  function apiBaseFrom(root) {
-    return resolveApi(root);
   }
 
   function mountTurnstile(root, siteKey) {
@@ -152,6 +170,14 @@
     });
   }
 
+  function turnstileToken(siteKey, widgetId) {
+    if (siteKey && window.turnstile && widgetId !== null) {
+      return window.turnstile.getResponse(widgetId) || "";
+    }
+    if (isLocalHost() && !siteKey) return "test-pass";
+    return "";
+  }
+
   async function initThread(root) {
     const apiBase = resolveApi(root);
     const slug = (root.getAttribute("data-slug") || "").trim();
@@ -161,6 +187,8 @@
     const status = $("[data-comments-status]", root);
     if (!list || !form || !slug) return;
 
+    setFormEnabled(root, false);
+
     let widgetId = null;
     waitForTurnstile(root, siteKey).then((id) => {
       widgetId = id;
@@ -168,14 +196,21 @@
 
     async function reload() {
       if (!apiBase) {
-        paintList(list, [], false);
-        return;
+        list.innerHTML = "";
+        list.appendChild(errorNode(reload));
+        setFormEnabled(root, false);
+        return false;
       }
       try {
         const data = await api(apiBase + "/comments?slug=" + encodeURIComponent(slug));
         paintList(list, data.comments || [], Boolean(adminToken()));
+        setFormEnabled(root, true);
+        return true;
       } catch (_) {
-        paintList(list, [], false);
+        list.innerHTML = "";
+        list.appendChild(errorNode(reload));
+        setFormEnabled(root, false);
+        return false;
       }
     }
 
@@ -184,15 +219,16 @@
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
-      if (!apiBase) return;
+      if (!apiBase || ($("[data-comments-fields]", root) || {}).disabled) return;
+      const token = turnstileToken(siteKey, widgetId);
+      if (!token) {
+        setStatus(status, TURNSTILE_FAIL_COPY, true);
+        return;
+      }
       const submit = $("[data-comments-submit]", form);
-      const honeypot = form.elements.namedItem("company");
+      const honeypot = form.elements.namedItem(HONEYPOT_FIELD);
       const name = String((form.elements.namedItem("name") || {}).value || "").trim();
       const body = String((form.elements.namedItem("body") || {}).value || "").trim();
-      let token = "test-pass";
-      if (siteKey && window.turnstile && widgetId !== null) {
-        token = window.turnstile.getResponse(widgetId) || "";
-      }
       submit.disabled = true;
       setStatus(status, "Posting…", false);
       try {
@@ -203,7 +239,7 @@
             slug,
             name,
             body,
-            company: honeypot ? honeypot.value : "",
+            [HONEYPOT_FIELD]: honeypot ? honeypot.value : "",
             turnstileToken: token,
           }),
         });
@@ -240,7 +276,6 @@
     const status = $("[data-comments-status]", root);
     const tokenInput = $("[data-admin-token]", root);
     if (!form || !tokenInput) return;
-    if (adminToken()) tokenInput.value = adminToken();
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -249,18 +284,14 @@
         setStatus(status, "Paste the admin token first.", true);
         return;
       }
-      try {
-        sessionStorage.setItem("apCommentsAdminToken", token);
-      } catch (_) {
-        /* ignore */
-      }
+      memoryAdminToken = token;
       if (!apiBase) {
         setStatus(status, "Comments API is not configured.", true);
         return;
       }
       async function reload() {
         const data = await api(apiBase + "/comments?all=1", {
-          headers: { Authorization: "Bearer " + token },
+          headers: { Authorization: "Bearer " + memoryAdminToken },
         });
         paintList(list, data.comments || [], true);
         setStatus(

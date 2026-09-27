@@ -44,6 +44,31 @@
   padding: 28px 22px;
   text-align: center;
 }
+.nrt-comments__error {
+  border: 1px solid rgba(180, 35, 24, .2);
+  border-radius: 18px;
+  background: #fff8f6;
+  padding: 22px;
+  text-align: center;
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+}
+.nrt-comments__error p {
+  margin: 0;
+  font-family: var(--serif, Fraunces, Georgia, serif);
+  font-weight: 700;
+  font-size: clamp(16px, 2vw, 20px);
+  color: #b42318;
+}
+.nrt-comments__form fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: grid;
+  gap: 14px;
+}
 .nrt-comments__empty p {
   margin: 0;
   font-family: var(--serif, Fraunces, Georgia, serif);

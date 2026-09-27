@@ -1,10 +1,10 @@
 {{ define "main" }}
-{{ $api := getenv "HUGO_COMMENTS_API_URL" | default .Site.Params.commentsApiUrl | default "" }}
+{{ $api := strings.TrimSpace (getenv "HUGO_COMMENTS_API_URL" | default .Site.Params.commentsApiUrl | default "") }}
 <link rel="stylesheet" href="{{ "css/comments.css" | relURL }}" />
 <section class="nrt-moderate" data-moderate data-api="{{ $api }}">
   <span class="kicker kicker--gold">Stephen only</span>
   <h1>Moderate comments</h1>
-  <p class="nrt-moderate__lede">Paste the <code>COMMENTS_ADMIN_TOKEN</code> from your host secrets. It stays in this browser tab only. Hide takes a comment off the story; Delete removes it for good.</p>
+  <p class="nrt-moderate__lede">Paste the <code>COMMENTS_ADMIN_TOKEN</code> from your host secrets. It stays in memory for this visit only — never in storage. Hide takes a comment off the story; Delete removes it for good.</p>
   <form class="nrt-moderate__form" data-moderate-form>
     <label class="nrt-comments__field">
       <span>Admin token</span>

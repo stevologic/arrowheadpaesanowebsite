@@ -24,14 +24,15 @@ from tools.comments.service import CommentError, CommentStore  # noqa: E402
 
 HOST = os.environ.get("COMMENTS_HOST", "127.0.0.1")
 PORT = int(os.environ.get("COMMENTS_PORT", "8787"))
-ALLOWED_ORIGINS = {
+PROD_ORIGINS = {
     origin.strip()
     for origin in os.environ.get(
         "COMMENTS_CORS_ORIGINS",
-        "http://localhost:1515,http://127.0.0.1:1515,https://arrowheadpaesano.com",
+        "https://arrowheadpaesano.com,https://www.arrowheadpaesano.com",
     ).split(",")
     if origin.strip()
 }
+DEV_MODE = os.environ.get("COMMENTS_DEV", "").strip().lower() in {"1", "true", "yes"}
 
 
 def _store() -> CommentStore:
@@ -68,7 +69,7 @@ def _handle(method: str, path: str, body: dict[str, Any], headers: dict[str, str
     if method == "GET" and parts == ["comments"]:
         slug = query.get("slug", "")
         if query.get("all") == "1" or query.get("hidden") == "1":
-            STORE.require_admin(headers.get("authorization"))
+            STORE.require_admin(headers.get("authorization"), ip)
             return _json_bytes({"comments": STORE.list_admin(slug or None)})
         if not slug:
             raise CommentError("Unknown story.")
@@ -85,15 +86,15 @@ def _handle(method: str, path: str, body: dict[str, Any], headers: dict[str, str
         return _json_bytes({"comment": row}, 201)
 
     if method == "POST" and len(parts) == 3 and parts[0] == "comments" and parts[2] == "hide":
-        STORE.require_admin(headers.get("authorization"))
+        STORE.require_admin(headers.get("authorization"), ip)
         return _json_bytes({"comment": STORE.hide(parts[1], True)})
 
     if method == "POST" and len(parts) == 3 and parts[0] == "comments" and parts[2] == "unhide":
-        STORE.require_admin(headers.get("authorization"))
+        STORE.require_admin(headers.get("authorization"), ip)
         return _json_bytes({"comment": STORE.hide(parts[1], False)})
 
     if method == "DELETE" and len(parts) == 2 and parts[0] == "comments":
-        STORE.require_admin(headers.get("authorization"))
+        STORE.require_admin(headers.get("authorization"), ip)
         STORE.delete(parts[1])
         return _json_bytes({"ok": True})
 
@@ -103,9 +104,11 @@ def _handle(method: str, path: str, body: dict[str, Any], headers: dict[str, str
 class Handler(BaseHTTPRequestHandler):
     def _cors_origin(self) -> str:
         origin = self.headers.get("Origin", "")
-        if origin in ALLOWED_ORIGINS:
+        if origin in PROD_ORIGINS:
             return origin
-        if origin.startswith("http://127.0.0.1:") or origin.startswith("http://localhost:"):
+        if DEV_MODE and (
+            origin.startswith("http://127.0.0.1:") or origin.startswith("http://localhost:")
+        ):
             return origin
         return ""
 
@@ -118,6 +121,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Turnstile-Token")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        if "/hide" in self.path or "/unhide" in self.path or self.command == "DELETE" or "all=1" in self.path or "hidden=1" in self.path:
+            self.send_header("X-Robots-Tag", "noindex, nofollow")
         if extra:
             for key, value in extra.items():
                 self.send_header(key, value)

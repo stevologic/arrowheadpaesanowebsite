@@ -139,15 +139,15 @@ As an Amazon Associate I earn from qualifying purchases.
 
 Fans can comment at the bottom of every Chiefs Narrative edition without a
 GitHub (or any) account. The site stays on GitHub Pages; a free Cloudflare
-Worker + KV store holds the comments. Spam gates are Cloudflare Turnstile
-(invisible), a honeypot field, and IP rate limiting.
+Worker plus SQLite Durable Objects (one per story thread) hold the comments.
+Spam gates are Cloudflare Turnstile, a honeypot field, and IP rate limiting.
 
 One-time owner setup (all free tiers) and the exact moderation steps live in
 [`tools/comments/`](tools/comments/) — Worker secrets are
 `COMMENTS_ADMIN_TOKEN` and `TURNSTILE_SECRET`. Never commit them.
 
-Stephen hides or deletes a comment at `/moderate/` by pasting the admin token,
-or from the story itself after that token is saved in the tab.
+Stephen hides or deletes a comment at `/moderate/` by pasting the admin token
+(kept in memory only for that visit).
 
 If `commentsApiUrl` or `commentsTurnstileSiteKey` is unset, the comment
 block is omitted entirely — no heading, empty state, or form.
