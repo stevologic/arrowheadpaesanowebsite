@@ -1,0 +1,487 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-25T15:52:12+00:00",
+  "generator": "grok:grok-4.6",
+  "phase": {
+    "type": "regular",
+    "label": "Week 3",
+    "week": 3,
+    "mode": "preview"
+  },
+  "edition": "2026 Week 3 Preview",
+  "record": "2-0",
+  "headline": "Mahomes got loud. The pass rush did not. Miami is the first road exam.",
+  "dek": "A 33-30 overtime win over Indianapolis put Kansas City at 2-0 with 382 passing yards and 117 on the ground; Sunday noon in Miami is where Steve Spagnuolo’s front has to prove the Colts tape was an outlier, not a trend.",
+  "videoHook": "We dropped 523 yards on Indianapolis and still needed overtime. That is not a flex. That is the warning label we take to Miami.",
+  "theEdge": "DraftKings makes Kansas City a 10.5-point road favorite on a 45.5 total and ESPN FPI sits at 85.4 percent, yet Polymarket’s 9.4 percent Super Bowl price and 16.5 percent AFC ticket still treat 2-0 as a sample — and a trap-game noon in Miami is exactly how samples get ruined.",
+  "storyline": {
+    "lede": "Two weeks into 2026, the Chiefs finally look like an Andy Reid offense again — and they still needed overtime to beat a Colts team they outgained by 194 yards. Kenneth Walker III’s 24-carry, 117-yard hammer and Patrick Mahomes’ 32-of-47, 382-yard, three-touchdown night finally shared the same box score at Arrowhead, with Travis Kelce going 9-for-101 and the red zone answering on one-yard throws to Xavier Worthy and Jalen Royals. That is the good tape. The other tape is Steve Spagnuolo’s: 30 points, 24 first downs, 329 yards, and a pass rush that went quiet after a four-sack opener against Denver. Now the 2-0 Chiefs leave Missouri for the first time, a noon CBS kick in Miami against a winless Dolphins club the internet has already filed under “trap,” and the only honest question is whether Kansas City treats 30 allowed as a footnote or as the assignment.",
+    "body": [
+      "Eric Bieniemy’s downhill identity survived the first real pushback. Walker’s volume, 152 team rush yards, 29 first downs, 37:00 of clock, and zero turnovers are how Reid wants to travel. The hitch is third down (5-of-13) and the fact that Daniel Jones and Jonathan Taylor were still living in the game in the fourth quarter. When you post 523 yards and still go to overtime, you did not lose because of talent. You leaked because the front never put the visitor on the floor.",
+      "Miami is where that leak either gets patched or becomes a personality. Arrowhead Pride has already asked the trap-game question out loud, and the market has answered it with a 10.5-point road number. That number is a compliment and a dare. The Dolphins are 0-2 and widely treated as the league’s floor, but they are also the first road locker room, the first heat game, and the first opponent that will see Kansas City as a Super Bowl seed instead of a peer. Spagnuolo has already said the Colts night was not good enough. The noon kick is the quiz.",
+      "The long-term ticket is still cautious, and it should be. Polymarket has the Chiefs at 9.4 percent to win the Super Bowl and 16.5 percent to win the AFC — a 2-0 price, not a coronation. Mahomes’ knee has left the conversation, Worthy is on the board, Rashee Rice is creating the chunk plays that Week 1’s ground game set up, and Chamarri Conner is easing back onto the injury report as the secondary tries to get whole before South Florida’s speed. The story of this week is not 2-0. It is whether the defense that just allowed 30 can travel with an offense that just found its voice."
+    ]
+  },
+  "lastGameReview": {
+    "opponent": "Indianapolis Colts",
+    "label": "Week 2 · Sun, Sep 20 · 7:20 PM CT",
+    "result": "W",
+    "score": "KC 33–30",
+    "lede": "Indianapolis struck first on a Tyler Warren one-yard touchdown from Daniel Jones, and for a long stretch Sunday night it felt like Kansas City was going to win the yardage battle and still lose the scoreboard. Harrison Butker answered with a 46-yard field goal, Mahomes hit Kelce from 13, then the Colts stacked Spencer Shrader field goals from 42 and 49 before Xavier Worthy’s one-yard score. Jonathan Taylor ripped a 24-yard touchdown just before the half, Jalen Royals answered from a yard out in the third, and a 523-yard Chiefs offense still needed overtime to finish a 33-30 win at Arrowhead.",
+    "analysis": [
+      "The telling number is not 382 passing yards. It is 29 first downs on 5-of-13 third down. Bieniemy won early downs so thoroughly — Walker on 24 carries, play-action off that look, Mahomes working the intermediate field to Kelce — that Kansas City did not have to be a great third-down team to hang 523 yards. That is a feature when it works. It is also a tell: when the explosives calm down on the road, you need a cleaner conversion tape than 5-of-13, or Miami will get the ball back in a game the market has already decided.",
+      "Mahomes’ 32-of-47 night was the correction the Week 1 box score asked for. He was not hunting hero ball; he was taking what Indianapolis gave him after Walker forced the box to count to eight. Kelce’s 9-for-101-and-a-score was the old safety valve, and the two one-yard touchdowns to Worthy and Royals were red-zone answers even if they were not vertical answers. Worthy is on the board. He is not yet the field-stretcher the first-round tape promised, and Indianapolis was content to make Kansas City drive the long way.",
+      "The defensive tape is why this did not feel like 2-0. Nick Bolton leading the club with 13 tackles is a MIKE playing winning football and a warning light at the same time: the ball was getting to the second level. Taylor’s 24-yard touchdown before half is the explosive run Spagnuolo’s front is not supposed to post. After a four-sack opener against Bo Nix, the pass rush versus Jones was quiet enough that Arrowhead Pride treated it as the week’s actual problem, and Spagnuolo did not hide from 30 points, 329 yards, and 24 first downs. When the coordinator says it was not good enough, believe him.",
+      "Give Indianapolis its due. Jones lived in the pocket, Warren scored, Shrader kept stacking threes, and Taylor forced overtime conversations that a 194-yard yardage gap should never create. Kansas City did not turn it over and still needed extra time. That is the film they take on the plane: an offense that can hang 500, a defense that has not yet decided whether Denver was the identity or the Colts were."
+    ],
+    "takeaways": [
+      {
+        "title": "Early downs are the identity",
+        "body": "Twenty-nine first downs and 37:00 of possession with Walker at 24-for-117 means Bieniemy can still call the game downhill. If that look travels, Mahomes does not have to be 32-of-47 every week. If it does not, Miami’s noon kick becomes a drop-back game in the heat."
+      },
+      {
+        "title": "Red zone scored. It did not stretch.",
+        "body": "Worthy and Royals both punched from the 1, Kelce from 13. That is better than the preseason’s field-goal diet, but it is not the vertical pay-off the Worthy pick was sold as. Indianapolis sat on the run and made Kansas City methodical. Miami will copy that until Worthy or Rice forces a safety out of the box."
+      },
+      {
+        "title": "Thirteen tackles is not a pass-rush stat",
+        "body": "Bolton cleaning up 13 times means the edges and interior did not wreck the party. Spagnuolo already owned the 30-point night. The first road game is where a quiet rush either gets a simulated-pressure answer or becomes the thing every remaining opponent writes in Sharpie."
+      }
+    ],
+    "whatWorked": [
+      "Walker’s 24-carry volume and 117 yards keeping Kansas City on schedule and on the clock",
+      "Mahomes’ 382-yard, three-score night with Kelce as the 9-for-101 intermediate answer",
+      "Zero turnovers and 29 first downs, the Reid floor that still wins ugly",
+      "Red-zone payoffs to Worthy, Royals, and Kelce after a preseason that settled for kicks"
+    ],
+    "whatDidnt": [
+      "Third-down offense at 5-of-13 despite 523 yards — too many drives that needed explosives instead of conversions",
+      "A quiet pass rush after the four-sack Denver opener, leaving Jones comfortable enough to hang 30",
+      "Explosive run defense, specifically Taylor’s 24-yard touchdown before half",
+      "A secondary that asked Bolton to post 13 tackles and still needed overtime to protect a 194-yard yardage gap"
+    ]
+  },
+  "currentState": {
+    "lede": "Kansas City is 2-0 with an offense that just posted 523 yards and a defense that just admitted 30 points was too loud. The 6-11 hangover from 2025 is no longer the headline; the first road trip is. Miami is the first time this roster has to travel with a lead in the standings and a target on the tape.",
+    "record": "2-0",
+    "workOn": [
+      {
+        "title": "Get the four-man rush home — or fake it",
+        "body": "Arrowhead Pride’s pass-rush note after Indianapolis is the week’s real install. If Chris Jones and the edge group cannot bother a struggling Miami offense with four, Spagnuolo has to bring the simulated pressure that has always been his signature, especially with Chamarri Conner still easing back."
+      },
+      {
+        "title": "Third down on the road",
+        "body": "Five-of-13 against a Colts defense you just hung 523 on is a luxury you do not take into September heat. Bieniemy needs a cleaner early-down menu so Mahomes is not 32-of-47 again just to stay on schedule."
+      },
+      {
+        "title": "Force the vertical pay-off",
+        "body": "Worthy’s touchdown was a yard. Rice’s chunk from Week 2 was set up in Week 1. Miami will sit on Walker until someone wins over the top. This is the week the first-round speed has to be more than a goal-line package."
+      }
+    ],
+    "thinkAbout": [
+      {
+        "title": "Is noon in Miami actually a trap?",
+        "body": "Arrowhead Pride asked it directly, and the 10.5-point road number is how Vegas says no. Trap games are not about talent; they are about energy after an overtime Sunday night and a visitor’s locker room that has already read its own press clippings."
+      },
+      {
+        "title": "How much secondary can you spend while Conner eases back?",
+        "body": "The Thursday report had Conner working his way in, not sitting out the conversation. Miami’s whole existence is speed in space. If the nickel is not whole, Spagnuolo’s answer is two-deep and a clock that never leaves Walker’s hands."
+      },
+      {
+        "title": "What is 2-0 actually worth?",
+        "body": "ESPN FPI is at 85.4 percent for Sunday. Polymarket is at 9.4 percent for February. Those two numbers can both be true if the defense that just allowed 30 is the version that travels."
+      }
+    ]
+  },
+  "gamePlan": {
+    "opponent": "Miami Dolphins",
+    "lede": "First road trip, noon CBS, a winless Miami team, and a 10.5-point number that will get this locker room in trouble if they believe it. The assignment is to play the Colts offensive tape and the anti-Colts defensive tape in the same afternoon.",
+    "howTheyMatch": "Kansas City wants to be a downhill, play-action, clock-eating visitor. Miami, even at 0-2, is still a speed-in-space home team that will test a secondary easing Chamarri Conner back and a pass rush that just took a quiet night off. The leverage is simple: if Walker and the offensive line can post another 150-yard rushing afternoon, Mahomes can pick his spots and Spagnuolo can live in two-deep. If the Chiefs get impatient and drop back 47 times again, the trap-game script writes itself in the heat.",
+    "keys": [
+      {
+        "title": "Run the ball to take Miami’s crowd out of it",
+        "body": "Walker at 24-for-117 is the road plan. Inside zone, play-action boot, and a 37-minute target keep a desperate home offense on the sideline and protect a secondary that is not fully whole."
+      },
+      {
+        "title": "Pressure without emptying the coverage",
+        "body": "The Colts night said the four-man rush is not automatic. Spagnuolo has to mix zone blitz and simulated heat so Jones-level pocket comfort does not show up in a Dolphins quarterback. Do not blitz Conner’s absence into a busted coverage."
+      },
+      {
+        "title": "Make Worthy and Rice the reason Miami cannot sit on Kelce",
+        "body": "Indianapolis made Kansas City methodical. Four verticals and a real go-ball are how you stop a winless team from loading the box on Walker. Rice already showed the chunk; Worthy still owes the one that changes a safety’s alignment."
+      },
+      {
+        "title": "Do not donate the short field",
+        "body": "Zero turnovers beat Indianapolis. One cheap giveaway in Miami, with this defense coming off 30 allowed, is how 10.5-point favorites become the clip show."
+      }
+    ],
+    "script": [
+      "Open in 12/21 personnel inside zone to Walker — punch the first series downhill and make Miami’s front declare.",
+      "First play-action boot to Kelce off that look; Mahomes’ knee is a non-story, so move the pocket and take the easy flat/dig.",
+      "Early four-verticals shot to Worthy once the safety walks down on Walker; Rice runs the opposite seam so it is not a one-man vertical.",
+      "If Miami’s rush gets loud, spacing screen to Walker or the back with the line leading — cash the aggressive upfield takeoff.",
+      "Defensively, start in a Cover-2 shell and rally. Do not give Miami a one-on-one vertical while Conner is still easing back.",
+      "On second-and-long, zone-blitz with a dropped lineman and a second-level rusher — the Colts tape said four-man is not enough."
+    ]
+  },
+  "nextGame": {
+    "id": "",
+    "label": "Week 3 · Sun, Sep 27 · 12:00 PM CT",
+    "opponent": "Miami Dolphins",
+    "at": "@ Hard Rock Stadium",
+    "tv": "CBS",
+    "note": "First road trip of 2026, a 10.5-point favorite against a winless club, and the first real test of whether 30 allowed was a blip."
+  },
+  "markets": {
+    "game": {
+      "opponent": "Miami Dolphins",
+      "label": "Sun, Sep 27 · 12:00 PM CT",
+      "homeAway": "away",
+      "kcWin": 85.4,
+      "spreadDetail": "KC -10.5",
+      "overUnder": 45.5,
+      "source": "ESPN FPI game projection",
+      "url": "https://www.espn.com/nfl/game/_/gameId/401872952"
+    },
+    "model": {
+      "kcWin": 85.4,
+      "oppWin": 14.5,
+      "label": "ESPN FPI game projection",
+      "source": "ESPN FPI",
+      "url": "https://www.espn.com/nfl/fpi"
+    },
+    "vegas": {
+      "provider": "Draft Kings",
+      "spreadDetail": "KC -10.5",
+      "overUnder": 45.5,
+      "homeMoneyline": 425.0,
+      "awayMoneyline": -575.0,
+      "source": "ESPN / Draft Kings",
+      "url": "https://www.espn.com/nfl/lines"
+    },
+    "consensus": null,
+    "futures": [
+      {
+        "label": "Pro Football: 2027 Champion",
+        "chiefsPct": 9.4,
+        "source": "Polymarket",
+        "url": "https://polymarket.com/event/pro-football-2027-champion-20260729185915366"
+      },
+      {
+        "label": "Pro Football: 2027 AFC Champion",
+        "chiefsPct": 16.5,
+        "source": "Polymarket",
+        "url": "https://polymarket.com/event/pro-football-2027-afc-champion"
+      }
+    ]
+  },
+  "spotlight": [
+    {
+      "tag": "QB",
+      "title": "The knee left the chat",
+      "body": "Arrowhead Addict’s point is the right one: nobody is talking about Patrick Mahomes’ knee anymore, and that is the story. A 32-of-47, 382-yard overtime night is how a quarterback exits the medical conversation and re-enters the schematic one."
+    },
+    {
+      "tag": "WR",
+      "title": "Worthy is on the board. He is not yet the stretch.",
+      "body": "The one-yard touchdown counts. It does not answer Arrowhead Pride’s question about when the Chiefs will see the best of Xavier Worthy. Miami sitting on Walker is the look that is supposed to free the go-ball."
+    },
+    {
+      "tag": "WR",
+      "title": "Thornton’s quiet value",
+      "body": "The receiver room still has questions. Arrowhead Addict’s argument that Tyquan Thornton is more valuable than the conversation admits is a Bieniemy problem in a good way: you need a third and fourth option who can win a rub and finish a drive when Kelce is doubled."
+    },
+    {
+      "tag": "DEF",
+      "title": "Spagnuolo already graded the tape",
+      "body": "It was not lost on the defense that they did not play well. Thirty points, 329 yards, 24 first downs — the coordinator said it, Arrowhead Pride printed it, and Miami is the first opponent that will try to copy it."
+    },
+    {
+      "tag": "CB",
+      "title": "Nohl Williams is playing like a bet won",
+      "body": "Through two games, Arrowhead Addict has Williams outplaying corners drafted ahead of him. With Conner easing back, that second-year corner tape is not a luxury; it is the plan for Miami’s speed."
+    },
+    {
+      "tag": "EDGE",
+      "title": "Thomas and the rush depth",
+      "body": "Rookie R Mason Thomas turning flashes into production is the depth piece a quiet Colts rush needed to hear. If the starters do not get home at noon, the rotation has to."
+    }
+  ],
+  "matchups": [
+    {
+      "unit": "Chiefs run game vs. Dolphins front",
+      "chiefs": "Kenneth Walker III, Bieniemy’s inside zone",
+      "opponent": "Miami run defense",
+      "edge": "KC",
+      "note": "Walker just posted 24-for-117 behind 152 team rush yards. If that look travels, Kansas City controls the trap-game script and the clock."
+    },
+    {
+      "unit": "Mahomes / Kelce vs. Miami coverage",
+      "chiefs": "Patrick Mahomes, Travis Kelce",
+      "opponent": "Dolphins second level and safeties",
+      "edge": "KC",
+      "note": "Kelce’s 9-for-101 is still the mismatch. Miami can load the box to stop Walker; it cannot also take away the tight end and the verticals."
+    },
+    {
+      "unit": "Chiefs pass rush vs. Dolphins offensive line",
+      "chiefs": "Chris Jones, edge rotation, R Mason Thomas",
+      "opponent": "Miami pass protection",
+      "edge": "PUSH",
+      "note": "Talent says Kansas City. The Colts tape says the rush was quiet. Until the four-man or the zone blitz shows up, this is not an automatic edge."
+    },
+    {
+      "unit": "Spagnuolo secondary vs. Miami speed",
+      "chiefs": "Nohl Williams, Chamarri Conner (easing back)",
+      "opponent": "Dolphins skill-speed in space",
+      "edge": "PUSH",
+      "note": "Williams is playing like a building block. Conner easing back is the real constraint. Two-deep and a clock-eating offense is how you avoid asking a half-whole nickel to win the game."
+    },
+    {
+      "unit": "Red zone vs. a desperate home defense",
+      "chiefs": "Worthy, Royals, Kelce from the 1-to-13 range",
+      "opponent": "Miami goal-line and split-safety looks",
+      "edge": "KC",
+      "note": "Kansas City actually punched it in against Indianapolis. Miami will try to make them kick. Do not leave points on the field in a game the market has already decided."
+    }
+  ],
+  "xsandos": [
+    {
+      "title": "Walker downhill to steal the noon crowd",
+      "situation": "1st-and-10, opening script and any early-down series @ Miami",
+      "concept": "inside_zone",
+      "why": "Walker just carried 24 times for 117 and Kansas City sat on the ball for 37:00 against Indianapolis. Miami is 0-2 at home, the market has this at -10.5, and the only way a trap game starts is if the visitor gets impatient. Inside zone is how Bieniemy keeps Mahomes out of a 47-dropback heat game and how Spagnuolo keeps a Conner-easing-back secondary off the field.",
+      "coaching": "Reid and Bieniemy: stay in 12/21, make the first cut downhill, and do not check to empty just because Miami is winless. Walker has to finish runs through arm tackles; the Colts night died when the offense started hunting explosives instead of staying on schedule.",
+      "labels": {
+        "x": "block/stalk",
+        "z": "block/stalk",
+        "te": "down block to backer"
+      },
+      "diagram": "images/narrative/2026-09-25-1552/xo-inside_zone.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Boot Kelce off the Walker look",
+      "situation": "Play-action, 1st-and-10 or 2nd-and-medium after a Walker run has pinned a safety",
+      "concept": "play_action_boot",
+      "why": "Mahomes’ knee is no longer the conversation, which means Reid can move him again. Indianapolis had to count Walker in the box; Miami will copy that until the boot hits Kelce in the flat or the coming-back dig. This is also how you protect a quiet pass rush on the other side — by keeping Miami’s offense watching, not playing.",
+      "coaching": "Mahomes: sell the run, get width, and take the first easy answer. Kelce works the boot-side drag-to-sit; do not hold it looking for Worthy 40 yards downfield on the first boot of the day. The Colts tape was 32-of-47 because the easy ones were there.",
+      "labels": {
+        "x": "over route / backside post",
+        "z": "deep boot-side comeback",
+        "te": "flat-to-sit (Kelce)"
+      },
+      "diagram": "images/narrative/2026-09-25-1552/xo-play_action_boot.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Make Worthy the reason they cannot sit on Walker",
+      "situation": "2nd-and-5 or 1st-and-10 vs. a single-high look after Miami walks a safety down",
+      "concept": "four_verts",
+      "why": "Worthy’s touchdown against Indianapolis was a yard, not a statement. Arrowhead Pride is still asking when the Chiefs will see the best of him, and Rashee Rice already showed the chunk that Week 1’s ground game set up. Four verticals is the call that punishes a winless team for loading the box on Walker and answers the 5-of-13 third-down problem with a shot instead of another methodical stall.",
+      "coaching": "Worthy has to win the stem and not flatten; Rice runs the opposite seam so the free safety cannot cheat. Mahomes: if the middle of the field is closed, the checkdown is alive — do not force the 382-yard hero ball in the first road game.",
+      "labels": {
+        "x": "go / fade (Worthy)",
+        "z": "go (Rice)",
+        "te": "seam / bend to the hash (Kelce)"
+      },
+      "diagram": "images/narrative/2026-09-25-1552/xo-four_verts.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Mesh to cash man and get Thornton involved",
+      "situation": "3rd-and-5 to 3rd-and-8, two-minute or any down where Miami shows man",
+      "concept": "mesh",
+      "why": "Kansas City was only 5-of-13 on third down despite 523 yards. Kelce just caught nine balls; Tyquan Thornton’s value, per Arrowhead Addict, is as the extra winner in a receiver room that still has questions. Mesh is how Bieniemy converts without asking the pass rush on the other side to keep bailing the offense out.",
+      "coaching": "Kelce and the slot run the rub with intent — contact is the point. Thornton has to finish the crosser; Walker is the outlet if Miami switches and the mesh gets muddy. Mahomes: hitch and throw, no late-over-the-middle heroics after a zero-turnover night.",
+      "labels": {
+        "x": "shallow crosser",
+        "z": "opposite shallow / rub",
+        "te": "corner or sit behind the mesh (Kelce)"
+      },
+      "diagram": "images/narrative/2026-09-25-1552/xo-mesh.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Two-deep until Conner is whole",
+      "situation": "Early downs and any obvious Miami shot down, especially with Conner easing back",
+      "concept": "cover_two",
+      "why": "Spagnuolo already owned the 30-point, 24-first-down Colts tape. Chamarri Conner is easing back on the Thursday report, and Miami’s entire home identity is speed in space. Cover-2 takes away the vertical you cannot afford to give a desperate 0-2 team and lets Nohl Williams and the safeties rally instead of asking a half-whole nickel to win an island.",
+      "coaching": "Corners: squat and funnel, do not get stacked. Bolton has to play the hook and not chase 13 more tackles 10 yards downfield. Spagnuolo’s point to the group is simple — 329 yards was too many, and the first road game is not where you gamble man coverage to look aggressive.",
+      "labels": {
+        "x": "deep half / curl-to-flat responsibility",
+        "z": "deep half / curl-to-flat responsibility",
+        "te": "hook / seam robber"
+      },
+      "diagram": "images/narrative/2026-09-25-1552/xo-cover_two.svg",
+      "side": "defense"
+    },
+    {
+      "title": "Fake the heat that did not arrive vs. Jones",
+      "situation": "2nd-and-long / 3rd-and-medium, when Miami’s protection slides to Jones",
+      "concept": "zone_blitz",
+      "why": "The four-man rush was quiet enough after Denver’s four-sack opener that Arrowhead Pride treated it as the week’s problem. R Mason Thomas is turning flashes into production, Omarr Norman-Lott is the interior piece fans were told not to forget, and Spagnuolo’s signature answer has always been to show heat, drop a lineman, and rush the second level. Do this enough and Miami cannot max-protect and still throw the shot that beats Cover-2.",
+      "coaching": "Sell the six-man look, drop the end into the hook, and let Bolton or the nickel come late. Jones still has to win the one-on-one that the slide leaves behind — the Colts night failed because nobody won that rep. Do not blitz Conner into a busted coverage while he is still easing back.",
+      "labels": {
+        "x": "drop to hook / curl",
+        "z": "rush or contain",
+        "te": "chip-to-hook if attached"
+      },
+      "diagram": "images/narrative/2026-09-25-1552/xo-zone_blitz.svg",
+      "side": "defense"
+    }
+  ],
+  "coaching": [
+    {
+      "topic": "Reid vs. the trap-game clock",
+      "detail": "Andy Reid’s road opener is a noon CBS kick as a double-digit favorite. The Colts overtime tape is his best teaching tape: you can hang 523 and still make it a one-score game if you get cute. Run it, boot it, take the points."
+    },
+    {
+      "topic": "Bieniemy’s identity has to travel",
+      "detail": "Eric Bieniemy finally got the pass game to cash what Walker started. The install this week is not a new concept menu; it is the same downhill game in heat, with third-down answers that do not require 32 completions."
+    },
+    {
+      "topic": "Spagnuolo’s self-scout",
+      "detail": "Steve Spagnuolo already said the defense did not play well. That is the green light to play two-deep, mix zone blitz, and stop asking Nick Bolton to post 13 tackles as a lifestyle."
+    }
+  ],
+  "injuries": [
+    {
+      "player": "Chamarri Conner",
+      "status": "Easing back",
+      "note": "Thursday’s Week 3 report had Conner working his way back as Kansas City prepares for Miami’s speed. Availability is trending toward participation, not a full-strength assumption in the slot.",
+      "source": "Arrowhead Pride"
+    }
+  ],
+  "personnel": [
+    {
+      "move": "Xavier Worthy’s role after the 1-yard score",
+      "detail": "Worthy is in the end zone, which matters. The staff still has to decide whether he is a goal-line complement or the vertical answer that keeps safeties from sitting on Walker and Kelce."
+    },
+    {
+      "move": "Tyquan Thornton as the extra winner",
+      "detail": "The receiver room still draws questions. Thornton’s value is as the third/fourth option who can finish mesh, win a go, and keep defenses from bracketing Kelce and Rice."
+    },
+    {
+      "move": "R Mason Thomas in the rush rotation",
+      "detail": "A quiet Colts pass rush puts a premium on the rookie’s early production. If the starters do not get home in Miami, the rotation is not optional."
+    },
+    {
+      "move": "Nohl Williams as a building-block corner",
+      "detail": "Through two games he is playing like the next Chiefs corner, which matters more with Conner easing back and a speed opponent on the road."
+    },
+    {
+      "move": "Omarr Norman-Lott in the interior mix",
+      "detail": "Last year’s second-round tackle is the reminder piece up front. Interior push is how a zone blitz becomes real instead of a look."
+    }
+  ],
+  "strategies": [
+    "Eat the clock with Walker so Miami’s home crowd never settles and Conner’s snap count stays managed.",
+    "Use play-action boot as the first answer off inside zone — do not wait until third down to move Mahomes.",
+    "Take one real four-verticals shot early so Miami cannot sit a safety on Kelce for 60 minutes.",
+    "Mix Cover-2 and zone blitz rather than pinning the pass-rush problem on four-man hope.",
+    "Protect the zero-turnover floor; one short field against this defense is how 10.5 becomes a sweat.",
+    "Keep Worthy, Rice, and Thornton all on the call sheet so Indianapolis’ ‘make them methodical’ plan does not travel."
+  ],
+  "debates": [
+    "Is Week 3 in Miami actually a trap, or is that just what 10.5-point favorites tell themselves?",
+    "Was Worthy’s one-yard touchdown progress, or more evidence the vertical game is still late?",
+    "Can Spagnuolo’s pass rush be trusted after a quiet Colts night, or is zone blitz now the base?",
+    "How much of the secondary plan is real if Conner is only easing back?",
+    "Does 2-0 with 30 allowed deserve a 9.4 percent Super Bowl ticket, or is the market still waiting on the defense?"
+  ],
+  "runOfShow": [
+    {
+      "segment": "Cold open",
+      "length": "0:00-1:15",
+      "talkTrack": "523 yards, overtime, 2-0. We are not celebrating the yardage. We are taking the 30-point tape to Miami."
+    },
+    {
+      "segment": "Last-game film",
+      "length": "1:15-8:00",
+      "talkTrack": "Walk the Colts scoring, Walker’s 24-117, Mahomes’ 382, Kelce’s 9-101, and why Bolton’s 13 tackles are a warning light. Credit Jones, Taylor, and Warren for making it 33-30."
+    },
+    {
+      "segment": "Where they stand",
+      "length": "8:00-12:30",
+      "talkTrack": "2-0, first road trip, third-down offense, quiet pass rush, Conner easing back. What Bieniemy and Spagnuolo have to fix before noon."
+    },
+    {
+      "segment": "Miami game plan",
+      "length": "12:30-20:00",
+      "talkTrack": "Trap-game stakes, -10.5 and 85.4 percent vs. the 9.4 percent Super Bowl ticket. Inside zone, boot, four verts, Cover-2, zone blitz."
+    },
+    {
+      "segment": "Matchups and Xs-and-Os board",
+      "length": "20:00-26:00",
+      "talkTrack": "Walker vs. the front, Kelce vs. the second level, the rush as a PUSH, Williams and Conner vs. speed. Draw the six calls."
+    },
+    {
+      "segment": "Debates and close",
+      "length": "26:00-30:00",
+      "talkTrack": "Trap or no trap, Worthy’s vertical, the rush, the Polymarket gap. Send them to Sunday: play the Colts offensive tape and the anti-Colts defensive tape."
+    }
+  ],
+  "sources": [
+    {
+      "title": "Nobody is talking about Patrick Mahomes’ knee anymore and that says everything",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/nobody-talking-about-patrick-mahomes-knee-anymore-and-that-says-everything?utm_source=RSS",
+      "note": "Mahomes is fully back in the schematic conversation after the 382-yard night."
+    },
+    {
+      "title": "Tyquan Thornton is more valuable to Chiefs offense than most think",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/tyquan-thornton-is-more-valuable-to-chiefs-offense-than-most-think-01m39c5jj6xj?utm_source=RSS",
+      "note": "Third/fourth receiver value for mesh and the room behind Kelce, Rice, and Worthy."
+    },
+    {
+      "title": "Will the Chiefs’ offense see the best of Xavier Worthy soon?",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/211305/chiefs-offense-see-best-xavier-worthy-soon",
+      "note": "Frames Worthy’s 1-yard score against the vertical role he was drafted to play."
+    },
+    {
+      "title": "Chiefs pass rush must improve after quiet Colts game",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/211283/chiefs-pass-rush-improve-quiet-colts-game",
+      "note": "The defensive problem Kansas City takes on the plane to Miami."
+    },
+    {
+      "title": "Chiefs-Dolphins Week 3 Thursday injury report: Chamarri Conner easing back",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-injuries/211260/chiefs-dolphins-week-3-thursday-injury-report-chamarri-conner-easing-back",
+      "note": "Secondary availability heading into a speed matchup."
+    },
+    {
+      "title": "It wasn’t lost on Chiefs’ defense that they didn’t play well in Week 2",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/211256/wasnt-lost-on-chiefs-defense-didnt-play-well-week-2",
+      "note": "Spagnuolo’s self-scout after 30 points, 329 yards, and 24 first downs."
+    },
+    {
+      "title": "Week 3 Injury Report | Chiefs vs. Dolphins",
+      "publisher": "Chiefs.com",
+      "url": "https://www.chiefs.com/news/week-3-injury-report-chiefs-vs-dolphins-2026",
+      "note": "Official Week 3 availability list for the Miami trip."
+    },
+    {
+      "title": "Rashee Rice’s big play for Chiefs in Week 2 was set up in Week 1",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/211245/rashee-rices-big-play-chiefs-week-2-set-up-week-1",
+      "note": "How the ground game created the chunk passing that must travel."
+    },
+    {
+      "title": "Is Week 3 in Miami a trap game for the Chiefs?",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/211221/week-2-miami-trap-game-chiefs",
+      "note": "The road-favorite framing for a winless Dolphins club."
+    },
+    {
+      "title": "Kansas City Chiefs vs Miami Dolphins: How, When, and Where to Watch NFL Week 3 ?",
+      "publisher": "Chiefs.com",
+      "url": "https://www.chiefs.com/news/kansas-city-chiefs-vs-miami-dolphins-how-when-and-where-to-watch-nfl-week-3",
+      "note": "First road game of 2026, noon CBS in Miami."
+    }
+  ],
+  "slug": "2026-09-25-1552"
+}

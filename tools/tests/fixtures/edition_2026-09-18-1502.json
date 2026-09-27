@@ -1,0 +1,427 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-18T15:02:41+00:00",
+  "generator": "offline",
+  "phase": {
+    "type": "regular",
+    "label": "Week 2",
+    "week": 2,
+    "mode": "preview"
+  },
+  "edition": "2026 · Week 2",
+  "record": "6-11",
+  "headline": "Week 2 · Sun Sep 20: KC vs Indianapolis Colts",
+  "dek": "Last game on the tape, where the Chiefs stand, and the plan for who's next.",
+  "videoHook": "Let's get into it — KC: the last game, where we stand, and Indianapolis Colts.",
+  "theEdge": "Model/market read: the model gives KC 75.0%; Vegas has it KC -6.5; Polymarket prices the Chiefs at 7.5% to win it all.",
+  "storyline": {
+    "lede": "Kansas City turns the page to Indianapolis Colts. the model gives KC 75.0%; Vegas has it KC -6.5; Polymarket prices the Chiefs at 7.5% to win it all. Last game on the tape, the current state of the roster, then the game plan and matchup for who's next.",
+    "body": [
+      "This edition runs the weekly desk in order: last game, current state, next opponent.",
+      "A win over Denver Broncos is still a win — even in August — because it is evidence the script can hold when the other side punches back. The box: ESPN had KC at 392 total yards against 176 for the opponent; turnovers KC 1 / opp 2; KC third downs 9-17. The tape to keep is how they scored, not that they did.",
+      "The 2026 Chiefs are 1-0 after the last kickoff. Coming off W KC 31–10 vs. Denver Broncos. The next assignment is Indianapolis Colts.",
+      "The matchup is a style question first: can Kansas City stay on schedule against what Indianapolis Colts does best, and can Steve Spagnuolo make Indianapolis Colts play left-handed? The market: the model gives KC 75.0%; Vegas has it KC -6.5; Polymarket prices the Chiefs at 7.5% to win it all. Give them credit in the trenches and on early downs; mark KC edges only where the personnel actually says so."
+    ]
+  },
+  "lastGameReview": {
+    "opponent": "Denver Broncos",
+    "label": "Week 1 · Mon, Sep 14 · 7:15 PM CT",
+    "result": "W",
+    "score": "KC 31–10",
+    "lede": "Kansas City beat Denver Broncos (KC 31–10) at Arrowhead — Week 1 · Mon, Sep 14 · 7:15 PM CT.",
+    "analysis": [
+      "A win over Denver Broncos is still a win — even in August — because it is evidence the script can hold when the other side punches back. The box: ESPN had KC at 392 total yards against 176 for the opponent; turnovers KC 1 / opp 2; KC third downs 9-17. The tape to keep is how they scored, not that they did.",
+      "Scoring sequence from ESPN: Q1 8:11 — KC Patrick Mahomes 15 Yd Rush (Harrison Butker Kick); Q1 3:48 — DEN Evan Engram 19 Yd pass from Bo Nix (Wil Lutz Kick); Q2 1:39 — KC Rashee Rice 13 Yd pass from Patrick Mahomes (Harrison Butker Kick); Q3 12:43 — KC Kenneth Walker III 60 Yd Rush (Harrison Butker Kick); Q3 7:34 — DEN Wil Lutz 31 Yd Field Goal; Q3 3:17 — KC Harrison Butker 28 Yd Field Goal.",
+      "KC statistical leaders on the ESPN recap: Patrick Mahomes (Passing Yards: 15/27, 184 YDS, 2 TD, 1 INT), Kenneth Walker III (Rushing Yards: 23 CAR, 173 YDS, 1 TD), Travis Kelce (Receiving Yards: 3 REC, 71 YDS).",
+      "The wire is already arguing the same game: Jonathan Taylor will be another great test for the Chiefs' young defense (Arrowhead Addict). Use that as the cited through-line, not a new rumor."
+    ],
+    "takeaways": [
+      {
+        "title": "The result is the start of the tape, not the end",
+        "body": "KC 31–10 vs. Denver Broncos only matters if Kansas City can name the two or three plays that created it — and whether those are scheme, personnel, or execution."
+      },
+      {
+        "title": "Who earned the next snap",
+        "body": "The useful review is the depth chart: which lineman, nickel, or skill player looked like a Wednesday-night keeper, and who just played themselves into a shorter leash."
+      },
+      {
+        "title": "Ball security is the quiet game",
+        "body": "ESPN charged Kansas City with 1 turnover(s). That is the first item on the correction list no matter the opponent."
+      }
+    ],
+    "whatWorked": [
+      "Any drive that stayed on schedule and let play-action stay in the call sheet.",
+      "Spagnuolo looks that forced a hot throw or a checkdown instead of the shot."
+    ],
+    "whatDidnt": [
+      "Negative plays that put Mahomes (or the backup) in obvious passing downs.",
+      "Missed tackles / busted leverage that turned a stop into a chunk."
+    ]
+  },
+  "currentState": {
+    "lede": "The 2026 Chiefs are 1-0 after the last kickoff. Coming off W KC 31–10 vs. Denver Broncos. The next assignment is Indianapolis Colts.",
+    "record": "1-0",
+    "workOn": [
+      {
+        "title": "Correct the last-game problems before they become identity",
+        "body": "Whatever lost (or nearly lost) the previous Sunday has to have a named fix by Wednesday."
+      },
+      {
+        "title": "Stay on schedule so the play-action menu stays live",
+        "body": "Third-and-long is where this roster still looks most 2025."
+      },
+      {
+        "title": "Protect the quarterback and the secondary at the same time",
+        "body": "If the nickel is a mismatch, Spagnuolo cannot send the look he wants."
+      }
+    ],
+    "thinkAbout": [
+      {
+        "title": "Is the film saying scheme or personnel?",
+        "body": "The staff has to decide what is a call-sheet problem and what is a player problem."
+      },
+      {
+        "title": "How much of the next opponent is a style clash vs. a talent gap?",
+        "body": "Game-plan honesty starts there — not with the Vegas number."
+      }
+    ]
+  },
+  "gamePlan": {
+    "opponent": "Indianapolis Colts",
+    "lede": "Indianapolis Colts at Arrowhead is the next real one. Last week is closed (Denver Broncos); this week is a new call sheet.",
+    "howTheyMatch": "The matchup is a style question first: can Kansas City stay on schedule against what Indianapolis Colts does best, and can Steve Spagnuolo make Indianapolis Colts play left-handed? The market: the model gives KC 75.0%; Vegas has it KC -6.5; Polymarket prices the Chiefs at 7.5% to win it all. Give them credit in the trenches and on early downs; mark KC edges only where the personnel actually says so.",
+    "keys": [
+      {
+        "title": "Take away Indianapolis Colts's first answer",
+        "body": "Whatever they want on early downs — the run, the shot, the glance — has to be the first paragraph of the plan."
+      },
+      {
+        "title": "Make them tackle in space, then hit play-action",
+        "body": "If the run is real, the boot and verts come off it. If it is not, it is third-and-forever again."
+      },
+      {
+        "title": "Pressure picture vs. their protection",
+        "body": "Spagnuolo's simulated heat only works if the nickel and the dropper land where Indianapolis Colts wants to throw the hot ball."
+      },
+      {
+        "title": "Hidden yards",
+        "body": "Field position and the two-minute / four-minute bits decide one-score games."
+      }
+    ],
+    "script": [
+      "15-play openers that test Indianapolis Colts's run fits, then a boot on the same look.",
+      "Motion to declare coverage before the money down.",
+      "One max-protect shot if they sit in two-high; one screen if they climb the pocket.",
+      "A two-minute package that does not require a scramble drill."
+    ]
+  },
+  "nextGame": {
+    "id": "",
+    "label": "Week 2 · Sun Sep 20",
+    "opponent": "vs Indianapolis Colts",
+    "at": "Arrowhead Stadium",
+    "tv": "NBC",
+    "note": "Indianapolis Colts at Arrowhead is the next real one. Last week is closed (Denver Broncos); this week is a new call sheet."
+  },
+  "markets": {
+    "game": {
+      "opponent": "Indianapolis Colts",
+      "label": "Sun, Sep 20 · 7:20 PM CT",
+      "homeAway": "home",
+      "kcWin": 75.0,
+      "spreadDetail": "KC -6.5",
+      "overUnder": 46.5,
+      "source": "ESPN FPI game projection",
+      "url": "https://www.espn.com/nfl/game/_/gameId/401872945"
+    },
+    "model": {
+      "kcWin": 75.0,
+      "oppWin": 24.8,
+      "label": "ESPN FPI game projection",
+      "source": "ESPN FPI",
+      "url": "https://www.espn.com/nfl/fpi"
+    },
+    "vegas": {
+      "provider": "Draft Kings",
+      "spreadDetail": "KC -6.5",
+      "overUnder": 46.5,
+      "homeMoneyline": -285.0,
+      "awayMoneyline": 230.0,
+      "source": "ESPN / Draft Kings",
+      "url": "https://www.espn.com/nfl/lines"
+    },
+    "consensus": null,
+    "futures": [
+      {
+        "label": "Pro Football: 2027 Champion",
+        "chiefsPct": 7.5,
+        "source": "Polymarket",
+        "url": "https://polymarket.com/event/pro-football-2027-champion-20260729185915366"
+      },
+      {
+        "label": "Pro Football: 2027 AFC Champion",
+        "chiefsPct": 12.5,
+        "source": "Polymarket",
+        "url": "https://polymarket.com/event/pro-football-2027-afc-champion"
+      }
+    ]
+  },
+  "spotlight": [
+    {
+      "tag": "Recap",
+      "title": "What the last tape said",
+      "body": "Kansas City beat Denver Broncos (KC 31–10) at Arrowhead — Week 1 · Mon, Sep 14 · 7:15 PM CT."
+    },
+    {
+      "tag": "Preview",
+      "title": "The Indianapolis Colts problem",
+      "body": "The matchup is a style question first: can Kansas City stay on schedule against what Indianapolis Colts does best, and can Steve Spagnuolo make Indianapolis Colts play left-handed? The market: the model gives KC 75.0%; Vegas has it KC -6.5; Polymarket prices the Chiefs at 7.5% to win it all. Give them credit in the trenches and on early downs; mark KC edges only where the personnel actually says so."
+    },
+    {
+      "tag": "Key",
+      "title": "The swing matchup",
+      "body": "Whatever they want on early downs — the run, the shot, the glance — has to be the first paragraph of the plan."
+    },
+    {
+      "tag": "State",
+      "title": "What has to get fixed",
+      "body": "Whatever lost (or nearly lost) the previous Sunday has to have a named fix by Wednesday."
+    }
+  ],
+  "matchups": [
+    {
+      "unit": "Chiefs offense vs. Indianapolis Colts defense",
+      "chiefs": "Reid/Bieniemy game plan",
+      "opponent": "Indianapolis Colts front & coverage",
+      "edge": "PUSH",
+      "note": "Early-down efficiency sets up everything after."
+    },
+    {
+      "unit": "Chiefs defense vs. Indianapolis Colts offense",
+      "chiefs": "Spagnuolo pressure package",
+      "opponent": "Indianapolis Colts playmakers",
+      "edge": "PUSH",
+      "note": "Disguise and rush to force the mistake."
+    },
+    {
+      "unit": "Special teams & field position",
+      "chiefs": "Hidden-yard battle",
+      "opponent": "Indianapolis Colts",
+      "edge": "PUSH",
+      "note": "In tight games the margins live here."
+    },
+    {
+      "unit": "Coaching & adjustments",
+      "chiefs": "Andy Reid staff",
+      "opponent": "Indianapolis Colts staff",
+      "edge": "KC",
+      "note": "Halftime adjustments are a Chiefs advantage."
+    }
+  ],
+  "xsandos": [
+    {
+      "title": "Inside zone — stay on schedule",
+      "situation": "1st down / 2nd & short",
+      "concept": "inside_zone",
+      "why": "Early-down efficiency keeps the play-action and boot menu honest and the offense out of obvious passing downs — where opponents want it.",
+      "coaching": "One cut, downhill — let the double-teams move the line and take the four yards every time.",
+      "labels": {},
+      "diagram": "images/narrative/2026-09-18-1502/xo-inside_zone.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Under-center boot — the early-down answer",
+      "situation": "1st & 10 off a run look vs. Indianapolis Colts",
+      "concept": "play_action_boot",
+      "why": "Moves the launch point away from the rush and gives a defined half-field read — the cheapest explosive in the menu once the run game has landed.",
+      "coaching": "The fake has to match the run action on tape or the backside end never bites.",
+      "labels": {
+        "x": "deep cross",
+        "z": "flat",
+        "te": "hinge-climb"
+      },
+      "diagram": "images/narrative/2026-09-18-1502/xo-play_action_boot.svg",
+      "side": "offense"
+    },
+    {
+      "title": "4 verticals vs. Cover 3",
+      "situation": "2nd & medium, spread look",
+      "concept": "four_verts",
+      "why": "Stretches the deep zones and forces the safety to choose — a staple answer when the defense sits back.",
+      "coaching": "Bend the seams to the hash and read the safety's leverage.",
+      "labels": {},
+      "diagram": "images/narrative/2026-09-18-1502/xo-four_verts.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Mesh vs. man",
+      "situation": "3rd & short/medium",
+      "concept": "mesh",
+      "why": "Rub-heavy crossers beat man coverage and give a clean, quick answer with an RB checkdown as the outlet.",
+      "coaching": "Set the mesh depth tight so the pick is legal and natural.",
+      "labels": {
+        "x": "corner",
+        "z": "sit"
+      },
+      "diagram": "images/narrative/2026-09-18-1502/xo-mesh.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Simulated pressure on the money down",
+      "situation": "3rd & 5-8, protection stressed",
+      "concept": "zone_blitz",
+      "why": "Five-man picture, four-man rush: force the hot throw into a capped window without selling out the coverage behind it.",
+      "coaching": "The dropper must land in the throwing lane the protection leaves open — that's where the hot ball goes.",
+      "labels": {},
+      "diagram": "images/narrative/2026-09-18-1502/xo-zone_blitz.svg",
+      "side": "defense"
+    },
+    {
+      "title": "Spagnuolo Cover-2 shell",
+      "situation": "Protect a lead / obvious passing down",
+      "concept": "cover_two",
+      "why": "Takes the top off, rallies to tackle, and dares the offense to be patient — the situational change-up.",
+      "coaching": "Sink the corners, funnel everything to the deep halves.",
+      "labels": {},
+      "diagram": "images/narrative/2026-09-18-1502/xo-cover_two.svg",
+      "side": "defense"
+    }
+  ],
+  "coaching": [
+    {
+      "topic": "Game-plan identity",
+      "detail": "Win early downs, stay on schedule, and let the play-action menu do the heavy lifting."
+    },
+    {
+      "topic": "Pressure vs. protection",
+      "detail": "Spagnuolo's disguise against the opponent's answers is the chess match to watch."
+    }
+  ],
+  "injuries": [
+    {
+      "player": "",
+      "status": "See report",
+      "note": "Chiefs audition four linebackers after losing Cooper McDonald to injury",
+      "source": "Arrowhead Addict"
+    },
+    {
+      "player": "",
+      "status": "See report",
+      "note": "Week 2 Injury Report | Colts vs. Chiefs",
+      "source": "Chiefs.com"
+    },
+    {
+      "player": "",
+      "status": "See report",
+      "note": "Chiefs-Colts Week 2 Thursday injury report: Colts’ top wideout misses practice",
+      "source": "Arrowhead Pride"
+    },
+    {
+      "player": "",
+      "status": "See report",
+      "note": "Dave Toub hypes up the return of the fullback for the Chiefs",
+      "source": "Arrowhead Pride"
+    }
+  ],
+  "personnel": [
+    {
+      "move": "Roster watch",
+      "detail": "Transactions and depth-chart moves that shape the plan."
+    }
+  ],
+  "strategies": [
+    "Win first down — stay out of obvious passing situations.",
+    "Use motion and play-action to simplify the reads.",
+    "Let the pass rush dictate; disguise the coverage behind it.",
+    "Steal a possession on special teams / field position.",
+    "Script the opening drive to set an early tone."
+  ],
+  "debates": [
+    "What's the single biggest key against Indianapolis Colts?",
+    "Which matchup are you most worried about?",
+    "Trust the model, the market, or your gut this week?"
+  ],
+  "runOfShow": [
+    {
+      "segment": "Cold open — last game, then the next one",
+      "length": "0:00–1:15",
+      "talkTrack": "Open on the last result, then pivot to Indianapolis Colts."
+    },
+    {
+      "segment": "Last-game tape",
+      "length": "1:15–5:00",
+      "talkTrack": "What worked, what didn't, and the two or three plays that created the final."
+    },
+    {
+      "segment": "Current state — the work list",
+      "length": "5:00–7:30",
+      "talkTrack": "Where the roster stands and what has to be fixed before kickoff."
+    },
+    {
+      "segment": "Next-game plan & matchups",
+      "length": "7:30–11:00",
+      "talkTrack": "How KC matches up with Indianapolis Colts and the script for early downs."
+    },
+    {
+      "segment": "X&O film room",
+      "length": "11:00–14:00",
+      "talkTrack": "Break down the diagrams on screen."
+    },
+    {
+      "segment": "Numbers + fan debates",
+      "length": "14:00–16:00",
+      "talkTrack": "Model, Vegas, and the comment-section arguments."
+    }
+  ],
+  "sources": [
+    {
+      "title": "Tom Cruise raves about Patrick Mahomes and electric atmosphere at Arrowhead",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/tom-cruise-raves-about-patrick-mahomes-and-electric-atmosphere-at-arrowhead?utm_source=RSS",
+      "note": "Travis Kelce and Jason Kelce hosted the actor on the latest episode of New Heights to talk Chiefs and his new movie."
+    },
+    {
+      "title": "Important Fan Information for Sunday Night's Game vs. Indianapolis at Arrowhead Stadium",
+      "publisher": "Chiefs.com",
+      "url": "https://www.chiefs.com/news/important-fan-information-for-sunday-night-s-game-vs-indianapolis-at-arrowhead-stadium",
+      "note": "Chiefs vs. Colts, presented by Bud Light, Kicks Off at 7:22 PM"
+    },
+    {
+      "title": "Jonathan Taylor will be another great test for the Chiefs' young defense",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/jonathan-taylor-will-be-another-great-test-for-kc-chiefs-young-defense?utm_source=RSS",
+      "note": "The Chiefs shut down the Broncos running game in week one, but the Colts Jonathan Taylor will be an even bigger test for KC."
+    },
+    {
+      "title": "Felix Anudike-Uzomah is turning a make-or-break season into something more",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/felix-anudike-uzomah-is-turning-a-make-or-break-season-something-more?utm_source=RSS",
+      "note": "With another strong performance in Week 2, the narrative around Felix Anudike-Uzomah will totally shift."
+    },
+    {
+      "title": "Former Chiefs Week 1 check-in: Trent McDuffie thrived, Leo Chenal underwhelmed",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/former-chiefs-week-1-check-in-trent-mcduffie-thrived-leo-chenal-underwhelmed?utm_source=RSS",
+      "note": "The Kansas City Chiefs played in the final game of the Week 1 slate, hosting the Broncos on Monday Night Football. Before they took the fiel"
+    },
+    {
+      "title": "Chiefs-Colts: 5 things to watch in the Week 2 matchup",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/210377/chiefs-colts-5-things-watch-week-2-matchup",
+      "note": "This week, the Kansas City Chiefs will host the Indianapolis Colts in Week 2 on “Sunday Night Football.” The game kicks off at 7:20 p.m. Arr"
+    },
+    {
+      "title": "Chiefs audition four linebackers after losing Cooper McDonald to injury",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/chiefs-audition-four-linebackers-after-losing-cooper-mcdonald-to-injury?utm_source=RSS",
+      "note": "The Chiefs took a look at several young linebacker on Thursday."
+    },
+    {
+      "title": "Nick Wright hits the nail on the head about Justin Herbert",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/nick-wright-hits-the-nail-on-the-head-about-justin-herbert?utm_source=RSS",
+      "note": "There's a running joke not just amongst Kansas City Chiefs fans but NFL fans in general that every year is the Los Angeles Chargers' year. T"
+    }
+  ],
+  "slug": "2026-09-18-1502"
+}

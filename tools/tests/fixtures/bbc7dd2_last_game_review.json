@@ -1,0 +1,52 @@
+{
+  "generatedAt": "2026-09-27T20:20:32+00:00",
+  "slug": "2026-09-27-2020",
+  "edition": "2026 Week 4 · Review",
+  "headline": "The box score said 24–10. The clock said 2025.",
+  "lastGameReview": {
+    "opponent": "Miami Dolphins",
+    "label": "Week 3 · Sun, Sep 27 · 12:00 PM CT",
+    "result": "W",
+    "score": "KC 24–10",
+    "lede": "Kansas City opened Hard Rock Stadium with a 10-yard Kenneth Walker III run, answered Ollie Gordon II’s 3-yard score with a 5-yard Walker touchdown catch, then spent the middle of the game in a slog before Harrison Butker’s 34-yard field goal and Travis Kelce’s 11-yard catch from Patrick Mahomes at 2:55 of the fourth made it 24-10. It was a grind, not a coronation: 334 total yards, one turnover, and a defense that won the scoreboard while losing the clock.",
+    "analysis": [
+      {
+        "body": "The opening drive was the version of this offense Eric Bieniemy sold in September — Walker downhill, red-zone finish, 7-0. After that, Kansas City played like a team protecting a lead it did not yet have. Mahomes’ 20-of-24 is elite accuracy and a modest event: 246 yards means the ball was coming out on time into the first window, not the third. The interception is the only real scar on his night, but the scar on the unit is volume. Eighteen first downs after the Colts game had turned into a first-down factory is a choice, a Miami front that got off blocks, or both. On this tape it played like both."
+      },
+      {
+        "body": "Walker’s box (18 for 70, plus the 5-yard score as a receiver) is a closer’s night, not a hammer’s. He won the two possessions that put six on the board and otherwise ran into a stacked look that Kansas City never consistently broke. Rice (7-88) was the adult in the room between the hashes; Kelce was the adult in the red zone when the game finally needed closing. Third down at 3-of-7 is how you post 25:39 of possession in a game you control on the scoreboard. That is not a Mahomes problem. That is a stay-on-schedule problem — second-and-long, empty menu, punt, repeat."
+      },
+      {
+        "body": "Spagnuolo’s side will take 10 points allowed every week of the year, and the two Miami turnovers are the entire margin between a statement and a sweat. Credit the ball. Do not credit the third-down defense: 8-of-16, 19 first downs, 119 rush yards, 34:21 of clock. Bolton’s 11 tackles are a MIKE playing winning football and also a usage warning — too many snaps in space, too many rallies, not enough negative plays to make Miami uncomfortable. Pre-game, the pass rush was supposed to feast on a struggling Dolphins group after disappearing against Daniel Jones. Miami still netted 210 through the air and kept drives alive. The score says the defense won. The stopwatch says it survived."
+      }
+    ],
+    "takeaways": [
+      {
+        "title": "Efficiency without the hammer",
+        "body": "Mahomes at 20-of-24 with a 119.8 passer rating is a winning quarterback night. It is not a winning offensive identity if Walker is at 3.9 a carry and the unit is 3-of-7 on third down. Las Vegas will play the Miami script — dirty early downs, make Kansas City throw to stay alive — unless Bieniemy reclaims first-and-10."
+      },
+      {
+        "title": "Takeaways covered a long afternoon",
+        "body": "Miami out-gained nobody and still won first downs, third downs, and possession. Two turnovers are why Arrowhead Pride could file a 24-10 and still say last year’s team almost showed up. That is not a sustainable model against a division opponent that will not donate the ball."
+      },
+      {
+        "title": "The scoring package still works",
+        "body": "Walker from 10 yards out, Walker from five through the air, Kelce from 11 with the game in the fourth — the red-zone pairing is intact. Rice as the volume receiver (7-88) is the chain-moving piece that has to keep eating if the run game stays in the 80s. That trio is the 24 on the scoreboard. Everyone else is the 10 they allowed to linger."
+      }
+    ],
+    "whatWorked": [
+      "Mahomes’ first-window accuracy (20-of-24, 246, 2 TD) kept drives from turning into disasters even when they stalled.",
+      "Walker as a closer: 10-yard run, 5-yard receiving score, 18 carries of physical tone even without the chunk yards.",
+      "Rice as the possession X — seven catches, 88 yards, the one skill player who consistently moved the sticks.",
+      "Kelce’s 11-yard touchdown at 2:55 of the fourth, the exact red-zone answer this offense is built to cash.",
+      "Two Miami turnovers and a 10-point ceiling, which is how you leave 3-0 when the clock is against you."
+    ],
+    "whatDidnt": [
+      "Third-down offense at 3-of-7, the simplest reason the possession time died.",
+      "The run game as a volume identity: 88 team rush yards after the Denver hammer and Walker’s 117-yard Colts night.",
+      "Third-down defense at 8-of-16 allowed, which handed Miami 34:21 of clock.",
+      "A pass rush that still did not close the show after being flagged as the Week 2 problem.",
+      "The hidden game: 18 first downs to 19, 25:39 of possession, one offensive turnover that kept a 14-10 game alive into the fourth."
+    ]
+  }
+}
