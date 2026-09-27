@@ -2,6 +2,8 @@
   const EMPTY_COPY = "No comments yet. Be the first.";
   const LOAD_ERROR_COPY = "Couldn't load comments.";
   const TURNSTILE_FAIL_COPY = "Spam check didn't load, refresh.";
+  const POSTED_COPY = "Posted. Thanks for sitting at the table.";
+  const HIDDEN_REPLAY_COPY = "Your comment was received and is pending/removed.";
   const OLDER_COPY = "Load older comments";
   const OLDER_RETRY_COPY = "Retry";
   const OLDER_ERROR_COPY = "Couldn't load older comments.";
@@ -232,6 +234,10 @@
       try {
         return await postOnce(firstToken);
       } catch (err2) {
+        if (err2.status === 400 || err2.status === 409 || err2.status === 429) {
+          if (onSpentToken) onSpentToken();
+          throw err2;
+        }
         const fresh = await waitForFreshToken();
         if (!fresh) throw err2;
         return await postOnce(fresh);
@@ -378,19 +384,25 @@
         if (data.comment && data.comment.body) {
           loaded = [data.comment].concat(loaded.filter((row) => row.id !== data.comment.id));
           render();
+          setStatus(status, POSTED_COPY, false);
+        } else if (data.comment && data.comment.status === "hidden") {
+          setStatus(status, HIDDEN_REPLAY_COPY, false);
+        } else {
+          setStatus(status, POSTED_COPY, false);
         }
         form.reset();
         if (siteKey && window.turnstile && widgetId !== null) window.turnstile.reset(widgetId);
-        setStatus(status, "Posted. Thanks for sitting at the table.", false);
       } catch (err) {
-        if (err.status && err.status < 500 && siteKey && window.turnstile && widgetId !== null) {
-          window.turnstile.reset(widgetId);
-        }
+        if (siteKey && window.turnstile && widgetId !== null) window.turnstile.reset(widgetId);
         setStatus(status, err.message, true);
       } finally {
         submit.disabled = false;
       }
     });
+  }
+
+  if (typeof globalThis !== "undefined") {
+    globalThis.__nrtInitThread = initThread;
   }
 
   async function initModerate(root) {

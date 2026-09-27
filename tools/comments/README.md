@@ -96,13 +96,19 @@ its page cap, it shows a notice.
 thread DO:
 
 - `CREATE TABLE IF NOT EXISTS` for `comments`, `slugs`, and `meta`
-- `schema_version` in `meta` (currently `2`)
+- `schema_version` in `meta` (currently `3`)
 - `ALTER TABLE comments ADD COLUMN requestId` when the column is missing
 - `CREATE UNIQUE INDEX IF NOT EXISTS comments_request_id`
 - `CREATE INDEX IF NOT EXISTS comments_created_id` on `(createdAt, id)`
   for admin lists, and `comments_hidden_created` on
   `(hidden, createdAt, id)` for public lists, so a `LIMIT 51` stops
   in the index instead of scanning the thread
+- First v2 migration builds those two list indexes once (SQLite
+  `CREATE INDEX` over existing rows). Later isolates just hit
+  `IF NOT EXISTS`.
+- v3 `DROP INDEX IF EXISTS comments_slug_created` — unused after the
+  list queries dropped the slug predicate. `comments_created_id` and
+  `comments_hidden_created` stay.
 
 Nothing has been deployed yet; the migration is still written so an
 old-shape table upgrades in place.

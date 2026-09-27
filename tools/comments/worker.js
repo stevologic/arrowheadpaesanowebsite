@@ -43,7 +43,7 @@ export const LIST_CACHE_TTL_SEC = 45;
 export const SLUGS_TTL_MS = 60 * 1000;
 export const SLUGS_FAIL_BACKOFF_MS = 5 * 1000;
 export const SLUGS_FETCH_TIMEOUT_MS = 4 * 1000;
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 const DIR_NAME = "__directory__";
 const DEFAULT_SLUGS_URL = "https://arrowheadpaesano.com/comments-slugs.json";
 
@@ -305,7 +305,7 @@ export function migrateThreadSchema(sql) {
     sql.exec(`ALTER TABLE comments ADD COLUMN requestId TEXT`);
   }
   sql.exec(`CREATE UNIQUE INDEX IF NOT EXISTS comments_request_id ON comments (requestId)`);
-  sql.exec(`CREATE INDEX IF NOT EXISTS comments_slug_created ON comments (slug, createdAt, id)`);
+  sql.exec(`DROP INDEX IF EXISTS comments_slug_created`);
   sql.exec(`CREATE INDEX IF NOT EXISTS comments_created_id ON comments (createdAt, id)`);
   sql.exec(`CREATE INDEX IF NOT EXISTS comments_hidden_created ON comments (hidden, createdAt, id)`);
   const schema = sql.exec(`SELECT value FROM meta WHERE key = 'schema_version'`).toArray();

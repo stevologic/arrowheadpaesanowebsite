@@ -201,6 +201,8 @@ class CommentStore:
         if request_id:
             for existing in self._comments.values():
                 if existing.get("requestId") == request_id:
+                    if existing.get("hidden"):
+                        return {"id": existing["id"], "status": "hidden"}
                     return public_comment(existing)
         validate_turnstile(turnstile_token, self.turnstile_mode)
         if str(payload.get(HONEYPOT_FIELD) or "").strip():

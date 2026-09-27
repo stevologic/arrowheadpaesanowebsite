@@ -704,6 +704,7 @@ test("migrateThreadSchema upgrades an old-shape comments table", () => {
     "Third old row.",
     "2026-09-26T13:57:00Z"
   );
+  sql.exec(`CREATE INDEX comments_slug_created ON comments (slug, createdAt, id)`);
   migrateThreadSchema(sql);
   migrateThreadSchema(sql);
   const columns = sql.exec(`PRAGMA table_info(comments)`).toArray().map((row) => row.name);
@@ -712,12 +713,12 @@ test("migrateThreadSchema upgrades an old-shape comments table", () => {
   assert.equal(Number(schema[0].value), SCHEMA_VERSION);
   const indexes = sql
     .exec(
-      `SELECT name FROM sqlite_master WHERE type = 'index' AND name IN ('comments_request_id', 'comments_created_id', 'comments_hidden_created') ORDER BY name`
+      `SELECT name FROM sqlite_master WHERE type = 'index' AND name IN ('comments_request_id', 'comments_created_id', 'comments_hidden_created', 'comments_slug_created') ORDER BY name`
     )
     .toArray()
     .map((row) => row.name);
   assert.deepEqual(indexes, ["comments_created_id", "comments_hidden_created", "comments_request_id"]);
-  assert.equal(SCHEMA_VERSION, 2);
+  assert.equal(SCHEMA_VERSION, 3);
   const leftover = sql.exec(`SELECT name, requestId FROM comments ORDER BY createdAt`).toArray();
   assert.equal(leftover.length, 3);
   assert.deepEqual(
@@ -1054,32 +1055,32 @@ test("client retries requestId replay before asking for a fresh Turnstile token"
   assert.equal(replayed.replayed, true);
 
   const unsavedCalls = [];
-  const saved = await postWithReplay({
-    async postOnce(token) {
-      unsavedCalls.push(token);
-      if (unsavedCalls.length === 1) {
-        const err = new Error("upstream 502");
-        err.status = 502;
-        throw err;
-      }
-      if (token === "spent-token") {
-        const err = new Error("Spam check failed.");
-        err.status = 400;
-        throw err;
-      }
-      return { comment: { id: "2", body: "new save" } };
-    },
-    async waitForFreshToken() {
-      unsavedCalls.push("fresh");
-      return "fresh-token";
-    },
-    firstToken: "spent-token",
-    onSpentToken() {
-      unsavedCalls.push("reset");
-    },
-  });
-  assert.deepEqual(unsavedCalls, ["spent-token", "spent-token", "fresh", "fresh-token"]);
-  assert.equal(saved.comment.id, "2");
+  await assert.rejects(
+    () =>
+      postWithReplay({
+        async postOnce(token) {
+          unsavedCalls.push(token);
+          if (unsavedCalls.length === 1) {
+            const err = new Error("upstream 502");
+            err.status = 502;
+            throw err;
+          }
+          const err = new Error("Too many comments from this network. Wait a minute.");
+          err.status = 429;
+          throw err;
+        },
+        async waitForFreshToken() {
+          unsavedCalls.push("fresh");
+          return "fresh-token";
+        },
+        firstToken: "spent-token",
+        onSpentToken() {
+          unsavedCalls.push("reset");
+        },
+      }),
+    (err) => err.status === 429 && /Too many comments/.test(err.message)
+  );
+  assert.deepEqual(unsavedCalls, ["spent-token", "spent-token", "reset"]);
 
   const spentCalls = [];
   await assert.rejects(
@@ -1103,4 +1104,296 @@ test("client retries requestId replay before asking for a fresh Turnstile token"
     (err) => err.status === 400
   );
   assert.deepEqual(spentCalls, ["spent-token", "reset"]);
+});
+
+function createDomKit() {
+  function match(el, selector) {
+    const attr = /^\[([^\]]+)\]$/.exec(selector);
+    if (!attr) return false;
+    const [name, raw] = attr[1].split("=");
+    if (raw === undefined) return Object.hasOwn(el.attrs, name);
+    return el.attrs[name] === raw.replace(/^["']|["']$/g, "");
+  }
+  function search(el, selector) {
+    for (const child of el.childNodes) {
+      if (match(child, selector)) return child;
+      const hit = search(child, selector);
+      if (hit) return hit;
+    }
+    return null;
+  }
+  function createElement(tag) {
+    const el = {
+      tagName: String(tag).toUpperCase(),
+      attrs: {},
+      childNodes: [],
+      parentNode: null,
+      className: "",
+      hidden: false,
+      disabled: false,
+      value: "",
+      textContent: "",
+      listeners: Object.create(null),
+      classList: {
+        toggle(name, on) {
+          const parts = new Set(String(el.className).split(/\s+/).filter(Boolean));
+          if (on === undefined) {
+            if (parts.has(name)) parts.delete(name);
+            else parts.add(name);
+          } else if (on) parts.add(name);
+          else parts.delete(name);
+          el.className = [...parts].join(" ");
+        },
+        contains(name) {
+          return String(el.className).split(/\s+/).includes(name);
+        },
+      },
+      getAttribute(name) {
+        return Object.hasOwn(el.attrs, name) ? el.attrs[name] : null;
+      },
+      setAttribute(name, value) {
+        el.attrs[name] = String(value);
+      },
+      querySelector(selector) {
+        return search(el, selector);
+      },
+      appendChild(child) {
+        child.parentNode = el;
+        el.childNodes.push(child);
+        return child;
+      },
+      addEventListener(type, fn) {
+        (el.listeners[type] ||= []).push(fn);
+      },
+      dispatchEvent(event) {
+        for (const fn of el.listeners[event.type] || []) fn(event);
+        return true;
+      },
+      after(sib) {
+        if (!el.parentNode) return;
+        const siblings = el.parentNode.childNodes;
+        const idx = siblings.indexOf(el);
+        sib.parentNode = el.parentNode;
+        siblings.splice(idx + 1, 0, sib);
+      },
+      reset() {},
+    };
+    Object.defineProperty(el, "innerHTML", {
+      get() {
+        return el.textContent;
+      },
+      set(value) {
+        el.childNodes = [];
+        el.textContent = String(value).replace(/<[^>]+>/g, "");
+      },
+    });
+    Object.defineProperty(el, "elements", {
+      get() {
+        return {
+          namedItem(name) {
+            function find(node) {
+              if (node.attrs.name === name) return node;
+              for (const child of node.childNodes) {
+                const hit = find(child);
+                if (hit) return hit;
+              }
+              return null;
+            }
+            return find(el);
+          },
+        };
+      },
+    });
+    return el;
+  }
+  return { createElement };
+}
+
+function mountCommentRoot(createElement) {
+  const root = createElement("section");
+  root.setAttribute("data-comments", "");
+  root.setAttribute("data-slug", SLUG);
+  root.setAttribute("data-api", "https://comments.test");
+  root.setAttribute("data-turnstile", "1x00000000000000000000AA");
+  const list = createElement("div");
+  list.setAttribute("data-comments-list", "");
+  root.appendChild(list);
+  const older = createElement("button");
+  older.setAttribute("data-load-older", "");
+  root.appendChild(older);
+  const olderError = createElement("p");
+  olderError.setAttribute("data-older-error", "");
+  root.appendChild(olderError);
+  const form = createElement("form");
+  form.setAttribute("data-comments-form", "");
+  root.appendChild(form);
+  const fields = createElement("fieldset");
+  fields.setAttribute("data-comments-fields", "");
+  form.appendChild(fields);
+  const honeypot = createElement("input");
+  honeypot.setAttribute("name", "nrt_hp_x7");
+  honeypot.value = "";
+  fields.appendChild(honeypot);
+  const name = createElement("input");
+  name.setAttribute("name", "name");
+  name.value = "Travis";
+  fields.appendChild(name);
+  const body = createElement("textarea");
+  body.setAttribute("name", "body");
+  body.value = "The pass rush is the whole story.";
+  fields.appendChild(body);
+  const slot = createElement("div");
+  slot.setAttribute("data-turnstile-slot", "");
+  fields.appendChild(slot);
+  const submit = createElement("button");
+  submit.setAttribute("data-comments-submit", "");
+  fields.appendChild(submit);
+  const status = createElement("p");
+  status.setAttribute("data-comments-status", "");
+  fields.appendChild(status);
+  return { root, form, submit, status, fields };
+}
+
+async function waitUntil(predicate, label) {
+  for (let i = 0; i < 40; i += 1) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  throw new Error("timed out waiting for " + label);
+}
+
+test("client form submit disables the button across the retry flow", async () => {
+  const code = readFileSync(new URL("../../public/js/narrative-comments.js", import.meta.url), "utf8");
+  const { createElement } = createDomKit();
+  const resets = [];
+  const posts = [];
+  const sandbox = {
+    document: {
+      querySelectorAll: () => [],
+      createElement,
+    },
+    window: {},
+    crypto: { randomUUID: () => "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
+    location: { hostname: "localhost" },
+    turnstile: {
+      render() {
+        return "widget-1";
+      },
+      getResponse() {
+        return "widget-token";
+      },
+      reset(id) {
+        resets.push(id);
+      },
+    },
+    setInterval(fn) {
+      return setTimeout(fn, 0);
+    },
+    clearInterval(id) {
+      clearTimeout(id);
+    },
+    async fetch(url, options = {}) {
+      if (String(options.method || "GET").toUpperCase() === "POST") {
+        return new Promise((resolve) => {
+          posts.push({ url, options, resolve });
+        });
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ comments: [], next: null }),
+      };
+    },
+  };
+  sandbox.globalThis = sandbox;
+  sandbox.window = sandbox;
+  vm.createContext(sandbox);
+  vm.runInContext(code, sandbox);
+  const initThread = sandbox.__nrtInitThread;
+  assert.equal(typeof initThread, "function");
+
+  async function boot() {
+    const tree = mountCommentRoot(createElement);
+    await initThread(tree.root);
+    await waitUntil(() => !tree.fields.disabled, "form enable after load");
+    return tree;
+  }
+
+  function submitForm(tree) {
+    tree.form.dispatchEvent({ type: "submit", preventDefault() {} });
+  }
+
+  const hidden = await boot();
+  submitForm(hidden);
+  assert.equal(hidden.submit.disabled, true);
+  await waitUntil(() => posts.length === 1, "first hidden POST");
+  assert.equal(hidden.submit.disabled, true);
+  posts[0].resolve({
+    ok: false,
+    status: 502,
+    json: async () => ({ error: "upstream 502" }),
+  });
+  await waitUntil(() => posts.length === 2, "hidden replay POST");
+  assert.equal(hidden.submit.disabled, true);
+  posts[1].resolve({
+    ok: true,
+    status: 201,
+    json: async () => ({ comment: { id: "h1", status: "hidden" }, replayed: true }),
+  });
+  await waitUntil(() => !hidden.submit.disabled, "submit re-enable after hidden replay");
+  assert.equal(hidden.status.textContent, "Your comment was received and is pending/removed.");
+  assert.equal(hidden.status.className.includes("is-error"), false);
+
+  posts.length = 0;
+  resets.length = 0;
+  const rateLimited = await boot();
+  submitForm(rateLimited);
+  assert.equal(rateLimited.submit.disabled, true);
+  await waitUntil(() => posts.length === 1, "first 429-flow POST");
+  posts[0].resolve({
+    ok: false,
+    status: 502,
+    json: async () => ({ error: "upstream 502" }),
+  });
+  await waitUntil(() => posts.length === 2, "429 replay POST");
+  assert.equal(rateLimited.submit.disabled, true);
+  posts[1].resolve({
+    ok: false,
+    status: 429,
+    json: async () => ({ error: "Too many comments from this network. Wait a minute." }),
+  });
+  await waitUntil(() => !rateLimited.submit.disabled, "submit re-enable after 429");
+  assert.equal(rateLimited.status.textContent, "Too many comments from this network. Wait a minute.");
+  assert.match(rateLimited.status.className, /is-error/);
+  assert.ok(resets.includes("widget-1"));
+
+  posts.length = 0;
+  resets.length = 0;
+  const failed = await boot();
+  submitForm(failed);
+  assert.equal(failed.submit.disabled, true);
+  await waitUntil(() => posts.length === 1, "first 5xx POST");
+  posts[0].resolve({
+    ok: false,
+    status: 502,
+    json: async () => ({ error: "upstream 502" }),
+  });
+  await waitUntil(() => posts.length === 2, "5xx replay POST");
+  assert.equal(failed.submit.disabled, true);
+  posts[1].resolve({
+    ok: false,
+    status: 502,
+    json: async () => ({ error: "upstream 502" }),
+  });
+  await waitUntil(() => posts.length === 3, "fresh-token POST after 5xx replay");
+  assert.equal(failed.submit.disabled, true);
+  posts[2].resolve({
+    ok: false,
+    status: 503,
+    json: async () => ({ error: "still down" }),
+  });
+  await waitUntil(() => !failed.submit.disabled, "submit re-enable after final 5xx");
+  assert.equal(failed.status.textContent, "still down");
+  assert.match(failed.status.className, /is-error/);
+  assert.ok(resets.includes("widget-1"));
 });
