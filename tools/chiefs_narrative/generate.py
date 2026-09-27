@@ -27,6 +27,9 @@ from . import prompts, providers, schema, x_embeds
 
 # How many published headlines to show the writer as "do not reuse".
 RECENT_HEADLINE_LIMIT = 8
+# Initial draft plus this many fact-check rewrites. The failed daily run
+# 36358665975 died after one retry on mixed-team sentences.
+FACT_CHECK_RETRIES = 2
 
 
 class DuplicateNarrativeError(RuntimeError):
@@ -440,14 +443,17 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
                 + ". Refusing to publish a clone."
             )
 
-    # 5b. ESPN fact-check on the last-game review. One retry, then fail loud.
+    # 5b. ESPN fact-check on every generated section. Feed the exact
+    # violations back for up to FACT_CHECK_RETRIES rewrites, then fail loud.
     recap = signals.get("lastGameRecap") or {}
     violations = facts.check_review(narrative, last, recap)
-    if violations:
+    attempt = 0
+    while violations and attempt < FACT_CHECK_RETRIES:
+        attempt += 1
         print(
             "  [writer] fact-check: "
             + "; ".join(violations)
-            + "; retrying once"
+            + f"; retrying {attempt}/{FACT_CHECK_RETRIES}"
         )
         retry_user = user + "\n\n" + facts.retry_instruction(violations)
         retry_name = name if generator_label != "offline" else "offline"
@@ -467,12 +473,12 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
                 + ". Refusing to publish a clone."
             )
         violations = facts.check_review(narrative, last, recap)
-        if violations:
-            raise FactCheckError(
-                "Chiefs Narrative fact-check failed after retry: "
-                + "; ".join(violations)
-                + ". Refusing to publish a review that disagrees with ESPN."
-            )
+    if violations:
+        raise FactCheckError(
+            "Chiefs Narrative fact-check failed after retry: "
+            + "; ".join(violations)
+            + ". Refusing to publish a review that disagrees with ESPN."
+        )
 
     # 6. Render diagrams only after uniqueness and fact-check have passed.
     _render_diagrams(narrative)

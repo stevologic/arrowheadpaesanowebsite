@@ -31,10 +31,14 @@ _SCORE_PATTERNS = (
     ),
 )
 
-# "from the 12" / "12-yard TD" / "12-yard catch" — scoring-play yardage.
+# Scoring-play yardage only when the claim is a TD/FG. An "88-yard run"
+# or "11-yard catch" is not a scoring claim.
 _TD_YARDS = re.compile(
-    r"(?:from the (\d+)\b|(\d+)[-\s]yard(?:s)?\s+"
-    r"(?:TD|touchdown|score|catch|run)\b)",
+    r"(?:from the (\d+)\b|(\d+)[-\s]yard(?:s)?\s+(?:TD|touchdown)\b)",
+    re.IGNORECASE,
+)
+_CLAUSE_BREAK = re.compile(
+    r"[.;:!?]|—|,|\b(?:then|after|before|but|and)\b",
     re.IGNORECASE,
 )
 
@@ -237,6 +241,27 @@ def _player_teams(recap: dict | None) -> dict[str, str]:
     return out
 
 
+def _subject_clause(text: str, start: int) -> str:
+    """Prose from the start of this clause up to the claim — the subject side."""
+    clause_start = 0
+    for hit in _CLAUSE_BREAK.finditer(text[:start]):
+        clause_start = hit.end()
+    return text[clause_start:start]
+
+
+def _last_name_in(span: str, names: dict[str, str]) -> str:
+    best = ""
+    best_pos = -1
+    for name in sorted(names, key=len, reverse=True):
+        if len(name) < 3:
+            continue
+        for hit in re.finditer(rf"\b{re.escape(name)}\b", span, re.IGNORECASE):
+            if hit.start() >= best_pos:
+                best_pos = hit.start()
+                best = names[name]
+    return best
+
+
 def _bound_team(
     text: str,
     start: int,
@@ -244,25 +269,17 @@ def _bound_team(
     aliases: dict[str, str],
     player_teams: dict[str, str],
 ) -> str:
-    window_start = max(0, start - 96)
-    window = text[window_start : min(len(text), end + 40)]
-    best = ""
-    best_dist = None
-    for name in sorted(player_teams, key=len, reverse=True):
-        for hit in re.finditer(rf"\b{re.escape(name)}\b", window, re.IGNORECASE):
-            abs_pos = window_start + hit.start()
-            dist = min(abs(start - abs_pos), abs(end - (window_start + hit.end())))
-            if best_dist is None or dist < best_dist:
-                best_dist = dist
-                best = player_teams[name]
-    if best:
-        return best
-    for alias in sorted(aliases, key=len, reverse=True):
-        if len(alias) < 3:
-            continue
-        if re.search(rf"\b{re.escape(alias)}\b", window, re.IGNORECASE):
-            return aliases[alias]
-    return ""
+    """Bind a scoring claim to the nearest subject before it, not any team in the sentence.
+
+    'Kelce's 11-yard touchdown answered Miami' is KC. A team named after
+    the claim (the opponent being answered) does not win.
+    """
+    del end  # subject is always before the claim
+    subject = _subject_clause(text, start)
+    player = _last_name_in(subject, player_teams)
+    if player:
+        return player
+    return _last_name_in(subject, aliases)
 
 
 def _parse_count_word(raw: str):
