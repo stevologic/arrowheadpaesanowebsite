@@ -1338,8 +1338,11 @@ class XEmbedSlots(unittest.TestCase):
         self.assertNotIn("#8a8490", label)
 
     def test_latest_backfill_uses_verified_status_urls(self):
-        payload = json.loads((self.ROOT / "data" / "narrative.json").read_text(encoding="utf-8"))
-        self.assertEqual(payload["slug"], "2026-09-26-1355")
+        payload = json.loads(
+            (self.ROOT / "data" / "narrative_editions" / "2026-09-26-1355.json").read_text(
+                encoding="utf-8"
+            )
+        )
         players = payload["playerEmbeds"]
         self.assertEqual(len(players), 2)
         for item in players:
