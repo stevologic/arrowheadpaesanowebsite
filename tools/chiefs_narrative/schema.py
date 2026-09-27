@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import re
 
-from . import config, diagrams
+from . import config, diagrams, phase as phase_mod
 
 # Official X/Twitter status URLs only. Media is never downloaded or rehosted —
 # the site renders publish.twitter.com oEmbed / widgets.js blockquotes.
@@ -162,7 +162,7 @@ def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
             "week": pg.get("week"),
             "mode": _s(pg.get("mode"), "offseason"),
         },
-        "edition": _s(raw.get("edition") or pg.get("edition"), "Chiefs Narrative"),
+        "edition": _s(phase_mod.format_edition(pg) or raw.get("edition"), "Chiefs Narrative"),
         "record": _s(raw.get("record") or meta.get("record"), config.TEAM["last_season_record"]),
         "headline": _s(raw.get("headline"), "The Chiefs Narrative"),
         "dek": _s(raw.get("dek")),

@@ -22,7 +22,7 @@ import json
 import re
 import sys
 
-from . import collect, config, diagrams, odds, offline, phase as phase_mod
+from . import collect, config, diagrams, facts, odds, offline, phase as phase_mod
 from . import prompts, providers, schema, x_embeds
 
 # How many published headlines to show the writer as "do not reuse".
@@ -34,7 +34,11 @@ class DuplicateNarrativeError(RuntimeError):
 
 
 class LiveGameSkip(RuntimeError):
-    """A Chiefs game is in progress; do not mint a new edition."""
+    """A Chiefs game is live; do not mint a new edition."""
+
+
+class FactCheckError(facts.FactCheckError):
+    """Review still disagrees with ESPN after one retry; do not publish."""
 
 
 def _slugify(text: str) -> str:
@@ -261,6 +265,7 @@ def _assemble_narrative(
     raw: dict, ph: dict, meta: dict, signals: dict, upcoming: list
 ) -> dict:
     narrative = schema.normalize(raw, phase=ph, meta=meta)
+    narrative["edition"] = phase_mod.format_edition(ph)
     narrative["slug"] = _edition_slug(narrative)
     _ensure_next_game(narrative, ph)
     _ensure_desk_sections(narrative, signals, ph, upcoming)
@@ -364,9 +369,10 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
     if persist_schedule:
         _write_schedule(schedule)
 
-    if phase_mod.any_in_progress(schedule):
+    if phase_mod.any_live(schedule):
         raise LiveGameSkip(
-            "Chiefs game in progress (ESPN state=in); skipping new edition"
+            "Chiefs game is live (in progress or past kickoff, not final); "
+            "skipping new edition"
         )
 
     # 2. Determine phase + upcoming games.
@@ -434,7 +440,41 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
                 + ". Refusing to publish a clone."
             )
 
-    # 6. Render diagrams only after uniqueness has passed.
+    # 5b. ESPN fact-check on the last-game review. One retry, then fail loud.
+    recap = signals.get("lastGameRecap") or {}
+    violations = facts.check_review(narrative, last, recap)
+    if violations:
+        print(
+            "  [writer] fact-check: "
+            + "; ".join(violations)
+            + "; retrying once"
+        )
+        retry_user = user + "\n\n" + facts.retry_instruction(violations)
+        retry_name = name if generator_label != "offline" else "offline"
+        raw, generator_label = _draft_raw(
+            retry_name, system, retry_user, signals, ph, upcoming
+        )
+        meta["generatedAt"] = config.iso_now()
+        meta["generator"] = generator_label
+        narrative = _assemble_narrative(raw, ph, meta, signals, upcoming)
+        matched = _matched_copy_fields(narrative, previous)
+        if matched:
+            slug = (previous or {}).get("slug") or ""
+            raise DuplicateNarrativeError(
+                "Chiefs Narrative uniqueness failed after fact-check retry: cloned "
+                + ", ".join(matched)
+                + (f" from {slug}" if slug else " from the most recent edition")
+                + ". Refusing to publish a clone."
+            )
+        violations = facts.check_review(narrative, last, recap)
+        if violations:
+            raise FactCheckError(
+                "Chiefs Narrative fact-check failed after retry: "
+                + "; ".join(violations)
+                + ". Refusing to publish a review that disagrees with ESPN."
+            )
+
+    # 6. Render diagrams only after uniqueness and fact-check have passed.
     _render_diagrams(narrative)
 
     return {
@@ -467,6 +507,9 @@ def main(argv=None) -> int:
         print(f"  [generate] {exc}")
         return 0
     except DuplicateNarrativeError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    except FactCheckError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 

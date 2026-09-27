@@ -93,12 +93,12 @@ jobs:
           import os
           from tools.chiefs_narrative import collect, phase
           games = collect.load_cached_schedule()
-          skip = phase.any_in_progress(games)
-          print(f"in_progress={skip}")
+          skip = phase.any_live(games)
+          print(f"live={skip}")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
               fh.write(f"skip={'true' if skip else 'false'}\n")
           if skip:
-              print("Chiefs game in progress (ESPN state=in); skipping new edition and PR.")
+              print("Chiefs game is live; skipping new edition and PR.")
           PY
 
       - name: Generate the Chiefs Narrative

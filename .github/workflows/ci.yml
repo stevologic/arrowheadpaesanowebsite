@@ -45,9 +45,6 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r tools/requirements.txt
 
-      - name: Gate 1 — narrative engine tests
-        run: python -m unittest discover -s tools/tests -v
-
       - name: Install Hugo
         run: |
           curl -fsSL --output "${{ runner.temp }}/hugo.tar.gz" \
@@ -55,6 +52,9 @@ jobs:
           mkdir -p "${HOME}/.local/hugo"
           tar -C "${HOME}/.local/hugo" -xf "${{ runner.temp }}/hugo.tar.gz"
           echo "${HOME}/.local/hugo" >> "${GITHUB_PATH}"
+
+      - name: Gate 1 — narrative engine tests
+        run: python -m unittest discover -s tools/tests -v
 
       - name: Gate 2 — Hugo build
         run: hugo --gc --minify
