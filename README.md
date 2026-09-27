@@ -135,6 +135,37 @@ The curated shopping cards are built as direct Amazon search links. Prices and p
 
 As an Amazon Associate I earn from qualifying purchases.
 
+## Narrative comments
+
+Fans can comment at the bottom of every Chiefs Narrative edition without a
+GitHub (or any) account. The site stays on GitHub Pages; a free Cloudflare
+Worker plus SQLite Durable Objects (one per story thread) hold the comments.
+Spam gates are Cloudflare Turnstile, a honeypot field, and IP rate limiting.
+
+One-time owner setup (all free tiers) and the exact moderation steps live in
+[`tools/comments/`](tools/comments/) — Worker secrets are
+`COMMENTS_ADMIN_TOKEN` and `TURNSTILE_SECRET`. Never commit them.
+
+Stephen hides or deletes a comment at `/moderate/` by pasting the admin token
+(kept in memory only for that visit).
+
+If `commentsApiUrl` or `commentsTurnstileSiteKey` is unset, the comment
+block is omitted entirely — no heading, empty state, or form.
+
+Local preview (both public values must be set or the section will not render):
+
+```bash
+COMMENTS_ADMIN_TOKEN=dev-admin python tools/comments/server.py
+# in another shell
+HUGO_COMMENTS_API_URL=http://127.0.0.1:8787 \
+HUGO_TURNSTILE_SITE_KEY=1x00000000000000000000AA \
+npm run dev
+```
+
+The local server accepts the offline Turnstile token `test-pass`. Production
+uses a real Turnstile site key in `hugo.yaml` (`commentsTurnstileSiteKey`) and
+the Worker URL in `commentsApiUrl`.
+
 ## Project map
 
 - Site URL, navigation, Amazon, and Shopify settings: `hugo.yaml`

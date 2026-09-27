@@ -9,6 +9,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>{{ if .IsHome }}Arrowhead Paesano | Chiefs News, Videos & Fan Takes{{ else }}{{ .Title }} | {{ .Site.Title }}{{ end }}</title>
   <meta name="description" content="{{ .Site.Params.description }}" />
+  {{ with .Params.robots }}<meta name="robots" content="{{ . }}" />{{ end }}
   <link rel="canonical" href="{{ .Permalink }}" />
   <meta property="og:title" content="{{ if .IsHome }}Arrowhead Paesano | Chiefs News. Paesano Attitude.{{ else }}{{ .Title }} | {{ .Site.Title }}{{ end }}" />
   <meta property="og:description" content="{{ .Site.Params.tagline }}" />

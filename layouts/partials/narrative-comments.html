@@ -1,0 +1,58 @@
+{{- /*
+  Comment block for a Chiefs Narrative edition.
+  Kept as its own partial so X-embed work on the edition template cannot collide.
+  Context (dict): site, slug
+*/ -}}
+{{ $site := .site }}
+{{ $slug := .slug | default "" }}
+{{ $api := strings.TrimSpace (getenv "HUGO_COMMENTS_API_URL" | default $site.Params.commentsApiUrl | default "") }}
+{{ $turnstile := strings.TrimSpace (getenv "HUGO_TURNSTILE_SITE_KEY" | default $site.Params.commentsTurnstileSiteKey | default "") }}
+{{- /* Unset or whitespace-only Worker URL / Turnstile key: render nothing. */ -}}
+{{ if and $api $turnstile }}
+<link rel="stylesheet" href="{{ "css/comments.css" | relURL }}" />
+<section class="nrt-comments" id="comments" data-comments
+  data-slug="{{ $slug }}"
+  data-api="{{ $api }}"
+  data-turnstile="{{ $turnstile }}">
+  <div class="section-head">
+    <div>
+      <span class="kicker"><span class="dot dot-live"></span> Kingdom table</span>
+      <h2><span class="rule"></span> Comments</h2>
+      <p class="section-dek">No login. Be decent — Stephen reads these.</p>
+    </div>
+  </div>
+
+  <div class="nrt-comments__list" data-comments-list aria-live="polite">
+    <div class="nrt-comments__empty" data-comments-empty>
+      <p>No comments yet. Be the first.</p>
+    </div>
+  </div>
+  <button type="button" class="btn btn-ghost nrt-comments__older" data-load-older hidden>Load older comments</button>
+  <p class="nrt-comments__older-error" data-older-error hidden>Couldn't load older comments.</p>
+
+  <form class="nrt-comments__form" data-comments-form novalidate>
+    <fieldset data-comments-fields disabled>
+    <input class="nrt-comments__hp" type="text" name="nrt_hp_x7" tabindex="-1" autocomplete="off" aria-hidden="true" />
+    <label class="nrt-comments__field">
+      <span>Name</span>
+      <input type="text" name="name" maxlength="40" required autocomplete="nickname" placeholder="Your name" />
+    </label>
+    <label class="nrt-comments__field">
+      <span>Comment</span>
+      <textarea name="body" rows="4" maxlength="1000" required placeholder="Your take for the table…"></textarea>
+    </label>
+    {{ if $turnstile }}
+    <div class="nrt-comments__turnstile" data-turnstile-slot></div>
+    {{ end }}
+    <div class="nrt-comments__actions">
+      <button class="btn btn-ink" type="submit" data-comments-submit>Post comment</button>
+      <p class="nrt-comments__status" data-comments-status role="status"></p>
+    </div>
+    </fieldset>
+  </form>
+</section>
+{{ if $turnstile }}
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+{{ end }}
+<script src="{{ "js/narrative-comments.js" | relURL }}" defer></script>
+{{ end }}

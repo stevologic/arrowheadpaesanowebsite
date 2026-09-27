@@ -1,0 +1,4 @@
+{{- $slugs := slice -}}
+{{- with site.Data.narrative }}{{ with .slug }}{{ $slugs = $slugs | append . }}{{ end }}{{ end -}}
+{{- range $name, $_ := site.Data.narrative_editions }}{{ $slugs = $slugs | append $name }}{{ end -}}
+{{- $slugs | uniq | sort | jsonify -}}

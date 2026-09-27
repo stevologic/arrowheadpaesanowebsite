@@ -9,6 +9,9 @@
     "isCurrent" true
     "archive" $archive
     "currentSlug" (.slug | default "")) }}
+{{ partial "narrative-comments.html" (dict
+    "site" $.Site
+    "slug" (.slug | default "current")) }}
 {{ else }}
 <section class="page-head"><span class="kicker">The Chiefs Narrative</span><h1>The desk is warming up.</h1><p class="lede">The first edition is generating. Check back shortly.</p></section>
 {{ end }}
