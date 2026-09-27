@@ -594,7 +594,8 @@
       </div>
       <div class="nrt-colophon__meta">
         <span>Generator</span><strong>{{ .generator }}</strong>
-        <span>Updated</span><strong>{{ dateFormat "Jan 2, 2006 · 3:04 PM" .generatedAt }}</strong>
+        {{- $updated := time.AsTime .generatedAt "America/Chicago" -}}
+        <span>Updated</span><strong>{{ $updated.Format "Jan 2, 2006 · 3:04 PM" }} CT</strong>
         <span>Phase</span><strong>{{ .phase.label }}</strong>
       </div>
     </div>

@@ -86,8 +86,23 @@ jobs:
       - name: Refresh the published slate
         run: python -m tools.chiefs_narrative.generate --schedule-only
 
+      - name: Skip publish while a Chiefs game is live
+        id: live
+        run: |
+          python - <<'PY'
+          import os
+          from tools.chiefs_narrative import collect, phase
+          games = collect.load_cached_schedule()
+          skip = phase.any_in_progress(games)
+          print(f"in_progress={skip}")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"skip={'true' if skip else 'false'}\n")
+          if skip:
+              print("Chiefs game in progress (ESPN state=in); skipping new edition and PR.")
+          PY
+
       - name: Generate the Chiefs Narrative
-        if: steps.mode.outputs.mode == 'full'
+        if: steps.mode.outputs.mode == 'full' && steps.live.outputs.skip != 'true'
         env:
           CHIEFS_PROVIDER: ${{ github.event.inputs.provider }}
           # Grok/xAI takes precedence over OpenAI when its key is present.
@@ -122,6 +137,11 @@ jobs:
       - name: Detect changes
         id: diff
         run: |
+          if [ "${{ steps.live.outputs.skip }}" = "true" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Chiefs game in progress; skipping publish."
+            exit 0
+          fi
           git add -A data public/images/narrative
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -149,7 +169,7 @@ jobs:
           hugo --gc --minify
 
       - name: Open and auto-merge pull request
-        if: steps.diff.outputs.changed == 'true'
+        if: steps.diff.outputs.changed == 'true' && steps.live.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DESK_MODE: ${{ steps.mode.outputs.mode }}

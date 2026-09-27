@@ -13,6 +13,7 @@ import re
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from xml.etree import ElementTree as ET
+from zoneinfo import ZoneInfo
 
 import requests
 
@@ -72,14 +73,27 @@ def kickoff_label(iso: str) -> str:
     if not iso:
         return ""
     try:
-        from zoneinfo import ZoneInfo
-
-        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        local = dt.astimezone(ZoneInfo("America/Chicago"))
+        local = _central(iso)
         hour = local.strftime("%I").lstrip("0") or "12"
         return f"{local.strftime('%a, %b')} {local.day} · {hour}:{local.strftime('%M %p')} CT"
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _central(iso: str) -> datetime:
+    dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(ZoneInfo("America/Chicago"))
+
+
+def local_date_label(iso: str) -> str:
+    """Calendar date in US Central, e.g. 'Mon Sep 14'."""
+    if not iso:
+        return ""
+    try:
+        local = _central(iso)
+        return f"{local.strftime('%a')} {local.strftime('%b')} {local.day}"
     except Exception:  # noqa: BLE001
         return ""
 

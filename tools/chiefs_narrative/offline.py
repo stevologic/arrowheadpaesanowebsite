@@ -15,10 +15,7 @@ from __future__ import annotations
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from . import config, phase as phase_mod
-
-MONTHS = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+from . import collect, config, phase as phase_mod
 
 
 def _fmt_game(game: dict | None) -> dict:
@@ -32,13 +29,10 @@ def _fmt_game(game: dict | None) -> dict:
     if game.get("homeAway") == "away":
         at = "@ " + (game.get("opponentShort") or opp)
     if date:
-        try:
-            dt = datetime.fromisoformat(date.replace("Z", "+00:00"))
-            wk = game.get("week")
-            wk_txt = f"Week {wk} · " if wk else ""
-            label = f"{wk_txt}{DAYS[dt.weekday()]} {MONTHS[dt.month]} {dt.day}"
-        except Exception:  # noqa: BLE001
-            label = f"Week {game.get('week','')}".strip()
+        day = collect.local_date_label(date)
+        wk = game.get("week")
+        wk_txt = f"Week {wk} · " if wk else ""
+        label = f"{wk_txt}{day}" if day else f"Week {game.get('week', '')}".strip()
     return {
         "label": label,
         "opponent": f"{loc} {opp}".strip(),

@@ -37,6 +37,37 @@ def _md(now: datetime) -> tuple[int, int]:
     return (now.month, now.day)
 
 
+def _aware(now: datetime | None) -> datetime:
+    now = now or config.now_utc()
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    return now
+
+
+def is_final(game: dict | None) -> bool:
+    """True only when ESPN marked the game completed and both scores exist."""
+    if not game or not game.get("completed"):
+        return False
+    return game.get("kcScore") is not None and game.get("oppScore") is not None
+
+
+def is_live(game: dict | None, now: datetime = None) -> bool:
+    """In progress, or past kickoff without a completed flag."""
+    if not game or game.get("completed"):
+        return False
+    if game.get("inProgress"):
+        return True
+    dt = _parse(game.get("date"))
+    if dt is None:
+        return False
+    return dt < _aware(now)
+
+
+def any_in_progress(schedule: list[dict] | None) -> bool:
+    """True when ESPN has any Chiefs game in state ``in``."""
+    return any(bool(g.get("inProgress")) and not g.get("completed") for g in schedule or [])
+
+
 def detect(schedule: list[dict], now: datetime = None) -> dict:
     """Return a phase descriptor.
 
@@ -52,9 +83,7 @@ def detect(schedule: list[dict], now: datetime = None) -> dict:
           "lastGame": {…} | None,
         }
     """
-    now = now or config.now_utc()
-    if now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
+    now = _aware(now)
 
     reg = [g for g in schedule if g.get("seasonType") == "reg"]
     pre = [g for g in schedule if g.get("seasonType") == "pre"]
@@ -62,19 +91,26 @@ def detect(schedule: list[dict], now: datetime = None) -> dict:
 
     upcoming = []
     completed = []
+    live = []
     for g in schedule:
         dt = _parse(g.get("date"))
         if dt is None:
             continue
-        if g.get("completed") or dt < now:
+        # Completed only when ESPN says so. Past kickoff without that flag,
+        # or an in-progress row, is live — never a lastGame for review.
+        if g.get("completed"):
             completed.append((dt, g))
+        elif g.get("inProgress") or dt < now:
+            live.append((dt, g))
         else:
             upcoming.append((dt, g))
     upcoming.sort(key=lambda x: x[0])
     completed.sort(key=lambda x: x[0])
+    live.sort(key=lambda x: x[0])
 
     next_game = upcoming[0][1] if upcoming else None
     last_game = completed[-1][1] if completed else None
+    live_game = live[-1][1] if live else None
     next_dt = _parse(next_game.get("date")) if next_game else None
     last_dt = _parse(last_game.get("date")) if last_game else None
     days_to_next = (next_dt - now).total_seconds() / 86400 if next_dt else None
@@ -85,7 +121,12 @@ def detect(schedule: list[dict], now: datetime = None) -> dict:
     in_camp_window = CAMP_START <= md <= CAMP_END
 
     def _mode() -> str:
-        # Lean "review" only just after a game, when the next kickoff is still days away.
+        # Never review a live or unfinished game. Review only after a real
+        # final, when the next kickoff is still a few days away.
+        if live_game is not None:
+            return "preview"
+        if not is_final(last_game):
+            return "preview"
         if (
             days_since_last is not None
             and days_since_last <= REVIEW_DAYS
@@ -94,24 +135,31 @@ def detect(schedule: list[dict], now: datetime = None) -> dict:
             return "review"
         return "preview"
 
-    # --- Game week in progress (only when the next game is actually close) --
-    if next_game and days_to_next is not None and days_to_next <= GAME_WEEK_DAYS:
-        st = next_game.get("seasonType")
-        wk = next_game.get("week")
+    def _week_wrap(game, mode):
+        st = game.get("seasonType")
+        wk = game.get("week")
         if st == "post":
             return _wrap(
-                "postseason", "Playoffs", wk, _mode(), f"{season} Playoffs",
-                next_game, last_game,
+                "postseason", "Playoffs", wk, mode, f"{season} Playoffs",
+                next_game, last_game, live_game,
             )
         if st == "pre":
             return _wrap(
                 "preseason", "Preseason", wk, "preview", f"{season} Preseason",
-                next_game, last_game,
+                next_game, last_game, live_game,
             )
         return _wrap(
-            "regular", f"Week {wk}", wk, _mode(), f"{season} · Week {wk}",
-            next_game, last_game,
+            "regular", f"Week {wk}", wk, mode, f"{season} · Week {wk}",
+            next_game, last_game, live_game,
         )
+
+    # A live (or past-kickoff unfinished) game owns the week label.
+    if live_game:
+        return _week_wrap(live_game, "preview")
+
+    # --- Game week in progress (only when the next game is actually close) --
+    if next_game and days_to_next is not None and days_to_next <= GAME_WEEK_DAYS:
+        return _week_wrap(next_game, _mode())
 
     # --- Not close to a game: camp window wins over a distant opener --------
     # If regular-season games exist but none are upcoming and the last one is in
@@ -124,10 +172,12 @@ def detect(schedule: list[dict], now: datetime = None) -> dict:
                 return _wrap(
                     "training-camp", "Training Camp", None, "camp",
                     f"{season} Training Camp", reg[0] if reg else None, last_game,
+                    live_game,
                 )
             return _wrap(
                 "offseason", "Offseason", None, "offseason",
                 f"{season} Offseason", reg[0] if reg else None, last_game,
+                live_game,
             )
 
     # A remaining preseason game means we are still in the dress-rehearsal
@@ -136,24 +186,25 @@ def detect(schedule: list[dict], now: datetime = None) -> dict:
         wk = next_game.get("week")
         return _wrap(
             "preseason", "Preseason", wk, "preview", f"{season} Preseason",
-            next_game, last_game,
+            next_game, last_game, live_game,
         )
 
     if in_camp_window:
         return _wrap(
             "training-camp", "Training Camp", None, "camp",
             f"{season} Training Camp", next_game or (reg[0] if reg else None), last_game,
+            live_game,
         )
 
     # Default: offseason, pointing at the season opener if we know it.
     opener = reg[0] if reg else next_game
     return _wrap(
         "offseason", "Offseason", None, "offseason",
-        f"{season} Offseason", opener, last_game,
+        f"{season} Offseason", opener, last_game, live_game,
     )
 
 
-def _wrap(ptype, label, week, mode, edition, next_game, last_game) -> dict:
+def _wrap(ptype, label, week, mode, edition, next_game, last_game, live_game=None) -> dict:
     return {
         "type": ptype,
         "label": label,
@@ -162,6 +213,7 @@ def _wrap(ptype, label, week, mode, edition, next_game, last_game) -> dict:
         "edition": edition,
         "nextGame": next_game,
         "lastGame": last_game,
+        "liveGame": live_game,
     }
 
 
@@ -250,13 +302,12 @@ def format_next_game(game: dict | None) -> dict:
 
 
 def next_games(schedule: list[dict], count: int = 3, now: datetime = None) -> list[dict]:
-    now = now or config.now_utc()
-    if now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
+    now = _aware(now)
     out = []
     for g in schedule:
         dt = _parse(g.get("date"))
-        if dt and not g.get("completed") and dt >= now:
-            out.append(g)
+        if not dt or g.get("completed") or is_live(g, now):
+            continue
+        out.append(g)
     out.sort(key=lambda g: g.get("date") or "")
     return out[:count]
