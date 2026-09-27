@@ -151,6 +151,28 @@ def _zone(x, y, label):
     ]
 
 
+def _wrap_caption(caption: str, width: int = 64) -> list[str]:
+    """Keep the footer strip inside the viewBox at every card width."""
+    words = (caption or "").split()
+    if not words:
+        return [""]
+    lines = [""]
+    for word in words:
+        trial = f"{lines[-1]} {word}".strip()
+        if len(trial) <= width:
+            lines[-1] = trial
+            continue
+        if len(lines) >= 2:
+            overflow = f"{lines[-1]} {word}".strip()
+            lines[-1] = (
+                overflow if len(overflow) <= width
+                else overflow[: width - 1].rstrip() + "…"
+            )
+            break
+        lines.append(word)
+    return [line for line in lines if line] or [""]
+
+
 def _svg(title: str, body: list[str], caption: str) -> str:
     defs = (
         '<defs>'
@@ -168,10 +190,20 @@ def _svg(title: str, body: list[str], caption: str) -> str:
         f'font-size="13" font-weight="800" fill="{GOLD}" letter-spacing=".04em">'
         f'{_esc(title)}</text>'
     )
+    wrapped = _wrap_caption(caption)
+    footer_h = 18 + 14 * len(wrapped)
+    footer_top = H - footer_h
+    texts = []
+    for i, line in enumerate(wrapped):
+        texts.append(
+            f'<text x="16" y="{footer_top + 14 + i * 14}" '
+            f'font-family="Space Grotesk, Arial, sans-serif" '
+            f'font-size="10.5" font-weight="600" fill="#f7f1e5">'
+            f'{_esc(line)}</text>'
+        )
     footer = (
-        f'<rect x="0" y="{H-26}" width="{W}" height="26" fill="{INK}"/>'
-        f'<text x="14" y="{H-9}" font-family="Space Grotesk, Arial, sans-serif" '
-        f'font-size="10.5" font-weight="600" fill="#f7f1e5">{_esc(caption)}</text>'
+        f'<rect x="0" y="{footer_top}" width="{W}" height="{footer_h}" fill="{INK}"/>'
+        + "".join(texts)
     )
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" '

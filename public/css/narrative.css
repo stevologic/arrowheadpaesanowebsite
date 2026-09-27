@@ -358,10 +358,10 @@
 .nrt-matchup__note { margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--nrt-line); font-size: 14px; line-height: 1.5; color: #56515c; }
 
 /* ---------------- X's & O's ---------------- */
-.nrt-xo__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
-.nrt-xo-card { background: var(--nrt-ink); border-radius: var(--nrt-radius); overflow: hidden; box-shadow: var(--nrt-shadow); border: 1px solid rgba(255, 255, 255, .06); display: flex; flex-direction: column; }
-.nrt-xo-card__board { margin: 0; background: #0c2a1a; }
-.nrt-xo-card__board img { display: block; width: 100%; height: auto; }
+.nrt-xo__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 20px; }
+.nrt-xo-card { background: var(--nrt-ink); border-radius: var(--nrt-radius); overflow: hidden; box-shadow: var(--nrt-shadow); border: 1px solid rgba(255, 255, 255, .06); display: flex; flex-direction: column; min-width: 0; }
+.nrt-xo-card__board { margin: 0; background: #0c2a1a; min-width: 0; overflow: hidden; }
+.nrt-xo-card__board img { display: block; width: 100%; max-width: 100%; height: auto; }
 .nrt-xo-card__body { padding: 20px 22px 24px; color: #f4eee2; }
 .nrt-xo-card__head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .nrt-xo-card__side { font-family: var(--grotesk); font-size: 10.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; }

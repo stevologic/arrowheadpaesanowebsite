@@ -7,9 +7,10 @@ name: CI gates
 # the PR is squash-merged into main automatically. Merging to main then
 # triggers the Pages deploy workflow as usual.
 #
-# The daily narrative bot's own PRs (narrative/update-*) are excluded —
-# those editions are gated inside narrative.yml because PRs opened by
-# GITHUB_TOKEN don't trigger CI without approval.
+# Edition PRs (narrative/update-*) must still run the gates job. Skipping
+# every job made GitHub report a "workflow file issue" while the daily
+# bot squash-merged about a second later. Automerge stays off for those
+# branches — narrative.yml waits for this gates check, then merges.
 
 on:
   pull_request:
@@ -29,9 +30,6 @@ env:
 
 jobs:
   gates:
-    # Narrative PRs are gated inside narrative.yml because PRs opened by
-    # GITHUB_TOKEN don't trigger CI without approval.
-    if: ${{ !startsWith(github.head_ref, 'narrative/update-') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -61,8 +59,7 @@ jobs:
 
   automerge:
     needs: gates
-    # Narrative PRs are gated inside narrative.yml because PRs opened by
-    # GITHUB_TOKEN don't trigger CI without approval.
+    # Edition PRs are merged by narrative.yml after this gates job succeeds.
     if: >-
       ${{ !startsWith(github.head_ref, 'narrative/update-') &&
           github.event.pull_request.draft == false &&
