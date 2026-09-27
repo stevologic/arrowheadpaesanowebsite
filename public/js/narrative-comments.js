@@ -248,8 +248,8 @@
           next = null;
           list.innerHTML = "";
           list.appendChild(errorNode(() => loadPage(true)));
-          setOlderButton(root, null);
         }
+        setOlderButton(root, null);
         setFormEnabled(root, false);
         return false;
       }

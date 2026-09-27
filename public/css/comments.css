@@ -81,6 +81,13 @@
   justify-self: start;
   margin: -12px 0 24px;
 }
+.nrt-comments__older[hidden] {
+  display: none !important;
+}
+.nrt-comments__form:has(fieldset:disabled) {
+  opacity: 0.55;
+  filter: grayscale(0.15);
+}
 .nrt-comments__empty p {
   margin: 0;
   font-family: var(--serif, Fraunces, Georgia, serif);
