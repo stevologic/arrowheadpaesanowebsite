@@ -527,13 +527,23 @@ function nrtXHasRendered(el) {
   return !!(el.querySelector('iframe') || el.querySelector('twitter-widget'));
 }
 
+function nrtXWidgetFromRendered(event) {
+  // widgets.js 'rendered' fires an Event; contains() needs a Node.
+  const target = event && event.target;
+  if (target && typeof target.nodeType === 'number') return target;
+  if (event && typeof event.nodeType === 'number') return event;
+  return null;
+}
+
 function nrtXMarkReady(el) {
   if (el._nrtXFallbackTimer) {
     clearTimeout(el._nrtXFallbackTimer);
     el._nrtXFallbackTimer = null;
   }
-  el.classList.remove('is-loading');
+  el.classList.remove('is-loading', 'is-fallback');
   el.classList.add('is-ready');
+  const fallback = el.querySelector('.nrt-x-embed__fallback');
+  if (fallback) fallback.hidden = true;
 }
 
 function nrtXMarkFallback(el) {
@@ -563,7 +573,8 @@ function nrtXWatchRender(el) {
     }
   });
   mo.observe(el, { childList: true, subtree: true });
-  window.twttr?.events?.bind?.('rendered', (widget) => {
+  window.twttr?.events?.bind?.('rendered', (event) => {
+    const widget = nrtXWidgetFromRendered(event);
     if (widget && (el === widget || el.contains(widget))) {
       mo.disconnect();
       nrtXMarkReady(el);

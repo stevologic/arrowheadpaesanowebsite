@@ -6,6 +6,7 @@ merge gate. Run with:  python -m unittest discover -s tools/tests -v
 from __future__ import annotations
 
 import json
+import subprocess
 import tempfile
 import unittest
 from contextlib import ExitStack
@@ -1300,7 +1301,23 @@ class XEmbedSlots(unittest.TestCase):
         self.assertIn("is-fallback", js)
         self.assertIn("script.onerror", js)
         self.assertIn("events?.bind?.('rendered'", js)
+        self.assertIn("nrtXWidgetFromRendered", js)
+        self.assertIn("event.target", js)
+        ready = js[js.find("function nrtXMarkReady"):js.find("function nrtXMarkFallback")]
+        self.assertIn("is-fallback", ready)
+        self.assertIn("fallback.hidden = true", ready)
         self.assertLess(js.index("ensureTwitterWidgets"), js.index("initNarrativeXEmbeds"))
+
+    def test_late_widget_recovery_sequence(self):
+        script = self.ROOT / "tools" / "tests" / "nrt_x_embed_recovery.js"
+        result = subprocess.run(
+            ["node", str(script)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("ok", result.stdout)
 
     def test_css_reserves_space_only_while_loading(self):
         css = (self.ROOT / "public" / "css" / "narrative.css").read_text(encoding="utf-8")
@@ -1310,7 +1327,8 @@ class XEmbedSlots(unittest.TestCase):
         self.assertIn("min-height: 0", frame)
         self.assertNotIn("min-height: 320px", frame)
         self.assertIn("min-height: 320px", css[css.find(".nrt-x-embed.is-loading"):])
-        self.assertIn(".nrt-x-embed.is-fallback .nrt-x-embed__frame", css)
+        self.assertIn(".nrt-x-embed.is-fallback:not(.is-ready) .nrt-x-embed__frame", css)
+        self.assertIn(".nrt-x-embed.is-ready .nrt-x-embed__fallback", css)
         self.assertIn("max-width: 100%", css)
         self.assertIn("overflow-x: hidden", css)
         self.assertIn("@media (min-width: 901px)", css)
@@ -1459,6 +1477,89 @@ class XEmbedSlots(unittest.TestCase):
                 NEXT,
             )
         self.assertEqual(narrative["playerEmbeds"], [])
+
+    def test_official_allowlist_is_exactly_nfl_and_32_teams(self):
+        verified = frozenset(
+            {
+                "nfl",
+                "azcardinals",
+                "atlantafalcons",
+                "ravens",
+                "buffalobills",
+                "panthers",
+                "chicagobears",
+                "bengals",
+                "browns",
+                "dallascowboys",
+                "broncos",
+                "lions",
+                "packers",
+                "houstontexans",
+                "colts",
+                "jaguars",
+                "chiefs",
+                "raiders",
+                "chargers",
+                "ramsnfl",
+                "miamidolphins",
+                "vikings",
+                "patriots",
+                "saints",
+                "giants",
+                "nyjets",
+                "eagles",
+                "steelers",
+                "49ers",
+                "seahawks",
+                "buccaneers",
+                "titans",
+                "commanders",
+            }
+        )
+        self.assertEqual(x_embeds.OFFICIAL_X_ACCOUNTS, verified)
+        self.assertEqual(len(x_embeds.OFFICIAL_X_ACCOUNTS), 33)
+        rejected = {
+            "bills",
+            "cardinals",
+            "rams",
+            "texans",
+            "tennesseetitans",
+            "buffalobillsnfl",
+            "byherbie",
+            "adamteicher",
+            "arrowheadpride",
+            "nflnetwork",
+            "espnnfl",
+        }
+        self.assertTrue(rejected.isdisjoint(x_embeds.OFFICIAL_X_ACCOUNTS))
+
+    def test_verify_matches_author_url_handle_not_author_name(self):
+        def fake_oembed(_url):
+            return {
+                "author_name": "NFL",
+                "author_url": "https://x.com/randomfan",
+                "html": "<blockquote>",
+            }
+
+        kept = x_embeds.verify_x_embed(
+            {"url": self.REAL_KELCE, "account": "@Chiefs"},
+            oembed_fetch=fake_oembed,
+        )
+        self.assertIsNone(kept)
+
+        def official_url_spoofed_name(_url):
+            return {
+                "author_name": "Not the Chiefs",
+                "author_url": "https://x.com/Chiefs",
+                "html": "<blockquote>",
+            }
+
+        kept = x_embeds.verify_x_embed(
+            {"url": self.REAL_KELCE},
+            oembed_fetch=official_url_spoofed_name,
+        )
+        self.assertIsNotNone(kept)
+        self.assertEqual(kept["account"], "@Chiefs")
 
     def test_workflow_schedule_untouched(self):
         yaml = (self.ROOT / ".github" / "workflows" / "narrative.yml").read_text(

@@ -16,19 +16,17 @@ from . import schema
 OEMBED_ENDPOINT = "https://publish.twitter.com/oembed"
 OEMBED_TIMEOUT_SEC = 8
 
-# Official team, league, and Chiefs-beat reporter handles. Compared lowercase
-# without the leading @. Opponent clubs are included so a verified road-game
-# clip can survive; random accounts cannot.
+# ONLY @NFL + the 32 official NFL club accounts. Compared lowercase
+# without the leading @. Reporter, network, and fan/blog handles are
+# not accepted. Verified 2026-09-27 via X API GET /2/users/by
+# (get_users_by_usernames) — each returned verified=true and the
+# team's official display name. Rejected squatters/wrong sports:
+# Bills (Diane), Cardinals (St. Louis MLB), rams (unverified),
+# texans (404), TennesseeTitans (404), BuffaloBillsNFL (unverified).
 OFFICIAL_X_ACCOUNTS = frozenset(
     {
-        # League
         "nfl",
-        "nflnetwork",
-        "nflonfox",
-        "nfloncbs",
-        "espnnfl",
-        # 32 clubs
-        "cardinals",
+        "azcardinals",
         "atlantafalcons",
         "ravens",
         "buffalobills",
@@ -40,13 +38,13 @@ OFFICIAL_X_ACCOUNTS = frozenset(
         "broncos",
         "lions",
         "packers",
-        "texans",
+        "houstontexans",
         "colts",
         "jaguars",
         "chiefs",
         "raiders",
         "chargers",
-        "rams",
+        "ramsnfl",
         "miamidolphins",
         "vikings",
         "patriots",
@@ -58,23 +56,14 @@ OFFICIAL_X_ACCOUNTS = frozenset(
         "49ers",
         "seahawks",
         "buccaneers",
-        "tennesseetitans",
+        "titans",
         "commanders",
-        # Chiefs beat / club-adjacent reporters
-        "byherbie",
-        "adamteicher",
-        "mattderrick",
-        "nate_taylor",
-        "arrowheadpride",
-        "arrowheadaddict",
-        "chiefsreporter",
-        "petesweeney",
-        "charlesgoldman",
     }
 )
 
 
 def handle_from_author_url(author_url: str) -> str:
+    """Handle from oEmbed author_url only — never author_name."""
     path = urlparse(author_url or "").path.strip("/")
     handle = path.split("/")[0] if path else ""
     return handle.lstrip("@")
@@ -101,7 +90,12 @@ def fetch_oembed(url: str, *, timeout: float = OEMBED_TIMEOUT_SEC) -> dict | Non
 
 
 def verify_x_embed(value, *, oembed_fetch=None) -> dict | None:
-    """Keep an embed only when oEmbed 200s and the author is allowlisted."""
+    """Keep an embed only when oEmbed 200s and the author is allowlisted.
+
+    Matching is case-insensitive on the handle parsed from
+    ``author_url``. ``author_name`` is ignored so a spoofed display
+    name cannot pass.
+    """
     embed = schema._norm_x_embed(value)
     if not embed:
         return None

@@ -113,8 +113,11 @@
   min-height: 320px;
   background: rgba(13, 12, 13, .03);
 }
-.nrt-x-embed.is-fallback .nrt-x-embed__frame,
-.nrt-x-embed.is-fallback .nrt-x-embed__credit {
+.nrt-x-embed.is-fallback:not(.is-ready) .nrt-x-embed__frame,
+.nrt-x-embed.is-fallback:not(.is-ready) .nrt-x-embed__credit {
+  display: none;
+}
+.nrt-x-embed.is-ready .nrt-x-embed__fallback {
   display: none;
 }
 .nrt-x-embed__fallback {
