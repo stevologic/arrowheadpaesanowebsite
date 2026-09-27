@@ -5,20 +5,70 @@ account. The site stays static on GitHub Pages. This folder is the $0
 backend: a Cloudflare Worker plus SQLite Durable Objects, with a local
 Python stand-in for previews and screenshots.
 
+Node **>= 22** is required (`node:sqlite` in the Worker test suite). CI
+uses Node 22.
+
 ## Architecture
 
 - One `CommentThread` Durable Object per **known** story slug. That object
   is the source of truth for the thread. There is no hot global key per
   comment.
-- A single directory Durable Object (`__directory__`) holds an idempotent
-  `INSERT OR IGNORE` list of slugs that actually have comments. `/moderate/`
-  pages that directory (default 8 slugs) and fetches those threads in
-  bounded parallel (4 at a time).
-- One `RateBucket` Durable Object per IPv4 address or IPv6 `/64`. Post
-  limits, public GET limits, and admin-token lockout share that bucket.
-- Hugo emits `/comments-slugs.json` at build time from
-  `data/narrative.json` plus `data/narrative_editions/`. Unknown slugs
-  return 404 and never instantiate a thread DO.
+- A directory Durable Object (`__directory__`) is an idempotent slug index
+  for `/moderate/` only. It is **never** on the public read path. After a
+  successful insert the Worker returns 201 even if directory registration
+  fails; `ctx.waitUntil` retries `INSERT OR IGNORE`.
+- Posts send a client `requestId` (UUID). The thread stores it `UNIQUE`,
+  so a retry after a 500 cannot double-post.
+- Public `GET /comments?slug=` is served from the Workers Cache API
+  (`caches.default`, 45s TTL) keyed by **slug + cursor + version**. A
+  cache hit costs **0 Durable Object requests**. A miss costs **exactly
+  one** thread `/list`. Writes bump a per-slug version in the thread DO
+  and in cache so the next read misses.
+- One `RateBucket` Durable Object per IPv4 or IPv6 `/64` for **posts**
+  and the 5-minute admin-token lockout. Public GET rate limiting (600/min
+  per `/64`) runs **only on cache misses**.
+- Hugo emits `/comments-slugs.json` at build time. Unknown slugs return
+  404 and never instantiate a thread DO.
+
+## Pagination
+
+The public thread shows the **newest 50** comments. If more exist, the
+API returns `next` (`createdAt|id`, older than that cursor, id as
+tiebreak). The page has a **Load older comments** button that follows
+`next`.
+
+`/moderate/` pages the directory (`nextSlug`, 8 slugs per request) and
+follows `/comments?slug=&hidden=1` `next` so every comment in a thread
+can be hidden or deleted. If the admin client hits its page cap, it
+shows a notice.
+
+## Slug allowlist
+
+- Default: fetch `COMMENTS_SLUGS_URL` (or
+  `https://arrowheadpaesano.com/comments-slugs.json`) and cache it in
+  Worker memory for **60 seconds**.
+- A 404 for an unknown slug **refetches once** so a brand-new edition
+  does not stay 404 until the TTL ends.
+- `COMMENTS_KNOWN_SLUGS` is an optional comma-separated pin (tests or an
+  emergency override). When it is set, the Worker does not fetch the
+  JSON list.
+
+## Free-tier math
+
+Workers Free: 100,000 Worker requests/day, 10 ms CPU; SQLite DOs:
+5 million row reads/day, 100,000 row writes/day, 5 GB.
+
+Cache hits still count as Worker requests (the 100k cap is unchanged)
+but they do **not** touch Durable Objects. The scarce quota is DO row
+reads/writes:
+
+- One live edition, 45s first-page TTL: `86400 / 45 ≈ 1,920` list
+  fills/day × ~50 rows ≈ **96k row reads/day** — well under 5M.
+- Before this cache, every page view was 1 thread DO + 1 rate DO.
+- Writes (post / hide / delete) stay tiny versus the 100k write cap.
+- Directory traffic is admin-only.
+
+Stay off paid KV/D1/R2.
 
 ## One-time owner setup (all free tiers)
 
@@ -46,13 +96,7 @@ Python stand-in for previews and screenshots.
    If either value is unset or whitespace, Hugo renders **nothing** — no
    heading, empty state, or form.
 5. `COMMENTS_CORS_ORIGINS` and `COMMENTS_SLUGS_URL` are already set in
-   `wrangler.toml` for `arrowheadpaesano.com`. `COMMENTS_SLUGS_URL` should
-   point at the live `/comments-slugs.json` after the first Pages deploy
-   that includes this output format.
-
-Free-tier notes: Workers Free + Turnstile free + GitHub Pages. Stay off
-paid KV/D1/R2. Thread lists are capped (50) and paginated; admin fan-out
-is capped per request.
+   `wrangler.toml` for `arrowheadpaesano.com`.
 
 ## Local preview
 
@@ -75,7 +119,10 @@ Stephen opens `/moderate/` (the page is `noindex, nofollow`). Paste
 never written to `localStorage` or `sessionStorage`.
 
 - **Hide** takes a comment off the public story. **Unhide** puts it back.
-- **Delete** hard-deletes the SQLite row (name, body, and id are gone).
+- **Delete** hard-deletes the SQLite row (name, body, and id are gone
+  from the live database). Cloudflare still keeps **point-in-time
+  recovery for SQLite Durable Objects for 30 days**, so a deleted row
+  can theoretically be restored from a PIT snapshot during that window.
 - There is **no admin-token bypass** for the lockout. Eight bad guesses
   from one IPv4 (or IPv6 `/64`) lock that address for **5 minutes**. A
   later correct token from the same address still gets 429 until the

@@ -69,6 +69,18 @@
   display: grid;
   gap: 14px;
 }
+.nrt-comments__form fieldset:disabled,
+.nrt-comments__form fieldset:disabled input,
+.nrt-comments__form fieldset:disabled textarea,
+.nrt-comments__form fieldset:disabled button {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.nrt-comments__older {
+  justify-self: start;
+  margin: -12px 0 24px;
+}
 .nrt-comments__empty p {
   margin: 0;
   font-family: var(--serif, Fraunces, Georgia, serif);

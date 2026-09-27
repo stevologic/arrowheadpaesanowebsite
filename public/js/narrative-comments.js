@@ -2,6 +2,9 @@
   const EMPTY_COPY = "No comments yet. Be the first.";
   const LOAD_ERROR_COPY = "Couldn't load comments.";
   const TURNSTILE_FAIL_COPY = "Spam check didn't load, refresh.";
+  const OLDER_COPY = "Load older comments";
+  const ADMIN_PAGE_CAP = 32;
+  const ADMIN_CAP_COPY = "Reached the page cap. Reload to keep paging.";
   const HONEYPOT_FIELD = "nrt_hp_x7";
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -105,6 +108,22 @@
     visible.forEach((row) => list.appendChild(renderComment(row, canModerate)));
   }
 
+  function setOlderButton(root, cursor, onLoad) {
+    let button = $("[data-load-older]", root);
+    if (!button) {
+      button = document.createElement("button");
+      button.type = "button";
+      button.className = "btn btn-ghost nrt-comments__older";
+      button.setAttribute("data-load-older", "");
+      button.textContent = OLDER_COPY;
+      const list = $("[data-comments-list]", root);
+      if (list && list.parentNode) list.after(button);
+    }
+    button.hidden = !cursor;
+    button.disabled = !cursor;
+    button.onclick = cursor ? onLoad : null;
+  }
+
   async function api(url, options) {
     const response = await fetch(url, options);
     const data = await response.json().catch(() => ({}));
@@ -194,24 +213,56 @@
       widgetId = id;
     });
 
-    async function reload() {
+    let loaded = [];
+    let next = null;
+
+    function render() {
+      paintList(list, loaded, Boolean(adminToken()));
+      setOlderButton(root, next, loadOlder);
+    }
+
+    async function loadPage(reset) {
       if (!apiBase) {
         list.innerHTML = "";
-        list.appendChild(errorNode(reload));
+        list.appendChild(errorNode(() => loadPage(true)));
+        setOlderButton(root, null);
         setFormEnabled(root, false);
         return false;
       }
       try {
-        const data = await api(apiBase + "/comments?slug=" + encodeURIComponent(slug));
-        paintList(list, data.comments || [], Boolean(adminToken()));
+        const query =
+          apiBase +
+          "/comments?slug=" +
+          encodeURIComponent(slug) +
+          (!reset && next ? "&after=" + encodeURIComponent(next) : "");
+        const data = await api(query);
+        if (reset) loaded = data.comments || [];
+        else loaded = loaded.concat(data.comments || []);
+        next = data.next || null;
+        render();
         setFormEnabled(root, true);
         return true;
       } catch (_) {
-        list.innerHTML = "";
-        list.appendChild(errorNode(reload));
+        if (reset) {
+          loaded = [];
+          next = null;
+          list.innerHTML = "";
+          list.appendChild(errorNode(() => loadPage(true)));
+          setOlderButton(root, null);
+        }
         setFormEnabled(root, false);
         return false;
       }
+    }
+
+    async function loadOlder() {
+      if (!next) return;
+      await loadPage(false);
+    }
+
+    async function reload() {
+      next = null;
+      return loadPage(true);
     }
 
     await reload();
@@ -229,6 +280,7 @@
       const honeypot = form.elements.namedItem(HONEYPOT_FIELD);
       const name = String((form.elements.namedItem("name") || {}).value || "").trim();
       const body = String((form.elements.namedItem("body") || {}).value || "").trim();
+      const requestId = crypto.randomUUID();
       submit.disabled = true;
       setStatus(status, "Posting…", false);
       try {
@@ -239,14 +291,14 @@
             slug,
             name,
             body,
+            requestId,
             [HONEYPOT_FIELD]: honeypot ? honeypot.value : "",
             turnstileToken: token,
           }),
         });
         if (data.comment) {
-          const current = $$items(list);
-          current.push(data.comment);
-          paintList(list, current, Boolean(adminToken()));
+          loaded = [data.comment].concat(loaded.filter((row) => row.id !== data.comment.id));
+          render();
         }
         form.reset();
         if (siteKey && window.turnstile && widgetId !== null) window.turnstile.reset(widgetId);
@@ -257,16 +309,6 @@
         submit.disabled = false;
       }
     });
-  }
-
-  function $$items(list) {
-    return Array.from(list.querySelectorAll("[data-comment-id]")).map((node) => ({
-      id: node.getAttribute("data-comment-id"),
-      name: ($(".nrt-comments__name", node) || {}).textContent || "",
-      body: (node.querySelector("p") || {}).textContent || "",
-      createdAt: (($(".nrt-comments__time", node) || {}).getAttribute("datetime")) || "",
-      hidden: node.classList.contains("is-hidden"),
-    }));
   }
 
   async function initModerate(root) {
@@ -292,21 +334,44 @@
       async function reload() {
         const comments = [];
         let cursor = "";
-        for (let page = 0; page < 32; page += 1) {
+        let capped = false;
+        const headers = { Authorization: "Bearer " + memoryAdminToken };
+        for (let page = 0; page < ADMIN_PAGE_CAP; page += 1) {
           const query = apiBase + "/comments?all=1" + (cursor ? "&after=" + encodeURIComponent(cursor) : "");
-          const data = await api(query, {
-            headers: { Authorization: "Bearer " + memoryAdminToken },
-          });
+          const data = await api(query, { headers });
           comments.push(...(data.comments || []));
+          if (data.capped) capped = true;
+          const leftovers = data.nextBySlug || {};
+          for (const [slug, start] of Object.entries(leftovers)) {
+            let after = start;
+            for (let inner = 0; inner < ADMIN_PAGE_CAP && after; inner += 1) {
+              const more = await api(
+                apiBase + "/comments?slug=" + encodeURIComponent(slug) + "&hidden=1&after=" + encodeURIComponent(after),
+                { headers }
+              );
+              comments.push(...(more.comments || []));
+              after = more.next || "";
+              if (inner === ADMIN_PAGE_CAP - 1 && after) capped = true;
+            }
+          }
           cursor = data.nextSlug || "";
           if (!cursor) break;
+          if (page === ADMIN_PAGE_CAP - 1 && cursor) capped = true;
         }
-        paintList(list, comments, true);
+        const unique = [];
+        const seen = new Set();
+        comments.forEach((row) => {
+          if (seen.has(row.id)) return;
+          seen.add(row.id);
+          unique.push(row);
+        });
+        paintList(list, unique, true);
         setStatus(
           status,
-          comments.length ? comments.length + " comment(s). Hide or delete any of them." : EMPTY_COPY,
+          unique.length ? unique.length + " comment(s). Hide or delete any of them." : EMPTY_COPY,
           false
         );
+        if (capped) setStatus(status, ADMIN_CAP_COPY, true);
       }
 
       try {

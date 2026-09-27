@@ -26,7 +26,7 @@ RATE_WINDOW_SEC = 10 * 60
 RATE_MAX = 5
 RATE_MIN_INTERVAL_SEC = 20
 GET_RATE_WINDOW_SEC = 60
-GET_RATE_MAX = 60
+GET_RATE_MAX = 600
 AUTH_FAIL_MAX = 8
 AUTH_FAIL_WINDOW_SEC = 5 * 60
 THREAD_LIST_LIMIT = 50
@@ -180,13 +180,13 @@ class CommentStore:
             for row in self._comments.values()
             if row["slug"] == slug and not row.get("hidden")
         ]
-        rows.sort(key=lambda row: (row["createdAt"], row["id"]))
+        rows.sort(key=lambda row: (row["createdAt"], row["id"]), reverse=True)
         if after and "|" in after:
             created, ident = after.split("|", 1)
             rows = [
                 row
                 for row in rows
-                if (row["createdAt"], row["id"]) > (created, ident)
+                if (row["createdAt"], row["id"]) < (created, ident)
             ]
         cap = _clamp_limit(limit, THREAD_LIST_LIMIT)
         page = rows[:cap]
@@ -225,6 +225,11 @@ class CommentStore:
         if len(body) < MIN_BODY:
             raise CommentError("Comment is too short.")
 
+        request_id = str(payload.get("requestId") or payload.get("request_id") or "").strip()
+        if request_id:
+            for existing in self._comments.values():
+                if existing.get("requestId") == request_id:
+                    return public_comment(existing)
         self._enforce_rate_limit(ip)
         row = {
             "id": f"{slug}~{uuid.uuid4().hex}",
@@ -233,6 +238,7 @@ class CommentStore:
             "body": body,
             "createdAt": _utc_now(),
             "hidden": False,
+            "requestId": request_id or str(uuid.uuid4()),
         }
         self._comments[row["id"]] = row
         return public_comment(row)

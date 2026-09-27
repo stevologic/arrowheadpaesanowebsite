@@ -144,6 +144,31 @@ class CommentStoreTests(unittest.TestCase):
             store.delete(row["id"])
         self.assertEqual(ctx.exception.status, 404)
 
+    def test_request_id_is_idempotent(self):
+        store = _store()
+        first = store.post(
+            {
+                "slug": "2026-09-26-1355",
+                "name": "Travis",
+                "body": "Once is enough.",
+                "requestId": "11111111-1111-4111-8111-111111111111",
+            },
+            ip="203.0.113.10",
+            turnstile_token=TURNSTILE_PASS_TOKEN,
+        )
+        second = store.post(
+            {
+                "slug": "2026-09-26-1355",
+                "name": "Travis",
+                "body": "Once is enough.",
+                "requestId": "11111111-1111-4111-8111-111111111111",
+            },
+            ip="203.0.113.11",
+            turnstile_token=TURNSTILE_PASS_TOKEN,
+        )
+        self.assertEqual(first["id"], second["id"])
+        self.assertEqual(len(store.list_public("2026-09-26-1355")["comments"]), 1)
+
     def test_unknown_slug_is_404_without_storing(self):
         store = _store()
         with self.assertRaises(CommentError) as ctx:
@@ -327,6 +352,14 @@ class CommentWiringTests(unittest.TestCase):
         js = (ROOT / "public/js/narrative-comments.js").read_text(encoding="utf-8")
         self.assertNotIn(NOT_CONNECTED_COPY, js)
         self.assertNotIn("sessionStorage", js)
+        self.assertIn("Load older comments", configured)
+        self.assertIn("Load older comments", js)
+        self.assertIn("requestId", js)
+        self.assertIn("Reached the page cap", js)
+        css = (ROOT / "public/css/comments.css").read_text(encoding="utf-8")
+        self.assertIn("fieldset:disabled", css)
+        pkg = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
+        self.assertGreaterEqual(int(str(pkg["engines"]["node"]).lstrip(">=").split(".")[0]), 22)
 
     def test_partial_empty_state_and_page_includes(self):
         partial = (ROOT / "layouts/partials/narrative-comments.html").read_text(encoding="utf-8")

@@ -12,7 +12,7 @@
     "hugo-bin": "^0.149.2"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "allowScripts": {
     "hugo-bin@0.149.2": true

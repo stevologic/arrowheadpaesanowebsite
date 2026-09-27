@@ -10,6 +10,7 @@ import {
   HONEYPOT_FIELD,
   RATE_MAX,
   RateBucket,
+  SLUGS_TTL_MS,
   THREAD_LIST_LIMIT,
   corsOrigin,
   handleRequest,
@@ -53,15 +54,43 @@ function makeCtx() {
   };
 }
 
+function createMemoryCache() {
+  const map = new Map();
+  return {
+    async match(req) {
+      const key = req instanceof Request ? req.url : String(req);
+      const stored = map.get(key);
+      return stored ? stored.clone() : undefined;
+    },
+    async put(req, res) {
+      const key = req instanceof Request ? req.url : String(req);
+      map.set(key, res.clone());
+    },
+    async delete(req) {
+      const key = req instanceof Request ? req.url : String(req);
+      return map.delete(key);
+    },
+  };
+}
+
 function createDoEnv(overrides = {}) {
   const threads = new Map();
   const rates = new Map();
+  const pending = [];
   const env = {
     COMMENTS_ADMIN_TOKEN: "secret-admin",
     TURNSTILE_SECRET: "turnstile-secret",
     COMMENTS_CORS_ORIGINS: "https://arrowheadpaesano.com,https://www.arrowheadpaesano.com",
     COMMENTS_DEV: "",
     COMMENTS_KNOWN_SLUGS: `${SLUG},${SLUG_B}`,
+    __cache: createMemoryCache(),
+    __pending: pending,
+    __doGets: [],
+    __ctx: {
+      waitUntil(promise) {
+        pending.push(Promise.resolve(promise));
+      },
+    },
     THREADS: {
       idFromName(name) {
         return { name: String(name) };
@@ -69,7 +98,13 @@ function createDoEnv(overrides = {}) {
       get(id) {
         const key = id.name;
         if (!threads.has(key)) threads.set(key, new CommentThread(makeCtx(), env));
-        return threads.get(key);
+        const stub = threads.get(key);
+        return {
+          fetch(req) {
+            env.__doGets.push({ name: key, path: new URL(req.url).pathname });
+            return stub.fetch(req);
+          },
+        };
       },
     },
     RATES: {
@@ -89,17 +124,24 @@ function createDoEnv(overrides = {}) {
   return env;
 }
 
-function request(method, path, { body, headers, origin, env } = {}) {
+async function flush(env) {
+  const queued = (env.__pending || []).splice(0);
+  await Promise.all(queued);
+}
+
+function request(method, path, { body, headers, origin, env, ctx } = {}) {
   const hdrs = { ...(headers || {}) };
   if (origin) hdrs.Origin = origin;
   if (body && !hdrs["Content-Type"]) hdrs["Content-Type"] = "application/json";
+  const resolved = env || createDoEnv();
   return handleRequest(
     new Request("https://comments.example" + path, {
       method,
       headers: hdrs,
       body: body ? JSON.stringify(body) : undefined,
     }),
-    env || createDoEnv()
+    resolved,
+    ctx || resolved.__ctx || {}
   );
 }
 
@@ -118,6 +160,10 @@ async function withTurnstile(fn, success = true) {
   }
 }
 
+function requestId(suffix = "1") {
+  return `11111111-1111-4111-8111-11111111111${suffix}`.slice(0, 36);
+}
+
 async function postComment(env, overrides = {}) {
   return withTurnstile(() =>
     request("POST", "/comments", {
@@ -126,12 +172,21 @@ async function postComment(env, overrides = {}) {
         slug: SLUG,
         name: "Travis",
         body: "The pass rush is the whole story.",
+        requestId: requestId("1"),
         [HONEYPOT_FIELD]: "",
         turnstileToken: "ok-token",
         ...overrides,
       },
     })
   );
+}
+
+function listGets(env, slug = SLUG) {
+  return (env.__doGets || []).filter((item) => item.name === slug && item.path === "/list");
+}
+
+function dirGets(env) {
+  return (env.__doGets || []).filter((item) => item.name === "__directory__");
 }
 
 test("honeypot is accepted but not stored", async () => {
@@ -268,14 +323,16 @@ test("hide, unhide, and hard-DELETE go through CommentThread SQLite", async () =
 
 test("THREADS/RATES routing plus directory fan-out stays paged and idempotent", async () => {
   const env = createDoEnv();
-  const first = await (await postComment(env, { name: "Andy", body: "First chair at the table." })).json();
+  const first = await (await postComment(env, { name: "Andy", body: "First chair at the table.", requestId: requestId("2") })).json();
+  await flush(env);
   env.__rates.clear();
   const second = await postComment(env, {
     slug: SLUG_B,
     name: "Patrick",
     body: "Second chair after the first.",
-    headers: undefined,
+    requestId: requestId("3"),
   });
+  await flush(env);
   const posted = await second.json();
   assert.equal(second.status, 201);
 
@@ -318,32 +375,169 @@ test("unknown slugs 404 without instantiating a thread DO", async () => {
   assert.equal(env.__threads.has("not-a-real-edition"), false);
 });
 
-test("thread list is limited and paginated", async () => {
+test("thread list is newest-first and paginated past 50", async () => {
   const env = createDoEnv();
-  const thread = env.THREADS.get(env.THREADS.idFromName(SLUG));
+  env.THREADS.get(env.THREADS.idFromName(SLUG));
+  const thread = env.__threads.get(SLUG);
   await thread.ready;
-  for (let i = 0; i < 3; i += 1) {
-    const row = {
-      id: `${SLUG}~page${i}`,
-      slug: SLUG,
-      name: "Fan",
-      body: `Take number ${i} for the table.`,
-      createdAt: `2026-09-26T13:5${i}:00Z`,
-    };
-    assert.ok(thread.store().insert(row));
+  for (let i = 0; i < 51; i += 1) {
+    const stamp = String(i).padStart(2, "0");
+    assert.ok(
+      thread.store().insert({
+        id: `${SLUG}~n${String(i).padStart(3, "0")}`,
+        slug: SLUG,
+        name: "Fan",
+        body: `Take number ${i} for the table.`,
+        createdAt: `2026-09-26T13:${stamp}:00Z`,
+        requestId: `22222222-2222-4222-8222-2222222222${String(i).padStart(2, "0")}`,
+      }).comment
+    );
   }
-  await thread.fetch(new Request("https://do/remember", { method: "POST", body: JSON.stringify({ slug: SLUG }) }));
 
-  const first = await (await request("GET", `/comments?slug=${SLUG}&limit=2`, { env })).json();
-  assert.equal(first.comments.length, 2);
-  assert.ok(first.next);
-  const second = await (await request("GET", `/comments?slug=${SLUG}&limit=2&after=${encodeURIComponent(first.next)}`, { env })).json();
+  const first = await request("GET", `/comments?slug=${SLUG}`, { env });
+  const page = await first.json();
+  assert.equal(page.comments.length, 50);
+  assert.equal(page.comments[0].body, "Take number 50 for the table.");
+  assert.ok(page.next);
+  const second = await (await request("GET", `/comments?slug=${SLUG}&after=${encodeURIComponent(page.next)}`, { env })).json();
   assert.equal(second.comments.length, 1);
+  assert.equal(second.comments[0].body, "Take number 0 for the table.");
   assert.equal(second.next, null);
-  assert.ok(THREAD_LIST_LIMIT >= 2);
+  assert.equal(THREAD_LIST_LIMIT, 50);
 });
 
-test("public GETs are rate-limited per IP", async () => {
+test("equal-timestamp cursors tiebreak on id", async () => {
+  const env = createDoEnv();
+  env.THREADS.get(env.THREADS.idFromName(SLUG));
+  const thread = env.__threads.get(SLUG);
+  await thread.ready;
+  const stamp = "2026-09-26T13:55:00Z";
+  for (const ident of ["aaa", "mmm", "zzz"]) {
+    assert.ok(
+      thread.store().insert({
+        id: `${SLUG}~${ident}`,
+        slug: SLUG,
+        name: "Fan",
+        body: ident,
+        createdAt: stamp,
+        requestId: `33333333-3333-4333-8333-3333333333${ident[0]}`,
+      }).comment
+    );
+  }
+  const first = await (await request("GET", `/comments?slug=${SLUG}&limit=2`, { env })).json();
+  assert.deepEqual(
+    first.comments.map((row) => row.body),
+    ["zzz", "mmm"]
+  );
+  assert.equal(first.next, `${stamp}|${SLUG}~mmm`);
+  const second = await (
+    await request("GET", `/comments?slug=${SLUG}&limit=2&after=${encodeURIComponent(first.next)}`, { env })
+  ).json();
+  assert.deepEqual(
+    second.comments.map((row) => row.body),
+    ["aaa"]
+  );
+});
+
+test("admin ?all and ?hidden=1 page a thread past 50", async () => {
+  const env = createDoEnv();
+  env.THREADS.get(env.THREADS.idFromName(SLUG));
+  const thread = env.__threads.get(SLUG);
+  await thread.ready;
+  for (let i = 0; i < 51; i += 1) {
+    thread.store().insert({
+      id: `${SLUG}~a${String(i).padStart(3, "0")}`,
+      slug: SLUG,
+      name: "Fan",
+      body: `Admin ${i}`,
+      createdAt: `2026-09-26T14:${String(i).padStart(2, "0")}:00Z`,
+      requestId: `44444444-4444-4444-8444-4444444444${String(i).padStart(2, "0")}`,
+    });
+  }
+  await thread.fetch(new Request("https://do/remember", { method: "POST", body: JSON.stringify({ slug: SLUG }) }));
+  const dir = env.THREADS.get(env.THREADS.idFromName("__directory__"));
+  await dir.fetch(new Request("https://do/remember", { method: "POST", body: JSON.stringify({ slug: SLUG }) }));
+
+  const all = await request("GET", "/comments?all=1", {
+    env,
+    headers: { Authorization: "Bearer secret-admin" },
+  });
+  assert.equal(all.status, 200);
+  const payload = await all.json();
+  assert.equal(payload.comments.length, 51);
+
+  const hidden = await request("GET", `/comments?slug=${SLUG}&hidden=1&limit=50`, {
+    env,
+    headers: { Authorization: "Bearer secret-admin" },
+  });
+  const first = await hidden.json();
+  assert.equal(first.comments.length, 50);
+  assert.ok(first.next);
+  const rest = await (
+    await request("GET", `/comments?slug=${SLUG}&hidden=1&after=${encodeURIComponent(first.next)}`, {
+      env,
+      headers: { Authorization: "Bearer secret-admin" },
+    })
+  ).json();
+  assert.equal(rest.comments.length, 1);
+});
+
+test("public GET uses cache: 1 thread DO on miss, 0 on hit, no directory", async () => {
+  const env = createDoEnv();
+  env.THREADS.get(env.THREADS.idFromName(SLUG));
+  const thread = env.__threads.get(SLUG);
+  await thread.ready;
+  thread.store().insert({
+    id: `${SLUG}~cache1`,
+    slug: SLUG,
+    name: "Fan",
+    body: "Cached take.",
+    createdAt: "2026-09-26T13:55:00Z",
+    requestId: requestId("8"),
+  });
+  env.__doGets.length = 0;
+  const miss = await request("GET", `/comments?slug=${SLUG}`, { env });
+  assert.equal(miss.headers.get("x-comments-cache"), "miss");
+  assert.equal(listGets(env).length, 1);
+  assert.equal(dirGets(env).length, 0);
+
+  const hit = await request("GET", `/comments?slug=${SLUG}`, { env });
+  assert.equal(hit.headers.get("x-comments-cache"), "hit");
+  assert.equal(listGets(env).length, 1);
+  assert.equal(dirGets(env).length, 0);
+  assert.equal((await hit.json()).comments[0].body, "Cached take.");
+});
+
+test("post succeeds when directory registration fails and is idempotent on requestId", async () => {
+  const env = createDoEnv();
+  const inner = env.THREADS;
+  env.THREADS = {
+    idFromName: inner.idFromName,
+    get(id) {
+      if (id.name === "__directory__") {
+        return {
+          fetch: async () => {
+            throw new Error("directory down");
+          },
+        };
+      }
+      return inner.get(id);
+    },
+  };
+  const id = requestId("9");
+  const first = await postComment(env, { requestId: id, body: "Once is enough for the table." });
+  assert.equal(first.status, 201);
+  const created = await first.json();
+  env.__rates.clear();
+  const replay = await postComment(env, { requestId: id, body: "Once is enough for the table." });
+  assert.equal(replay.status, 201);
+  const again = await replay.json();
+  assert.equal(again.comment.id, created.comment.id);
+  const listed = await (await request("GET", `/comments?slug=${SLUG}`, { env })).json();
+  assert.equal(listed.comments.length, 1);
+});
+
+test("cache-miss GET rate limit is 600/min per /64", async () => {
   const env = createDoEnv();
   const key = "198.51.100.20";
   const bucket = env.RATES.get(env.RATES.idFromName(key));
@@ -357,6 +551,8 @@ test("public GETs are rate-limited per IP", async () => {
     headers: { "CF-Connecting-IP": key },
   });
   assert.equal(res.status, 429);
+  assert.equal(GET_RATE_MAX, 600);
+  assert.equal(SLUGS_TTL_MS, 60 * 1000);
 });
 
 test("IPv6 clients in the same /64 share a rate bucket", () => {

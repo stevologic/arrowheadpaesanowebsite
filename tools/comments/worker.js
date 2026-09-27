@@ -3,11 +3,12 @@
  *
  * $0 on Workers Free (SQLite-backed DOs only). One CommentThread DO per
  * known story slug so post/hide/delete are atomic; RateBucket DO per IPv4
- * or IPv6 /64 for post/GET limits and bad-admin-token lockout.
+ * or IPv6 /64 for post limits and bad-admin-token lockout.
  *
- * There is no hot global key per comment. The thread DO is the source of
- * truth; the directory DO is an idempotent slug index used only so
- * /moderate/ can page a handful of threads in bounded parallel.
+ * Public GET /comments?slug= is served from caches.default (45s TTL,
+ * keyed by slug + cursor + version). A cache hit costs 0 DO requests.
+ * A miss costs exactly one thread DO list. The directory DO is never
+ * on the read path.
  *
  * Secrets (never commit):
  *   wrangler secret put COMMENTS_ADMIN_TOKEN
@@ -16,10 +17,13 @@
  * Vars:
  *   COMMENTS_CORS_ORIGINS  comma-separated production origins
  *   COMMENTS_SLUGS_URL     Hugo-emitted allowlist (comments-slugs.json)
+ *   COMMENTS_KNOWN_SLUGS   optional comma list (tests / emergency pin)
  *   COMMENTS_DEV           "1" to allow localhost CORS
  */
 export const HONEYPOT_FIELD = "nrt_hp_x7";
 export const SLUG_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/;
+export const REQUEST_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_NAME = 40;
 const MIN_NAME = 2;
 const MAX_BODY = 1000;
@@ -28,15 +32,17 @@ export const RATE_WINDOW_SEC = 10 * 60;
 export const RATE_MAX = 5;
 export const RATE_MIN_INTERVAL_SEC = 20;
 export const GET_RATE_WINDOW_SEC = 60;
-export const GET_RATE_MAX = 60;
+export const GET_RATE_MAX = 600;
 export const AUTH_FAIL_MAX = 8;
 export const AUTH_FAIL_WINDOW_SEC = 5 * 60;
 export const THREAD_LIST_LIMIT = 50;
 export const ADMIN_SLUG_PAGE = 8;
 export const ADMIN_PARALLEL = 4;
+export const ADMIN_THREAD_PAGES = 40;
+export const LIST_CACHE_TTL_SEC = 45;
+export const SLUGS_TTL_MS = 60 * 1000;
 const DIR_NAME = "__directory__";
 const DEFAULT_SLUGS_URL = "https://arrowheadpaesano.com/comments-slugs.json";
-const SLUGS_TTL_MS = 5 * 60 * 1000;
 
 let slugCache = { at: 0, slugs: null };
 
@@ -169,15 +175,20 @@ function parseKnownSlugs(data) {
   return new Set(list.map((item) => String(item || "").trim()).filter(Boolean));
 }
 
-export async function knownSlugs(env) {
+function bundledSlugs(env) {
   if (env.__knownSlugs instanceof Set) return env.__knownSlugs;
   if (Array.isArray(env.__knownSlugs)) return new Set(env.__knownSlugs);
   const bundled = String(env.COMMENTS_KNOWN_SLUGS || "")
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
-  if (bundled.length) return new Set(bundled);
-  if (slugCache.slugs && Date.now() - slugCache.at < SLUGS_TTL_MS) return slugCache.slugs;
+  return bundled.length ? new Set(bundled) : null;
+}
+
+export async function knownSlugs(env, { force = false } = {}) {
+  const pinned = bundledSlugs(env);
+  if (pinned) return pinned;
+  if (!force && slugCache.slugs && Date.now() - slugCache.at < SLUGS_TTL_MS) return slugCache.slugs;
   const url = String(env.COMMENTS_SLUGS_URL || "").trim() || DEFAULT_SLUGS_URL;
   const res = await fetch(url);
   if (!res.ok) {
@@ -193,7 +204,11 @@ export async function knownSlugs(env) {
 async function assertKnownSlug(env, slug) {
   if (!SLUG_RE.test(slug) || slug === DIR_NAME) throw unknownStory();
   const known = await knownSlugs(env);
-  if (!known.has(slug)) throw unknownStory();
+  if (known.has(slug)) return;
+  if (bundledSlugs(env)) throw unknownStory();
+  resetSlugCache();
+  const again = await knownSlugs(env, { force: true });
+  if (!again.has(slug)) throw unknownStory();
 }
 
 export function initThreadSchema(sql) {
@@ -203,11 +218,17 @@ export function initThreadSchema(sql) {
     name TEXT NOT NULL,
     body TEXT NOT NULL,
     createdAt TEXT NOT NULL,
-    hidden INTEGER NOT NULL DEFAULT 0
+    hidden INTEGER NOT NULL DEFAULT 0,
+    requestId TEXT UNIQUE
   )`);
   sql.exec(`CREATE TABLE IF NOT EXISTS slugs (
     slug TEXT PRIMARY KEY
   )`);
+  sql.exec(`CREATE TABLE IF NOT EXISTS meta (
+    key TEXT PRIMARY KEY,
+    value INTEGER NOT NULL
+  )`);
+  sql.exec(`INSERT OR IGNORE INTO meta (key, value) VALUES ('version', 0)`);
   sql.exec(`CREATE INDEX IF NOT EXISTS comments_slug_created ON comments (slug, createdAt, id)`);
 }
 
@@ -239,37 +260,46 @@ function runInit(ctx, fn) {
   return Promise.resolve();
 }
 
+function parseCursor(after) {
+  if (!after) return { created: "", id: "" };
+  const cut = String(after).indexOf("|");
+  if (cut <= 0) return { created: "", id: "" };
+  return { created: after.slice(0, cut), id: after.slice(cut + 1) };
+}
+
 export class SqliteThreadStore {
   constructor(sql) {
     this.sql = sql;
   }
 
+  version() {
+    const rows = this.sql.exec(`SELECT value FROM meta WHERE key = 'version'`).toArray();
+    return rows.length ? Number(rows[0].value) || 0 : 0;
+  }
+
+  bumpVersion() {
+    this.sql.exec(`UPDATE meta SET value = value + 1 WHERE key = 'version'`);
+    return this.version();
+  }
+
   list(slug, { includeHidden = false, limit = THREAD_LIST_LIMIT, after = "" } = {}) {
     const cap = clampLimit(limit, THREAD_LIST_LIMIT);
-    let afterCreated = "";
-    let afterId = "";
-    if (after) {
-      const cut = String(after).indexOf("|");
-      if (cut > 0) {
-        afterCreated = after.slice(0, cut);
-        afterId = after.slice(cut + 1);
-      }
-    }
+    const cursor = parseCursor(after);
     const rows = this.sql
       .exec(
         `SELECT id, slug, name, body, createdAt, hidden FROM comments
          WHERE (? = '' OR slug = ?)
            AND (? = 1 OR hidden = 0)
-           AND (? = '' OR createdAt > ? OR (createdAt = ? AND id > ?))
-         ORDER BY createdAt ASC, id ASC
+           AND (? = '' OR createdAt < ? OR (createdAt = ? AND id < ?))
+         ORDER BY createdAt DESC, id DESC
          LIMIT ?`,
         slug || "",
         slug || "",
         includeHidden ? 1 : 0,
-        afterCreated,
-        afterCreated,
-        afterCreated,
-        afterId,
+        cursor.created,
+        cursor.created,
+        cursor.created,
+        cursor.id,
         cap + 1
       )
       .toArray();
@@ -279,39 +309,57 @@ export class SqliteThreadStore {
     return {
       comments: page.map((row) => publicComment({ ...row, hidden: Boolean(row.hidden) })),
       next: hasMore && last ? `${last.createdAt}|${last.id}` : null,
+      version: this.version(),
     };
   }
 
+  findByRequestId(requestId) {
+    if (!requestId) return null;
+    const rows = this.sql
+      .exec(
+        `SELECT id, slug, name, body, createdAt, hidden, requestId FROM comments WHERE requestId = ?`,
+        requestId
+      )
+      .toArray();
+    return rows.length ? publicComment({ ...rows[0], hidden: Boolean(rows[0].hidden) }) : null;
+  }
+
   insert(row) {
+    const replayed = this.findByRequestId(row.requestId);
+    if (replayed) return { comment: replayed, replayed: true, version: this.version() };
     this.sql.exec(
-      `INSERT INTO comments (id, slug, name, body, createdAt, hidden)
-       VALUES (?, ?, ?, ?, ?, 0)`,
+      `INSERT INTO comments (id, slug, name, body, createdAt, hidden, requestId)
+       VALUES (?, ?, ?, ?, ?, 0, ?)`,
       row.id,
       row.slug,
       row.name,
       row.body,
-      row.createdAt
+      row.createdAt,
+      row.requestId || null
     );
     const saved = this.sql.exec(`SELECT id FROM comments WHERE id = ?`, row.id).toArray();
-    if (!saved.length) return null;
-    return publicComment(row);
+    if (!saved.length) return { comment: null, replayed: false, version: this.version() };
+    return { comment: publicComment(row), replayed: false, version: this.bumpVersion() };
   }
 
   hide(id, hidden) {
     const rows = this.sql
       .exec(`SELECT id, slug, name, body, createdAt, hidden FROM comments WHERE id = ?`, id)
       .toArray();
-    if (!rows.length) return null;
+    if (!rows.length) return { comment: null, version: this.version() };
     this.sql.exec(`UPDATE comments SET hidden = ? WHERE id = ?`, hidden ? 1 : 0, id);
-    return publicComment({ ...rows[0], hidden: Boolean(hidden) });
+    return {
+      comment: publicComment({ ...rows[0], hidden: Boolean(hidden) }),
+      version: this.bumpVersion(),
+    };
   }
 
   delete(id) {
     const rows = this.sql.exec(`SELECT id FROM comments WHERE id = ?`, id).toArray();
-    if (!rows.length) return false;
+    if (!rows.length) return { ok: false, version: this.version() };
     this.sql.exec(`DELETE FROM comments WHERE id = ?`, id);
     const leftover = this.sql.exec(`SELECT id FROM comments WHERE id = ?`, id).toArray();
-    return leftover.length === 0;
+    return { ok: leftover.length === 0, version: leftover.length === 0 ? this.bumpVersion() : this.version() };
   }
 
   rememberSlug(slug) {
@@ -466,6 +514,46 @@ function threadStub(env, name) {
   return env.THREADS.get(env.THREADS.idFromName(name));
 }
 
+function cacheStore(env) {
+  if (env.__cache) return env.__cache;
+  if (typeof caches !== "undefined" && caches.default) return caches.default;
+  return null;
+}
+
+function cacheUrl(kind, slug, extra = "") {
+  return "https://comments-cache/" + kind + "/" + encodeURIComponent(slug) + extra;
+}
+
+function listCacheUrl(slug, after, version) {
+  return cacheUrl("list", slug, "?after=" + encodeURIComponent(after || "") + "&v=" + encodeURIComponent(String(version)));
+}
+
+async function cacheMatch(env, url) {
+  const cache = cacheStore(env);
+  if (!cache) return null;
+  return cache.match(new Request(url));
+}
+
+async function cachePut(env, url, response) {
+  const cache = cacheStore(env);
+  if (!cache) return;
+  await cache.put(new Request(url), response);
+}
+
+async function readCachedVersion(env, slug) {
+  const hit = await cacheMatch(env, cacheUrl("ver", slug));
+  if (!hit) return "";
+  return String(await hit.text()).trim();
+}
+
+async function writeCachedVersion(env, slug, version) {
+  await cachePut(
+    env,
+    cacheUrl("ver", slug),
+    new Response(String(version), { headers: { "cache-control": "max-age=" + LIST_CACHE_TTL_SEC } })
+  );
+}
+
 async function rememberDirectory(env, slug) {
   const res = await threadStub(env, DIR_NAME).fetch(
     new Request("https://do/remember", { method: "POST", body: JSON.stringify({ slug }) })
@@ -474,7 +562,13 @@ async function rememberDirectory(env, slug) {
   return Boolean(res.ok && data.ok);
 }
 
-async function insertComment(env, row) {
+function schedule(ctx, work) {
+  const pending = Promise.resolve().then(work);
+  if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(pending);
+  return pending;
+}
+
+async function insertComment(env, row, ctx) {
   const res = await threadStub(env, row.slug).fetch(
     new Request("https://do/insert", { method: "POST", body: JSON.stringify(row) })
   );
@@ -484,9 +578,16 @@ async function insertComment(env, row) {
     err.status = res.status && res.status >= 400 ? res.status : 500;
     throw err;
   }
-  if (!(await rememberDirectory(env, row.slug))) {
-    await rememberDirectory(env, row.slug);
-  }
+  await writeCachedVersion(env, row.slug, data.version);
+  schedule(ctx, async () => {
+    try {
+      if (await rememberDirectory(env, row.slug)) return;
+      console.log("comments directory remember retry", row.slug);
+      await rememberDirectory(env, row.slug);
+    } catch (err) {
+      console.log("comments directory remember failed", row.slug, err && err.message);
+    }
+  });
   return data.comment;
 }
 
@@ -496,11 +597,23 @@ async function listThread(env, slug, { includeHidden = false, limit, after } = {
   if (limit) params.set("limit", String(limit));
   if (after) params.set("after", after);
   const res = await threadStub(env, slug).fetch(new Request("https://do/list?" + params.toString()));
-  const data = await res.json();
-  if ((data.comments || []).length) {
-    await rememberDirectory(env, slug);
+  return res.json();
+}
+
+async function drainThread(env, slug, includeHidden) {
+  const comments = [];
+  let after = "";
+  let version = 0;
+  let capped = false;
+  for (let page = 0; page < ADMIN_THREAD_PAGES; page += 1) {
+    const data = await listThread(env, slug, { includeHidden, after });
+    comments.push(...(data.comments || []));
+    version = data.version;
+    after = data.next || "";
+    if (!after) break;
+    if (page === ADMIN_THREAD_PAGES - 1) capped = true;
   }
-  return data;
+  return { comments, next: after || null, version, capped };
 }
 
 async function listAdminDirectory(env, url) {
@@ -512,21 +625,57 @@ async function listAdminDirectory(env, url) {
   const page = await dir.json();
   const slugs = page.slugs || [];
   const comments = [];
+  const nextBySlug = {};
+  let capped = false;
   for (let i = 0; i < slugs.length; i += ADMIN_PARALLEL) {
     const batch = slugs.slice(i, i + ADMIN_PARALLEL);
-    const parts = await Promise.all(
-      batch.map(async (item) => {
-        const res = await threadStub(env, item).fetch(new Request("https://do/list?hidden=1"));
-        return (await res.json()).comments || [];
-      })
-    );
-    for (const part of parts) comments.push(...part);
+    const parts = await Promise.all(batch.map((item) => drainThread(env, item, true)));
+    parts.forEach((part, index) => {
+      comments.push(...part.comments);
+      if (part.next) nextBySlug[batch[index]] = part.next;
+      if (part.capped) capped = true;
+    });
   }
-  comments.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
-  return { comments, nextSlug: page.nextSlug || null };
+  comments.sort((a, b) => {
+    const time = String(b.createdAt).localeCompare(String(a.createdAt));
+    return time !== 0 ? time : String(b.id).localeCompare(String(a.id));
+  });
+  return { comments, nextSlug: page.nextSlug || null, nextBySlug, capped };
 }
 
-export async function handleRequest(request, env) {
+async function publicList(request, env, slug, url, ip) {
+  const after = url.searchParams.get("after") || "";
+  const limit = url.searchParams.get("limit");
+  const cachedVersion = await readCachedVersion(env, slug);
+  if (cachedVersion !== "") {
+    const hit = await cacheMatch(env, listCacheUrl(slug, after, cachedVersion));
+    if (hit) {
+      return json(request, env, 200, await hit.json(), {
+        "cache-control": "public, max-age=" + LIST_CACHE_TTL_SEC,
+        "x-comments-cache": "hit",
+      });
+    }
+  }
+  if (env.RATES) {
+    const limited = await rateCall(env, "/get", ip);
+    if (!limited.ok) {
+      const err = new Error(limited.message);
+      err.status = limited.status;
+      throw err;
+    }
+  }
+  const data = await listThread(env, slug, { limit, after });
+  await writeCachedVersion(env, slug, data.version ?? 0);
+  const extra = {
+    "cache-control": "public, max-age=" + LIST_CACHE_TTL_SEC,
+    "x-comments-cache": "miss",
+  };
+  const response = json(request, env, 200, data, extra);
+  await cachePut(env, listCacheUrl(slug, after, data.version ?? 0), response.clone());
+  return response;
+}
+
+export async function handleRequest(request, env, ctx = {}) {
   if (request.method === "OPTIONS") return json(request, env, 204, null);
 
   const url = new URL(request.url);
@@ -536,27 +685,27 @@ export async function handleRequest(request, env) {
 
   try {
     if (request.method === "GET" && parts.length === 1 && parts[0] === "comments") {
-      if (url.searchParams.get("all") === "1" || url.searchParams.get("hidden") === "1") {
+      if (url.searchParams.get("all") === "1") {
         await requireAdmin(request, env, ip);
-        const payload = await listAdminDirectory(env, url);
-        return json(request, env, 200, payload, adminHeaders());
+        return json(request, env, 200, await listAdminDirectory(env, url), adminHeaders());
       }
-      const limited = await rateCall(env, "/get", ip);
-      if (!limited.ok) {
-        const err = new Error(limited.message);
-        err.status = limited.status;
-        throw err;
+      if (url.searchParams.get("hidden") === "1") {
+        await requireAdmin(request, env, ip);
+        await assertKnownSlug(env, slug);
+        return json(
+          request,
+          env,
+          200,
+          await listThread(env, slug, {
+            includeHidden: true,
+            limit: url.searchParams.get("limit"),
+            after: url.searchParams.get("after") || "",
+          }),
+          adminHeaders()
+        );
       }
       await assertKnownSlug(env, slug);
-      return json(
-        request,
-        env,
-        200,
-        await listThread(env, slug, {
-          limit: url.searchParams.get("limit"),
-          after: url.searchParams.get("after") || "",
-        })
-      );
+      return await publicList(request, env, slug, url, ip);
     }
 
     if (request.method === "POST" && parts.length === 1 && parts[0] === "comments") {
@@ -568,7 +717,13 @@ export async function handleRequest(request, env) {
       const nextSlug = clean(body.slug, 80);
       const name = clean(body.name, MAX_NAME);
       const text = clean(body.body, MAX_BODY);
+      const requestId = String(body.requestId || body.request_id || "").trim();
       await assertKnownSlug(env, nextSlug);
+      if (requestId && !REQUEST_ID_RE.test(requestId)) {
+        const err = new Error("Invalid request id.");
+        err.status = 400;
+        throw err;
+      }
       if (name.length < MIN_NAME) {
         const err = new Error("Name is required.");
         err.status = 400;
@@ -592,8 +747,9 @@ export async function handleRequest(request, env) {
         body: text,
         createdAt: new Date().toISOString().replace(/\.\d+Z$/, "Z"),
         hidden: false,
+        requestId: requestId || crypto.randomUUID(),
       };
-      return json(request, env, 201, { comment: await insertComment(env, row) });
+      return json(request, env, 201, { comment: await insertComment(env, row, ctx) });
     }
 
     if (request.method === "POST" && parts.length === 3 && parts[0] === "comments" && (parts[2] === "hide" || parts[2] === "unhide")) {
@@ -606,13 +762,15 @@ export async function handleRequest(request, env) {
           method: "POST",
         })
       );
-      const updated = (await res.json()).comment;
+      const payload = await res.json();
+      const updated = payload.comment;
       if (!updated) {
         const err = new Error("Comment not found.");
         err.status = 404;
         err.extra = adminHeaders();
         throw err;
       }
+      await writeCachedVersion(env, updated.slug, payload.version);
       return json(request, env, 200, { comment: updated }, adminHeaders());
     }
 
@@ -620,16 +778,18 @@ export async function handleRequest(request, env) {
       await requireAdmin(request, env, ip);
       const parsed = parseThreadId(parts[1]);
       await assertKnownSlug(env, parsed.slug || slug);
-      const res = await threadStub(env, parsed.slug || slug).fetch(
+      const target = parsed.slug || slug;
+      const res = await threadStub(env, target).fetch(
         new Request(`https://do/delete?id=${encodeURIComponent(parts[1])}`, { method: "POST" })
       );
-      const ok = Boolean((await res.json()).ok);
-      if (!ok) {
+      const payload = await res.json();
+      if (!payload.ok) {
         const err = new Error("Comment not found.");
         err.status = 404;
         err.extra = adminHeaders();
         throw err;
       }
+      await writeCachedVersion(env, target, payload.version);
       return json(request, env, 200, { ok: true }, adminHeaders());
     }
 
@@ -667,15 +827,14 @@ export class CommentThread {
     }
     if (url.pathname === "/insert") {
       const row = await request.json();
-      const comment = store.insert(row);
-      return Response.json({ ok: Boolean(comment), comment });
+      const result = store.insert(row);
+      return Response.json({ ok: Boolean(result.comment), ...result });
     }
     if (url.pathname === "/hide") {
-      const comment = store.hide(url.searchParams.get("id"), url.searchParams.get("hidden") === "1");
-      return Response.json({ comment });
+      return Response.json(store.hide(url.searchParams.get("id"), url.searchParams.get("hidden") === "1"));
     }
     if (url.pathname === "/delete") {
-      return Response.json({ ok: store.delete(url.searchParams.get("id")) });
+      return Response.json(store.delete(url.searchParams.get("id")));
     }
     if (url.pathname === "/slugs") {
       return Response.json(
@@ -714,5 +873,7 @@ export class RateBucket {
 }
 
 export default {
-  fetch: handleRequest,
+  fetch(request, env, ctx) {
+    return handleRequest(request, env, ctx);
+  },
 };
