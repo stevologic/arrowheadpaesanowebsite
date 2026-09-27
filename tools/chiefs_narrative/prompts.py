@@ -73,6 +73,28 @@ def _format_scoring_play(play: dict) -> str:
     return f"    {stamp} — {player} ({ytxt}){tail}"
 
 
+def _format_scoring_table(plays: list) -> list[str]:
+    """Per-team scoring rows the writer must copy verbatim."""
+    if not plays:
+        return []
+    lines = [
+        "  SCORING TABLE (copy team, type, yards, player, quarter verbatim; "
+        "never reassign a row to the other club):",
+        "    team  type  yards  player  quarter",
+    ]
+    for play in plays:
+        if not isinstance(play, dict):
+            continue
+        team = (play.get("team") or "?").strip().upper()
+        typ = play.get("type") or "?"
+        yards = play.get("yards")
+        ytxt = str(yards) if yards is not None else "n/a"
+        player = play.get("player") or "unknown"
+        quarter = f"Q{play['quarter']}" if play.get("quarter") else "Q?"
+        lines.append(f"    {team}  {typ}  {ytxt}  {player}  {quarter}")
+    return lines
+
+
 def _format_drive_result(row: dict) -> str:
     quarter = f"Q{row['quarter']}" if row.get("quarter") else "Q?"
     clock = row.get("clock") or ""
@@ -188,6 +210,7 @@ def _last_game_brief(signals: dict, phase: dict) -> str:
         )
         for play in plays:
             lines.append(_format_scoring_play(play))
+        lines.extend(_format_scoring_table(plays))
     else:
         for play in recap.get("scoring") or []:
             lines.append(f"  score: {play}")

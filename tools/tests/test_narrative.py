@@ -1551,6 +1551,9 @@ class LiveGamePhase(unittest.TestCase):
         self.assertIn("SCORING PLAYS", text)
         self.assertIn("Q2 2:00 KC INT — Trent McDuffie (0 yd) — KC 14–7", text)
         self.assertIn("Q3 8:12 KC TD — Travis Kelce (11 yd)", text)
+        self.assertIn("SCORING TABLE", text)
+        self.assertIn("KC  TD  11  Travis Kelce  Q3", text)
+        self.assertIn("copy team, type, yards, player, quarter verbatim", text)
         self.assertIn("NON-SCORING DRIVE RESULTS", text)
         self.assertIn("Q4 1:54 KC missed FG — 50 yd", text)
         self.assertIn("KICKOFF WINDOW", text)
@@ -1918,6 +1921,42 @@ class FactCheck(unittest.TestCase):
         self.assertEqual(collect.kickoff_part_of_day("2026-10-04T20:25:00Z"), "afternoon")
         self.assertEqual(collect.kickoff_part_of_day("2026-09-21T00:20:00Z"), "night")
 
+    def test_36358665975_attempt1_kelce_td_answered_miami_is_not_mia(self):
+        """First draft: '11-yard touchdown' was bound to Miami in the same sentence."""
+        payload = _load_fixture("draft_36358665975_attempt1.json")
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        issues = facts.check_review(payload, last, recap)
+        self.assertEqual(issues, [])
+        self.assertFalse(any("11" in item and "MIA" in item for item in issues))
+
+    def test_36358665975_attempt2_false_positives_pass(self):
+        """Retry draft: 88-yard run is not a score; mixed-team sentences keep the nearest subject."""
+        payload = _load_fixture("draft_36358665975_attempt2.json")
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        issues = facts.check_review(payload, last, recap)
+        self.assertEqual(issues, [])
+        blob = " ".join(issues)
+        self.assertNotIn("88-yard run", blob)
+        self.assertNotIn("11-yard catch", blob)
+
+    def test_real_wrong_subject_still_fails(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = self._review(
+            lede=(
+                "Kansas City's 3-yard touchdown was the opener. "
+                "Butker's 37-yard field goal was the tax."
+            ),
+        )
+        issues = facts.check_review(narrative, last, recap)
+        self.assertTrue(any("3" in item and "KC" in item for item in issues), issues)
+        self.assertTrue(any("37" in item and "KC" in item for item in issues), issues)
+
     def test_rejects_wrong_final_when_recap_empty(self):
         narrative = self._review(lede="Kansas City won it KC 24–7.")
         issues = facts.check_review(narrative, self.LAST, {})
@@ -1929,7 +1968,7 @@ class FactCheck(unittest.TestCase):
         narrative = self._review(whatDidnt=["The INT kept a 14-10 game alive."])
         self.assertEqual(facts.check_review(narrative, live, self.RECAP), [])
 
-    def test_fact_check_retries_once_then_fails_without_publish(self):
+    def test_fact_check_retries_twice_then_fails_without_publish(self):
         bad = {
             "headline": "Fresh title",
             "dek": "Fresh dek",
@@ -1964,7 +2003,7 @@ class FactCheck(unittest.TestCase):
             "nextGame": week4,
             "liveGame": None,
         }
-        llm = Mock(side_effect=[(bad, "grok"), (bad, "grok")])
+        llm = Mock(side_effect=[(bad, "grok"), (bad, "grok"), (bad, "grok")])
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             narrative_json = root / "narrative.json"
@@ -2004,9 +2043,10 @@ class FactCheck(unittest.TestCase):
             ):
                 rc = generate.main(["--provider", "grok"])
             self.assertEqual(rc, 1)
-            self.assertEqual(llm.call_count, 2)
+            self.assertEqual(llm.call_count, 3)
             retry_user = llm.call_args_list[1].args[2]
             self.assertIn("FACT CHECK RETRY", retry_user)
+            self.assertIn("FACT CHECK RETRY", llm.call_args_list[2].args[2])
             self.assertFalse(narrative_json.exists())
             self.assertEqual(list(editions.iterdir()), [])
 
