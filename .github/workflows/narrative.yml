@@ -43,6 +43,9 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  # workflow_dispatch of ci.yml against the edition branch. GITHUB_TOKEN
+  # can fire workflow_dispatch (it cannot fire pull_request). No PAT.
+  actions: write
 
 concurrency:
   group: chiefs-narrative
@@ -152,8 +155,9 @@ jobs:
           fi
 
       # Same checks as ci.yml's gates job. A failure stops the job before
-      # the PR is opened. The open step then waits for the PR-triggered
-      # CI gates run to succeed before squash-merging.
+      # the PR is opened. The open step then dispatches ci.yml against the
+      # edition branch (GITHUB_TOKEN PRs never start pull_request workflows)
+      # and polls that run before squash-merging.
       - name: Install Hugo
         run: |
           curl -fsSL --output "${{ runner.temp }}/hugo.tar.gz" \
@@ -216,10 +220,53 @@ jobs:
             --title "$TITLE" --body "$BODY")"
 
           echo "Opened $PR_URL"
-          # Wait for the pull_request CI gates job. Do not squash-merge on a
-          # failed or skipped workflow (run 36357442773 was a startup failure
-          # and #106 still merged about a second later).
-          gh pr checks "$PR_URL" --watch --fail-fast
+
+          # GITHUB_TOKEN-created PRs do not trigger pull_request workflows, so
+          # a one-shot PR-check listing exits 1 with "no checks reported"
+          # (run 36360998269). Dispatch CI against this edition branch —
+          # workflow_dispatch is the documented GITHUB_TOKEN exception —
+          # then poll that run.
+          gh workflow run ci.yml --ref "$BRANCH"
+
+          RUN_ID=""
+          APPEAR_DEADLINE=$((SECONDS + 180))
+          while [ "$SECONDS" -lt "$APPEAR_DEADLINE" ]; do
+            RUN_ID="$(gh run list --workflow ci.yml --branch "$BRANCH" --limit 5 \
+              --json databaseId,event,status \
+              --jq '[.[] | select(.event=="workflow_dispatch")][0].databaseId // empty' \
+              || true)"
+            if [ -n "$RUN_ID" ]; then
+              break
+            fi
+            sleep 5
+          done
+          if [ -z "$RUN_ID" ]; then
+            echo "ERROR: workflow_dispatch of ci.yml on $BRANCH never appeared" >&2
+            exit 1
+          fi
+          echo "Waiting for CI run $RUN_ID on $BRANCH"
+
+          DONE_DEADLINE=$((SECONDS + 900))
+          CONCLUSION=""
+          while [ "$SECONDS" -lt "$DONE_DEADLINE" ]; do
+            CONCLUSION="$(gh run view "$RUN_ID" --json status,conclusion \
+              --jq '[.status, (.conclusion // "")] | join(" ")')"
+            echo "  $CONCLUSION"
+            case "$CONCLUSION" in
+              "completed success") break ;;
+              completed*)
+                echo "ERROR: CI gates $CONCLUSION" >&2
+                gh run view "$RUN_ID" --log-failed || true
+                exit 1
+                ;;
+            esac
+            sleep 10
+          done
+          if [ "$CONCLUSION" != "completed success" ]; then
+            echo "ERROR: CI gates timed out ($CONCLUSION)" >&2
+            exit 1
+          fi
+
           gh pr merge "$PR_URL" --squash --delete-branch
 
   deploy:
