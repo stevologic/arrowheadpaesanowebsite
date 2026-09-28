@@ -6,9 +6,11 @@ merge gate. Run with:  python -m unittest discover -s tools/tests -v
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import ExitStack
@@ -457,6 +459,36 @@ class DeskSections(unittest.TestCase):
             self.assertEqual(collect.fetch_game_recap("1"), {})
         self.assertEqual(collect.fetch_game_recap(""), {})
 
+    def test_parse_player_usage_emits_passing_touchdowns(self):
+        box = {
+            "players": [
+                {
+                    "team": {"abbreviation": "KC"},
+                    "statistics": [
+                        {
+                            "name": "passing",
+                            "keys": [
+                                "completions/passingAttempts",
+                                "passingYards",
+                                "passingTouchdowns",
+                                "sacks-sackYardsLost",
+                            ],
+                            "athletes": [
+                                {
+                                    "athlete": {"displayName": "Patrick Mahomes"},
+                                    "stats": ["20/24", "246", "2", "0-0"],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ]
+        }
+        usage = collect.parse_player_usage(box)
+        self.assertEqual(usage["passing"][0]["touchdowns"], 2)
+        self.assertEqual(usage["passing"][0]["completions"], 20)
+        self.assertEqual(usage["passing"][0]["attempts"], 24)
+
 
 class Diagrams(unittest.TestCase):
     def test_every_concept_renders_valid_svg(self):
@@ -665,6 +697,12 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn(".pr-head", qa)
         self.assertIn("Overlay edition data from the PR head", qa)
         self.assertIn("path: .pr-head", qa)
+        self.assertIn("python3 -B", qa)
+        self.assertIn("PYTHONDONTWRITEBYTECODE", qa)
+        self.assertIn("git fetch", qa)
+        self.assertIn("--base", qa)
+        self.assertIn("--head", qa)
+        self.assertIn("fetch-depth: 0", qa)
         self.assertNotIn("Checkout the pull request", qa)
         header = qa.split("\non:", 1)[0]
         self.assertIn("Never execute PR code", header)
@@ -689,7 +727,9 @@ class GrokModelSelection(unittest.TestCase):
         pr_svg = "<svg><text>new caption</text></svg>\n"
         tampered = "<svg><rect id=\"pwn\"/><text>new caption</text></svg>\n"
         data_rel = Path("data") / ("narrative" + ".json")
-        edition = '{"slug":"%s"}\n' % slug
+        edition = (
+            '{"slug":"%s","xsandos":[{"concept":"play_action_boot"}]}\n' % slug
+        )
 
         def git(cwd, *args, check=True):
             return subprocess.run(
@@ -761,8 +801,12 @@ class GrokModelSelection(unittest.TestCase):
         older = Path("public") / "images" / "narrative" / "2026-09-28-0142" / "xo-zone_blitz.svg"
         html = Path("public") / "images" / "narrative" / "evil.html"
         notes = Path("public") / "images" / "narrative" / "notes.txt"
+        extra = Path("public") / "images" / "narrative" / slug / "xo-extra.svg"
+        editions_txt = Path("data") / "narrative_editions" / "notes.txt"
         safe = "<svg><text>ok</text></svg>\n"
-        edition = '{"slug":"%s"}\n' % slug
+        edition = (
+            '{"slug":"%s","xsandos":[{"concept":"play_action_boot"}]}\n' % slug
+        )
 
         def overlay_of(files: dict[str, str]):
             with tempfile.TemporaryDirectory() as tmp:
@@ -791,14 +835,30 @@ class GrokModelSelection(unittest.TestCase):
                     "tools/chiefs_narrative/facts.py": "broken = True\n",
                 }
             )
+        with self.assertRaises(ValueError):
+            overlay_of({extra.as_posix(): safe, data_rel.as_posix(): edition})
+        with self.assertRaises(ValueError):
+            overlay_of(
+                {
+                    editions_txt.as_posix(): "notes\n",
+                    data_rel.as_posix(): edition,
+                }
+            )
         copied = overlay_of({current.as_posix(): safe, data_rel.as_posix(): edition})
         self.assertEqual(copied, 2)
+        missing_cards = (
+            '{"slug":"%s","xsandos":[{"concept":"play_action_boot"},'
+            '{"concept":"cover_two"}]}\n' % slug
+        )
+        with self.assertRaises(ValueError):
+            overlay_of({current.as_posix(): safe, data_rel.as_posix(): missing_cards})
 
     def test_edition_overlay_rejects_svg_attack_vectors(self):
         slug = "2026-09-28-1547"
         rel = Path("public") / "images" / "narrative" / slug / "xo-mesh.svg"
-        edition = '{"slug":"%s"}\n' % slug
+        edition = '{"slug":"%s","xsandos":[{"concept":"mesh"}]}\n' % slug
         data_rel = Path("data") / ("narrative" + ".json")
+        huge = "<svg><text>" + ("x" * (256 * 1024)) + "</text></svg>"
         vectors = {
             "script": "<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>",
             "svg-script": (
@@ -824,6 +884,16 @@ class GrokModelSelection(unittest.TestCase):
                 "<a href='javascript:alert(1)'/></svg>"
             ),
             "onclick": "<svg onclick='alert(1)'></svg>",
+            "pi": (
+                "<?xml-stylesheet type='text/xsl' href='x'?>"
+                "<svg xmlns='http://www.w3.org/2000/svg'><text>ok</text></svg>"
+            ),
+            "doctype": (
+                "<!DOCTYPE svg PUBLIC '-//W3C//DTD SVG 1.1//EN' "
+                "'http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd'>"
+                "<svg xmlns='http://www.w3.org/2000/svg'><text>ok</text></svg>"
+            ),
+            "huge": huge,
         }
         for name, payload in vectors.items():
             self.assertTrue(
@@ -842,6 +912,186 @@ class GrokModelSelection(unittest.TestCase):
         self.assertFalse(
             edition_overlay.svg_payload_rejected("<svg><text>ok</text></svg>")
         )
+        self.assertFalse(
+            edition_overlay.svg_payload_rejected(
+                '<?xml version="1.0"?><svg><text>ok</text></svg>'
+            )
+        )
+
+    def test_edition_overlay_ci_module_uses_git_name_status(self):
+        """CI runs the module in the main checkout; pycache and stale files must not fail."""
+        overlay_src = Path(edition_overlay.__file__).read_text(encoding="utf-8")
+        init_src = (
+            Path(edition_overlay.__file__).parent / "__init__.py"
+        ).read_text(encoding="utf-8")
+        slug = "2026-09-28-1547"
+        data_rel = Path("data") / ("narrative" + ".json")
+        svg_rel = Path("public") / "images" / "narrative" / slug / "xo-mesh.svg"
+        wire_rel = Path("data") / "wire.json"
+        edition_v1 = '{"slug":"%s","xsandos":[{"concept":"mesh"}]}\n' % slug
+        edition_v2 = (
+            '{"slug":"%s","xsandos":[{"concept":"mesh"}],"headline":"pr"}\n' % slug
+        )
+        safe = "<svg><text>ok</text></svg>\n"
+
+        def git(cwd, *args, check=True):
+            return subprocess.run(
+                ["git", *args],
+                cwd=cwd,
+                check=check,
+                capture_output=True,
+                text=True,
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "main"
+            repo.mkdir()
+            git(repo, "init", "-b", "main")
+            git(repo, "config", "user.email", "ci@example.com")
+            git(repo, "config", "user.name", "CI")
+            pkg = repo / "tools" / "chiefs_narrative"
+            pkg.mkdir(parents=True)
+            (repo / "tools" / "__init__.py").write_text("", encoding="utf-8")
+            (pkg / "__init__.py").write_text(init_src, encoding="utf-8")
+            (pkg / "edition_overlay.py").write_text(overlay_src, encoding="utf-8")
+            (repo / data_rel).parent.mkdir(parents=True, exist_ok=True)
+            (repo / data_rel).write_text(edition_v1, encoding="utf-8")
+            (repo / svg_rel).parent.mkdir(parents=True, exist_ok=True)
+            (repo / svg_rel).write_text(safe, encoding="utf-8")
+            (repo / wire_rel).write_text('{"fresh":false}\n', encoding="utf-8")
+            git(repo, "add", "-A")
+            git(repo, "commit", "-m", "fork-point")
+            git(repo, "checkout", "-b", "pr")
+            (repo / data_rel).write_text(edition_v2, encoding="utf-8")
+            git(repo, "add", "-A")
+            git(repo, "commit", "-m", "pr data")
+            head = git(repo, "rev-parse", "HEAD").stdout.strip()
+            pr_head = Path(tmp) / "pr-head"
+            shutil.copytree(
+                repo, pr_head, ignore=shutil.ignore_patterns(".git")
+            )
+            git(repo, "checkout", "-f", "main")
+            (repo / wire_rel).write_text('{"fresh":true}\n', encoding="utf-8")
+            (repo / "tools" / "chiefs_narrative" / "README_QA.txt").write_text(
+                "stale leftover\n", encoding="utf-8"
+            )
+            git(repo, "add", "-A")
+            git(repo, "commit", "-m", "main moved")
+            base = git(repo, "rev-parse", "HEAD").stdout.strip()
+            env = {
+                key: value
+                for key, value in os.environ.items()
+                if key != "PYTHONDONTWRITEBYTECODE"
+            }
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "tools.chiefs_narrative.edition_overlay",
+                    str(pr_head),
+                    str(repo),
+                    "--base",
+                    base,
+                    "--head",
+                    head,
+                ],
+                cwd=repo,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertIn("overlaid 1 edition", proc.stdout)
+            self.assertIn("pr", (repo / data_rel).read_text(encoding="utf-8"))
+            self.assertIn("true", (repo / wire_rel).read_text(encoding="utf-8"))
+            self.assertNotIn("stale", (repo / wire_rel).read_text(encoding="utf-8"))
+
+    def test_edition_overlay_rejects_deletes_renames_and_symlinks(self):
+        slug = "2026-09-28-1547"
+        data_rel = Path("data") / ("narrative" + ".json")
+        svg_rel = Path("public") / "images" / "narrative" / slug / "xo-mesh.svg"
+        wire_rel = Path("data") / "wire.json"
+        edition = '{"slug":"%s","xsandos":[{"concept":"mesh"}]}\n' % slug
+        safe = "<svg><text>ok</text></svg>\n"
+
+        def git(cwd, *args, check=True):
+            return subprocess.run(
+                ["git", *args],
+                cwd=cwd,
+                check=check,
+                capture_output=True,
+                text=True,
+            )
+
+        def commit_tree(root: Path, message: str) -> str:
+            git(root, "add", "-A")
+            git(root, "commit", "-m", message)
+            return git(root, "rev-parse", "HEAD").stdout.strip()
+
+        def overlay_from(base_files, mutate) -> None:
+            with tempfile.TemporaryDirectory() as tmp:
+                repo = Path(tmp) / "repo"
+                repo.mkdir()
+                git(repo, "init", "-b", "main")
+                git(repo, "config", "user.email", "ci@example.com")
+                git(repo, "config", "user.name", "CI")
+                for rel_path, content in base_files.items():
+                    dest = repo / rel_path
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    dest.write_text(content, encoding="utf-8")
+                base = commit_tree(repo, "base")
+                mutate(repo)
+                head = commit_tree(repo, "head")
+                src = Path(tmp) / "src"
+                shutil.copytree(repo, src, ignore=shutil.ignore_patterns(".git"))
+                git(repo, "checkout", "-f", base)
+                edition_overlay.overlay_edition_data(
+                    src, repo, base_sha=base, head_sha=head, repo=repo
+                )
+
+        base_files = {
+            data_rel.as_posix(): edition,
+            svg_rel.as_posix(): safe,
+            wire_rel.as_posix(): "{}\n",
+        }
+        def delete_wire(repo: Path) -> None:
+            (repo / wire_rel).unlink()
+
+        def delete_svg(repo: Path) -> None:
+            (repo / svg_rel).unlink()
+
+        def rename_wire(repo: Path) -> None:
+            git(repo, "mv", wire_rel.as_posix(), "data/wire.renamed.json")
+
+        def rename_svg(repo: Path) -> None:
+            git(
+                repo,
+                "mv",
+                svg_rel.as_posix(),
+                (svg_rel.parent / "xo-mesh-old.svg").as_posix(),
+            )
+
+        with self.assertRaises(ValueError):
+            overlay_from(base_files, delete_wire)
+        with self.assertRaises(ValueError):
+            overlay_from(base_files, delete_svg)
+        with self.assertRaises(ValueError):
+            overlay_from(base_files, rename_wire)
+        with self.assertRaises(ValueError):
+            overlay_from(base_files, rename_svg)
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "src"
+            dst = Path(tmp) / "dst"
+            (src / data_rel).parent.mkdir(parents=True, exist_ok=True)
+            (src / data_rel).write_text(edition, encoding="utf-8")
+            (src / svg_rel).parent.mkdir(parents=True, exist_ok=True)
+            target = src / "payload.svg"
+            target.write_text(safe, encoding="utf-8")
+            (src / svg_rel).symlink_to(target.name)
+            (dst / data_rel).parent.mkdir(parents=True, exist_ok=True)
+            (dst / data_rel).write_text(edition, encoding="utf-8")
+            with self.assertRaises(ValueError):
+                edition_overlay.overlay_edition_data(src, dst)
 
     def test_generate_cli_can_render_and_gate_diagrams(self):
         src = Path(generate.__file__).read_text(encoding="utf-8")
@@ -3109,6 +3359,30 @@ class FactCheck(unittest.TestCase):
             "Mahomes went 20-of-24 with three touchdowns.",
             "Rodriguez intercepted Mahomes at Q2 6:15.",
             "Mahomes threw 24 touchdown passes.",
+        ]
+        for sentence in must_reject:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertTrue(issues, f"should reject {sentence!r}")
+
+    def test_v12_team_defense_adverb_and_td_variants(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        must_pass = [
+            "Crosby's two sacks in Week 3 came against the Commanders.",
+        ]
+        for sentence in must_pass:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertEqual(issues, [], f"should accept {sentence!r}: {issues}")
+        must_reject = [
+            "The Miami defense recorded two sacks.",
+            "Miami notched a sack.",
+            "Miami quietly recorded two sacks.",
+            "Kansas City scored barely 90 seconds in.",
+            "Kansas City scored in fewer than two minutes.",
+            "Mahomes was repeatedly sacked, three times in all.",
+            "20-of-24 with three touchdowns",
+            "24 touchdown passes",
         ]
         for sentence in must_reject:
             issues = facts.check_review(self._review(lede=sentence), last, recap)

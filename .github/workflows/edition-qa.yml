@@ -29,6 +29,7 @@ concurrency:
 
 env:
   HUGO_VERSION: 0.152.2
+  PYTHONDONTWRITEBYTECODE: "1"
 
 jobs:
   edition-gates:
@@ -46,6 +47,14 @@ jobs:
           repository: ${{ github.repository }}
           ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
+          fetch-depth: 0
+
+      - name: Fetch PR head history
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --prune --no-recurse-submodules \
+            "${{ github.event.pull_request.head.repo.clone_url }}" \
+            "+${{ github.event.pull_request.head.sha }}:refs/tmp/pr-head"
 
       - name: Fetch PR edition data (no execute)
         uses: actions/checkout@v6
@@ -56,7 +65,12 @@ jobs:
           path: .pr-head
 
       - name: Overlay edition data from the PR head
-        run: python3 -m tools.chiefs_narrative.edition_overlay .pr-head .
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          python3 -B -m tools.chiefs_narrative.edition_overlay .pr-head . \
+            --base "${{ github.event.pull_request.base.sha }}" \
+            --head "${{ github.event.pull_request.head.sha }}"
 
       - name: Stage overlaid edition files
         run: git add -A -- data public/images/narrative

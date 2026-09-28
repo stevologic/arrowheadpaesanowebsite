@@ -904,6 +904,14 @@ def parse_player_usage(box: dict | None) -> dict:
                     if "-" in (sack_pair or ""):
                         sacks = _to_int(sack_pair.split("-", 1)[0]) or 0
                         sack_yards = _to_int(sack_pair.split("-", 1)[1]) or 0
+                    touchdowns = _to_int(
+                        _stat_at(
+                            stats,
+                            index_by,
+                            "passingTouchdowns",
+                            "touchdowns",
+                        )
+                    )
                     passing.append(
                         {
                             "player": player,
@@ -912,6 +920,7 @@ def parse_player_usage(box: dict | None) -> dict:
                             "attempts": attempts,
                             "sacks": sacks,
                             "sackYards": sack_yards,
+                            "touchdowns": touchdowns,
                         }
                     )
                 elif name == "defensive":
