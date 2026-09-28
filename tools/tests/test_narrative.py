@@ -384,6 +384,36 @@ class DeskSections(unittest.TestCase):
         self.assertEqual(recap["driveResults"][0]["clock"], "1:54")
         self.assertEqual(recap["driveResults"][0]["yards"], 50)
 
+    def test_drive_result_uses_play_clock_not_drive_start(self):
+        payload = {
+            "boxscore": {"teams": []},
+            "scoringPlays": [],
+            "drives": {
+                "previous": [
+                    {
+                        "team": {"abbreviation": "MIA"},
+                        "result": "INT",
+                        "start": {
+                            "period": {"number": 4},
+                            "clock": {"displayValue": "3:10"},
+                        },
+                        "plays": [
+                            {
+                                "text": "G.Karlaftis intercepted M.Willis",
+                                "period": {"number": 4},
+                                "clock": {"displayValue": "2:03"},
+                            }
+                        ],
+                    }
+                ]
+            },
+        }
+        with patch.object(collect, "_get_json", return_value=payload):
+            recap = collect.fetch_game_recap("401872952")
+        self.assertEqual(recap["driveResults"][0]["result"], "INT")
+        self.assertEqual(recap["driveResults"][0]["clock"], "2:03")
+        self.assertEqual(recap["driveResults"][0]["quarter"], 4)
+
     def test_fetch_game_recap_empty_on_blank_payload(self):
         with patch.object(collect, "_get_json", return_value={"boxscore": {}}):
             self.assertEqual(collect.fetch_game_recap("1"), {})
@@ -1971,6 +2001,40 @@ class FactCheck(unittest.TestCase):
         blob = " ".join(issues)
         self.assertNotIn("88-yard run", blob)
         self.assertNotIn("11-yard catch", blob)
+
+    def test_20260928_0010_td_after_karlaftis_int_is_reversed(self):
+        """Live edition 2026-09-28-0010 put Kelce's TD after the Karlaftis INT."""
+        payload = _load_fixture("edition_2026-09-28-0010_td_after_int.json")
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        issues = facts.check_review(payload, last, recap)
+        blob = " ".join(issues)
+        self.assertTrue(any("play order" in item for item in issues), issues)
+        self.assertIn("after the Karlaftis interception", blob)
+        self.assertTrue(any("2:55" in item or "11" in item for item in issues), issues)
+
+    def test_score_after_turnover_in_espn_order_passes(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = self._review(
+            lede=(
+                "The Karlaftis interception after the 11-yard touchdown "
+                "closed Miami's last real chance. "
+                "An 11-yard touchdown following the 34-yard field goal made it 24-10."
+            ),
+        )
+        self.assertEqual(facts.check_review(narrative, last, recap), [])
+
+    def test_after_without_play_link_is_ignored(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = self._review(
+            lede="Play-action boot only after the run fake is real.",
+        )
+        self.assertEqual(facts.check_review(narrative, last, recap), [])
 
     def test_real_wrong_subject_still_fails(self):
         recap = _load_fixture("espn_401872952_recap.json")

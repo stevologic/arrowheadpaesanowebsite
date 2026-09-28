@@ -1,0 +1,16 @@
+{
+  "_note": "Live edition 2026-09-28-0010 lastGameReview.analysis: 11-yard TD (Q4 2:55) claimed after the Karlaftis INT (Q4 2:03). ESPN 401872952 has the score first.",
+  "headline": "Sequence lie from 2026-09-28-0010",
+  "dek": "Kelce's 11-yard touchdown was not after the Karlaftis interception.",
+  "lastGameReview": {
+    "opponent": "Miami Dolphins",
+    "result": "W",
+    "score": "KC 24–10",
+    "lede": "Kansas City won 24-10.",
+    "analysis": [
+      {
+        "body": "The finishing sequence was Chiefs football and 2025 football stacked on top of each other. A 34-yard field goal made it 17-10, an 11-yard touchdown made it 24-10 after the Karlaftis interception, and Harrison Butker then missed a 50-yarder wide left."
+      }
+    ]
+  }
+}
