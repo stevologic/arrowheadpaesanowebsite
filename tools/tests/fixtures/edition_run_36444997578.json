@@ -1,0 +1,16 @@
+{
+  "_note": "Karen QA v7 / daily run 36444997578 on e91fd618 (#118). Four live-edition errors that must still fail and feed retry.",
+  "accept": [
+    "A perimeter screen to Walker — who already handled 20 touches — punishes Crosby’s upfield takeoff.",
+    "The illegal-use flag at Q4 0:47 was on Karlaftis, not Sneed, and it wiped a Roland-Wallace interception, not a Miami one.",
+    "Of the two stuffed snaps at the Miami 12, only the Q2 6:15 snap had H. Nourzad reported eligible.",
+    "Kansas City scored 2:06 into the first quarter when Walker went up the middle for a 10-yard touchdown."
+  ],
+  "reject": [
+    "Sneed’s path is the A-gap or the slot seam — do not clip the tackle and pick up the illegal-use flag that wiped a late Miami interception look.",
+    "A perimeter screen to Walker — who already handled 18 touches — punishes Crosby’s upfield takeoff.",
+    "Do not ask the tackles to win a 40-drop game after Miami.",
+    "Walker’s 10-yard touchdown came with J. Moore eligible; the two stuffed snaps at the Miami 12 came when the same jumbo look lost the line.",
+    "Kansas City scored in the first two minutes when Walker went up the middle for a 10-yard touchdown."
+  ]
+}

@@ -245,6 +245,25 @@ _NEVER_PLAY_CLAIM = re.compile(
     r"targeted|connected)\b",
     re.IGNORECASE,
 )
+_TOUCH_COUNT = re.compile(r"\b(\d{1,2})\s+touches\b", re.IGNORECASE)
+_DROP_ATTEMPT = re.compile(
+    r"\b(\d{2,3})[-\s](?:drop(?:back)?s?|attempts?)\b",
+    re.IGNORECASE,
+)
+_ILLEGAL_USE = re.compile(
+    r"\billegal[-\s]use\b|\billegal use of hands\b",
+    re.IGNORECASE,
+)
+_SAME_LOOK = re.compile(
+    r"\bsame (?:jumbo )?look\b|\bboth snaps\b|"
+    r"\bstuffed red-zone snaps\b|\btwo stuffed snaps\b",
+    re.IGNORECASE,
+)
+_FIRST_MINUTES = re.compile(
+    r"\bfirst\s+(two|three|four|\d+)\s+minutes?\b|"
+    r"\b(?:two|three|\d+)[-\s]minute opening\b",
+    re.IGNORECASE,
+)
 # Name tokens stay case-sensitive so IGNORECASE cannot turn "was"/"one"/"an"
 # into a player. Only the verb is case-insensitive.
 _FUMBLE_PAREN = re.compile(
@@ -1682,6 +1701,9 @@ def _check_turnover_credit(text: str, recap: dict | None) -> list[str]:
         name = match.group(1) or match.group(2)
         if (name or "").lower() in {"int", "interception", "intercepted"}:
             continue
+        sentence = _sentence_at(text, match.start())
+        if re.search(r"\bwiped\b|\bnullified\b|\bno play\b", sentence, re.I):
+            continue
         _reject(name, "int", match.group(0))
     return issues
 
@@ -2048,6 +2070,190 @@ def _check_box_clocks(
     return issues
 
 
+def _player_last(name: str) -> str:
+    token = (name or "").replace(".", " ").strip()
+    parts = [p for p in re.split(r"[^A-Za-z]+", token) if p]
+    skip = {"ii", "iii", "iv", "jr", "sr", "the"}
+    parts = [p for p in parts if p.lower() not in skip]
+    return parts[-1].lower() if parts else ""
+
+
+def _check_touch_counts(text: str, recap: dict | None) -> list[str]:
+    rows = [
+        row
+        for row in (recap or {}).get("touches") or []
+        if isinstance(row, dict) and row.get("touches") is not None
+    ]
+    if not text or not rows:
+        return []
+    issues = []
+    for match in _TOUCH_COUNT.finditer(text):
+        try:
+            claimed = int(match.group(1))
+        except (TypeError, ValueError):
+            continue
+        sentence = _sentence_at(text, match.start())
+        official = None
+        label = "player"
+        for row in rows:
+            last = _player_last(row.get("player") or "")
+            if last and re.search(rf"\b{re.escape(last)}\b", sentence, re.I):
+                official = int(row["touches"])
+                label = row.get("player") or last
+                break
+        if official is None:
+            continue
+        if claimed != official:
+            issues.append(
+                f"touches {claimed} disagrees with ESPN {official} for "
+                f"{label} ({match.group(0)!r})"
+            )
+    return issues
+
+
+def _check_attempt_counts(text: str, recap: dict | None) -> list[str]:
+    passing = [
+        row
+        for row in (recap or {}).get("passing") or []
+        if isinstance(row, dict) and row.get("attempts") is not None
+    ]
+    if not text or not passing:
+        return []
+    kc = next((row for row in passing if (row.get("team") or "").upper() == "KC"), None)
+    if not kc:
+        return []
+    official = int(kc["attempts"])
+    issues = []
+    for match in _DROP_ATTEMPT.finditer(text):
+        try:
+            claimed = int(match.group(1))
+        except (TypeError, ValueError):
+            continue
+        if claimed == official:
+            continue
+        issues.append(
+            f"pass attempts {claimed} disagrees with ESPN {official} for "
+            f"{kc.get('player') or 'KC'} ({match.group(0)!r})"
+        )
+    return issues
+
+
+def _check_penalty_attribution(text: str, recap: dict | None) -> list[str]:
+    penalties = [
+        row
+        for row in (recap or {}).get("penalties") or []
+        if isinstance(row, dict)
+    ]
+    if not text or not penalties:
+        return []
+    issues = []
+    for match in _ILLEGAL_USE.finditer(text):
+        sentence = _sentence_at(text, match.start())
+        low = sentence.lower()
+        official = [
+            row
+            for row in penalties
+            if "illegal use" in (row.get("type") or "").lower()
+        ]
+        if not official:
+            continue
+        players = {_player_last(row.get("player") or "") for row in official}
+        players.discard("")
+        wiped = {(row.get("wiped") or "").lower() for row in official}
+        credited = any(
+            name and re.search(rf"\b{re.escape(name)}\b", low) for name in players
+        )
+        if (
+            not credited
+            and re.search(r"\bsneed\b", low)
+            and "sneed" not in players
+            and not re.search(r"\bnot sneed\b", low)
+        ):
+            who = ", ".join(sorted(players)) or "the flagged player"
+            issues.append(
+                f"illegal-use flag was on {who}, not sneed ({sentence!r})"
+            )
+        if re.search(r"\bmiami interception\b", low) and any(
+            "roland" in item or "interception" in item for item in wiped
+        ):
+            issues.append(
+                f"illegal-use flag wiped a KC interception, not a Miami one "
+                f"({sentence!r})"
+            )
+    return issues
+
+
+def _check_same_look_snaps(text: str, recap: dict | None) -> list[str]:
+    eligible = [
+        row
+        for row in (recap or {}).get("eligible") or []
+        if isinstance(row, dict)
+    ]
+    if not text or not eligible:
+        return []
+    nourzad_clocks = {
+        (row.get("quarter"), row.get("clock"))
+        for row in eligible
+        if "nourzad" in (row.get("player") or "").lower()
+    }
+    issues = []
+    for match in _SAME_LOOK.finditer(text):
+        sentence = _sentence_at(text, match.start())
+        low = sentence.lower()
+        if "nourzad" not in low and "eligible" not in low and "jumbo" not in low:
+            continue
+        # The two Walker stuffs at the Miami 12 were Q2 6:58 (no report)
+        # and Q2 6:15 (Nourzad). Same-look / both-snaps claims are false.
+        if (2, "6:58") not in nourzad_clocks and (
+            "both" in low or "same" in low or "snaps" in low
+        ):
+            issues.append(
+                "Nourzad was reported eligible only on the Q2 6:15 snap, "
+                f"not on 6:58 ({sentence!r})"
+            )
+    return issues
+
+
+def _first_score_elapsed(recap: dict | None):
+    plays = (recap or {}).get("scoringPlays") or []
+    if not plays:
+        return None
+    first = plays[0]
+    if int(first.get("quarter") or 0) != 1:
+        return None
+    remaining = _clock_seconds(first.get("clock"))
+    return 15 * 60 - remaining
+
+
+def _check_first_minutes(text: str, recap: dict | None) -> list[str]:
+    elapsed = _first_score_elapsed(recap)
+    if not text or elapsed is None:
+        return []
+    issues = []
+    words = {"two": 2, "three": 3, "four": 4}
+    for match in _FIRST_MINUTES.finditer(text):
+        sentence = _sentence_at(text, match.start())
+        if not re.search(
+            r"\b(?:scored|score|strike|touchdown|opening|td)\b", sentence, re.I
+        ):
+            continue
+        raw = match.group(1) or re.search(r"\d+|two|three|four", match.group(0), re.I)
+        token = raw if isinstance(raw, str) else (raw.group(0) if raw else "")
+        minutes = words.get(token.lower()) if token else None
+        if minutes is None:
+            try:
+                minutes = int(token)
+            except (TypeError, ValueError):
+                continue
+        if elapsed > minutes * 60:
+            mm, ss = divmod(elapsed, 60)
+            issues.append(
+                f"opening score came at {mm}:{ss:02d}, not in the first "
+                f"{minutes} minutes ({match.group(0)!r})"
+            )
+    return issues
+
+
 def check_review(
     narrative: dict | None,
     last_game: dict | None,
@@ -2084,6 +2290,11 @@ def check_review(
         issues.extend(_check_garbled_initials(text, recap))
         issues.extend(_check_scheme_claims(text, recap))
         issues.extend(_check_box_clocks(text, recap, last_game))
+        issues.extend(_check_touch_counts(text, recap))
+        issues.extend(_check_attempt_counts(text, recap))
+        issues.extend(_check_penalty_attribution(text, recap))
+        issues.extend(_check_same_look_snaps(text, recap))
+        issues.extend(_check_first_minutes(text, recap))
     # Dedup while keeping order.
     out = []
     seen = set()

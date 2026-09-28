@@ -196,6 +196,72 @@
       "direction": "",
       "interceptedBy": "G.Karlaftis",
       "text": "(Shotgun) M.Willis pass short right intended for R.Miller INTERCEPTED by G.Karlaftis (C.Jones) at MIA 36."
+    },
+    {
+      "quarter": 2,
+      "clock": "6:58",
+      "team": "KC",
+      "kind": "rush",
+      "direction": "",
+      "yards": 0,
+      "text": "K.Walker up the middle to MIA 12 for no gain (M.Taaffe; D.Trader)."
+    },
+    {
+      "quarter": 2,
+      "clock": "6:15",
+      "team": "KC",
+      "kind": "rush",
+      "direction": "",
+      "yards": 0,
+      "text": "H.Nourzad reported in as eligible. K.Walker up the middle to MIA 12 for no gain (J.Brooks; M.Herring)."
+    }
+  ],
+  "touches": [
+    {
+      "player": "Kenneth Walker III",
+      "team": "KC",
+      "rushes": 18,
+      "catches": 2,
+      "touches": 20
+    }
+  ],
+  "passing": [
+    {
+      "player": "Patrick Mahomes",
+      "team": "KC",
+      "completions": 20,
+      "attempts": 24,
+      "sacks": 0,
+      "sackYards": 0
+    }
+  ],
+  "qbHits": { "KC": 1, "OPP": 5 },
+  "penalties": [
+    {
+      "quarter": 4,
+      "clock": "0:47",
+      "team": "KC",
+      "player": "G.Karlaftis",
+      "type": "Illegal Use of Hands",
+      "yards": 5,
+      "wiped": "C.Roland-Wallace interception",
+      "text": "(Shotgun) M.Willis pass short right intended for G.Dulcich INTERCEPTED by C.Roland-Wallace at MIA 42. C.Roland-Wallace to MIA 42 for no gain (G.Dulcich).PENALTY on KC-G.Karlaftis, Illegal Use of Hands, 5 yards, enforced at MIA 40 - No Play."
+    }
+  ],
+  "eligible": [
+    {
+      "quarter": 1,
+      "clock": "12:54",
+      "team": "KC",
+      "player": "J.Moore",
+      "text": "J.Moore reported in as eligible. K.Walker up the middle for 10 yards, TOUCHDOWN."
+    },
+    {
+      "quarter": 2,
+      "clock": "6:15",
+      "team": "KC",
+      "player": "H.Nourzad",
+      "text": "H.Nourzad reported in as eligible. K.Walker up the middle to MIA 12 for no gain."
     }
   ],
   "prior": {

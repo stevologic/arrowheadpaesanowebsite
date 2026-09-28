@@ -763,6 +763,181 @@ def parse_plays(drives) -> list[dict]:
     return out
 
 
+_PENALTY = re.compile(
+    r"PENALTY on\s+([A-Z]+)-([A-Za-z.\-']+),\s*([^,]+),\s*(\d+)\s+yards",
+    re.IGNORECASE,
+)
+_ELIGIBLE = re.compile(
+    r"([A-Z]\.[A-Za-z.\-']+)\s+reported in as eligible",
+    re.IGNORECASE,
+)
+
+
+def _iter_drive_plays(drives):
+    if isinstance(drives, dict):
+        rows = drives.get("previous") or []
+    elif isinstance(drives, list):
+        rows = drives
+    else:
+        rows = []
+    for drive in rows:
+        if not isinstance(drive, dict):
+            continue
+        team = _drive_team(drive)
+        for play in drive.get("plays") or []:
+            if isinstance(play, dict):
+                yield team, play
+
+
+def parse_penalties(drives) -> list[dict]:
+    """Penalty rows with clock and what a No-Play flag wiped."""
+    out = []
+    for team, play in _iter_drive_plays(drives):
+        text = re.sub(r"\s+", " ", (play.get("text") or "").strip())
+        if "PENALTY" not in text.upper():
+            continue
+        hit = _PENALTY.search(text)
+        if not hit:
+            continue
+        low = text.lower()
+        wiped = ""
+        if "no play" in low:
+            intercepted = _PLAY_INT_BY.search(text)
+            if intercepted:
+                wiped = f"{intercepted.group(1).strip()} interception"
+            elif "touchdown" in low:
+                wiped = "touchdown"
+            else:
+                wiped = "play"
+        out.append(
+            {
+                "quarter": _play_period_number(play),
+                "clock": _play_clock_display(play),
+                "team": hit.group(1).strip().upper(),
+                "player": hit.group(2).strip(),
+                "type": hit.group(3).strip(),
+                "yards": int(hit.group(4)),
+                "wiped": wiped,
+                "text": text,
+            }
+        )
+    return out
+
+
+def parse_eligible_reports(drives) -> list[dict]:
+    """Eligible-receiver reports per snap."""
+    out = []
+    for team, play in _iter_drive_plays(drives):
+        text = re.sub(r"\s+", " ", (play.get("text") or "").strip())
+        hit = _ELIGIBLE.search(text)
+        if not hit:
+            continue
+        out.append(
+            {
+                "quarter": _play_period_number(play),
+                "clock": _play_clock_display(play),
+                "team": team,
+                "player": hit.group(1).strip(),
+                "text": text,
+            }
+        )
+    return out
+
+
+def _stat_map(category: dict) -> dict[str, str]:
+    keys = [str(k) for k in (category.get("keys") or category.get("labels") or [])]
+    return {k: i for i, k in enumerate(keys)}
+
+
+def _stat_at(stats: list, index_by: dict[str, int], *names: str) -> str:
+    for name in names:
+        idx = index_by.get(name)
+        if idx is None or idx >= len(stats):
+            continue
+        return str(stats[idx] or "").strip()
+    return ""
+
+
+def parse_player_usage(box: dict | None) -> dict:
+    """Per-player touches, pass attempts, sacks, and QB hits from the box."""
+    passing = []
+    qb_hits = {"KC": 0, "OPP": 0}
+    usage: dict[tuple[str, str], dict] = {}
+    for group in (box or {}).get("players") or []:
+        if not isinstance(group, dict):
+            continue
+        abbr = ((group.get("team") or {}).get("abbreviation") or "").upper()
+        side = "KC" if abbr == "KC" else "OPP"
+        for category in group.get("statistics") or []:
+            if not isinstance(category, dict):
+                continue
+            name = (category.get("name") or "").lower()
+            index_by = _stat_map(category)
+            for row in category.get("athletes") or []:
+                if not isinstance(row, dict):
+                    continue
+                player = ((row.get("athlete") or {}).get("displayName") or "").strip()
+                stats = row.get("stats") or []
+                if not player:
+                    continue
+                key = (player, side)
+                slot = usage.setdefault(key, {"rushes": 0, "catches": 0})
+                if name == "rushing":
+                    slot["rushes"] = _to_int(
+                        _stat_at(stats, index_by, "rushingAttempts")
+                    ) or 0
+                elif name == "receiving":
+                    slot["catches"] = _to_int(
+                        _stat_at(stats, index_by, "receptions")
+                    ) or 0
+                elif name == "passing":
+                    comp_att = _stat_at(
+                        stats, index_by, "completions/passingAttempts"
+                    )
+                    completions = attempts = None
+                    if "/" in comp_att:
+                        left, right = comp_att.split("/", 1)
+                        completions = _to_int(left)
+                        attempts = _to_int(right)
+                    sack_pair = _stat_at(stats, index_by, "sacks-sackYardsLost")
+                    sacks = sack_yards = 0
+                    if "-" in (sack_pair or ""):
+                        sacks = _to_int(sack_pair.split("-", 1)[0]) or 0
+                        sack_yards = _to_int(sack_pair.split("-", 1)[1]) or 0
+                    passing.append(
+                        {
+                            "player": player,
+                            "team": abbr or side,
+                            "completions": completions,
+                            "attempts": attempts,
+                            "sacks": sacks,
+                            "sackYards": sack_yards,
+                        }
+                    )
+                elif name == "defensive":
+                    hits = _to_int(_stat_at(stats, index_by, "QBHits")) or 0
+                    qb_hits[side] = qb_hits.get(side, 0) + hits
+    touches = []
+    for (player, team), slot in sorted(usage.items()):
+        rushes = slot["rushes"]
+        catches = slot["catches"]
+        if rushes or catches:
+            touches.append(
+                {
+                    "player": player,
+                    "team": team,
+                    "rushes": rushes,
+                    "catches": catches,
+                    "touches": rushes + catches,
+                }
+            )
+    return {
+        "touches": touches,
+        "passing": passing,
+        "qbHits": qb_hits,
+    }
+
+
 def prior_completed_game(schedule: list, last_game: dict | None) -> dict | None:
     """The completed slate row immediately before ``last_game``."""
     last = last_game or {}
@@ -879,6 +1054,12 @@ def fetch_game_recap(event_id: str) -> dict:
     recap["scoringPlays"] = parse_scoring_plays(raw_plays, _kc_home_from_summary(data))
     recap["driveResults"] = parse_drive_results(data.get("drives"))
     recap["plays"] = parse_plays(data.get("drives"))
+    recap["penalties"] = parse_penalties(data.get("drives"))
+    recap["eligible"] = parse_eligible_reports(data.get("drives"))
+    usage = parse_player_usage(box)
+    recap["touches"] = usage["touches"]
+    recap["passing"] = usage["passing"]
+    recap["qbHits"] = usage["qbHits"]
 
     for group in data.get("leaders") or []:
         if not isinstance(group, dict):

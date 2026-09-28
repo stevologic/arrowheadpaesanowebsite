@@ -155,6 +155,56 @@ def _allowed_facts(recap: dict | None) -> list[str]:
             if not isinstance(play, dict):
                 continue
             lines.append(_format_scoring_play(play))
+    touches = recap.get("touches") or []
+    if touches:
+        lines.append("  PLAYER TOUCHES (rushes + catches; do not invent a total):")
+        for row in touches:
+            if not isinstance(row, dict):
+                continue
+            lines.append(
+                f"    {row.get('player')} ({row.get('team')}): "
+                f"{row.get('rushes')} rushes + {row.get('catches')} catches "
+                f"= {row.get('touches')} touches"
+            )
+    passing = recap.get("passing") or []
+    if passing:
+        lines.append("  PASS ATTEMPTS / SACKS:")
+        for row in passing:
+            if not isinstance(row, dict):
+                continue
+            lines.append(
+                f"    {row.get('player')} ({row.get('team')}): "
+                f"{row.get('completions')}-of-{row.get('attempts')}, "
+                f"{row.get('sacks')} sacks"
+            )
+    hits = recap.get("qbHits") or {}
+    if hits:
+        lines.append(
+            f"  QB HITS: KC recorded {hits.get('KC', 0)}; "
+            f"opponent recorded {hits.get('OPP', 0)} (hits on Mahomes)."
+        )
+    penalties = recap.get("penalties") or []
+    if penalties:
+        lines.append("  PENALTIES (player, clock, effect; credit only this list):")
+        for row in penalties:
+            if not isinstance(row, dict):
+                continue
+            wiped = f" — wiped {row['wiped']}" if row.get("wiped") else ""
+            lines.append(
+                f"    Q{row.get('quarter')} {row.get('clock')} "
+                f"{row.get('team')}-{row.get('player')} {row.get('type')}"
+                f"{wiped}"
+            )
+    eligible = recap.get("eligible") or []
+    if eligible:
+        lines.append("  ELIGIBLE-PLAYER REPORTS (only these snaps):")
+        for row in eligible:
+            if not isinstance(row, dict):
+                continue
+            lines.append(
+                f"    Q{row.get('quarter')} {row.get('clock')} "
+                f"{row.get('team')} {row.get('player')}"
+            )
     return lines
 
 

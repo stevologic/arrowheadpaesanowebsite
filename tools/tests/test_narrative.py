@@ -581,6 +581,12 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("workflow_dispatch:", ci)
         self.assertIn("required: false", ci)
         self.assertIn("narrative/update-", ci.split("automerge:")[1])
+        self.assertIn("paths-ignore:", ci)
+        self.assertIn("data/" + "narrative.json", ci)
+        self.assertIn("data/" + "narrative_editions/**", ci)
+        self.assertIn("public/images/" + "narrative/**", ci)
+        self.assertIn("required approval", ci)
+        self.assertIn("36446331690", ci)
 
     def test_edition_ci_is_dispatched_not_pr_triggered(self):
         """GITHUB_TOKEN PRs do not start pull_request workflows (run 36360998269)."""
@@ -2700,6 +2706,68 @@ class FactCheck(unittest.TestCase):
         self.assertIn("88", text)
         self.assertIn("do not repeat the flagged wording", text)
 
+    def test_run_36444997578_touch_penalty_look_and_clock_fail(self):
+        catalog = _load_fixture("edition_run_36444997578.json")
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        for sentence in catalog["accept"]:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertEqual(issues, [], f"should accept {sentence!r}: {issues}")
+        for sentence in catalog["reject"]:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertTrue(issues, f"should reject {sentence!r}")
+        retry = facts.retry_instruction(
+            facts.check_review(
+                self._review(lede=catalog["reject"][0]), last, recap
+            ),
+            recap,
+        )
+        self.assertIn("illegal-use", retry.lower())
+        self.assertIn("do not repeat the flagged wording", retry)
+
+    def test_parse_usage_penalty_and_eligible(self):
+        drives = {
+            "previous": [
+                {
+                    "team": {"abbreviation": "MIA"},
+                    "plays": [
+                        {
+                            "period": {"number": 4},
+                            "clock": {"displayValue": "0:47"},
+                            "text": (
+                                "(Shotgun) M.Willis pass short right intended "
+                                "for G.Dulcich INTERCEPTED by C.Roland-Wallace "
+                                "at MIA 42. PENALTY on KC-G.Karlaftis, Illegal "
+                                "Use of Hands, 5 yards, enforced at MIA 40 - "
+                                "No Play."
+                            ),
+                        }
+                    ],
+                },
+                {
+                    "team": {"abbreviation": "KC"},
+                    "plays": [
+                        {
+                            "period": {"number": 2},
+                            "clock": {"displayValue": "6:15"},
+                            "text": (
+                                "H.Nourzad reported in as eligible.  "
+                                "K.Walker up the middle to MIA 12 for no gain."
+                            ),
+                        }
+                    ],
+                },
+            ]
+        }
+        pens = collect.parse_penalties(drives)
+        self.assertEqual(len(pens), 1)
+        self.assertEqual(pens[0]["player"], "G.Karlaftis")
+        self.assertIn("Roland-Wallace", pens[0]["wiped"])
+        elig = collect.parse_eligible_reports(drives)
+        self.assertEqual(elig[0]["player"], "H.Nourzad")
+        self.assertEqual(elig[0]["clock"], "6:15")
+
     def test_run_36394515450_false_positives_pass_and_writer_errors_fail(self):
         catalog = _load_fixture("edition_run_36394515450.json")
         recap = _load_fixture("espn_401872952_recap.json")
@@ -2774,6 +2842,14 @@ class FactCheck(unittest.TestCase):
         self.assertLess(
             text.index("SCORING PLAYS IN ORDER"), text.index("LAST-GAME BOX")
         )
+        self.assertIn("PLAYER TOUCHES", text)
+        self.assertIn("20 touches", text)
+        self.assertIn("PASS ATTEMPTS / SACKS", text)
+        self.assertIn("0 sacks", text)
+        self.assertIn("PENALTIES", text)
+        self.assertIn("G.Karlaftis", text)
+        self.assertIn("ELIGIBLE-PLAYER REPORTS", text)
+        self.assertIn("H.Nourzad", text)
 
     def test_narrative_pr_lists_drops_and_holds_automerge(self):
         yaml = (

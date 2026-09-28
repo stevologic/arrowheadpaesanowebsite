@@ -7,17 +7,25 @@ name: CI gates
 # the PR is squash-merged into main automatically. Merging to main then
 # triggers the Pages deploy workflow as usual.
 #
-# Edition PRs opened with GITHUB_TOKEN never start pull_request workflows
-# (run 36360998269 / #110). When a ghost pull_request event does fire
-# (#106, #110, #114) it used to die with 0 jobs / "workflow file issue"
-# because concurrency referenced workflow_call inputs. Edition PRs skip
-# this file's pull_request path — narrative.yml dispatches the gates
-# itself (workflow_dispatch) and merges.
+# Edition PRs opened with GITHUB_TOKEN still emit a pull_request event,
+# but they must not queue this workflow. Runs #106, #110, #114, #118
+# (36446331690) sat on "This workflow run required approval but was not
+# approved before it expired" with 0 jobs — that is a first-time /
+# bot-approval gate, not a concurrency/workflow_call bug. Ignore
+# edition-only paths here; narrative.yml already workflow_dispatches
+# these gates against the edition branch and merges.
 
 on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - "data/narrative.json"
+      - "data/narrative_archive.json"
+      - "data/narrative_repair.json"
+      - "data/narrative_editions/**"
+      - "data/wire.json"
+      - "public/images/narrative/**"
   workflow_dispatch:
   workflow_call:
     inputs:
