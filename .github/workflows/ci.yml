@@ -113,4 +113,6 @@ jobs:
         run: |
           set -euo pipefail
           # GITHUB_TOKEN merges do not fire pages.yml's push trigger.
-          gh workflow run "Deploy Hugo site to GitHub Pages" --ref main
+          # This job has no checkout; gh needs an explicit repo.
+          gh workflow run "Deploy Hugo site to GitHub Pages" \
+            --repo "${GITHUB_REPOSITORY}" --ref main

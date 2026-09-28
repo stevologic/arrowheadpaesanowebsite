@@ -96,4 +96,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          gh workflow run "Deploy Hugo site to GitHub Pages" --ref main
+          gh workflow run "Deploy Hugo site to GitHub Pages" \
+            --repo "${GITHUB_REPOSITORY}" --ref main

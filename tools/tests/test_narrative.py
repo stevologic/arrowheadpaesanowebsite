@@ -590,6 +590,7 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("36446331690", ci)
         self.assertNotIn("as usual", ci)
         self.assertIn('gh workflow run "Deploy Hugo site to GitHub Pages"', ci)
+        self.assertIn('--repo "${GITHUB_REPOSITORY}"', ci)
         self.assertIn("--diagrams-only", ci)
 
     def test_edition_ci_is_dispatched_not_pr_triggered(self):
@@ -622,6 +623,7 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("--check-edition", qa)
         self.assertIn("--diagrams-only", qa)
         self.assertIn('gh workflow run "Deploy Hugo site to GitHub Pages"', qa)
+        self.assertIn('--repo "${GITHUB_REPOSITORY}"', qa)
 
     def test_generate_cli_can_render_and_gate_diagrams(self):
         src = Path(generate.__file__).read_text(encoding="utf-8")
