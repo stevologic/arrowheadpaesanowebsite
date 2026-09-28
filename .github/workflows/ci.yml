@@ -78,8 +78,14 @@ jobs:
       - name: Gate 1 — narrative engine tests
         run: python -m unittest discover -s tools/tests -v
 
+      - name: Fact-check the published edition
+        run: python -m tools.chiefs_narrative.generate --check-edition
+
       - name: Render XO diagrams from narrative.json
         run: python -m tools.chiefs_narrative.generate --diagrams-only
+
+      - name: Fail if the render rewrote committed SVGs
+        run: git diff --exit-code -- public/images/narrative
 
       - name: Gate 2 — Hugo build
         run: hugo --gc --minify

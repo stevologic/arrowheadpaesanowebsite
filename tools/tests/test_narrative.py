@@ -591,7 +591,14 @@ class GrokModelSelection(unittest.TestCase):
         self.assertNotIn("as usual", ci)
         self.assertIn('gh workflow run "Deploy Hugo site to GitHub Pages"', ci)
         self.assertIn('--repo "${GITHUB_REPOSITORY}"', ci)
+        self.assertIn("--check-edition", ci)
         self.assertIn("--diagrams-only", ci)
+        self.assertLess(ci.index("--check-edition"), ci.index("--diagrams-only"))
+        self.assertIn("git diff --exit-code -- public/images/narrative", ci)
+        self.assertLess(
+            ci.index("--diagrams-only"),
+            ci.index("git diff --exit-code -- public/images/narrative"),
+        )
 
     def test_edition_ci_is_dispatched_not_pr_triggered(self):
         """GITHUB_TOKEN PRs do not start pull_request workflows (run 36360998269)."""
@@ -612,7 +619,13 @@ class GrokModelSelection(unittest.TestCase):
         self.assertLess(narrative.index("DONE_DEADLINE"), narrative.index("gh pr merge"))
         self.assertNotIn("git add -A data", narrative)
         self.assertIn("data/schedule_2026.json", narrative)
+        self.assertIn("--check-edition", narrative)
         self.assertIn("--diagrams-only", narrative)
+        self.assertLess(
+            narrative.index("--check-edition"),
+            narrative.index("--diagrams-only"),
+        )
+        self.assertIn("git diff --exit-code -- public/images/narrative", narrative)
 
     def test_human_edition_prs_still_run_check_review(self):
         """#120 was paths-ignored; human edition edits must still get gates."""
@@ -2795,6 +2808,44 @@ class FactCheck(unittest.TestCase):
         )
         self.assertEqual(
             facts.check_review(self._review(lede=live_143), last, recap),
+            [],
+        )
+
+    def test_v9_hit_sack_same_look_and_hyphen_counts(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        must_reject = [
+            "Miami hit Mahomes 12 times.",
+            "Miami hit Mahomes twelve times.",
+            "Nourzad was eligible on both stuffed snaps.",
+            "within 90 seconds",
+            "Kansas City scored inside two minutes.",
+            "Mahomes was sacked twice.",
+            "Mahomes took 7 hits.",
+            "Walker already handled twenty-two touches.",
+        ]
+        for sentence in must_reject:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertTrue(issues, f"should reject {sentence!r}")
+        hyphen = facts.check_review(
+            self._review(lede="Walker already handled twenty-two touches."),
+            last,
+            recap,
+        )
+        self.assertTrue(any("22" in item for item in hyphen), hyphen)
+        self.assertFalse(any("touches 2 " in item for item in hyphen), hyphen)
+        twenty_two = facts._TOUCH_COUNT.search("Walker already handled twenty-two touches.")
+        self.assertIsNotNone(twenty_two)
+        self.assertEqual(facts._parse_count(twenty_two.group(1)), 22)
+        two_only = facts._TOUCH_COUNT.search("twenty-two touches.")
+        self.assertEqual(facts._match_count(two_only), 22)
+        self.assertEqual(
+            facts.check_review(
+                self._review(lede="Walker already handled twenty touches."),
+                last,
+                recap,
+            ),
             [],
         )
 
