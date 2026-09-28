@@ -642,6 +642,11 @@ def _last_game_from_edition(narrative: dict) -> dict:
 
 
 def _recap_for_edition(narrative: dict) -> dict:
+    """Load the truth recap from this checkout's tools/ fixtures.
+
+    Edition QA overlays only data/ + public/images/narrative from a PR.
+    Fixtures stay on main so a fork cannot swap the ESPN recap.
+    """
     review = narrative.get("lastGameReview") or {}
     opponent = (review.get("opponent") or "").lower()
     if "miami" in opponent:

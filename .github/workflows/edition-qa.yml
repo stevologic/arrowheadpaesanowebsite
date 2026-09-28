@@ -1,9 +1,11 @@
 name: Edition gates (human)
 
-# Human data-only PRs (#120) match ci.yml paths-ignore, so that workflow
-# never starts. Bot edition PRs stay on narrative.yml + workflow_dispatch.
-# pull_request_target runs the trusted workflow from main and skips
-# github-actions[bot], so first-time bot approval does not come back.
+# Human data-only PRs match ci.yml paths-ignore, so that workflow never
+# starts. Bot edition PRs stay on narrative.yml + workflow_dispatch.
+# This workflow is pull_request_target only so github-actions[bot] does
+# not sit on first-time approval. Never execute PR code. Tools, tests,
+# fixtures, and requirements come from the base (main). Only edition
+# data files are copied from the PR head, then discarded.
 
 on:
   pull_request_target:
@@ -15,12 +17,11 @@ on:
       - "data/narrative_repair.json"
       - "data/narrative_editions/**"
       - "data/wire.json"
+      - "data/schedule_2026.json"
       - "public/images/narrative/**"
 
 permissions:
-  contents: write
-  pull-requests: write
-  actions: write
+  contents: read
 
 concurrency:
   group: edition-qa-${{ github.event.pull_request.number }}
@@ -36,12 +37,64 @@ jobs:
           github.event.pull_request.user.login != 'github-actions[bot]' &&
           !startsWith(github.head_ref, 'narrative/update-') }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - name: Checkout the pull request
+      - name: Checkout main tools
         uses: actions/checkout@v6
         with:
+          repository: ${{ github.repository }}
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - name: Fetch PR edition data (no execute)
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
+          path: .pr-head
+
+      - name: Overlay edition data from the PR head
+        run: |
+          python3 <<'PY'
+          import shutil
+          from pathlib import Path
+
+          src = Path(".pr-head")
+          dst = Path(".")
+          allowed_files = {
+              "data/narrative.json",
+              "data/narrative_archive.json",
+              "data/narrative_repair.json",
+              "data/wire.json",
+              "data/schedule_2026.json",
+          }
+          allowed_dirs = (
+              "data/narrative_editions/",
+              "public/images/narrative/",
+          )
+
+          def allowed(rel: Path) -> bool:
+              posix = rel.as_posix()
+              if posix in allowed_files:
+                  return True
+              return any(posix.startswith(prefix) for prefix in allowed_dirs)
+
+          copied = 0
+          for path in src.rglob("*"):
+              if path.is_symlink() or not path.is_file():
+                  continue
+              rel = path.relative_to(src)
+              if not allowed(rel):
+                  continue
+              target = dst / rel
+              target.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copyfile(path, target)
+              copied += 1
+          shutil.rmtree(src)
+          print(f"overlaid {copied} edition files from the PR head")
+          PY
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -78,8 +131,15 @@ jobs:
           github.event.pull_request.user.login != 'github-actions[bot]' &&
           !startsWith(github.head_ref, 'narrative/update-') &&
           github.event.pull_request.draft == false &&
-          !contains(github.event.pull_request.labels.*.name, 'hold') }}
+          !contains(github.event.pull_request.labels.*.name, 'hold') &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+                   github.event.pull_request.author_association) }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
     steps:
       - name: Squash-merge the pull request
         env:
