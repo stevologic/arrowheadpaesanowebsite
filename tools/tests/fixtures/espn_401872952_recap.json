@@ -1,8 +1,22 @@
 {
   "eventId": "401872952",
   "oppAbbr": "MIA",
-  "kc": { "totalYards": "334", "rushingYards": "88", "netPassingYards": "246" },
-  "opp": { "totalYards": "329", "rushingYards": "119", "netPassingYards": "210" },
+  "kc": {
+    "totalYards": "334",
+    "rushingYards": "88",
+    "netPassingYards": "246",
+    "firstDowns": "18",
+    "thirdDownEff": "3-7",
+    "possessionTime": "25:39"
+  },
+  "opp": {
+    "totalYards": "329",
+    "rushingYards": "119",
+    "netPassingYards": "210",
+    "firstDowns": "19",
+    "thirdDownEff": "8-16",
+    "possessionTime": "34:21"
+  },
   "scoringPlays": [
     {
       "quarter": 1,
@@ -188,7 +202,12 @@
     "eventId": "401872951",
     "oppAbbr": "IND",
     "opponent": "Indianapolis Colts",
-    "kc": { "rushingYards": "152", "netPassingYards": "382", "totalYards": "534" },
+    "kc": {
+      "rushingYards": "152",
+      "netPassingYards": "382",
+      "totalYards": "534",
+      "possessionTime": "37:00"
+    },
     "opp": { "rushingYards": "95", "netPassingYards": "240" },
     "leaders": [
       {

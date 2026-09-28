@@ -204,12 +204,18 @@ def _last_game_brief(signals: dict, phase: dict) -> str:
     kc = recap.get("kc") or {}
     opp = recap.get("opp") or {}
     if kc or opp:
-        lines.append("  BOX (ESPN, cite as ESPN):")
+        lines.append(
+            "  LAST-GAME BOX (ESPN — do not mix these with the prior-game box):"
+        )
         if kc:
             lines.append("    KC: " + ", ".join(f"{k}={v}" for k, v in kc.items() if v))
         if opp:
             label = recap.get("oppAbbr") or "OPP"
             lines.append(f"    {label}: " + ", ".join(f"{k}={v}" for k, v in opp.items() if v))
+        lines.append(
+            "  LAST-GAME CLOCK/DOWNS stay with this opponent. "
+            "A 382-yard passing total is the PRIOR game, not this one."
+        )
     plays = recap.get("scoringPlays") or []
     if plays:
         lines.append(
@@ -239,7 +245,10 @@ def _last_game_brief(signals: dict, phase: dict) -> str:
     prior = recap.get("prior") or {}
     if prior.get("kc") or prior.get("opp"):
         label = prior.get("opponent") or prior.get("oppAbbr") or "prior opponent"
-        lines.append(f"  PRIOR GAME BOX vs {label} (ESPN team totals, not a player line):")
+        lines.append(
+            f"  PRIOR GAME BOX vs {label} (ESPN team totals, not a player line; "
+            "do not blend first downs, third down, or possession with the last game):"
+        )
         if prior.get("kc"):
             lines.append(
                 "    KC: " + ", ".join(f"{k}={v}" for k, v in prior["kc"].items() if v)

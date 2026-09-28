@@ -2627,6 +2627,66 @@ class FactCheck(unittest.TestCase):
             issues = facts.check_review(self._review(lede=sentence), last, recap)
             self.assertTrue(issues, f"should reject {sentence!r}")
 
+    def test_run_36389259508_false_positives_pass_and_writer_errors_fail(self):
+        catalog = _load_fixture("edition_run_36389259508.json")
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        for sentence in catalog["accept"]:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertEqual(issues, [], f"should accept {sentence!r}: {issues}")
+        for sentence in catalog["reject"]:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertTrue(issues, f"should reject {sentence!r}")
+
+    def test_play_order_binds_after_to_named_gain(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = self._review(
+            lede=(
+                "Kenneth Walker III finished a 10-yard run after Mahomes "
+                "hit Kelce for 48 yards on the first snap."
+            )
+        )
+        issues = facts.check_review(narrative, last, recap)
+        self.assertFalse(any("play order" in item for item in issues), issues)
+
+    def test_miami_interception_is_team_credit(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = self._review(lede="The Miami interception flipped the field.")
+        issues = facts.check_review(narrative, last, recap)
+        self.assertFalse(any("turnover credit" in item for item in issues), issues)
+
+    def test_night_snippet_does_not_drop_nightmare(self):
+        narrative = {
+            "lastGameReview": {
+                "lede": (
+                    "It was a 382-yard night in Miami. "
+                    "The Chargers' nightmare start is a different story."
+                )
+            }
+        }
+        repaired = facts.repair_offending_copy(
+            narrative, ["kickoff is midday; do not write 'night' about the game"]
+        )
+        blob = facts.edition_text(repaired)
+        self.assertNotIn("382-yard night", blob)
+        self.assertIn("nightmare", blob)
+
+    def test_retry_instruction_lists_rejections_and_per_game_table(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        text = facts.retry_instruction(
+            ["team rushing 18 disagrees with ESPN 88 for KC ('18 team rushing yards')"],
+            recap,
+        )
+        self.assertIn("18 team rushing yards", text)
+        self.assertIn("PER-GAME STAT TABLE", text)
+        self.assertIn("88", text)
+        self.assertIn("do not repeat the flagged wording", text)
+
     def test_narrative_pr_lists_drops_and_holds_automerge(self):
         yaml = (
             Path(__file__).resolve().parents[2]
