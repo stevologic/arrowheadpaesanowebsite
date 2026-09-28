@@ -662,6 +662,122 @@ def _drive_detail(drive: dict, result: str):
     return detail, yards, clock, period
 
 
+_PLAY_FORCED = re.compile(r"FUMBLES\s*\(([^)]+)\)", re.IGNORECASE)
+_PLAY_RECOVERED = re.compile(
+    r"RECOVERED by\s+[A-Z]+-([A-Za-z.\-']+)", re.IGNORECASE
+)
+_PLAY_INT_BY = re.compile(r"INTERCEPTED by\s+([A-Za-z.\-']+)", re.IGNORECASE)
+_PLAY_TARGET = re.compile(
+    r"(?:pass\s+(?:incomplete\s+)?(?:deep|short)\s+\w+\s+)?"
+    r"(?:to|intended for)\s+([A-Z]\.[A-Za-z\-']+)",
+    re.IGNORECASE,
+)
+_PLAY_DIRECTION = re.compile(
+    r"\b(deep middle|deep left|deep right|short middle|short left|short right)\b",
+    re.IGNORECASE,
+)
+
+
+def _drive_team(drive: dict) -> str:
+    return ((drive.get("team") or {}).get("abbreviation") or "").upper()
+
+
+def _play_kind_from_text(text: str) -> str:
+    low = (text or "").lower()
+    if "intercept" in low:
+        return "int"
+    if "fumble" in low:
+        return "fumble"
+    if "incomplete" in low:
+        return "incompletion"
+    if "pass" in low and "complete" in low:
+        return "completion"
+    if "pass" in low and " to " in low and "incomplete" not in low:
+        return "completion"
+    if "pass" in low:
+        return "pass"
+    return "play"
+
+
+def parse_plays(drives) -> list[dict]:
+    """Notable ESPN play-by-play rows: turnovers and pass results.
+
+    Forced/recovered/intercepted names come from the official play text so
+    a writer cannot credit a tackler who was only in the original call.
+    """
+    if isinstance(drives, dict):
+        rows = drives.get("previous") or []
+    elif isinstance(drives, list):
+        rows = drives
+    else:
+        rows = []
+    out = []
+    for drive in rows:
+        if not isinstance(drive, dict):
+            continue
+        team = _drive_team(drive)
+        for play in drive.get("plays") or []:
+            if not isinstance(play, dict):
+                continue
+            text = (play.get("text") or "").strip()
+            if not text:
+                continue
+            low = text.lower()
+            if "timeout" in low or "two-minute" in low or "official timeout" in low:
+                continue
+            kind = _play_kind_from_text(text)
+            interesting = kind in {
+                "int",
+                "fumble",
+                "incompletion",
+                "completion",
+                "pass",
+            }
+            if not interesting and "deep" not in low:
+                continue
+            direction = ""
+            hit = _PLAY_DIRECTION.search(text)
+            if hit:
+                direction = hit.group(1).lower()
+            forced = _PLAY_FORCED.search(text)
+            recovered = _PLAY_RECOVERED.search(text)
+            intercepted = _PLAY_INT_BY.search(text)
+            target = _PLAY_TARGET.search(text)
+            row = {
+                "quarter": _play_period_number(play),
+                "clock": _play_clock_display(play),
+                "team": team,
+                "text": re.sub(r"\s+", " ", text),
+                "kind": kind,
+                "direction": direction,
+                "yards": _play_yards(play),
+                "forcedBy": (forced.group(1) if forced else "").strip(),
+                "recoveredBy": (recovered.group(1) if recovered else "").strip(),
+                "interceptedBy": (intercepted.group(1) if intercepted else "").strip(),
+                "target": (target.group(1) if target else "").strip(),
+            }
+            out.append(row)
+    return out
+
+
+def prior_completed_game(schedule: list, last_game: dict | None) -> dict | None:
+    """The completed slate row immediately before ``last_game``."""
+    last = last_game or {}
+    last_id = str(last.get("id") or "")
+    last_date = last.get("date") or ""
+    prior = None
+    for game in schedule or []:
+        if not isinstance(game, dict) or not game.get("completed"):
+            continue
+        if last_id and str(game.get("id") or "") == last_id:
+            continue
+        if last_date and (game.get("date") or "") > last_date:
+            continue
+        if prior is None or (game.get("date") or "") > (prior.get("date") or ""):
+            prior = game
+    return prior
+
+
 def parse_drive_results(drives) -> list[dict]:
     """Missed FG / INT / fumble / turnover-on-downs with team, quarter, clock."""
     if isinstance(drives, dict):
@@ -740,6 +856,7 @@ def fetch_game_recap(event_id: str) -> dict:
         "scoring": [],
         "scoringPlays": [],
         "driveResults": [],
+        "plays": [],
         "leaders": [],
     }
     box = data.get("boxscore") or {}
@@ -758,6 +875,7 @@ def fetch_game_recap(event_id: str) -> dict:
     recap["scoring"] = _scoring_lines(raw_plays)
     recap["scoringPlays"] = parse_scoring_plays(raw_plays, _kc_home_from_summary(data))
     recap["driveResults"] = parse_drive_results(data.get("drives"))
+    recap["plays"] = parse_plays(data.get("drives"))
 
     for group in data.get("leaders") or []:
         if not isinstance(group, dict):
@@ -788,7 +906,8 @@ def fetch_game_recap(event_id: str) -> dict:
         and not recap["opp"]
         and not recap["scoring"]
         and not recap["scoringPlays"]
-        and not recap["driveResults"]
+        and         not recap["driveResults"]
+        and not recap["plays"]
         and not recap["leaders"]
     ):
         return {}

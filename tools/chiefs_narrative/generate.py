@@ -49,30 +49,82 @@ def _slugify(text: str) -> str:
     return text or "play"
 
 
-def _ensure_six_xsandos(narrative: dict, signals: dict, ph: dict, upcoming: list) -> None:
-    """Guarantee exactly six X&O cards.
+def _xo_side(card: dict) -> str:
+    spec = diagrams.CONCEPTS.get((card or {}).get("concept") or "")
+    return (spec or {}).get("side") or "offense"
 
-    The prompt demands six, but if a writer under-delivers we top up from the
-    offline writer's phase-aware cards, preferring concepts not already used.
+
+def _real_xo_card(card: dict) -> bool:
+    if not isinstance(card, dict):
+        return False
+    return bool((card.get("why") or "").strip() or (card.get("situation") or "").strip())
+
+
+def _concept_card(key: str, pool: list[dict]) -> dict | None:
+    for card in pool:
+        if card.get("concept") == key and _real_xo_card(card):
+            return card
+    spec = diagrams.CONCEPTS.get(key)
+    if not spec:
+        return None
+    return {
+        "title": spec["title"],
+        "situation": spec["blurb"],
+        "concept": key,
+        "why": spec["blurb"],
+        "coaching": spec["blurb"],
+        "labels": {},
+    }
+
+
+def _ensure_six_xsandos(narrative: dict, signals: dict, ph: dict, upcoming: list) -> None:
+    """Guarantee six real cards: four offense, two defense.
+
+    Empty DEFAULT_CONCEPT placeholders are dropped. Defense must include
+    Cover-2 and the zone blitz — the page promises those two looks.
+    Top up from the offline writer; do not pad with empty cards.
     """
-    want = 6
-    cards = narrative.get("xsandos") or []
-    if len(cards) >= want:
-        narrative["xsandos"] = cards[:want]
-        return
-    pool = schema._norm_xsandos(offline.write(signals, ph, upcoming).get("xsandos"))
-    used = {c["concept"] for c in cards}
-    for card in pool:  # distinct concepts first
-        if len(cards) >= want:
-            break
-        if card["concept"] not in used:
-            cards.append(card)
-            used.add(card["concept"])
-    for card in pool:  # last resort: allow a repeated concept
-        if len(cards) >= want:
-            break
-        cards.append(card)
-    narrative["xsandos"] = cards
+    cards = [c for c in (narrative.get("xsandos") or []) if _real_xo_card(c)]
+    pool = [
+        c
+        for c in schema._norm_xsandos(offline.write(signals, ph, upcoming).get("xsandos"))
+        if _real_xo_card(c)
+    ]
+    offense = [c for c in cards if _xo_side(c) == "offense"]
+    defense = [c for c in cards if _xo_side(c) == "defense"]
+
+    def _take(side: str, dest: list, want: int) -> None:
+        for card in pool:
+            if len(dest) >= want:
+                return
+            if _xo_side(card) != side:
+                continue
+            if card["concept"] in {c["concept"] for c in dest}:
+                continue
+            dest.append(card)
+
+    _take("offense", offense, 4)
+    for key in ("cover_two", "zone_blitz"):
+        if any(c.get("concept") == key for c in defense):
+            continue
+        extra = _concept_card(key, pool)
+        if extra:
+            defense.append(extra)
+    _take("defense", defense, 2)
+    if len(offense) < 4:
+        for key, spec in diagrams.CONCEPTS.items():
+            if spec["side"] != "offense":
+                continue
+            if any(c.get("concept") == key for c in offense):
+                continue
+            extra = _concept_card(key, pool)
+            if extra:
+                offense.append(extra)
+            if len(offense) >= 4:
+                break
+    offense = offense[:4]
+    defense = defense[:2]
+    narrative["xsandos"] = offense[:4] + defense[:2]
 
 
 def _ensure_next_game(narrative: dict, ph: dict) -> None:
@@ -387,6 +439,14 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
     if last.get("id"):
         print(f"  [collect] last-game recap for event {last['id']}…")
         signals["lastGameRecap"] = collect.fetch_game_recap(str(last["id"]))
+        prior = collect.prior_completed_game(schedule, last)
+        if prior and prior.get("id"):
+            print(f"  [collect] prior-game recap for event {prior['id']}…")
+            prior_recap = collect.fetch_game_recap(str(prior["id"]))
+            if prior_recap:
+                prior_recap["opponent"] = prior.get("opponent") or ""
+                signals["lastGameRecap"]["prior"] = prior_recap
+                signals["priorGameRecap"] = prior_recap
 
     # 3. Markets/predictions for the next game.
     next_game = ph.get("nextGame") or (upcoming[0] if upcoming else None)
@@ -476,21 +536,27 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
     if violations:
         print(
             "  [writer] fact-check still failing after retries; "
-            "rewriting only the offending sentences"
+            "dropping offending sentences and re-checking the full edition"
         )
-        repaired = facts.repair_offending_copy(narrative, violations, last)
-        leftover = facts.check_review(repaired, last, recap)
-        if leftover:
-            repaired = facts.repair_offending_copy(repaired, leftover, last)
+
+        def _drop_and_log(payload, problems):
+            repaired = facts.repair_offending_copy(payload, problems, last)
+            for sentence in facts.dropped_sentences(payload, repaired):
+                print(f"  [writer] dropped sentence: {sentence}")
             leftover = facts.check_review(repaired, last, recap)
+            return repaired, leftover
+
+        repaired, leftover = _drop_and_log(narrative, violations)
+        if leftover:
+            repaired, leftover = _drop_and_log(repaired, leftover)
         if leftover:
             raise FactCheckError(
-                "Chiefs Narrative fact-check failed after retry: "
+                "Chiefs Narrative fact-check failed after repair: "
                 + "; ".join(leftover)
                 + ". Refusing to publish a review that disagrees with ESPN."
             )
         narrative = repaired
-        print("  [writer] fact-check: offending sentences dropped; edition is clean")
+        print("  [writer] fact-check: dropped sentences logged; edition is clean")
 
     # 6. Render diagrams only after uniqueness and fact-check have passed.
     _render_diagrams(narrative)

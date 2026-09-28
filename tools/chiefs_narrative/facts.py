@@ -124,6 +124,9 @@ _EDITION_KEYS = (
     "spotlight",
     "coaching",
     "debates",
+    "runOfShow",
+    "injuries",
+    "personnel",
 )
 
 _FG_YARD = re.compile(r"(\d{1,2})[-\s]yard(?:s)?\s+field goal", re.IGNORECASE)
@@ -144,6 +147,71 @@ _YARD_NIGHT = re.compile(
 )
 _FINISHED_NIGHT = re.compile(r"\bfinished the night\b", re.IGNORECASE)
 _QB_NIGHT = re.compile(r"\bquarterback night\b", re.IGNORECASE)
+_NIGHT_WORD = re.compile(r"\bnights?\b", re.IGNORECASE)
+_ECHO_INSTRUCTION = re.compile(
+    r"\bdo not (?:call|write|invent|include)\b"
+    r"|this was not a night game"
+    r"|never state a kickoff"
+    r"|FACT CHECK RETRY"
+    r"|SENTENCE REPAIR"
+    r"|\[PRIVATE",
+    re.IGNORECASE,
+)
+_GARBLED_RECORD = re.compile(
+    r"\b(?:first|second|third|fourth|1st|2nd|3rd|4th)\b"
+    r"[^.!?]{0,48}\bgames?\s+of\s+\d{1,2}-\d{1,2}\b",
+    re.IGNORECASE,
+)
+_TEAM_GROUND = re.compile(
+    r"\b([A-Za-z][A-Za-z .']{1,28}?)(?:'s)?\s+"
+    r"(?:was\s+)?(\d{2,3})\s+"
+    r"(?:on the ground|rush(?:ing)? yards)\b",
+    re.IGNORECASE,
+)
+_TEAM_RUSH_YARDS = re.compile(
+    r"\b(\d{2,3})\s+(?:team\s+)?rush(?:ing)?\s+yards\b",
+    re.IGNORECASE,
+)
+_TEAM_PASS_YARDS = re.compile(
+    r"\b(\d{2,3})\s+(?:net\s+)?passing yards\b",
+    re.IGNORECASE,
+)
+_ABSOLUTE_CLAIM = re.compile(
+    r"\b(?:the\s+)?(?:only|lone)\s+"
+    r"(?:time|play|shot|miss|completion|incompletion|throw|target|"
+    r"deep[- ]middle|vertical)\b"
+    r"|\bthe only\b[^.!?]{0,80}"
+    r"(?:deep|vertical|miss|shot|drive|interception|incompletion)",
+    re.IGNORECASE,
+)
+_FIRST_PLAY_CLAIM = re.compile(
+    r"\bthe first\b(?!\s*-?\s*(?:down|half|quarter|and))"
+    r"[^.!?]{0,60}"
+    r"(?:\bTD\b|touchdown|field goal|interception|\bINT\b|fumble|"
+    r"deep[- ]|vertical|completion)",
+    re.IGNORECASE,
+)
+_NEVER_PLAY_CLAIM = re.compile(
+    r"\bnever\s+(?:threw|completed|ran|scored|allowed|asked|hit|found|"
+    r"targeted|connected)\b",
+    re.IGNORECASE,
+)
+_FUMBLE_PAREN = re.compile(
+    r"\bfumble\b[^.!?]{0,40}\(([A-Z][A-Za-z''-]+)\)",
+    re.IGNORECASE,
+)
+_FUMBLE_FORCED = re.compile(
+    r"\b([A-Z][A-Za-z''-]+)\s+"
+    r"(?:forced|recovered|caused|blew up)\b[^.!?]{0,48}\bfumble\b"
+    r"|\bfumble\b[^.!?]{0,48}\b(?:forced|recovered|caused)\s+by\s+"
+    r"([A-Z][A-Za-z''-]+)",
+    re.IGNORECASE,
+)
+_INT_CREDIT = re.compile(
+    r"\b([A-Z][A-Za-z''-]+)\s+(?:intercept(?:ed|ion)|INT)\b"
+    r"|\b(?:intercept(?:ed|ion)|INT)\s+by\s+([A-Z][A-Za-z''-]+)",
+    re.IGNORECASE,
+)
 
 # Qualified counts are not whole-game totals. Compare against the window
 # when quarter data can compute it; otherwise skip.
@@ -336,6 +404,16 @@ def _play_yards(play: dict):
         return None
 
 
+def _add_opponent_aliases(aliases: dict[str, str], name: str, abbr: str) -> None:
+    tokens = [t for t in re.findall(r"[A-Za-z]+", name or "") if t.lower() not in ("the",)]
+    if abbr:
+        aliases[abbr.lower()] = abbr
+    for token in tokens:
+        aliases[token.lower()] = abbr or token[:3].upper()
+    if name and len(tokens) >= 2:
+        aliases[name.lower()] = abbr or tokens[-1][:3].upper()
+
+
 def _team_aliases(last_game: dict | None, recap: dict | None) -> dict[str, str]:
     aliases = {
         "kc": "KC",
@@ -345,13 +423,38 @@ def _team_aliases(last_game: dict | None, recap: dict | None) -> dict[str, str]:
     opp = ((recap or {}).get("oppAbbr") or "").strip().upper()
     if opp:
         aliases[opp.lower()] = opp
-    name = ((last_game or {}).get("opponent") or "").strip()
-    tokens = [t for t in re.findall(r"[A-Za-z]+", name) if t.lower() not in ("the",)]
-    for token in tokens:
-        aliases[token.lower()] = opp or token[:3].upper()
-    if len(tokens) >= 2:
-        aliases[name.lower()] = opp or tokens[-1][:3].upper()
+    _add_opponent_aliases(aliases, ((last_game or {}).get("opponent") or "").strip(), opp)
+    prior = (recap or {}).get("prior") or {}
+    prior_abbr = (prior.get("oppAbbr") or "").strip().upper()
+    _add_opponent_aliases(
+        aliases,
+        (prior.get("opponent") or "").strip(),
+        prior_abbr,
+    )
     return aliases
+
+
+def _prior_game_labels(recap: dict | None) -> set[str]:
+    prior = (recap or {}).get("prior") or {}
+    labels = set()
+    abbr = (prior.get("oppAbbr") or "").strip().lower()
+    if abbr:
+        labels.add(abbr)
+    for token in re.findall(r"[A-Za-z]+", prior.get("opponent") or ""):
+        if token.lower() not in ("the",) and len(token) >= 3:
+            labels.add(token.lower())
+    return labels
+
+
+def _last_game_labels(last_game: dict | None, recap: dict | None) -> set[str]:
+    labels = set()
+    opp = ((recap or {}).get("oppAbbr") or "").strip().lower()
+    if opp:
+        labels.add(opp)
+    for token in re.findall(r"[A-Za-z]+", (last_game or {}).get("opponent") or ""):
+        if token.lower() not in ("the",) and len(token) >= 3:
+            labels.add(token.lower())
+    return labels
 
 
 def _player_teams(recap: dict | None) -> dict[str, str]:
@@ -435,8 +538,48 @@ def _alias_team(phrase: str, aliases: dict[str, str]) -> str:
     return ""
 
 
+def _box_yards_int(raw) -> int | None:
+    token = str(raw or "").replace(",", "").strip()
+    if not token:
+        return None
+    try:
+        return int(token)
+    except (TypeError, ValueError):
+        return None
+
+
+def official_box_yards_by_team(
+    recap: dict | None, kind: str, game: str = "last"
+) -> dict[str, int]:
+    """Team rushing / passing totals from the last or prior-game box."""
+    payload = recap or {}
+    if game == "prior":
+        payload = payload.get("prior") or {}
+    field = "rushingYards" if kind == "rush" else "netPassingYards"
+    out: dict[str, int] = {}
+    kc = _box_yards_int((payload.get("kc") or {}).get(field))
+    if kc is not None:
+        out["KC"] = kc
+    opp_abbr = (payload.get("oppAbbr") or "").strip().upper()
+    opp = _box_yards_int((payload.get("opp") or {}).get(field))
+    if opp is not None and opp_abbr:
+        out[opp_abbr] = opp
+    return out
+
+
 def official_yards_by_team(recap: dict | None, kind: str) -> dict[str, set[int]]:
-    by_team: dict[str, set[int]] = {}
+    """Scoring-play yards, or team box yards when kind is rush/pass.
+
+    Rush/pass look at the last-game recap and the prior-game recap so a
+    Colts-week rushing total cannot be swapped for Walker's line.
+    """
+    if kind in {"rush", "pass"}:
+        by_team: dict[str, set[int]] = {}
+        for game in ("last", "prior"):
+            for team, yards in official_box_yards_by_team(recap, kind, game).items():
+                by_team.setdefault(team, set()).add(yards)
+        return by_team
+    by_team = {}
     for play in (recap or {}).get("scoringPlays") or []:
         if not isinstance(play, dict):
             continue
@@ -755,31 +898,42 @@ def _check_part_of_day(text: str, last_game: dict | None) -> list[str]:
     part = collect.kickoff_part_of_day((last_game or {}).get("date") or "")
     if part not in _DAYTIME or not text:
         return []
-    aliases = _team_aliases(last_game, None)
     issues = []
-    for alias in sorted(aliases, key=len, reverse=True):
-        if len(alias) < 3:
+    seen: set[str] = set()
+    for match in _NIGHT_WORD.finditer(text):
+        snippet = match.group(0)
+        key = snippet.lower()
+        if key in seen:
             continue
-        rx = re.compile(rf"\b{re.escape(alias)}\s+night\b", re.IGNORECASE)
-        match = rx.search(text)
-        if match:
-            issues.append(
-                f"kickoff is {part}; do not call the game a night "
-                f"({match.group(0)!r})"
-            )
-            break
-    if _YARD_NIGHT.search(text):
+        seen.add(key)
         issues.append(
-            f"kickoff is {part}; do not write a 'yard night' "
-            f"({_YARD_NIGHT.search(text).group(0)!r})"
+            f"kickoff is {part}; do not write {snippet!r} about the game"
         )
-    if _FINISHED_NIGHT.search(text):
+    return issues
+
+
+def _check_echoed_instructions(text: str) -> list[str]:
+    if not text:
+        return []
+    issues = []
+    seen: set[str] = set()
+    for match in _ECHO_INSTRUCTION.finditer(text):
+        snippet = match.group(0)
+        key = snippet.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        issues.append(f"echoed writer instruction ({snippet!r})")
+    return issues
+
+
+def _check_record_phrasing(text: str) -> list[str]:
+    if not text:
+        return []
+    issues = []
+    for match in _GARBLED_RECORD.finditer(text):
         issues.append(
-            f"kickoff is {part}; do not write 'finished the night'"
-        )
-    if _QB_NIGHT.search(text):
-        issues.append(
-            f"kickoff is {part}; do not write 'quarterback night'"
+            f"garbled record/ordinal phrasing ({match.group(0)!r})"
         )
     return issues
 
@@ -1084,6 +1238,315 @@ def _check_play_sequence(text: str, recap: dict | None) -> list[str]:
     return issues
 
 
+def _last_name_token(raw: str) -> str:
+    token = (raw or "").strip()
+    if not token:
+        return ""
+    token = token.replace(".", " ").replace("'", "")
+    parts = [p for p in re.split(r"[^A-Za-z]+", token) if p]
+    if not parts:
+        return ""
+    return parts[-1].lower()
+
+
+def _plays(recap: dict | None) -> list[dict]:
+    out = []
+    for play in (recap or {}).get("plays") or []:
+        if isinstance(play, dict):
+            out.append(play)
+    return out
+
+
+def _official_names(plays: list[dict], *fields: str) -> set[str]:
+    names: set[str] = set()
+    for play in plays:
+        for field in fields:
+            token = _last_name_token(play.get(field) or "")
+            if token:
+                names.add(token)
+        blob = (play.get("text") or "").lower()
+        for field in fields:
+            raw = play.get(field) or ""
+            last = _last_name_token(raw)
+            if last and last in blob:
+                names.add(last)
+    return names
+
+
+def _sentence_at(text: str, index: int) -> str:
+    start = text.rfind(".", 0, index) + 1
+    end = text.find(".", index)
+    if end < 0:
+        end = len(text)
+    return text[start:end].strip()
+
+
+def _check_turnover_credit(text: str, recap: dict | None) -> list[str]:
+    """Credit for forcing/recovering a turnover must match the play text."""
+    plays = _plays(recap)
+    fumbles = [p for p in plays if p.get("kind") == "fumble" or "fumble" in (p.get("text") or "").lower()]
+    ints = [p for p in plays if p.get("kind") == "int" or "intercept" in (p.get("text") or "").lower()]
+    if not text or (not fumbles and not ints):
+        return []
+    official_force = _official_names(fumbles, "forcedBy", "recoveredBy")
+    official_int = _official_names(ints, "interceptedBy")
+    fumblers = set()
+    for play in fumbles:
+        head = re.split(r"FUMBLES", play.get("text") or "", maxsplit=1, flags=re.I)[0]
+        names = re.findall(r"\b([A-Z]\.[A-Za-z\-']+)\b", head)
+        if names:
+            fumblers.add(_last_name_token(names[0]))
+    issues = []
+    seen: set[str] = set()
+
+    def _reject(name: str, role: str, snippet: str) -> None:
+        last = _last_name_token(name)
+        if not last or last in fumblers or last in {"the", "a", "and"}:
+            return
+        key = f"{role}:{last}:{snippet.lower()}"
+        if key in seen:
+            return
+        seen.add(key)
+        allowed = official_force if role == "fumble" else official_int
+        if last in allowed:
+            return
+        issues.append(
+            f"turnover credit: {name} is not who ESPN lists as "
+            f"{'forcing/recovering the fumble' if role == 'fumble' else 'the interceptor'} "
+            f"({snippet!r})"
+        )
+
+    for match in _FUMBLE_PAREN.finditer(text):
+        _reject(match.group(1), "fumble", match.group(0))
+    for match in _FUMBLE_FORCED.finditer(text):
+        name = match.group(1) or match.group(2)
+        _reject(name, "fumble", match.group(0))
+    for match in _INT_CREDIT.finditer(text):
+        name = match.group(1) or match.group(2)
+        if (name or "").lower() in {"int", "interception", "intercepted"}:
+            continue
+        _reject(name, "int", match.group(0))
+    return issues
+
+
+def _deep_plays(recap: dict | None, team: str = "KC") -> list[dict]:
+    out = []
+    for play in _plays(recap):
+        if (play.get("team") or "").upper() != team:
+            continue
+        direction = (play.get("direction") or "").lower()
+        text = (play.get("text") or "").lower()
+        if "deep" not in direction and "deep" not in text:
+            continue
+        out.append(play)
+    return out
+
+
+def _is_incompletion(play: dict) -> bool:
+    kind = (play.get("kind") or "").lower()
+    text = (play.get("text") or "").lower()
+    return kind in {"incompletion", "int"} or "incomplete" in text or "intercept" in text
+
+
+def _is_completion(play: dict) -> bool:
+    if _is_incompletion(play):
+        return False
+    kind = (play.get("kind") or "").lower()
+    text = (play.get("text") or "").lower()
+    return kind == "completion" or ("pass" in text and "incomplete" not in text)
+
+
+def _check_absolute_claims(text: str, recap: dict | None) -> list[str]:
+    """only/first/never/lone game-event claims must match the play-by-play.
+
+    Unverifiable uniqueness claims are rejected rather than waved through.
+    """
+    if not text:
+        return []
+    plays = _plays(recap)
+    if not plays:
+        issues = []
+        for rx in (_ABSOLUTE_CLAIM, _FIRST_PLAY_CLAIM, _NEVER_PLAY_CLAIM):
+            for match in rx.finditer(text):
+                issues.append(
+                    f"absolute claim cannot be verified against the play-by-play "
+                    f"({_sentence_at(text, match.start())!r})"
+                )
+        return issues
+    issues = []
+    seen: set[str] = set()
+    deep = _deep_plays(recap, "KC")
+    deep_comp = [p for p in deep if _is_completion(p)]
+    deep_middle_miss = [
+        p
+        for p in deep
+        if _is_incompletion(p)
+        and "middle" in ((p.get("direction") or "") + " " + (p.get("text") or "")).lower()
+    ]
+
+    def _add(snippet: str, reason: str) -> None:
+        key = snippet.lower()
+        if key in seen:
+            return
+        seen.add(key)
+        issues.append(f"{reason} ({snippet!r})")
+
+    for match in _ABSOLUTE_CLAIM.finditer(text):
+        sentence = _sentence_at(text, match.start())
+        low = sentence.lower()
+        if re.search(r"\bonly\s+\d", low) or re.search(r"\bonly\s+after\b", low) or re.search(r"\bonly\s+if\b", low):
+            continue
+        if "vertical" in low or (
+            "deep" in low and ("carry" in low or "drive" in low or "shot" in low)
+            and "miss" not in low and "intercept" not in low
+        ):
+            if len(deep_comp) != 1:
+                _add(
+                    sentence,
+                    f"absolute claim: ESPN has {len(deep_comp)} KC deep/vertical "
+                    f"completions, not a unique one",
+                )
+            continue
+        if "deep" in low and (
+            "miss" in low or "incomplete" in low or "intercept" in low
+        ):
+            if len(deep_middle_miss) != 1:
+                _add(
+                    sentence,
+                    f"absolute claim: ESPN has {len(deep_middle_miss)} KC "
+                    f"deep-middle misses, not a unique one",
+                )
+            continue
+        _add(sentence, "absolute claim cannot be verified against the play-by-play")
+
+    for match in _FIRST_PLAY_CLAIM.finditer(text):
+        sentence = _sentence_at(text, match.start())
+        _add(sentence, "absolute first-claim cannot be verified against the play-by-play")
+
+    for match in _NEVER_PLAY_CLAIM.finditer(text):
+        sentence = _sentence_at(text, match.start())
+        _add(sentence, "absolute never-claim cannot be verified against the play-by-play")
+    return issues
+
+
+def _check_team_yards(
+    text: str, recap: dict | None, last_game: dict | None
+) -> list[str]:
+    """Team rushing/passing totals vs last-game and prior-game boxes."""
+    if not text or not recap:
+        return []
+    last_rush = official_box_yards_by_team(recap, "rush", "last")
+    prior_rush = official_box_yards_by_team(recap, "rush", "prior")
+    last_pass = official_box_yards_by_team(recap, "pass", "last")
+    prior_pass = official_box_yards_by_team(recap, "pass", "prior")
+    if not last_rush and not prior_rush and not last_pass and not prior_pass:
+        return []
+    prior_labels = _prior_game_labels(recap)
+    last_labels = _last_game_labels(last_game, recap)
+    aliases = _team_aliases(last_game, recap)
+    issues = []
+
+    def _expected_rush(subject: str) -> tuple[str, int | None]:
+        token = " ".join((subject or "").lower().split()).strip(" '")
+        if token in prior_labels:
+            return "prior KC", prior_rush.get("KC")
+        if token in last_labels:
+            return "last KC", last_rush.get("KC")
+        team = _alias_team(token, aliases)
+        if team == "KC":
+            return "KC", last_rush.get("KC")
+        if team and team in last_rush:
+            return team, last_rush.get(team)
+        if team and team in prior_rush:
+            return f"prior {team}", prior_rush.get(team)
+        return token or "team", None
+
+    def _expected_pass(subject: str) -> tuple[str, int | None]:
+        token = " ".join((subject or "").lower().split()).strip(" '")
+        team = _alias_team(token, aliases)
+        if token in prior_labels:
+            return "prior KC", prior_pass.get("KC")
+        if token in last_labels:
+            return "last KC", last_pass.get("KC")
+        if team == "KC":
+            return "KC", last_pass.get("KC")
+        if team and team in last_pass:
+            return team, last_pass.get(team)
+        if team and team in prior_pass:
+            return f"prior {team}", prior_pass.get(team)
+        return token or "team", None
+
+    for match in _TEAM_GROUND.finditer(text):
+        try:
+            yards = int(match.group(2))
+        except (TypeError, ValueError):
+            continue
+        label, official = _expected_rush(match.group(1))
+        if official is None:
+            continue
+        if yards != official:
+            issues.append(
+                f"team rushing {yards} disagrees with ESPN {official} for "
+                f"{label} ({match.group(0)!r})"
+            )
+
+    for match in _TEAM_RUSH_YARDS.finditer(text):
+        try:
+            yards = int(match.group(1))
+        except (TypeError, ValueError):
+            continue
+        team = _bound_team(text, match.start(), match.end(), aliases, {})
+        if team and team != "KC" and team in last_rush:
+            official = last_rush[team]
+            label = team
+        elif team and team in prior_rush and team != "KC":
+            official = prior_rush[team]
+            label = f"prior {team}"
+        else:
+            official = last_rush.get("KC")
+            label = "KC"
+        if official is None:
+            continue
+        if yards == official:
+            continue
+        # A number that is the opponent's official total is bound to them.
+        if yards in last_rush.values() or yards in prior_rush.values():
+            continue
+        issues.append(
+            f"team rushing {yards} disagrees with ESPN {official} for "
+            f"{label} ({match.group(0)!r})"
+        )
+
+    for match in _TEAM_PASS_YARDS.finditer(text):
+        try:
+            yards = int(match.group(1))
+        except (TypeError, ValueError):
+            continue
+        # Player passing lines ("246 yards") sit next to a completion mark.
+        window = text[max(0, match.start() - 40) : match.end()]
+        if _PASS_LINE.search(window) or re.search(r"\d+\s*-\s*of\s*-\s*\d+", window, re.I):
+            continue
+        subject = _subject_clause(text, match.start())
+        label, official = _expected_pass(subject)
+        if official is None:
+            team = _bound_team(text, match.start(), match.end(), aliases, {})
+            if team and team in last_pass:
+                official = last_pass[team]
+                label = team
+            else:
+                official = last_pass.get("KC")
+                label = "KC"
+        if official is None or yards == official:
+            continue
+        if yards in last_pass.values() or yards in prior_pass.values():
+            continue
+        issues.append(
+            f"team passing {yards} disagrees with ESPN {official} for "
+            f"{label} ({match.group(0)!r})"
+        )
+    return issues
+
+
 def check_review(
     narrative: dict | None,
     last_game: dict | None,
@@ -1107,11 +1570,16 @@ def check_review(
     recap = recap or {}
     issues = _check_scores(text, last_game, recap)
     issues.extend(_check_part_of_day(text, last_game))
-    if recap.get("scoringPlays") or recap.get("leaders") or recap.get("kc"):
+    issues.extend(_check_echoed_instructions(text))
+    issues.extend(_check_record_phrasing(text))
+    if recap.get("scoringPlays") or recap.get("leaders") or recap.get("kc") or recap.get("plays"):
         issues.extend(_check_td_yards(text, recap, last_game))
         issues.extend(_check_fg_claims(text, recap, last_game))
         issues.extend(_check_stat_lines(text, recap, last_game))
         issues.extend(_check_play_sequence(text, recap))
+        issues.extend(_check_turnover_credit(text, recap))
+        issues.extend(_check_absolute_claims(text, recap))
+        issues.extend(_check_team_yards(text, recap, last_game))
     # Dedup while keeping order.
     out = []
     seen = set()
@@ -1133,8 +1601,12 @@ def retry_instruction(violations: list[str]) -> str:
         "gamePlan, xsandos, matchups, strategies) so every final score, "
         "in-game score, player stat line, TD/FG yardage, and FG/TD count "
         "matches those ESPN facts by team. Credit the kicking team. Do not "
-        "call a morning/midday/afternoon kickoff a night. A score 'after' or "
-        "'following' a turnover or another play must match the ESPN clock."
+        "call a morning/midday/afternoon kickoff a night. Credit only the "
+        "player ESPN lists as forcing or recovering a fumble. Team rushing "
+        "and passing totals must match the BOX, including the prior-game box. "
+        "Do not write only/first/never/lone play claims the play-by-play "
+        "cannot support. A score 'after' or 'following' a turnover or "
+        "another play must match the ESPN clock."
     )
 
 
@@ -1162,8 +1634,11 @@ def violation_snippets(violations: list[str]) -> list[str]:
 
 
 def _split_sentences(text: str) -> list[str]:
-    parts = re.split(r"(?<=[.!?])\s+", (text or "").strip())
-    return [p for p in parts if p.strip()]
+    chunks = []
+    for block in re.split(r"\n+", (text or "").strip()):
+        parts = re.split(r"(?<=[.!?])\s+", block.strip())
+        chunks.extend(p for p in parts if p.strip())
+    return chunks
 
 
 def _drop_text(text: str, snippets: list[str]) -> str:
@@ -1230,3 +1705,18 @@ def repair_offending_copy(
         review["lede"] = safe_score_lede(last_game)
         payload["lastGameReview"] = review
     return payload
+
+
+def dropped_sentences(before, after) -> list[str]:
+    """Sentences present in ``before`` that are gone after a repair."""
+    old = _split_sentences(edition_text(before))
+    new = {s.strip() for s in _split_sentences(edition_text(after))}
+    out = []
+    seen: set[str] = set()
+    for sentence in old:
+        key = sentence.strip()
+        if not key or key in new or key in seen:
+            continue
+        seen.add(key)
+        out.append(key)
+    return out
