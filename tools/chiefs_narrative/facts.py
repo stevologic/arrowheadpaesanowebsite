@@ -8,6 +8,7 @@ Every generated section is scanned — not just lastGameReview.
 """
 from __future__ import annotations
 
+import copy
 import re
 
 from . import collect, phase as phase_mod
@@ -17,11 +18,22 @@ _OF_LINE = re.compile(r"\d+\s*[-–]?\s*of\s*[-–]?\s*\d+", re.IGNORECASE)
 _SLASH_LINE = re.compile(r"\d+\s*/\s*\d+")
 
 # Game-score contexts only. Bare "3-0" / "6-11" (records) stay out.
+# Bare "lost 18-19" is first-down volume, not a final — require game/final/it/KC.
 _SCORE_PATTERNS = (
     re.compile(r"\bKC\s+(\d{1,2})\s*[–-]\s*(\d{1,2})\b", re.IGNORECASE),
     re.compile(r"\b(\d{1,2})\s*[–-]\s*(\d{1,2})\s+game\b", re.IGNORECASE),
     re.compile(
-        r"\b(?:final(?:\s+score)?|won|lost)\s+(?:it\s+)?(?:KC\s+)?"
+        r"\bfinal(?:\s+score)?\s+(?:KC\s+)?"
+        r"(\d{1,2})\s*[–-]\s*(\d{1,2})\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:won|lost)\s+it\s+(?:KC\s+)?"
+        r"(\d{1,2})\s*[–-]\s*(\d{1,2})\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(?:won|lost)\s+KC\s+"
         r"(\d{1,2})\s*[–-]\s*(\d{1,2})\b",
         re.IGNORECASE,
     ),
@@ -31,6 +43,13 @@ _SCORE_PATTERNS = (
     ),
 )
 
+# Bare "won 24-10" / "lost 18-19" — check only when the pair is a known score
+# (either order). An unknown pair is first downs or other volume, not a final.
+_LOOSE_WON_LOST = re.compile(
+    r"\b(?:won|lost)\s+(\d{1,2})\s*[–-]\s*(\d{1,2})\b",
+    re.IGNORECASE,
+)
+
 # Scoring-play yardage only when the claim is a TD/FG. An "88-yard run"
 # or "11-yard catch" is not a scoring claim.
 _TD_YARDS = re.compile(
@@ -38,7 +57,7 @@ _TD_YARDS = re.compile(
     re.IGNORECASE,
 )
 _CLAUSE_BREAK = re.compile(
-    r"[.;:!?]|—|,|\b(?:then|after|before|but|and)\b",
+    r"[.;:!?]|—|,|\n|\b(?:then|after|before|but|and)\b",
     re.IGNORECASE,
 )
 
@@ -110,13 +129,13 @@ _EDITION_KEYS = (
 _FG_YARD = re.compile(r"(\d{1,2})[-\s]yard(?:s)?\s+field goal", re.IGNORECASE)
 _FG_LIST = re.compile(r"field goals?\s*\(([^)]+)\)", re.IGNORECASE)
 _FG_COUNT = re.compile(
-    r"\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+"
-    r"([A-Za-z][A-Za-z ]{1,24}?)?\s*field goals?\b",
+    r"\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)[ \t]+"
+    r"([A-Za-z][A-Za-z ]{1,24}?)?[ \t]*field goals?\b",
     re.IGNORECASE,
 )
 _TD_COUNT = re.compile(
-    r"\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+"
-    r"([A-Za-z][A-Za-z ]{1,24}?)?\s*touchdowns?\b",
+    r"\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)[ \t]+"
+    r"([A-Za-z][A-Za-z ]{1,24}?)?[ \t]*touchdowns?\b",
     re.IGNORECASE,
 )
 _YARD_NIGHT = re.compile(
@@ -125,6 +144,58 @@ _YARD_NIGHT = re.compile(
 )
 _FINISHED_NIGHT = re.compile(r"\bfinished the night\b", re.IGNORECASE)
 _QB_NIGHT = re.compile(r"\bquarterback night\b", re.IGNORECASE)
+
+# Qualified counts are not whole-game totals. Compare against the window
+# when quarter data can compute it; otherwise skip.
+_COUNT_SCOPE = re.compile(
+    r"\b("
+    r"early|opening|late|"
+    r"first[- ]half|second[- ]half|"
+    r"(?:in\s+the\s+)?(?:first|second|third|fourth|opening|final)\s+quarter|"
+    r"q\s*[1-4]|"
+    r"in\s+the\s+game|all\s+game|on\s+the\s+day|overall|\btotal\b"
+    r")\b",
+    re.IGNORECASE,
+)
+_WHOLE_GAME_SCOPES = frozenset(
+    {"in the game", "all game", "on the day", "overall", "total"}
+)
+_SCOPE_QUARTERS = {
+    "early": frozenset({1, 2}),
+    "opening": frozenset({1, 2}),
+    "late": frozenset({3, 4}),
+    "first-half": frozenset({1, 2}),
+    "first half": frozenset({1, 2}),
+    "second-half": frozenset({3, 4}),
+    "second half": frozenset({3, 4}),
+    "first quarter": frozenset({1}),
+    "opening quarter": frozenset({1}),
+    "second quarter": frozenset({2}),
+    "third quarter": frozenset({3}),
+    "fourth quarter": frozenset({4}),
+    "final quarter": frozenset({4}),
+    "q1": frozenset({1}),
+    "q2": frozenset({2}),
+    "q3": frozenset({3}),
+    "q4": frozenset({4}),
+}
+
+_PROTECTED_KEYS = frozenset(
+    {
+        "score",
+        "result",
+        "opponent",
+        "label",
+        "id",
+        "at",
+        "tv",
+        "generatedAt",
+        "slug",
+        "generator",
+        "edition",
+        "record",
+    }
+)
 
 
 class FactCheckError(RuntimeError):
@@ -253,7 +324,7 @@ def _last_name_in(span: str, names: dict[str, str]) -> str:
     best = ""
     best_pos = -1
     for name in sorted(names, key=len, reverse=True):
-        if len(name) < 3:
+        if len(name) < 2:
             continue
         for hit in re.finditer(rf"\b{re.escape(name)}\b", span, re.IGNORECASE):
             if hit.start() >= best_pos:
@@ -321,16 +392,55 @@ def official_yards_by_team(recap: dict | None, kind: str) -> dict[str, set[int]]
     return by_team
 
 
-def official_count_by_team(recap: dict | None, kind: str) -> dict[str, int]:
+def _play_quarter(play: dict):
+    try:
+        return int(play.get("quarter"))
+    except (TypeError, ValueError):
+        return None
+
+
+def official_count_by_team(
+    recap: dict | None, kind: str, quarters: frozenset | None = None
+) -> dict[str, int]:
     counts: dict[str, int] = {}
     for play in (recap or {}).get("scoringPlays") or []:
         if not isinstance(play, dict):
             continue
         if _play_kind(play) != kind:
             continue
+        if quarters is not None:
+            qtr = _play_quarter(play)
+            if qtr not in quarters:
+                continue
         team = _play_team(play) or "?"
         counts[team] = counts.get(team, 0) + 1
     return counts
+
+
+def _normalize_scope_token(raw: str) -> str:
+    token = re.sub(r"\s+", " ", (raw or "").lower().replace("–", "-"))
+    token = re.sub(r"^in the ", "", token)
+    token = token.replace("q ", "q")
+    return token
+
+
+def _count_scope(text: str, start: int, end: int):
+    """Return None (whole game), a quarter frozenset, or 'skip'."""
+    window = text[max(0, start - 72) : min(len(text), end + 72)]
+    match = _COUNT_SCOPE.search(window)
+    if not match:
+        return None
+    token = _normalize_scope_token(match.group(1))
+    if token in _WHOLE_GAME_SCOPES:
+        return None
+    if token in _SCOPE_QUARTERS:
+        return _SCOPE_QUARTERS[token]
+    return "skip"
+
+
+def _pair_allowed(pair: tuple[int, int], pairs: set[tuple[int, int]]) -> bool:
+    """Score order is irrelevant: 24-10 and 10-24 are the same pair."""
+    return pair in pairs or (pair[1], pair[0]) in pairs
 
 
 def _mask_stat_lookalikes(text: str) -> str:
@@ -346,8 +456,11 @@ def _int_pair(a, b):
 
 
 def allowed_score_pairs(last_game: dict | None, recap: dict | None) -> set[tuple[int, int]]:
-    """Official final plus every ESPN score-after. Both orders are allowed."""
-    pairs: set[tuple[int, int]] = set()
+    """Official final plus every ESPN score-after. Both orders are allowed.
+
+    0-0 is always a real game state (kickoff, or any tie at the start).
+    """
+    pairs: set[tuple[int, int]] = {(0, 0)}
     last = last_game or {}
     kc, opp = last.get("kcScore"), last.get("oppScore")
     pair = _int_pair(kc, opp)
@@ -412,17 +525,31 @@ def _check_scores(text: str, last_game: dict, recap: dict) -> list[str]:
     masked = _mask_stat_lookalikes(text)
     issues = []
     seen: set[tuple[int, int]] = set()
+
+    def _consider(match) -> None:
+        pair = _int_pair(match.group(1), match.group(2))
+        if not pair or pair in seen:
+            return
+        if _pair_allowed(pair, pairs):
+            seen.add(pair)
+            return
+        seen.add(pair)
+        issues.append(
+            f"score {pair[0]}-{pair[1]} is not the official final "
+            f"or an ESPN score-after ({match.group(0)!r})"
+        )
+
     for rx in _SCORE_PATTERNS:
         for match in rx.finditer(masked):
-            pair = _int_pair(match.group(1), match.group(2))
-            if not pair or pair in seen:
-                continue
+            _consider(match)
+    # Bare won/lost is a score claim only when the pair is a known score
+    # (either order). Unknown pairs stay out — "lost 18-19" is first downs.
+    for match in _LOOSE_WON_LOST.finditer(masked):
+        pair = _int_pair(match.group(1), match.group(2))
+        if not pair or pair in seen:
+            continue
+        if _pair_allowed(pair, pairs):
             seen.add(pair)
-            if pair not in pairs:
-                issues.append(
-                    f"score {pair[0]}-{pair[1]} is not the official final "
-                    f"or an ESPN score-after ({match.group(0)!r})"
-                )
     return issues
 
 
@@ -473,8 +600,6 @@ def _check_fg_claims(
         return []
     aliases = _team_aliases(last_game, recap)
     players = _player_teams(recap)
-    counts = official_count_by_team(recap, "fg")
-    td_counts = official_count_by_team(recap, "td")
     issues = []
 
     for match in _FG_LIST.finditer(text):
@@ -529,29 +654,43 @@ def _check_fg_claims(
             )
 
     for match in _FG_COUNT.finditer(text):
-        claimed = _parse_count_word(match.group(1))
-        team = _alias_team(match.group(2) or "", aliases)
-        if claimed is None or not team:
-            continue
-        official = counts.get(team, 0)
-        if claimed != official:
-            issues.append(
-                f"{team} field-goal count {claimed} disagrees with ESPN "
-                f"{official} ({match.group(0)!r})"
-            )
+        issue = _count_issue(
+            text, match, recap, "fg", aliases, "field-goal count"
+        )
+        if issue:
+            issues.append(issue)
 
     for match in _TD_COUNT.finditer(text):
-        claimed = _parse_count_word(match.group(1))
-        team = _alias_team(match.group(2) or "", aliases)
-        if claimed is None or not team:
-            continue
-        official = td_counts.get(team, 0)
-        if claimed != official:
-            issues.append(
-                f"{team} touchdown count {claimed} disagrees with ESPN "
-                f"{official} ({match.group(0)!r})"
-            )
+        issue = _count_issue(
+            text, match, recap, "td", aliases, "touchdown count"
+        )
+        if issue:
+            issues.append(issue)
     return issues
+
+
+def _count_issue(
+    text: str,
+    match,
+    recap: dict,
+    kind: str,
+    aliases: dict[str, str],
+    label: str,
+):
+    claimed = _parse_count_word(match.group(1))
+    team = _alias_team(match.group(2) or "", aliases)
+    if claimed is None or not team:
+        return None
+    scope = _count_scope(text, match.start(), match.end())
+    if scope == "skip":
+        return None
+    official = official_count_by_team(recap, kind, quarters=scope).get(team, 0)
+    if claimed == official:
+        return None
+    return (
+        f"{team} {label} {claimed} disagrees with ESPN "
+        f"{official} ({match.group(0)!r})"
+    )
 
 
 def _check_part_of_day(text: str, last_game: dict | None) -> list[str]:
@@ -732,3 +871,97 @@ def retry_instruction(violations: list[str]) -> str:
         "matches those ESPN facts by team. Credit the kicking team. Do not "
         "call a morning/midday/afternoon kickoff a night."
     )
+
+
+def sentence_repair_instruction(violations: list[str]) -> str:
+    bullets = "\n".join(f"- {v}" for v in violations)
+    return (
+        "SENTENCE REPAIR: do not rewrite the edition. Replace only the "
+        "sentences that triggered these violations. Drop a sentence if you "
+        "cannot make it agree with the ESPN scoring table.\n"
+        f"{bullets}"
+    )
+
+
+def violation_snippets(violations: list[str]) -> list[str]:
+    """Quoted match text from a violation, e.g. 'lost 18-19'."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in violations or []:
+        for hit in re.findall(r"'([^']+)'", item):
+            snippet = hit.strip()
+            if snippet and snippet not in seen:
+                seen.add(snippet)
+                out.append(snippet)
+    return out
+
+
+def _split_sentences(text: str) -> list[str]:
+    parts = re.split(r"(?<=[.!?])\s+", (text or "").strip())
+    return [p for p in parts if p.strip()]
+
+
+def _drop_text(text: str, snippets: list[str]) -> str:
+    lowered = [s.lower() for s in snippets if s]
+    if not text or not lowered or not any(s in text.lower() for s in lowered):
+        return text
+    sentences = _split_sentences(text)
+    if len(sentences) <= 1:
+        return ""
+    kept = [s for s in sentences if not any(snip in s.lower() for snip in lowered)]
+    return " ".join(kept).strip()
+
+
+def _drop_value(value, snippets: list[str]):
+    if isinstance(value, str):
+        return _drop_text(value, snippets)
+    if isinstance(value, list):
+        out = []
+        for item in value:
+            kept = _drop_value(item, snippets)
+            if kept in (None, "", [], {}):
+                continue
+            out.append(kept)
+        return out
+    if isinstance(value, dict):
+        out = {}
+        for key, item in value.items():
+            if key in _PROTECTED_KEYS:
+                out[key] = item
+                continue
+            kept = _drop_value(item, snippets)
+            if kept not in (None, "", [], {}):
+                out[key] = kept
+            elif key in ("lede", "body", "title", "why", "coaching", "note"):
+                out[key] = kept if isinstance(kept, str) else ""
+        return out
+    return value
+
+
+def safe_score_lede(last_game: dict | None) -> str:
+    last = last_game or {}
+    opp = (last.get("opponent") or "the opponent").strip()
+    pair = _int_pair(last.get("kcScore"), last.get("oppScore"))
+    if not pair:
+        return f"Kansas City played {opp}."
+    return f"Kansas City finished {pair[0]}–{pair[1]} against {opp}."
+
+
+def repair_offending_copy(
+    narrative: dict | None,
+    violations: list[str],
+    last_game: dict | None = None,
+) -> dict:
+    """Drop or blank only the sentences that triggered the violations."""
+    payload = copy.deepcopy(narrative or {})
+    snippets = violation_snippets(violations)
+    if not snippets:
+        return payload
+    for key in _EDITION_KEYS:
+        if key in payload:
+            payload[key] = _drop_value(payload[key], snippets)
+    review = payload.get("lastGameReview")
+    if isinstance(review, dict) and not (review.get("lede") or "").strip():
+        review["lede"] = safe_score_lede(last_game)
+        payload["lastGameReview"] = review
+    return payload
