@@ -46,7 +46,19 @@ including the prior-game box — do not substitute a player's line for the \
 team total. Do not write only/first/never/lone claims about plays unless \
 the play-by-play list supports them. Exactly four offense and two defense \
 X's & O's cards; the defense cards must be Cover-2 and the zone blitz, \
-each with a real situation and why. Never echo 'Do not call', 'do not write', \
+each with a real situation and why. Copy PLAYER TOUCHES, PASS ATTEMPTS, \
+SACKS, and QB HITS exactly — do not invent an 18-touch line, a 40-drop, \
+or a sack/hit count. Do not write punishment, beating, or too many hits \
+when the box says zero sacks; use the QB-hit number. Do not label a throw \
+play-action unless the play-by-play says play-action or play fake. Do not \
+claim both snaps, the same jumbo look, or the same eligible report unless \
+the ELIGIBLE list matches every snap you name. State what happened; do not \
+write correction-note contrasts (not Sneed, not a Miami one, not eligible \
+on a clock ESPN never reported). The card why becomes the SVG caption — \
+keep it coaching copy, not a leftover caption. For the opening score, write \
+elapsed time (2:06 into the game) or the game clock (Q1 12:54), never a \
+bare at-2:06 that reads as the clock. Do not call a 0-sack, 20-of-24 day \
+a survival tape. Never echo 'Do not call', 'do not write', \
 or other imperative guidance into the edition.
 [/PRIVATE]
 
@@ -181,7 +193,8 @@ def _allowed_facts(recap: dict | None) -> list[str]:
     if hits:
         lines.append(
             f"  QB HITS: KC recorded {hits.get('KC', 0)}; "
-            f"opponent recorded {hits.get('OPP', 0)} (hits on Mahomes)."
+            f"opponent recorded {hits.get('OPP', 0)} (hits on Mahomes). "
+            "Write these counts. Do not write too many hits or punishment."
         )
     penalties = recap.get("penalties") or []
     if penalties:

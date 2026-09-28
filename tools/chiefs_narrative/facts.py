@@ -11,7 +11,7 @@ from __future__ import annotations
 import copy
 import re
 
-from . import collect, phase as phase_mod
+from . import collect, config, diagrams, phase as phase_mod
 
 # Completions and similar "X-of-Y" / "X/Y" lines must not be read as scores.
 _OF_LINE = re.compile(r"\d+\s*[-–]?\s*of\s*[-–]?\s*\d+", re.IGNORECASE)
@@ -245,9 +245,54 @@ _NEVER_PLAY_CLAIM = re.compile(
     r"targeted|connected)\b",
     re.IGNORECASE,
 )
-_TOUCH_COUNT = re.compile(r"\b(\d{1,2})\s+touches\b", re.IGNORECASE)
+_NUMBER_WORDS = {
+    "zero": 0,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+    "eleven": 11,
+    "twelve": 12,
+    "thirteen": 13,
+    "fourteen": 14,
+    "fifteen": 15,
+    "sixteen": 16,
+    "seventeen": 17,
+    "eighteen": 18,
+    "nineteen": 19,
+    "twenty": 20,
+    "thirty": 30,
+    "forty": 40,
+}
+_NUM_TOKEN = (
+    r"\d{1,3}|zero|one|two|three|four|five|six|seven|eight|nine|ten|"
+    r"eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|"
+    r"eighteen|nineteen|twenty|thirty|forty"
+)
+_TOUCH_COUNT = re.compile(
+    rf"\b({_NUM_TOKEN})\s+touches\b",
+    re.IGNORECASE,
+)
 _DROP_ATTEMPT = re.compile(
-    r"\b(\d{2,3})[-\s](?:drop(?:back)?s?|attempts?)\b",
+    rf"\b({_NUM_TOKEN})[-\s](?:drop(?:back)?s?|attempts?)\b|"
+    rf"\bthrew\s+({_NUM_TOKEN})\s+passes\b|"
+    rf"\b({_NUM_TOKEN})\s+attempts\b",
+    re.IGNORECASE,
+)
+_SACK_COUNT = re.compile(
+    rf"\bsacked\s+({_NUM_TOKEN})\s+times\b|"
+    rf"\b({_NUM_TOKEN})\s+sacks\b",
+    re.IGNORECASE,
+)
+_QB_HIT_COUNT = re.compile(
+    rf"\bhit\s+({_NUM_TOKEN})\s+times\b|"
+    rf"\b({_NUM_TOKEN})\s+QB hits\b",
     re.IGNORECASE,
 )
 _ILLEGAL_USE = re.compile(
@@ -255,13 +300,13 @@ _ILLEGAL_USE = re.compile(
     re.IGNORECASE,
 )
 _SAME_LOOK = re.compile(
-    r"\bsame (?:jumbo )?look\b|\bboth snaps\b|"
-    r"\bstuffed red-zone snaps\b|\btwo stuffed snaps\b",
+    r"\bsame (?:jumbo )?look\b|\bboth snaps\b",
     re.IGNORECASE,
 )
 _FIRST_MINUTES = re.compile(
-    r"\bfirst\s+(two|three|four|\d+)\s+minutes?\b|"
-    r"\b(?:two|three|\d+)[-\s]minute opening\b",
+    rf"\bfirst\s+({_NUM_TOKEN})\s+minutes?\b|"
+    rf"\bfirst\s+({_NUM_TOKEN})\s+seconds?\b|"
+    rf"\b(?:two|three|{_NUM_TOKEN})[-\s]minute opening\b",
     re.IGNORECASE,
 )
 # Name tokens stay case-sensitive so IGNORECASE cannot turn "was"/"one"/"an"
@@ -429,6 +474,7 @@ _PROTECTED_KEYS = frozenset(
         "at",
         "tv",
         "generatedAt",
+        "updatedAt",
         "slug",
         "generator",
         "edition",
@@ -1606,11 +1652,47 @@ def _official_names(plays: list[dict], *fields: str) -> set[str]:
     return names
 
 
+def _parse_count(token: str | None):
+    raw = (token or "").strip().lower()
+    if not raw:
+        return None
+    if raw.isdigit():
+        return int(raw)
+    return _NUMBER_WORDS.get(raw)
+
+
+def _match_count(match) -> int | None:
+    for value in match.groups():
+        parsed = _parse_count(value)
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _is_initial_dot(text: str, pos: int) -> bool:
+    """True for the period in 'H. Nourzad' / 'J. Moore', not a sentence end."""
+    if pos <= 0 or pos >= len(text) or text[pos] != ".":
+        return False
+    if not text[pos - 1].isupper():
+        return False
+    if pos >= 2 and text[pos - 2].isalpha():
+        return False
+    return True
+
+
 def _sentence_at(text: str, index: int) -> str:
-    start = text.rfind(".", 0, index) + 1
-    end = text.find(".", index)
-    if end < 0:
-        end = len(text)
+    start = 0
+    pos = text.rfind(".", 0, index)
+    while pos >= 0 and _is_initial_dot(text, pos):
+        pos = text.rfind(".", 0, pos)
+    if pos >= 0:
+        start = pos + 1
+    end = len(text)
+    pos = text.find(".", index)
+    while 0 <= pos < len(text) and _is_initial_dot(text, pos):
+        pos = text.find(".", pos + 1)
+    if pos >= 0:
+        end = pos
     return text[start:end].strip()
 
 
@@ -2088,9 +2170,8 @@ def _check_touch_counts(text: str, recap: dict | None) -> list[str]:
         return []
     issues = []
     for match in _TOUCH_COUNT.finditer(text):
-        try:
-            claimed = int(match.group(1))
-        except (TypeError, ValueError):
+        claimed = _match_count(match)
+        if claimed is None:
             continue
         sentence = _sentence_at(text, match.start())
         official = None
@@ -2125,9 +2206,8 @@ def _check_attempt_counts(text: str, recap: dict | None) -> list[str]:
     official = int(kc["attempts"])
     issues = []
     for match in _DROP_ATTEMPT.finditer(text):
-        try:
-            claimed = int(match.group(1))
-        except (TypeError, ValueError):
+        claimed = _match_count(match)
+        if claimed is None:
             continue
         if claimed == official:
             continue
@@ -2205,7 +2285,7 @@ def _check_same_look_snaps(text: str, recap: dict | None) -> list[str]:
         # The two Walker stuffs at the Miami 12 were Q2 6:58 (no report)
         # and Q2 6:15 (Nourzad). Same-look / both-snaps claims are false.
         if (2, "6:58") not in nourzad_clocks and (
-            "both" in low or "same" in low or "snaps" in low
+            "both" in low or "same" in low
         ):
             issues.append(
                 "Nourzad was reported eligible only on the Q2 6:15 snap, "
@@ -2230,26 +2310,92 @@ def _check_first_minutes(text: str, recap: dict | None) -> list[str]:
     if not text or elapsed is None:
         return []
     issues = []
-    words = {"two": 2, "three": 3, "four": 4}
     for match in _FIRST_MINUTES.finditer(text):
         sentence = _sentence_at(text, match.start())
         if not re.search(
             r"\b(?:scored|score|strike|touchdown|opening|td)\b", sentence, re.I
         ):
             continue
-        raw = match.group(1) or re.search(r"\d+|two|three|four", match.group(0), re.I)
-        token = raw if isinstance(raw, str) else (raw.group(0) if raw else "")
-        minutes = words.get(token.lower()) if token else None
-        if minutes is None:
-            try:
-                minutes = int(token)
-            except (TypeError, ValueError):
-                continue
-        if elapsed > minutes * 60:
+        claimed = _match_count(match)
+        if claimed is None:
+            continue
+        window = claimed
+        unit = "minutes"
+        if re.search(r"\bseconds?\b", match.group(0), re.I):
+            unit = "seconds"
+        else:
+            window = claimed * 60
+        if elapsed > window:
             mm, ss = divmod(elapsed, 60)
             issues.append(
                 f"opening score came at {mm}:{ss:02d}, not in the first "
-                f"{minutes} minutes ({match.group(0)!r})"
+                f"{claimed} {unit} ({match.group(0)!r})"
+            )
+    return issues
+
+
+def _check_sack_counts(text: str, recap: dict | None) -> list[str]:
+    passing = [
+        row
+        for row in (recap or {}).get("passing") or []
+        if isinstance(row, dict) and row.get("sacks") is not None
+    ]
+    if not text or not passing:
+        return []
+    kc = next((row for row in passing if (row.get("team") or "").upper() == "KC"), None)
+    if not kc:
+        return []
+    official = int(kc["sacks"])
+    issues = []
+    for match in _SACK_COUNT.finditer(text):
+        claimed = _match_count(match)
+        if claimed is None or claimed == official:
+            continue
+        issues.append(
+            f"sacks {claimed} disagrees with ESPN {official} for "
+            f"{kc.get('player') or 'KC'} ({match.group(0)!r})"
+        )
+    return issues
+
+
+def _check_qb_hit_counts(text: str, recap: dict | None) -> list[str]:
+    hits = (recap or {}).get("qbHits") or {}
+    if not text or hits.get("OPP") is None:
+        return []
+    official = int(hits["OPP"])
+    issues = []
+    for match in _QB_HIT_COUNT.finditer(text):
+        claimed = _match_count(match)
+        if claimed is None or claimed == official:
+            continue
+        issues.append(
+            f"QB hits {claimed} disagrees with ESPN {official} "
+            f"({match.group(0)!r})"
+        )
+    return issues
+
+
+def check_diagram_captions(narrative: dict | None) -> list[str]:
+    """Visible SVG footer text must come from the card's why."""
+    issues = []
+    for xo in (narrative or {}).get("xsandos") or []:
+        if not isinstance(xo, dict):
+            continue
+        rel = (xo.get("diagram") or "").strip()
+        why = (xo.get("why") or "").strip()
+        if not rel or not why:
+            continue
+        path = config.PUBLIC_DIR / rel
+        if not path.is_file():
+            issues.append(
+                f"XO diagram missing for {xo.get('concept') or rel}: {rel}"
+            )
+            continue
+        visible = diagrams.visible_caption(path.read_text(encoding="utf-8"))
+        if not diagrams.caption_matches_why(visible, why):
+            issues.append(
+                f"XO caption does not match why for "
+                f"{xo.get('concept') or rel}"
             )
     return issues
 
@@ -2292,6 +2438,8 @@ def check_review(
         issues.extend(_check_box_clocks(text, recap, last_game))
         issues.extend(_check_touch_counts(text, recap))
         issues.extend(_check_attempt_counts(text, recap))
+        issues.extend(_check_sack_counts(text, recap))
+        issues.extend(_check_qb_hit_counts(text, recap))
         issues.extend(_check_penalty_attribution(text, recap))
         issues.extend(_check_same_look_snaps(text, recap))
         issues.extend(_check_first_minutes(text, recap))
