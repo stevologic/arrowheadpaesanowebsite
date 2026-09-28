@@ -145,7 +145,14 @@ jobs:
             echo "Chiefs game in progress; skipping publish."
             exit 0
           fi
-          git add -A data public/images/narrative
+          git add -- \
+            data/narrative.json \
+            data/narrative_archive.json \
+            data/narrative_repair.json \
+            data/narrative_editions \
+            data/wire.json \
+            data/schedule_2026.json \
+            public/images/narrative
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "No slate or narrative changes."
@@ -170,6 +177,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m unittest discover -s tools/tests -v
+          python -m tools.chiefs_narrative.generate --diagrams-only
           hugo --gc --minify
 
       - name: Open pull request and wait for CI gates
