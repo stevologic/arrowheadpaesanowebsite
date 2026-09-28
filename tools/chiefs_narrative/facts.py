@@ -180,6 +180,64 @@ _SCOPE_QUARTERS = {
     "q4": frozenset({4}),
 }
 
+_AFTER_FOLLOWING = re.compile(
+    r"\b(?P<rel>after|following)\s+(?:the\s+)?",
+    re.IGNORECASE,
+)
+_SEQUENCE_SCORE = re.compile(
+    r"(?:from the (\d+)\b|(\d+)[-\s]yard(?:s)?\s+(?:TD|touchdown|field goal)\b"
+    r"|(\d{1,2})\s*[–-]\s*(\d{1,2}))",
+    re.IGNORECASE,
+)
+_SEQUENCE_TURNOVER = re.compile(
+    r"\b(interception|int|fumble|missed(?:\s+\d+[-\s]yard(?:er)?)?|"
+    r"turnover on downs)\b",
+    re.IGNORECASE,
+)
+_SEQUENCE_NAME = re.compile(r"[A-Za-z][A-Za-z''-]{3,}")
+_SEQUENCE_STOP = frozenset(
+    {
+        "after",
+        "following",
+        "that",
+        "this",
+        "with",
+        "from",
+        "made",
+        "make",
+        "then",
+        "when",
+        "into",
+        "touchdown",
+        "field",
+        "goal",
+        "interception",
+        "fumble",
+        "missed",
+        "yard",
+        "yards",
+        "score",
+        "scoring",
+        "play",
+        "game",
+        "quarter",
+        "half",
+        "first",
+        "second",
+        "third",
+        "fourth",
+        "kansas",
+        "city",
+        "miami",
+        "dolphins",
+        "chiefs",
+        "football",
+        "the",
+        "and",
+        "for",
+    }
+)
+
 _PROTECTED_KEYS = frozenset(
     {
         "score",
@@ -821,6 +879,211 @@ def _check_stat_lines(text: str, recap: dict, last_game: dict | None = None) -> 
     return issues
 
 
+def _clock_seconds(raw) -> int:
+    text = str(raw or "0:00")
+    parts = [p for p in text.replace(".", ":").split(":") if p != ""]
+    try:
+        if len(parts) >= 2:
+            return int(parts[0]) * 60 + int(parts[1])
+        return int(parts[0])
+    except (TypeError, ValueError):
+        return 0
+
+
+def _event_kind(raw: str) -> str:
+    token = (raw or "").strip().lower()
+    if token in _TD_TYPES or token == "td" or "touchdown" in token:
+        return "td"
+    if token in _FG_TYPES or "field goal" in token:
+        return "fg"
+    if token in {"int", "interception"} or "intercept" in token:
+        return "int"
+    if "fumble" in token:
+        return "fumble"
+    if "miss" in token:
+        return "missed fg"
+    if "down" in token:
+        return "turnover on downs"
+    return token
+
+
+def _event_sort_key(event: dict) -> tuple:
+    try:
+        quarter = int(event.get("quarter") or 0)
+    except (TypeError, ValueError):
+        quarter = 0
+    return (quarter, -_clock_seconds(event.get("clock")))
+
+
+def _timeline(recap: dict | None) -> list[dict]:
+    events: list[dict] = []
+    for play in (recap or {}).get("scoringPlays") or []:
+        if not isinstance(play, dict):
+            continue
+        kind = _event_kind(_play_kind(play) or play.get("type") or "")
+        if not kind:
+            continue
+        pair = _int_pair(play.get("kcScore"), play.get("oppScore"))
+        after = play.get("scoreAfter") or ""
+        match = re.search(r"(\d+)\s*[–-]\s*(\d+)", after)
+        if not pair and match:
+            pair = _int_pair(match.group(1), match.group(2))
+        player = (play.get("player") or "").strip()
+        events.append(
+            {
+                "kind": kind,
+                "yards": _play_yards(play),
+                "player": player,
+                "quarter": play.get("quarter"),
+                "clock": play.get("clock") or "",
+                "pair": pair,
+                "blob": " ".join(
+                    p for p in (player, kind, str(play.get("yards") or ""), after)
+                    if p
+                ).lower(),
+                "label": (
+                    f"{player or kind} {play.get('yards') or ''}yd {kind} "
+                    f"Q{play.get('quarter')} {play.get('clock') or ''}"
+                ).strip(),
+            }
+        )
+    for row in (recap or {}).get("driveResults") or []:
+        if not isinstance(row, dict):
+            continue
+        kind = _event_kind(row.get("result") or "")
+        if not kind:
+            continue
+        player = (row.get("player") or "").strip()
+        detail = (row.get("detail") or "").strip()
+        events.append(
+            {
+                "kind": kind,
+                "yards": row.get("yards"),
+                "player": player,
+                "quarter": row.get("quarter"),
+                "clock": row.get("clock") or "",
+                "pair": None,
+                "blob": " ".join(p for p in (player, detail, kind) if p).lower(),
+                "label": (
+                    f"{player or detail or kind} {kind} "
+                    f"Q{row.get('quarter')} {row.get('clock') or ''}"
+                ).strip(),
+            }
+        )
+    events.sort(key=_event_sort_key)
+    return events
+
+
+def _span_names(span: str) -> list[str]:
+    names = []
+    for hit in _SEQUENCE_NAME.finditer(span or ""):
+        token = hit.group(0).lower().replace("’", "'")
+        if token in _SEQUENCE_STOP:
+            continue
+        names.append(token)
+    return names
+
+
+def _resolve_timeline_event(span: str, events: list[dict], prefer_last: bool = False):
+    """Map a prose span to one ESPN timeline event, or None if ambiguous."""
+    if not span or not events:
+        return None
+    yards = None
+    want_kind = ""
+    pair = None
+    score = None
+    if prefer_last:
+        for hit in _SEQUENCE_SCORE.finditer(span):
+            score = hit
+    else:
+        score = _SEQUENCE_SCORE.search(span)
+    if score:
+        raw_yards = score.group(1) or score.group(2)
+        if raw_yards:
+            try:
+                yards = int(raw_yards)
+            except (TypeError, ValueError):
+                yards = None
+            low = score.group(0).lower()
+            if "field goal" in low:
+                want_kind = "fg"
+            elif "td" in low or "touchdown" in low or score.group(1):
+                want_kind = "td"
+        elif score.group(3) and score.group(4):
+            pair = _int_pair(score.group(3), score.group(4))
+        else:
+            pair = None
+    else:
+        pair = None
+    turn = _SEQUENCE_TURNOVER.search(span)
+    if turn:
+        want_kind = _event_kind(turn.group(1))
+        yards = None
+        pair = None
+    names = _span_names(span)
+    hits = []
+    for event in events:
+        if want_kind and event["kind"] != want_kind:
+            continue
+        if yards is not None and event.get("yards") != yards:
+            continue
+        if pair and event.get("pair"):
+            if not _pair_allowed(pair, {event["pair"], (event["pair"][1], event["pair"][0])}):
+                continue
+        elif pair and not event.get("pair"):
+            continue
+        if names and not any(name in event["blob"] for name in names):
+            # Scoring yardage / score-after can stand alone.
+            if not (yards is not None or (pair and event.get("pair"))):
+                continue
+        hits.append(event)
+    if len(hits) == 1:
+        return hits[0]
+    if names:
+        named = [event for event in hits if any(name in event["blob"] for name in names)]
+        if len(named) == 1:
+            return named[0]
+    return None
+
+
+def _right_span(text: str, start: int) -> str:
+    chunk = text[start : min(len(text), start + 80)]
+    return re.split(r"[.;,!?]|—", chunk, maxsplit=1)[0].strip()
+
+
+def _check_play_sequence(text: str, recap: dict | None) -> list[str]:
+    """'A after B' / 'A following B' must match ESPN play order."""
+    events = _timeline(recap)
+    if len(events) < 2 or not text:
+        return []
+    issues = []
+    seen: set[str] = set()
+    for match in _AFTER_FOLLOWING.finditer(text):
+        left = text[max(0, match.start() - 120) : match.start()]
+        right = _right_span(text, match.end())
+        first = _resolve_timeline_event(left, events, prefer_last=True)
+        second = _resolve_timeline_event(right, events)
+        if not first or not second or first is second:
+            continue
+        # One side must be a scoring play; the other a turnover or another play.
+        kinds = {first["kind"], second["kind"]}
+        if not kinds & {"td", "fg"}:
+            continue
+        if _event_sort_key(first) > _event_sort_key(second):
+            continue
+        snippet = (left[-48:] + match.group(0) + right).strip()
+        snippet = re.sub(r"\s+", " ", snippet)
+        key = snippet.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        issues.append(
+            f"play order: {first['label']} is not after {second['label']} "
+            f"({snippet!r})"
+        )
+    return issues
+
+
 def check_review(
     narrative: dict | None,
     last_game: dict | None,
@@ -848,6 +1111,7 @@ def check_review(
         issues.extend(_check_td_yards(text, recap, last_game))
         issues.extend(_check_fg_claims(text, recap, last_game))
         issues.extend(_check_stat_lines(text, recap, last_game))
+        issues.extend(_check_play_sequence(text, recap))
     # Dedup while keeping order.
     out = []
     seen = set()
@@ -869,7 +1133,8 @@ def retry_instruction(violations: list[str]) -> str:
         "gamePlan, xsandos, matchups, strategies) so every final score, "
         "in-game score, player stat line, TD/FG yardage, and FG/TD count "
         "matches those ESPN facts by team. Credit the kicking team. Do not "
-        "call a morning/midday/afternoon kickoff a night."
+        "call a morning/midday/afternoon kickoff a night. A score 'after' or "
+        "'following' a turnover or another play must match the ESPN clock."
     )
 
 

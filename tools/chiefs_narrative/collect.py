@@ -603,8 +603,22 @@ def _drive_period_clock(drive: dict) -> tuple:
     return period, clock
 
 
-def _drive_detail(drive: dict, result: str) -> tuple[str, int | None]:
-    """Last useful play text and a yardage when the result mentions one."""
+def _play_clock_display(play: dict) -> str:
+    clock = play.get("clock")
+    if isinstance(clock, dict):
+        return (clock.get("displayValue") or "").strip()
+    return str(clock or "").strip()
+
+
+def _play_period_number(play: dict):
+    period = play.get("period")
+    if isinstance(period, dict):
+        return period.get("number")
+    return period
+
+
+def _drive_detail(drive: dict, result: str):
+    """Last useful play text, yardage, and the play's own clock when present."""
     plays = drive.get("plays") or []
     needles = {
         "missed FG": ("no good", "missed", "wide"),
@@ -613,6 +627,7 @@ def _drive_detail(drive: dict, result: str) -> tuple[str, int | None]:
         "turnover on downs": ("turnover on downs", "on downs"),
     }.get(result, ())
     chosen = ""
+    chosen_play = None
     for play in reversed(plays):
         if not isinstance(play, dict):
             continue
@@ -624,9 +639,11 @@ def _drive_detail(drive: dict, result: str) -> tuple[str, int | None]:
             continue
         if needles and any(n in low for n in needles):
             chosen = text
+            chosen_play = play
             break
         if not chosen:
             chosen = text
+            chosen_play = play
     if not chosen:
         chosen = (drive.get("description") or "").strip()
     yards = None
@@ -640,7 +657,9 @@ def _drive_detail(drive: dict, result: str) -> tuple[str, int | None]:
     detail = re.sub(r"\s+", " ", chosen)
     if len(detail) > 96:
         detail = detail[:93].rstrip() + "…"
-    return detail, yards
+    clock = _play_clock_display(chosen_play) if chosen_play else ""
+    period = _play_period_number(chosen_play) if chosen_play else None
+    return detail, yards, clock, period
 
 
 def parse_drive_results(drives) -> list[dict]:
@@ -661,7 +680,11 @@ def parse_drive_results(drives) -> list[dict]:
             continue
         team = ((drive.get("team") or {}).get("abbreviation") or "").upper()
         period, clock = _drive_period_clock(drive)
-        detail, yards = _drive_detail(drive, label)
+        detail, yards, play_clock, play_period = _drive_detail(drive, label)
+        if play_clock:
+            clock = play_clock
+        if play_period not in (None, ""):
+            period = play_period
         out.append(
             {
                 "quarter": period,
