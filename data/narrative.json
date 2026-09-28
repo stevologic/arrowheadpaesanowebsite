@@ -111,7 +111,7 @@
     "keys": [
       {
         "title": "Boot and screen Crosby, do not sit on him",
-        "body": "Boot away from Crosby and RB screens off the aggressive upfield rush are the two ways to cash the Miami passing tape without asking the tackles to win another 24-attempt game. Mahomes left Miami with five QB hits and no sacks; boots and screens are how you keep that pocket against Crosby."
+        "body": "Boot away from Crosby and RB screens off the aggressive upfield rush are the two ways to cash the Miami passing tape without asking the tackles to win a 24-attempt game. Mahomes left Miami with five QB hits and no sacks — keep that pocket against Crosby."
       },
       {
         "title": "Win first down so third down is not 3-of-7 again",
@@ -322,7 +322,7 @@
       "situation": "3rd-and-5, Raiders in shotgun, money down after Miami went 8-of-16",
       "concept": "zone_blitz",
       "why": "The snap-count tape made L’Jarius Sneed a featured blitzer, and he forced and recovered a fumble playing downhill. Spagnuolo cannot wait on another Karlaftis interception to get off the field. Showing heat, dropping a lineman, and sending Sneed from the second level is the call that shortens drives against a 3-0 offense without asking Jones to win every snap as a four-man rush.",
-      "coaching": "Sneed’s path is the A-gap or the slot seam. Karlaftis drew the illegal-use flag at Q4 0:47 that wiped Roland-Wallace’s interception. The dropping end has to land in the throwing lane Willis kept missing in Miami. Jones still occupies two blockers; Karlaftis rushes off the opposite edge so the quarterback’s hot throw has nowhere clean to go.",
+      "coaching": "Sneed’s path is the A-gap or the slot seam. The dropping end has to land in the throwing lane Willis kept missing in Miami. Jones still occupies two blockers. Karlaftis rushes off the opposite edge so the hot throw has nowhere clean to go, and he has to stay legal doing it: the illegal-use flag at Q4 0:47 wiped Roland-Wallace’s interception.",
       "labels": {
         "x": "hot flat",
         "z": "curl/flat",
@@ -471,5 +471,5 @@
     }
   ],
   "slug": "2026-09-28-1547",
-  "updatedAt": "2026-09-28T16:25:52+00:00"
+  "updatedAt": "2026-09-28T16:50:31+00:00"
 }

@@ -245,6 +245,19 @@ _NEVER_PLAY_CLAIM = re.compile(
     r"targeted|connected)\b",
     re.IGNORECASE,
 )
+_ONES_WORDS = (
+    "one|two|three|four|five|six|seven|eight|nine"
+)
+_TEEN_WORDS = (
+    "ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|"
+    "eighteen|nineteen"
+)
+_TENS_WORDS = "twenty|thirty|forty"
+_HYPHEN_NUM = rf"(?:{_TENS_WORDS})-(?:{_ONES_WORDS})"
+# Longest match first so "twenty-two touches" is 22, not "two touches".
+_NUM_TOKEN = (
+    rf"{_HYPHEN_NUM}|\d{{1,3}}|{_TEEN_WORDS}|{_TENS_WORDS}|zero|{_ONES_WORDS}"
+)
 _NUMBER_WORDS = {
     "zero": 0,
     "one": 1,
@@ -270,11 +283,6 @@ _NUMBER_WORDS = {
     "thirty": 30,
     "forty": 40,
 }
-_NUM_TOKEN = (
-    r"\d{1,3}|zero|one|two|three|four|five|six|seven|eight|nine|ten|"
-    r"eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|"
-    r"eighteen|nineteen|twenty|thirty|forty"
-)
 _TOUCH_COUNT = re.compile(
     rf"\b({_NUM_TOKEN})\s+touches\b",
     re.IGNORECASE,
@@ -286,13 +294,14 @@ _DROP_ATTEMPT = re.compile(
     re.IGNORECASE,
 )
 _SACK_COUNT = re.compile(
-    rf"\bsacked\s+({_NUM_TOKEN})\s+times\b|"
+    rf"\bsacked\s+(once|twice|{_NUM_TOKEN})(?:\s+times)?\b|"
     rf"\b({_NUM_TOKEN})\s+sacks\b",
     re.IGNORECASE,
 )
 _QB_HIT_COUNT = re.compile(
-    rf"\bhit\s+({_NUM_TOKEN})\s+times\b|"
-    rf"\b({_NUM_TOKEN})\s+QB hits\b",
+    rf"\bhit\s+(?:\w+\s+){{0,2}}({_NUM_TOKEN})\s+times\b|"
+    rf"\b({_NUM_TOKEN})\s+QB hits\b|"
+    rf"\b({_NUM_TOKEN})\s+hits\b",
     re.IGNORECASE,
 )
 _ILLEGAL_USE = re.compile(
@@ -300,12 +309,14 @@ _ILLEGAL_USE = re.compile(
     re.IGNORECASE,
 )
 _SAME_LOOK = re.compile(
-    r"\bsame (?:jumbo )?look\b|\bboth snaps\b",
+    r"\bsame (?:jumbo )?look\b|"
+    r"\bboth snaps\b|"
+    r"\bboth\s+(?:\w+\s+){0,2}snaps\b",
     re.IGNORECASE,
 )
 _FIRST_MINUTES = re.compile(
-    rf"\bfirst\s+({_NUM_TOKEN})\s+minutes?\b|"
-    rf"\bfirst\s+({_NUM_TOKEN})\s+seconds?\b|"
+    rf"\b(?:first|within|inside)\s+({_NUM_TOKEN})\s+minutes?\b|"
+    rf"\b(?:first|within|inside)\s+({_NUM_TOKEN})\s+seconds?\b|"
     rf"\b(?:two|three|{_NUM_TOKEN})[-\s]minute opening\b",
     re.IGNORECASE,
 )
@@ -1653,12 +1664,24 @@ def _official_names(plays: list[dict], *fields: str) -> set[str]:
 
 
 def _parse_count(token: str | None):
-    raw = (token or "").strip().lower()
+    raw = (token or "").strip().lower().replace(",", "")
     if not raw:
         return None
     if raw.isdigit():
         return int(raw)
-    return _NUMBER_WORDS.get(raw)
+    if raw in _NUMBER_WORDS:
+        return _NUMBER_WORDS[raw]
+    if raw == "once":
+        return 1
+    if raw == "twice":
+        return 2
+    if "-" in raw:
+        tens, ones = raw.split("-", 1)
+        left = _NUMBER_WORDS.get(tens)
+        right = _NUMBER_WORDS.get(ones)
+        if left is not None and right is not None and left % 10 == 0 and 1 <= right <= 9:
+            return left + right
+    return None
 
 
 def _match_count(match) -> int | None:
@@ -2312,7 +2335,8 @@ def _check_first_minutes(text: str, recap: dict | None) -> list[str]:
     issues = []
     for match in _FIRST_MINUTES.finditer(text):
         sentence = _sentence_at(text, match.start())
-        if not re.search(
+        phrase = match.group(0)
+        if not re.search(r"\b(?:within|inside)\b", phrase, re.I) and not re.search(
             r"\b(?:scored|score|strike|touchdown|opening|td)\b", sentence, re.I
         ):
             continue
@@ -2321,7 +2345,7 @@ def _check_first_minutes(text: str, recap: dict | None) -> list[str]:
             continue
         window = claimed
         unit = "minutes"
-        if re.search(r"\bseconds?\b", match.group(0), re.I):
+        if re.search(r"\bseconds?\b", phrase, re.I):
             unit = "seconds"
         else:
             window = claimed * 60
@@ -2329,7 +2353,7 @@ def _check_first_minutes(text: str, recap: dict | None) -> list[str]:
             mm, ss = divmod(elapsed, 60)
             issues.append(
                 f"opening score came at {mm}:{ss:02d}, not in the first "
-                f"{claimed} {unit} ({match.group(0)!r})"
+                f"{claimed} {unit} ({phrase!r})"
             )
     return issues
 

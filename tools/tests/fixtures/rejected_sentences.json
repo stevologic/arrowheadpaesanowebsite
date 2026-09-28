@@ -291,6 +291,70 @@
       "snippet": "first 90 seconds",
       "sentence": "Kansas City scored in the first 90 seconds.",
       "reason": "Opening TD came at 2:06 / Q1 12:54."
+    },
+    {
+      "id": "v9-miami-hit-12",
+      "run": "v9",
+      "label": "real-error",
+      "snippet": "hit Mahomes 12 times",
+      "sentence": "Miami hit Mahomes 12 times.",
+      "reason": "Miami recorded 5 QB hits."
+    },
+    {
+      "id": "v9-hit-twelve-times",
+      "run": "v9",
+      "label": "real-error",
+      "snippet": "twelve times",
+      "sentence": "Miami hit Mahomes twelve times.",
+      "reason": "Miami recorded 5 QB hits."
+    },
+    {
+      "id": "v9-both-stuffed-snaps",
+      "run": "v9",
+      "label": "real-error",
+      "snippet": "both stuffed snaps",
+      "sentence": "Nourzad was eligible on both stuffed snaps.",
+      "reason": "Nourzad was eligible on Q2 6:15 only."
+    },
+    {
+      "id": "v9-within-90-seconds",
+      "run": "v9",
+      "label": "real-error",
+      "snippet": "within 90 seconds",
+      "sentence": "within 90 seconds",
+      "reason": "Opening TD came at 2:06 / Q1 12:54."
+    },
+    {
+      "id": "v9-inside-two-minutes",
+      "run": "v9",
+      "label": "real-error",
+      "snippet": "inside two minutes",
+      "sentence": "Kansas City scored inside two minutes.",
+      "reason": "Opening TD came at 2:06 / Q1 12:54."
+    },
+    {
+      "id": "v9-sacked-twice",
+      "run": "v9",
+      "label": "real-error",
+      "snippet": "sacked twice",
+      "sentence": "Mahomes was sacked twice.",
+      "reason": "Mahomes was sacked 0 times."
+    },
+    {
+      "id": "v9-7-hits",
+      "run": "v9",
+      "label": "real-error",
+      "snippet": "7 hits",
+      "sentence": "Mahomes took 7 hits.",
+      "reason": "Miami recorded 5 QB hits."
+    },
+    {
+      "id": "v9-twenty-two-touches",
+      "run": "v9",
+      "label": "real-error",
+      "snippet": "twenty-two touches",
+      "sentence": "Walker already handled twenty-two touches.",
+      "reason": "Walker had 20 touches, not 22."
     }
   ]
 }
