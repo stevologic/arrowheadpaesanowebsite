@@ -232,7 +232,8 @@
       "completions": 20,
       "attempts": 24,
       "sacks": 0,
-      "sackYards": 0
+      "sackYards": 0,
+      "touchdowns": 2
     }
   ],
   "qbHits": { "KC": 1, "OPP": 5 },

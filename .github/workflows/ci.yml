@@ -111,8 +111,10 @@ jobs:
           # Prefer GitHub auto-merge; fall back to an immediate squash merge.
           gh pr merge "${{ github.event.pull_request.html_url }}" \
             --squash --auto --delete-branch \
+            --match-head-commit ${{ github.event.pull_request.head.sha }} \
             || gh pr merge "${{ github.event.pull_request.html_url }}" \
-              --squash --delete-branch
+              --squash --delete-branch \
+              --match-head-commit ${{ github.event.pull_request.head.sha }}
 
       - name: Trigger Pages deploy
         env:

@@ -285,7 +285,8 @@ _NUMBER_WORDS = {
 }
 _TOUCH_COUNT = re.compile(
     rf"\b({_NUM_TOKEN})\s+touches\b|"
-    rf"\btouched the ball\s+({_NUM_TOKEN})\s+times\b",
+    rf"\btouched the ball\s+({_NUM_TOKEN})\s+times\b|"
+    rf"\bhandled the ball\s+({_NUM_TOKEN})\s+times\b",
     re.IGNORECASE,
 )
 _DROP_ATTEMPT = re.compile(
@@ -295,10 +296,13 @@ _DROP_ATTEMPT = re.compile(
     rf"\b({_NUM_TOKEN})\s+attempts\b",
     re.IGNORECASE,
 )
+_OWNER_VERBS = r"(?:already|now|also|still|just|currently)?\s*(?:had|has|posted|recorded|notched)"
 _SACK_COUNT = re.compile(
     rf"\bsacked\s+(?P<sack_qb>Mahomes|Willis)\s+(once|twice|{_NUM_TOKEN})(?:\s+times)?\b|"
     rf"\bsacked\s+(once|twice|{_NUM_TOKEN})(?:\s+times)?\b|"
-    rf"\b(?P<sack_owner>[A-Z][A-Za-z''-]+)\s+(?:had|has|posted|recorded|notched)\s+"
+    rf"\bwent down\s+(once|twice|{_NUM_TOKEN})(?:\s+times)?\s+for sacks\b|"
+    rf"\b(?:was\s+)?taken down\s+(once|twice|{_NUM_TOKEN})(?:\s+times)?\b|"
+    rf"\b(?P<sack_owner>[A-Z][A-Za-z''-]+)\s+{_OWNER_VERBS}\s+"
     rf"(once|twice|{_NUM_TOKEN})\s+sacks\b|"
     rf"\b({_NUM_TOKEN})\s+sacks\b",
     re.IGNORECASE,
@@ -306,7 +310,7 @@ _SACK_COUNT = re.compile(
 _QB_HIT_COUNT = re.compile(
     rf"\bhit\s+(?P<hit_qb>Mahomes|Willis)\s+(?:\w+\s+){{0,2}}({_NUM_TOKEN})\s+times\b|"
     rf"\bhit\s+(?:\w+\s+){{0,2}}({_NUM_TOKEN})\s+times\b|"
-    rf"\b(?P<hit_owner>[A-Z][A-Za-z''-]+)\s+(?:had|has|posted|recorded|notched)\s+"
+    rf"\b(?P<hit_owner>[A-Z][A-Za-z''-]+)\s+{_OWNER_VERBS}\s+"
     rf"({_NUM_TOKEN})\s+(?:QB\s+)?hits\b|"
     rf"\b({_NUM_TOKEN})\s+QB hits\b|"
     rf"\b({_NUM_TOKEN})\s+hits\b",
@@ -314,12 +318,13 @@ _QB_HIT_COUNT = re.compile(
 )
 _SEASON_SPAN = re.compile(
     r"\b(?:this year|last year|this season|last season|"
-    r"a year ago|on the year|for the season)\b",
+    r"a year ago|on the year|for the season|"
+    rf"through\s+(?:{_NUM_TOKEN})\s+games?|so far|in\s+20\d{{2}})\b",
     re.IGNORECASE,
 )
 _PRESSURE_OWNER = re.compile(
     r"\b([A-Z][A-Za-z''-]+(?:\s+[A-Z][A-Za-z''-]+)?)\s+"
-    r"(?:had|has|posted|recorded|notched)\s+",
+    rf"{_OWNER_VERBS}\s+",
 )
 _QB_ALIASES = {
     "mahomes": "kc_qb",
@@ -327,6 +332,19 @@ _QB_ALIASES = {
     "willis": "opp_qb",
     "malik": "opp_qb",
 }
+_TEAM_SIDES = {
+    "miami": "kc_qb",
+    "dolphins": "kc_qb",
+    "mia": "kc_qb",
+    "kansas": "opp_qb",
+    "chiefs": "opp_qb",
+    "kc": "opp_qb",
+}
+_PRESSURE_WINDOW = re.compile(
+    r"\b(?:first|second|third|fourth|q[1-4])\s+quarter\b|"
+    r"\b(?:first|second)\s+half\b",
+    re.IGNORECASE,
+)
 _ILLEGAL_USE = re.compile(
     r"\billegal[-\s]use\b|\billegal use of hands\b",
     re.IGNORECASE,
@@ -335,20 +353,38 @@ _SAME_LOOK = re.compile(
     r"\bsame (?:jumbo )?look\b|"
     r"\bboth snaps\b|"
     r"\bboth of the\s+(?:\w+\s+){0,2}snaps\b|"
+    r"\bboth\s+goal-line\s+snaps\b|"
     r"\bboth\s+(?:\w+\s+){0,2}snaps\b|"
+    r"\bboth\s+(?:\w+\s+){0,2}runs\b|"
     r"\beach\s+(?:\w+\s+){0,2}snaps?\b",
     re.IGNORECASE,
 )
 _FIRST_MINUTES = re.compile(
-    rf"\b(?:first|within|inside)\s+({_NUM_TOKEN})\s+minutes?\b|"
-    rf"\b(?:first|within|inside)\s+({_NUM_TOKEN})\s+seconds?\b|"
+    rf"\b(?:first|within|inside(?:\s+of)?)\s+({_NUM_TOKEN})\s+minutes?\b|"
+    rf"\b(?:first|within|inside(?:\s+of)?)\s+({_NUM_TOKEN})\s+seconds?\b|"
+    rf"\bwithin the opening\s+({_NUM_TOKEN})\s+minutes?\b|"
     rf"\b(?:in under|under|less than)\s+({_NUM_TOKEN})\s+minutes?\b|"
     rf"\b(?:in under|under|less than)\s+({_NUM_TOKEN})\s+seconds?\b|"
     rf"\b(?:two|three|{_NUM_TOKEN})[-\s]minute opening\b",
     re.IGNORECASE,
 )
 _SCORE_CLAIM = re.compile(
-    r"\b(?:scored|score|strike|touchdown|opening|td)\b",
+    r"\b(?:scored|score|strike|touchdown|opening|td|end zone)\b",
+    re.IGNORECASE,
+)
+_OPENING_DRIVE = re.compile(
+    rf"\bopening drive\s+took\s+(\d{{1,2}}:\d{{2}}|{_NUM_TOKEN}\s+minutes?)\b",
+    re.IGNORECASE,
+)
+_INT_AT_CLOCK = re.compile(
+    r"\b([A-Z][A-Za-z''.-]+)\s+intercept(?:ed|s|ion)\b"
+    r"[^.!?\n]{0,72}?\bQ([1-4])\s+(\d{1,2}:\d{2})\b",
+    re.IGNORECASE,
+)
+_PASS_TD_COUNT = re.compile(
+    rf"\bthrew\s+({_NUM_TOKEN})\s+touchdown\s+passes\b|"
+    rf"\b({_NUM_TOKEN})\s+touchdown\s+passes\b|"
+    rf"\b(?:with|and)\s+({_NUM_TOKEN})\s+touchdowns?\b",
     re.IGNORECASE,
 )
 # Name tokens stay case-sensitive so IGNORECASE cannot turn "was"/"one"/"an"
@@ -2365,17 +2401,19 @@ def _first_score_elapsed(recap: dict | None):
 def _clause_at(text: str, start: int, end: int) -> str:
     """One claim: stop at newlines and sentence punctuation so later fields
     cannot turn a kickoff-clock note into an opening-score claim."""
-    left = text[:start]
-    for sep in ("\n", ".", "!", "?"):
-        cut = left.rfind(sep)
-        if cut != -1:
-            left = left[cut + 1 :]
-    right = text[end:]
-    for sep in ("\n", ".", "!", "?"):
-        cut = right.find(sep)
-        if cut != -1:
-            right = right[:cut]
-    return left + text[start:end] + right
+    left_start = 0
+    for idx in range(start - 1, -1, -1):
+        char = text[idx]
+        if char in "\n!?;" or (char == "." and not _is_initial_dot(text, idx)):
+            left_start = idx + 1
+            break
+    right_end = len(text)
+    for idx in range(end, len(text)):
+        char = text[idx]
+        if char in "\n!?;" or (char == "." and not _is_initial_dot(text, idx)):
+            right_end = idx
+            break
+    return text[left_start:right_end]
 
 
 def _check_first_minutes(text: str, recap: dict | None) -> list[str]:
@@ -2415,14 +2453,22 @@ def _pressure_owner_name(sentence: str, match) -> str:
     return (other.group(1) if other else "").strip()
 
 
+def _owner_tokens(owner: str) -> set[str]:
+    return {part.lower() for part in re.split(r"[^A-Za-z]+", owner) if part}
+
+
 def _skip_pressure_claim(sentence: str, match) -> bool:
     if _SEASON_SPAN.search(sentence):
+        return True
+    if _PRESSURE_WINDOW.search(sentence):
         return True
     owner = _pressure_owner_name(sentence, match)
     if not owner:
         return False
-    tokens = {part.lower() for part in re.split(r"[^A-Za-z]+", owner) if part}
-    return not tokens.intersection(_QB_ALIASES)
+    tokens = _owner_tokens(owner)
+    if tokens.intersection(_TEAM_SIDES) or tokens.intersection(_QB_ALIASES):
+        return False
+    return True
 
 
 def _pressure_side(sentence: str, match) -> str:
@@ -2430,6 +2476,10 @@ def _pressure_side(sentence: str, match) -> str:
     qb = (groups.get("sack_qb") or groups.get("hit_qb") or "").strip().lower()
     if qb in _QB_ALIASES:
         return _QB_ALIASES[qb]
+    owner = _pressure_owner_name(sentence, match)
+    for token in _owner_tokens(owner):
+        if token in _TEAM_SIDES:
+            return _TEAM_SIDES[token]
     low = sentence.lower()
     if re.search(
         r"\b(?:sacked|hit)\s+willis\b|\b(?:sacks?|hits?)\s+(?:of|on)\s+willis\b",
@@ -2505,6 +2555,151 @@ def _check_qb_hit_counts(text: str, recap: dict | None) -> list[str]:
     return issues
 
 
+def _parse_elapsed_claim(raw: str):
+    text = (raw or "").strip().lower()
+    if re.match(r"\d{1,2}:\d{2}$", text):
+        return _clock_seconds(text)
+    match = re.search(rf"({_NUM_TOKEN})\s+minutes?", text, re.I)
+    if not match:
+        return None
+    minutes = _parse_count(match.group(1))
+    return None if minutes is None else minutes * 60
+
+
+def _check_opening_drive(text: str, recap: dict | None) -> list[str]:
+    elapsed = _first_score_elapsed(recap)
+    if not text or elapsed is None:
+        return []
+    issues = []
+    for match in _OPENING_DRIVE.finditer(text):
+        claimed = _parse_elapsed_claim(match.group(1))
+        if claimed is None or claimed == elapsed:
+            continue
+        mm, ss = divmod(elapsed, 60)
+        issues.append(
+            f"opening drive lasted {mm}:{ss:02d}, not {match.group(1)} "
+            f"({match.group(0)!r})"
+        )
+    return issues
+
+
+def _check_eligible_on_score(text: str, recap: dict | None) -> list[str]:
+    eligible = [
+        row
+        for row in (recap or {}).get("eligible") or []
+        if isinstance(row, dict)
+    ]
+    scores = [
+        play
+        for play in (recap or {}).get("scoringPlays") or []
+        if isinstance(play, dict)
+    ]
+    if not text or not eligible or not scores:
+        return []
+    score_clocks = {
+        (int(play.get("quarter") or 0), str(play.get("clock") or ""))
+        for play in scores
+    }
+    issues = []
+    for match in re.finditer(r"\beligible\b", text, re.I):
+        clause = _clause_at(text, match.start(), match.end())
+        low = clause.lower()
+        if not re.search(
+            r"\b(?:touchdown|td|score)\b.{0,48}\bwith\b.{0,40}\beligible\b",
+            low,
+        ):
+            continue
+        if re.search(r"\bbut\b.{0,80}\beligible\b", low):
+            continue
+        for row in eligible:
+            last = _player_last(row.get("player") or "")
+            if not last or not re.search(rf"\b{re.escape(last)}\b", low):
+                continue
+            clock = (int(row.get("quarter") or 0), str(row.get("clock") or ""))
+            if clock not in score_clocks:
+                issues.append(
+                    f"{row.get('player') or last} was not eligible on that "
+                    f"scoring play ({clause!r})"
+                )
+    return issues
+
+
+def _official_int_clocks(recap: dict | None) -> set[tuple[str, int, str]]:
+    out = set()
+    for play in _plays(recap):
+        if play.get("kind") != "int" and "intercept" not in (play.get("text") or "").lower():
+            continue
+        last = _player_last(play.get("interceptedBy") or "")
+        if not last:
+            continue
+        out.add((last, int(play.get("quarter") or 0), str(play.get("clock") or "")))
+    for row in (recap or {}).get("driveResults") or []:
+        if not isinstance(row, dict):
+            continue
+        if (row.get("result") or "").upper() != "INT":
+            continue
+        detail = row.get("detail") or ""
+        who = re.search(r"\b([A-Z]\.[A-Za-z''-]+)\s+intercept", detail, re.I)
+        last = _player_last(who.group(1) if who else "")
+        if last:
+            out.add((last, int(row.get("quarter") or 0), str(row.get("clock") or "")))
+    return out
+
+
+def _check_int_clocks(text: str, recap: dict | None) -> list[str]:
+    official = _official_int_clocks(recap)
+    if not text or not official:
+        return []
+    issues = []
+    for match in _INT_AT_CLOCK.finditer(text):
+        last = _player_last(match.group(1))
+        quarter = int(match.group(2))
+        clock = match.group(3)
+        if not last:
+            continue
+        if (last, quarter, clock) in official:
+            continue
+        issues.append(
+            f"{match.group(1)} interception was not at Q{quarter} {clock} "
+            f"({match.group(0)!r})"
+        )
+    return issues
+
+
+def _official_pass_tds(recap: dict | None):
+    passing = [
+        row
+        for row in (recap or {}).get("passing") or []
+        if isinstance(row, dict) and (row.get("team") or "").upper() == "KC"
+    ]
+    if not passing:
+        return None
+    row = passing[0]
+    if row.get("touchdowns") is None:
+        return None
+    return int(row["touchdowns"])
+
+
+def _check_pass_touchdowns(text: str, recap: dict | None) -> list[str]:
+    official = _official_pass_tds(recap)
+    if not text or official is None:
+        return []
+    issues = []
+    for match in _PASS_TD_COUNT.finditer(text):
+        sentence = _sentence_at(text, match.start())
+        low = sentence.lower()
+        if "mahomes" not in low and "touchdown passes" not in low:
+            continue
+        claimed = _match_count(match)
+        if claimed is None or claimed == official:
+            continue
+        issues.append(
+            f"passing touchdowns {claimed} disagrees with ESPN {official} "
+            f"({match.group(0)!r})"
+        )
+    return issues
+
+
 def check_diagram_captions(narrative: dict | None) -> list[str]:
     """Visible SVG footer text must come from the card's why."""
     issues = []
@@ -2573,6 +2768,10 @@ def check_review(
         issues.extend(_check_penalty_attribution(text, recap))
         issues.extend(_check_same_look_snaps(text, recap))
         issues.extend(_check_first_minutes(text, recap))
+        issues.extend(_check_opening_drive(text, recap))
+        issues.extend(_check_eligible_on_score(text, recap))
+        issues.extend(_check_int_clocks(text, recap))
+        issues.extend(_check_pass_touchdowns(text, recap))
     # Dedup while keeping order.
     out = []
     seen = set()
