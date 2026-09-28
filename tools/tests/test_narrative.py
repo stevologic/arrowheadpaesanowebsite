@@ -634,6 +634,8 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("github-actions[bot]", qa)
         self.assertIn("--check-edition", qa)
         self.assertIn("--diagrams-only", qa)
+        self.assertLess(qa.index("--check-edition"), qa.index("--diagrams-only"))
+        self.assertIn("git diff --exit-code -- public/images/narrative", qa)
         self.assertIn('gh workflow run "Deploy Hugo site to GitHub Pages"', qa)
         self.assertIn('--repo "${GITHUB_REPOSITORY}"', qa)
         self.assertIn("data/schedule_2026.json", qa)

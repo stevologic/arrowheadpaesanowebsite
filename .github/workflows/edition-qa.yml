@@ -121,6 +121,9 @@ jobs:
       - name: Render XO diagrams from narrative.json
         run: python -m tools.chiefs_narrative.generate --diagrams-only
 
+      - name: Fail if the render rewrote committed SVGs
+        run: git diff --exit-code -- public/images/narrative
+
       - name: Gate 2 — Hugo build
         run: hugo --gc --minify
 
