@@ -1,0 +1,136 @@
+{
+  "_note": "Every quoted rejection from gh run view 36358665975 --log-failed and 36359568242 --log-failed, plus the original 4f6add1 FG lies. Drafts were not persisted; sentences are reconstructed around the logged snippets. label=false-positive must pass check_review; label=real-error must fail.",
+  "lastGame": {
+    "id": "401872952",
+    "week": 3,
+    "seasonType": "reg",
+    "completed": true,
+    "kcScore": 24,
+    "oppScore": 10,
+    "opponent": "Miami Dolphins",
+    "date": "2026-09-27T17:00:00Z"
+  },
+  "recapFixture": "espn_401872952_recap.json",
+  "items": [
+    {
+      "id": "36358665975-a1-11-yard-td",
+      "run": "36358665975",
+      "label": "false-positive",
+      "snippet": "11-yard touchdown",
+      "sentence": "Kelce's 11-yard touchdown answered Miami's opening punch and put Kansas City back in front.",
+      "reason": "Nearest subject is Kelce (KC). Miami is the club being answered, not the scoring team."
+    },
+    {
+      "id": "36358665975-a2-3-yard-td",
+      "run": "36358665975",
+      "label": "false-positive",
+      "snippet": "3-yard touchdown",
+      "sentence": "Kansas City answered Miami's 3-yard touchdown, then the drive stalled.",
+      "reason": "Clause subject of the claim is Miami, not Kansas City."
+    },
+    {
+      "id": "36358665975-a2-10-yard-td",
+      "run": "36358665975",
+      "label": "false-positive",
+      "snippet": "10-yard touchdown",
+      "sentence": "The 10-yard touchdown Miami could not answer made it 14-7.",
+      "reason": "10 is a KC TD. Binding must not take Miami from after the claim."
+    },
+    {
+      "id": "36358665975-a2-88-yard-run",
+      "run": "36358665975",
+      "label": "false-positive",
+      "snippet": "88-yard run",
+      "sentence": "Rice's 88-yard run was a long gain, not a scoring play.",
+      "reason": "Yardage is a scoring claim only with TD/touchdown or field-goal wording."
+    },
+    {
+      "id": "36358665975-a2-11-yard-catch",
+      "run": "36358665975",
+      "label": "false-positive",
+      "snippet": "11-yard catch",
+      "sentence": "Kelce's 11-yard catch answered Miami in the fourth.",
+      "reason": "A catch is not a scoring claim without TD/touchdown wording."
+    },
+    {
+      "id": "36358665975-a2-37-yard-fg",
+      "run": "36358665975",
+      "label": "false-positive",
+      "snippet": "37-yard field goal",
+      "sentence": "The 37-yard field goal kept Kansas City from a two-score cushion until Patterson was named.",
+      "reason": "Unbound FG yardage 37 is on the ESPN FG list (Patterson / MIA)."
+    },
+    {
+      "id": "36359568242-a1-0-0-game",
+      "run": "36359568242",
+      "label": "false-positive",
+      "snippet": "0-0 game",
+      "sentence": "It was a 0-0 game until Walker found the edge.",
+      "reason": "0-0 is a real game state (kickoff / any tie), not an invented score."
+    },
+    {
+      "id": "36359568242-a2-early-kc-tds",
+      "run": "36359568242",
+      "label": "false-positive",
+      "snippet": "two early Kansas City touchdowns",
+      "sentence": "The two early Kansas City touchdowns set a 14-7 first-half lead.",
+      "reason": "Qualified count is not a whole-game total. First-half KC TDs are 2 (Q1+Q2)."
+    },
+    {
+      "id": "36359568242-a3-lost-18-19",
+      "run": "36359568242",
+      "label": "false-positive",
+      "snippet": "lost 18-19",
+      "sentence": "Kansas City lost 18-19 on first downs and still won the scoreboard.",
+      "reason": "Bare lost/won X-Y is volume (first downs), not a game-score claim. Score order is also irrelevant when a pair does match an ESPN score-after."
+    },
+    {
+      "id": "4f6add1-two-fgs-37-and-34",
+      "run": "4f6add1",
+      "label": "real-error",
+      "snippet": "Two field goals (37 and 34)",
+      "sentence": "Two field goals (37 and 34) were the tax for drives that got close and stalled.",
+      "reason": "37 is MIA (Patterson); 34 is KC (Butker). The list mixes teams."
+    },
+    {
+      "id": "4f6add1-two-miami-field-goals",
+      "run": "4f6add1",
+      "label": "real-error",
+      "snippet": "two Miami field goals",
+      "sentence": "Two Miami field goals kept the Dolphins in earshot until Kelce ended it.",
+      "reason": "Miami made one field goal (37), not two."
+    },
+    {
+      "id": "real-kc-3-yard-td",
+      "run": "synthetic",
+      "label": "real-error",
+      "snippet": "Kansas City's 3-yard touchdown",
+      "sentence": "Kansas City's 3-yard touchdown was the opener.",
+      "reason": "3-yard TD is Miami (Gordon), not KC."
+    },
+    {
+      "id": "real-butker-37-fg",
+      "run": "synthetic",
+      "label": "real-error",
+      "snippet": "Butker's 37-yard field goal",
+      "sentence": "Butker's 37-yard field goal was the tax.",
+      "reason": "37-yard FG is Patterson / MIA; Butker's made kick is 34."
+    },
+    {
+      "id": "real-unqualified-two-kc-tds",
+      "run": "synthetic",
+      "label": "real-error",
+      "snippet": "two Kansas City touchdowns",
+      "sentence": "The two Kansas City touchdowns were the whole night.",
+      "reason": "Unqualified / whole-game count. ESPN has 3 KC touchdowns."
+    },
+    {
+      "id": "real-lost-18-19-game",
+      "run": "synthetic",
+      "label": "real-error",
+      "snippet": "18-19 game",
+      "sentence": "Kansas City closed it as an 18-19 game.",
+      "reason": "Explicit game-score claim whose pair is not the final or any ESPN score-after."
+    }
+  ]
+}

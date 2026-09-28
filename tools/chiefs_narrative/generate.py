@@ -474,11 +474,23 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             )
         violations = facts.check_review(narrative, last, recap)
     if violations:
-        raise FactCheckError(
-            "Chiefs Narrative fact-check failed after retry: "
-            + "; ".join(violations)
-            + ". Refusing to publish a review that disagrees with ESPN."
+        print(
+            "  [writer] fact-check still failing after retries; "
+            "rewriting only the offending sentences"
         )
+        repaired = facts.repair_offending_copy(narrative, violations, last)
+        leftover = facts.check_review(repaired, last, recap)
+        if leftover:
+            repaired = facts.repair_offending_copy(repaired, leftover, last)
+            leftover = facts.check_review(repaired, last, recap)
+        if leftover:
+            raise FactCheckError(
+                "Chiefs Narrative fact-check failed after retry: "
+                + "; ".join(leftover)
+                + ". Refusing to publish a review that disagrees with ESPN."
+            )
+        narrative = repaired
+        print("  [writer] fact-check: offending sentences dropped; edition is clean")
 
     # 6. Render diagrams only after uniqueness and fact-check have passed.
     _render_diagrams(narrative)
@@ -535,8 +547,12 @@ def main(argv=None) -> int:
     _write_wire(result.get("news") or [])
 
     print("-" * 52)
-    print(f"  wrote {config.NARRATIVE_JSON.relative_to(config.REPO_ROOT)}")
-    print(f"  wrote {config.ARCHIVE_JSON.relative_to(config.REPO_ROOT)}")
+    for path in (config.NARRATIVE_JSON, config.ARCHIVE_JSON):
+        try:
+            shown = path.relative_to(config.REPO_ROOT)
+        except ValueError:
+            shown = path
+        print(f"  wrote {shown}")
     print(f"  edition: {narrative['edition']} — {narrative['headline']}")
     print(f"  generator: {narrative['generator']}")
     print(f"  diagrams: {len(narrative.get('xsandos', []))}")

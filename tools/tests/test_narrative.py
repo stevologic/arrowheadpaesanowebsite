@@ -6,6 +6,7 @@ merge gate. Run with:  python -m unittest discover -s tools/tests -v
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -1957,6 +1958,87 @@ class FactCheck(unittest.TestCase):
         self.assertTrue(any("3" in item and "KC" in item for item in issues), issues)
         self.assertTrue(any("37" in item and "KC" in item for item in issues), issues)
 
+    def test_rejected_sentence_fixtures_match_labels(self):
+        """Every logged rejection is a labelled fixture: accept FPs, reject real errors."""
+        catalog = _load_fixture("rejected_sentences.json")
+        recap = _load_fixture(catalog["recapFixture"])
+        last = catalog["lastGame"]
+        labels = {item["id"]: item["label"] for item in catalog["items"]}
+        self.assertEqual(
+            set(labels.values()),
+            {"false-positive", "real-error"},
+        )
+        for item in catalog["items"]:
+            narrative = self._review(lede=item["sentence"])
+            issues = facts.check_review(narrative, last, recap)
+            blob = " ".join(issues)
+            if item["label"] == "false-positive":
+                self.assertEqual(
+                    issues,
+                    [],
+                    f"{item['id']} should pass: {issues}",
+                )
+                self.assertNotIn(item["snippet"], blob)
+            else:
+                self.assertTrue(
+                    issues,
+                    f"{item['id']} should fail check_review",
+                )
+                self.assertTrue(
+                    item["snippet"].split()[0].lower() in blob.lower()
+                    or any(
+                        token in blob
+                        for token in re.findall(r"\d+", item["snippet"])
+                    ),
+                    f"{item['id']} issues {issues} should mention {item['snippet']!r}",
+                )
+
+    def test_score_order_and_zero_zero_are_allowed(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = self._review(
+            lede="It was a 0-0 game, then they were leading 7-14, and they lost 10-24 on no ledger that matters.",
+            whatDidnt=["The INT kept a 10-24 game from looking closer."],
+        )
+        self.assertEqual(facts.check_review(narrative, last, recap), [])
+
+    def test_qualified_td_count_uses_quarter_window(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        early = self._review(lede="The two early Kansas City touchdowns set the tone.")
+        self.assertEqual(facts.check_review(early, last, recap), [])
+        first_q = self._review(
+            lede="The two Kansas City touchdowns in the first quarter never happened."
+        )
+        issues = facts.check_review(first_q, last, recap)
+        self.assertTrue(any("touchdown count" in item and "KC" in item for item in issues), issues)
+
+    def test_repair_drops_only_offending_sentences(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = {
+            "headline": "Keep this title",
+            "lastGameReview": {
+                "lede": (
+                    "Kansas City finished 24–10 against Miami. "
+                    "Kansas City closed it as an 18-19 game."
+                ),
+                "analysis": ["Kelce scored from the 12."],
+            },
+        }
+        issues = facts.check_review(narrative, last, recap)
+        self.assertTrue(issues)
+        repaired = facts.repair_offending_copy(narrative, issues, last)
+        self.assertEqual(facts.check_review(repaired, last, recap), [])
+        lede = repaired["lastGameReview"]["lede"]
+        self.assertIn("24", lede)
+        self.assertNotIn("18-19", lede)
+        self.assertEqual(repaired["lastGameReview"].get("analysis") or [], [])
+        self.assertEqual(repaired["headline"], "Keep this title")
+
     def test_rejects_wrong_final_when_recap_empty(self):
         narrative = self._review(lede="Kansas City won it KC 24–7.")
         issues = facts.check_review(narrative, self.LAST, {})
@@ -1968,7 +2050,7 @@ class FactCheck(unittest.TestCase):
         narrative = self._review(whatDidnt=["The INT kept a 14-10 game alive."])
         self.assertEqual(facts.check_review(narrative, live, self.RECAP), [])
 
-    def test_fact_check_retries_twice_then_fails_without_publish(self):
+    def test_fact_check_retries_twice_then_strips_offenders_and_publishes(self):
         bad = {
             "headline": "Fresh title",
             "dek": "Fresh dek",
@@ -2042,13 +2124,17 @@ class FactCheck(unittest.TestCase):
                 generate.config, "ARCHIVE_JSON", archive
             ):
                 rc = generate.main(["--provider", "grok"])
-            self.assertEqual(rc, 1)
+            self.assertEqual(rc, 0)
             self.assertEqual(llm.call_count, 3)
             retry_user = llm.call_args_list[1].args[2]
             self.assertIn("FACT CHECK RETRY", retry_user)
             self.assertIn("FACT CHECK RETRY", llm.call_args_list[2].args[2])
-            self.assertFalse(narrative_json.exists())
-            self.assertEqual(list(editions.iterdir()), [])
+            self.assertTrue(narrative_json.exists())
+            written = json.loads(narrative_json.read_text(encoding="utf-8"))
+            blob = facts.edition_text(written)
+            self.assertNotIn("14-10", blob)
+            self.assertNotIn("from the 12", blob)
+            self.assertTrue(list(editions.iterdir()))
 
 
 class ArchiveDates(unittest.TestCase):
