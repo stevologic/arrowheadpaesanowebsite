@@ -157,6 +157,24 @@
       "text": "P.Mahomes pass deep right to R.Rice to MIA 15 for 34 yards (C.Johnson) [Z.Sieler]."
     },
     {
+      "quarter": 3,
+      "clock": "10:01",
+      "team": "KC",
+      "kind": "rush",
+      "direction": "left end",
+      "yards": 1,
+      "text": "K.Walker left end to MIA 46 for 1 yard (W.Gay)."
+    },
+    {
+      "quarter": 4,
+      "clock": "13:09",
+      "team": "KC",
+      "kind": "rush",
+      "direction": "right end",
+      "yards": -6,
+      "text": "K.Walker right end to MIA 28 for -6 yards (Z.Sieler)."
+    },
+    {
       "quarter": 4,
       "clock": "2:03",
       "team": "MIA",

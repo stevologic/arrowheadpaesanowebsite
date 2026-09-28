@@ -533,6 +533,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
                 + ". Refusing to publish a clone."
             )
         violations = facts.check_review(narrative, last, recap)
+    dropped: list[str] = []
     if violations:
         print(
             "  [writer] fact-check still failing after retries; "
@@ -541,19 +542,41 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
 
         def _drop_and_log(payload, problems):
             repaired = facts.repair_offending_copy(payload, problems, last)
-            for sentence in facts.dropped_sentences(payload, repaired):
+            gone = facts.dropped_sentences(payload, repaired)
+            for sentence in gone:
                 print(f"  [writer] dropped sentence: {sentence}")
             leftover = facts.check_review(repaired, last, recap)
-            return repaired, leftover
+            return repaired, leftover, gone
 
-        repaired, leftover = _drop_and_log(narrative, violations)
+        analysis_before = facts.analysis_sentences(narrative)
+        repaired, leftover, gone = _drop_and_log(narrative, violations)
+        dropped.extend(gone)
         if leftover:
-            repaired, leftover = _drop_and_log(repaired, leftover)
+            repaired, leftover, gone = _drop_and_log(repaired, leftover)
+            dropped.extend(gone)
+        analysis_after = set(facts.analysis_sentences(repaired))
+        analysis_dropped = [s for s in analysis_before if s not in analysis_after]
+        orphans = facts.check_repair_orphans(repaired, dropped)
         if leftover:
             raise FactCheckError(
                 "Chiefs Narrative fact-check failed after repair: "
                 + "; ".join(leftover)
                 + ". Refusing to publish a review that disagrees with ESPN."
+            )
+        if analysis_dropped:
+            raise FactCheckError(
+                "Chiefs Narrative fact-check refused to drop lastGameReview.analysis: "
+                + "; ".join(analysis_dropped)
+            )
+        if len(dropped) > facts.MAX_REPAIR_DROPS:
+            raise FactCheckError(
+                "Chiefs Narrative fact-check dropped too many sentences "
+                f"({len(dropped)}): " + "; ".join(dropped)
+            )
+        if orphans:
+            raise FactCheckError(
+                "Chiefs Narrative fact-check left fragments after repair: "
+                + "; ".join(orphans)
             )
         narrative = repaired
         print("  [writer] fact-check: dropped sentences logged; edition is clean")
@@ -565,6 +588,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         "narrative": narrative,
         "schedule": schedule,
         "news": signals.get("news") or [],
+        "droppedSentences": dropped,
     }
 
 
@@ -604,6 +628,15 @@ def main(argv=None) -> int:
         return 0
 
     config.ensure_dirs()
+    drops = result.get("droppedSentences") or []
+    config.REPAIR_JSON.write_text(
+        json.dumps(
+            {"droppedSentences": drops, "holdAutomerge": bool(drops)},
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     payload = json.dumps(narrative, indent=2, ensure_ascii=False) + "\n"
     config.NARRATIVE_JSON.write_text(payload, encoding="utf-8")
     # Full copy per edition so archived editions stay viewable as their own pages.

@@ -569,12 +569,17 @@ class GrokModelSelection(unittest.TestCase):
         self.assertNotIn("secrets.PAT", yaml)
 
     def test_edition_prs_run_ci_gates_before_merge(self):
-        """Skipping every CI job was a workflow-file failure; #106 still merged."""
+        """#114 pull_request died with 0 jobs; skip edition heads, dispatch gates."""
         ci = (
             Path(__file__).resolve().parents[2] / ".github" / "workflows" / "ci.yml"
         ).read_text(encoding="utf-8")
         gates = ci.split("automerge:")[0]
-        self.assertNotIn("startsWith(github.head_ref", gates)
+        concurrency = ci.split("concurrency:")[1].split("jobs:")[0]
+        self.assertNotIn("inputs.checkout_ref", concurrency)
+        self.assertIn("github.event.pull_request.number || github.ref", concurrency)
+        self.assertIn("narrative/update-", gates)
+        self.assertIn("workflow_dispatch:", ci)
+        self.assertIn("required: false", ci)
         self.assertIn("narrative/update-", ci.split("automerge:")[1])
 
     def test_edition_ci_is_dispatched_not_pr_triggered(self):
@@ -2373,7 +2378,7 @@ class FactCheck(unittest.TestCase):
         narrative = self._review(whatDidnt=["The INT kept a 14-10 game alive."])
         self.assertEqual(facts.check_review(narrative, live, self.RECAP), [])
 
-    def test_fact_check_retries_twice_then_strips_offenders_and_publishes(self):
+    def test_fact_check_retries_twice_then_fails_on_analysis_drop(self):
         bad = {
             "headline": "Fresh title",
             "dek": "Fresh dek",
@@ -2445,19 +2450,195 @@ class FactCheck(unittest.TestCase):
                 generate.config, "EDITIONS_DIR", editions
             ), patch.object(
                 generate.config, "ARCHIVE_JSON", archive
+            ), patch.object(
+                generate.config, "REPAIR_JSON", root / "repair.json"
             ):
                 rc = generate.main(["--provider", "grok"])
-            self.assertEqual(rc, 0)
+            self.assertEqual(rc, 1)
             self.assertEqual(llm.call_count, 3)
             retry_user = llm.call_args_list[1].args[2]
             self.assertIn("FACT CHECK RETRY", retry_user)
             self.assertIn("FACT CHECK RETRY", llm.call_args_list[2].args[2])
-            self.assertTrue(narrative_json.exists())
+            self.assertFalse(narrative_json.exists())
+            self.assertEqual(list(editions.iterdir()), [])
+
+    def test_fact_check_one_non_analysis_drop_publishes_and_holds(self):
+        bad = {
+            "headline": "Fresh title",
+            "dek": "Fresh dek",
+            "theEdge": "The INT kept a 14-10 game alive into the fourth.",
+            "lastGameReview": {
+                "lede": "Kansas City won 24-10.",
+                "analysis": ["Kelce scored from 11 yards."],
+            },
+        }
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        last["kickoff"] = "Sun, Sep 27 · 12:00 PM CT"
+        week4 = {
+            "id": "w4",
+            "week": 4,
+            "seasonType": "reg",
+            "date": "2026-10-04T20:25:00Z",
+            "opponent": "Las Vegas Raiders",
+            "completed": False,
+            "inProgress": False,
+            "kcScore": None,
+            "oppScore": None,
+            "kickoff": "Sun, Oct 4 · 3:25 PM CT",
+        }
+        ph = {
+            "type": "regular",
+            "label": "Week 4",
+            "week": 4,
+            "mode": "review",
+            "edition": "2026 Week 4 · Week 3 Review",
+            "lastGame": last,
+            "nextGame": week4,
+            "liveGame": None,
+        }
+        llm = Mock(side_effect=[(bad, "grok"), (bad, "grok"), (bad, "grok")])
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            narrative_json = root / "narrative.json"
+            repair_json = root / "repair.json"
+            wire_json = root / "wire.json"
+            editions = root / "editions"
+            editions.mkdir()
+            archive = root / "archive.json"
+            archive.write_text("[]\n", encoding="utf-8")
+            with patch.object(
+                collect,
+                "collect_all",
+                return_value={"schedule": [last, week4], "news": [], "markets": {}},
+            ), patch.object(
+                collect, "fetch_game_recap", return_value=self.RECAP
+            ), patch.object(
+                phase, "detect", return_value=ph
+            ), patch.object(
+                phase, "next_games", return_value=[week4]
+            ), patch.object(
+                phase, "any_live", return_value=False
+            ), patch.object(
+                odds, "collect_markets", return_value={}
+            ), patch.object(
+                providers, "generate_via_llm", llm
+            ), patch.object(
+                generate, "_render_diagrams"
+            ), patch.object(
+                generate, "_write_schedule"
+            ), patch.object(
+                generate.config, "NARRATIVE_JSON", narrative_json
+            ), patch.object(
+                generate.config, "WIRE_JSON", wire_json
+            ), patch.object(
+                generate.config, "EDITIONS_DIR", editions
+            ), patch.object(
+                generate.config, "ARCHIVE_JSON", archive
+            ), patch.object(
+                generate.config, "REPAIR_JSON", repair_json
+            ):
+                rc = generate.main(["--provider", "grok"])
+            self.assertEqual(rc, 0, repair_json.read_text() if repair_json.exists() else "no repair")
             written = json.loads(narrative_json.read_text(encoding="utf-8"))
             blob = facts.edition_text(written)
             self.assertNotIn("14-10", blob)
-            self.assertNotIn("from the 12", blob)
-            self.assertTrue(list(editions.iterdir()))
+            self.assertIn("24-10", blob)
+            repair = json.loads(repair_json.read_text(encoding="utf-8"))
+            self.assertTrue(repair["holdAutomerge"])
+            self.assertTrue(repair["droppedSentences"])
+
+    def test_int_credit_ignores_common_words_and_passers(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = self._review(
+            lede=(
+                "Mahomes was 20-of-24 for 246 yards, two touchdowns, and "
+                "one interception. He was intercepted by J. Rodriguez. "
+                "That interception sat next to a late interception scare "
+                "and an interception that Karlaftis actually made."
+            )
+        )
+        issues = facts.check_review(narrative, last, recap)
+        blob = " ".join(issues)
+        self.assertNotIn("was is not who ESPN", blob)
+        self.assertNotIn("one is not who ESPN", blob)
+        self.assertNotIn("an is not who ESPN", blob)
+        self.assertNotIn("late is not who ESPN", blob)
+        self.assertNotIn("that is not who ESPN", blob)
+        self.assertNotIn("Mahomes is not who ESPN", blob)
+
+    def test_eleven_yard_td_is_kc_even_next_to_miami(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = self._review(
+            lede=(
+                "Rice's 34-yard catch to the Miami 15 finally set up the "
+                "11-yard touchdown for 24-10."
+            )
+        )
+        issues = facts.check_review(narrative, last, recap)
+        self.assertFalse(any("11" in item and "MIA" in item for item in issues), issues)
+
+    def test_missed_fifty_yard_field_goal_is_accepted(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = self._review(
+            lede="Harrison Butker then missed a 50-yard field goal wide left."
+        )
+        issues = facts.check_review(narrative, last, recap)
+        self.assertFalse(any("50" in item for item in issues), issues)
+
+    def test_split_sentences_keeps_initials(self):
+        parts = facts._split_sentences(
+            "Mahomes was intercepted by J. Rodriguez at the Miami 29. "
+            "L. Sneed forced the fumble."
+        )
+        self.assertEqual(len(parts), 2)
+        self.assertIn("J. Rodriguez", parts[0])
+        self.assertIn("L. Sneed", parts[1])
+
+    def test_repair_orphans_fail_loud(self):
+        leftover = {
+            "lastGameReview": {
+                "lede": "Those are the snaps Bieniemy has to clean.",
+                "analysis": ["Rodriguez at the Miami 29."],
+            }
+        }
+        issues = facts.check_repair_orphans(
+            leftover,
+            ["The second-quarter self-inflicted drive deaths."],
+        )
+        self.assertTrue(any("orphan" in item for item in issues), issues)
+        self.assertTrue(any("fragment" in item or "dangling" in item for item in issues), issues)
+
+    def test_pr114_regression_accepts_real_copy_and_rejects_errors(self):
+        catalog = _load_fixture("edition_pr114_karen_qa.json")
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        for sentence in catalog["accept"]:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertEqual(issues, [], f"should accept {sentence!r}: {issues}")
+        for sentence in catalog["reject"]:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertTrue(issues, f"should reject {sentence!r}")
+
+    def test_narrative_pr_lists_drops_and_holds_automerge(self):
+        yaml = (
+            Path(__file__).resolve().parents[2]
+            / ".github"
+            / "workflows"
+            / "narrative.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("narrative_repair.json", yaml)
+        self.assertIn("Dropped sentences", yaml)
+        self.assertIn("HOLD_MERGE", yaml)
+        self.assertIn("Holding automerge", yaml)
+        self.assertLess(yaml.index("HOLD_MERGE"), yaml.index("gh pr merge"))
 
 
 class ArchiveDates(unittest.TestCase):
