@@ -579,6 +579,78 @@
       "snippet": "24 touchdown",
       "sentence": "Mahomes threw 24 touchdown passes.",
       "reason": "Mahomes threw 2 TDs on 24 attempts."
+    },
+    {
+      "id": "v12-crosby-possessive-commanders",
+      "run": "v12",
+      "label": "false-positive",
+      "snippet": "Crosby's two sacks",
+      "sentence": "Crosby's two sacks in Week 3 came against the Commanders.",
+      "reason": "Possessive names Crosby as the owner, not the Miami game."
+    },
+    {
+      "id": "v12-miami-defense-two-sacks",
+      "run": "v12",
+      "label": "real-error",
+      "snippet": "two sacks",
+      "sentence": "The Miami defense recorded two sacks.",
+      "reason": "Mahomes was sacked 0 times."
+    },
+    {
+      "id": "v12-miami-notched-a-sack",
+      "run": "v12",
+      "label": "real-error",
+      "snippet": "a sack",
+      "sentence": "Miami notched a sack.",
+      "reason": "Mahomes was sacked 0 times."
+    },
+    {
+      "id": "v12-miami-quietly-recorded",
+      "run": "v12",
+      "label": "real-error",
+      "snippet": "two sacks",
+      "sentence": "Miami quietly recorded two sacks.",
+      "reason": "Mahomes was sacked 0 times."
+    },
+    {
+      "id": "v12-barely-90-seconds-in",
+      "run": "v12",
+      "label": "real-error",
+      "snippet": "90 seconds",
+      "sentence": "Kansas City scored barely 90 seconds in.",
+      "reason": "Opening TD came at 2:06 / Q1 12:54."
+    },
+    {
+      "id": "v12-fewer-than-two-minutes",
+      "run": "v12",
+      "label": "real-error",
+      "snippet": "two minutes",
+      "sentence": "Kansas City scored in fewer than two minutes.",
+      "reason": "Opening TD came at 2:06 / Q1 12:54."
+    },
+    {
+      "id": "v12-repeatedly-sacked-three",
+      "run": "v12",
+      "label": "real-error",
+      "snippet": "three times",
+      "sentence": "Mahomes was repeatedly sacked, three times in all.",
+      "reason": "Mahomes was sacked 0 times."
+    },
+    {
+      "id": "v12-20-of-24-three-touchdowns",
+      "run": "v12",
+      "label": "real-error",
+      "snippet": "three touchdowns",
+      "sentence": "20-of-24 with three touchdowns",
+      "reason": "Mahomes threw 2 TDs, not 3."
+    },
+    {
+      "id": "v12-24-touchdown-passes",
+      "run": "v12",
+      "label": "real-error",
+      "snippet": "24 touchdown",
+      "sentence": "24 touchdown passes",
+      "reason": "Mahomes threw 2 TDs on 24 attempts."
     }
   ]
 }

@@ -296,21 +296,28 @@ _DROP_ATTEMPT = re.compile(
     rf"\b({_NUM_TOKEN})\s+attempts\b",
     re.IGNORECASE,
 )
-_OWNER_VERBS = r"(?:already|now|also|still|just|currently)?\s*(?:had|has|posted|recorded|notched)"
+_OWNER_ADVERB = r"(?:(?:\w+ly|already|now|also|still|just|currently)\s+)*"
+_OWNER_VERBS = rf"{_OWNER_ADVERB}(?:had|has|posted|recorded|notched)"
+_TEAM_UNIT = r"(?:\s+(?:defense|defence|front))?"
+_PROPER_NAME = r"(?-i:[A-Z][A-Za-z''-]+(?:\s+[A-Z][A-Za-z''-]+)?)"
 _SACK_COUNT = re.compile(
     rf"\bsacked\s+(?P<sack_qb>Mahomes|Willis)\s+(once|twice|{_NUM_TOKEN})(?:\s+times)?\b|"
+    rf"\b(?:was\s+)?(?:repeatedly\s+)?sacked[,;]?\s+"
+    rf"(once|twice|{_NUM_TOKEN})\s+times(?:\s+in all)?\b|"
     rf"\bsacked\s+(once|twice|{_NUM_TOKEN})(?:\s+times)?\b|"
     rf"\bwent down\s+(once|twice|{_NUM_TOKEN})(?:\s+times)?\s+for sacks\b|"
     rf"\b(?:was\s+)?taken down\s+(once|twice|{_NUM_TOKEN})(?:\s+times)?\b|"
-    rf"\b(?P<sack_owner>[A-Z][A-Za-z''-]+)\s+{_OWNER_VERBS}\s+"
-    rf"(once|twice|{_NUM_TOKEN})\s+sacks\b|"
+    rf"\b(?:The\s+)?(?P<sack_owner>{_PROPER_NAME})"
+    rf"{_TEAM_UNIT}\s+{_OWNER_VERBS}\s+"
+    rf"(?P<sack_n>a|an|once|twice|{_NUM_TOKEN})\s+sacks?\b|"
     rf"\b({_NUM_TOKEN})\s+sacks\b",
     re.IGNORECASE,
 )
 _QB_HIT_COUNT = re.compile(
     rf"\bhit\s+(?P<hit_qb>Mahomes|Willis)\s+(?:\w+\s+){{0,2}}({_NUM_TOKEN})\s+times\b|"
     rf"\bhit\s+(?:\w+\s+){{0,2}}({_NUM_TOKEN})\s+times\b|"
-    rf"\b(?P<hit_owner>[A-Z][A-Za-z''-]+)\s+{_OWNER_VERBS}\s+"
+    rf"\b(?:The\s+)?(?P<hit_owner>{_PROPER_NAME})"
+    rf"{_TEAM_UNIT}\s+{_OWNER_VERBS}\s+"
     rf"({_NUM_TOKEN})\s+(?:QB\s+)?hits\b|"
     rf"\b({_NUM_TOKEN})\s+QB hits\b|"
     rf"\b({_NUM_TOKEN})\s+hits\b",
@@ -323,8 +330,11 @@ _SEASON_SPAN = re.compile(
     re.IGNORECASE,
 )
 _PRESSURE_OWNER = re.compile(
-    r"\b([A-Z][A-Za-z''-]+(?:\s+[A-Z][A-Za-z''-]+)?)\s+"
-    rf"{_OWNER_VERBS}\s+",
+    rf"\b(?:The\s+)?({_PROPER_NAME}){_TEAM_UNIT}\s+{_OWNER_VERBS}\s+|"
+    rf"\b({_PROPER_NAME})'s\b",
+)
+_POSSESSIVE_OWNER = re.compile(
+    rf"\b({_PROPER_NAME})'s\b",
 )
 _QB_ALIASES = {
     "mahomes": "kc_qb",
@@ -363,8 +373,9 @@ _FIRST_MINUTES = re.compile(
     rf"\b(?:first|within|inside(?:\s+of)?)\s+({_NUM_TOKEN})\s+minutes?\b|"
     rf"\b(?:first|within|inside(?:\s+of)?)\s+({_NUM_TOKEN})\s+seconds?\b|"
     rf"\bwithin the opening\s+({_NUM_TOKEN})\s+minutes?\b|"
-    rf"\b(?:in under|under|less than)\s+({_NUM_TOKEN})\s+minutes?\b|"
-    rf"\b(?:in under|under|less than)\s+({_NUM_TOKEN})\s+seconds?\b|"
+    rf"\b(?:in under|under|less than|fewer than)\s+({_NUM_TOKEN})\s+minutes?\b|"
+    rf"\b(?:in under|under|less than|fewer than)\s+({_NUM_TOKEN})\s+seconds?\b|"
+    rf"\bbarely\s+({_NUM_TOKEN})\s+seconds?\s+in\b|"
     rf"\b(?:two|three|{_NUM_TOKEN})[-\s]minute opening\b",
     re.IGNORECASE,
 )
@@ -384,6 +395,7 @@ _INT_AT_CLOCK = re.compile(
 _PASS_TD_COUNT = re.compile(
     rf"\bthrew\s+({_NUM_TOKEN})\s+touchdown\s+passes\b|"
     rf"\b({_NUM_TOKEN})\s+touchdown\s+passes\b|"
+    rf"\b\d{{1,2}}-of-\d{{1,2}}\s+with\s+({_NUM_TOKEN})\s+touchdowns?\b|"
     rf"\b(?:with|and)\s+({_NUM_TOKEN})\s+touchdowns?\b",
     re.IGNORECASE,
 )
@@ -1736,6 +1748,8 @@ def _parse_count(token: str | None):
         return None
     if raw.isdigit():
         return int(raw)
+    if raw in {"a", "an"}:
+        return 1
     if raw in _NUMBER_WORDS:
         return _NUMBER_WORDS[raw]
     if raw == "once":
@@ -2449,8 +2463,13 @@ def _pressure_owner_name(sentence: str, match) -> str:
     named = (groups.get("sack_owner") or groups.get("hit_owner") or "").strip()
     if named:
         return named
+    poss = _POSSESSIVE_OWNER.search(sentence)
+    if poss:
+        return poss.group(1).strip()
     other = _PRESSURE_OWNER.search(sentence)
-    return (other.group(1) if other else "").strip()
+    if not other:
+        return ""
+    return (other.group(1) or other.group(2) or "").strip()
 
 
 def _owner_tokens(owner: str) -> set[str]:
@@ -2688,7 +2707,11 @@ def _check_pass_touchdowns(text: str, recap: dict | None) -> list[str]:
     for match in _PASS_TD_COUNT.finditer(text):
         sentence = _sentence_at(text, match.start())
         low = sentence.lower()
-        if "mahomes" not in low and "touchdown passes" not in low:
+        if (
+            "mahomes" not in low
+            and "touchdown passes" not in low
+            and not re.search(r"\d{1,2}-of-\d{1,2}", low)
+        ):
             continue
         claimed = _match_count(match)
         if claimed is None or claimed == official:
