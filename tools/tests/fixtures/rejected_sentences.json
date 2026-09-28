@@ -243,6 +243,54 @@
       "snippet": "first two minutes",
       "sentence": "Kansas City scored in the first two minutes when Walker went up the middle for a 10-yard touchdown.",
       "reason": "The opening TD came 2:06 in (Q1 12:54)."
+    },
+    {
+      "id": "v8-line-143-nourzad",
+      "run": "36444997578",
+      "label": "false-positive",
+      "snippet": "H. Nourzad",
+      "sentence": "Walker’s 10-yard touchdown came with J. Moore eligible; of the two stuffed snaps at the Miami 12, only the Q2 6:15 snap had H. Nourzad reported eligible.",
+      "reason": "Initial-safe sentence split. This is a both/same-look non-claim."
+    },
+    {
+      "id": "v8-threw-40-passes",
+      "run": "v8",
+      "label": "real-error",
+      "snippet": "threw 40 passes",
+      "sentence": "Mahomes threw 40 passes in Miami.",
+      "reason": "Mahomes threw 24 passes."
+    },
+    {
+      "id": "v8-sacked-three-times",
+      "run": "v8",
+      "label": "real-error",
+      "snippet": "sacked three times",
+      "sentence": "Mahomes was sacked three times.",
+      "reason": "Mahomes was sacked 0 times."
+    },
+    {
+      "id": "v8-hit-12-times",
+      "run": "v8",
+      "label": "real-error",
+      "snippet": "hit 12 times",
+      "sentence": "Mahomes was hit 12 times.",
+      "reason": "Miami recorded 5 QB hits."
+    },
+    {
+      "id": "v8-both-snaps-eligible",
+      "run": "v8",
+      "label": "real-error",
+      "snippet": "both snaps",
+      "sentence": "Nourzad was eligible on both snaps.",
+      "reason": "Nourzad was eligible on Q2 6:15 only."
+    },
+    {
+      "id": "v8-first-90-seconds",
+      "run": "v8",
+      "label": "real-error",
+      "snippet": "first 90 seconds",
+      "sentence": "Kansas City scored in the first 90 seconds.",
+      "reason": "Opening TD came at 2:06 / Q1 12:54."
     }
   ]
 }

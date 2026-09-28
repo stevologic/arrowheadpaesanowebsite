@@ -584,9 +584,14 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("paths-ignore:", ci)
         self.assertIn("data/" + "narrative.json", ci)
         self.assertIn("data/" + "narrative_editions/**", ci)
+        self.assertIn("data/schedule_2026.json", ci)
         self.assertIn("public/images/" + "narrative/**", ci)
         self.assertIn("required approval", ci)
         self.assertIn("36446331690", ci)
+        self.assertNotIn("as usual", ci)
+        self.assertIn('gh workflow run "Deploy Hugo site to GitHub Pages"', ci)
+        self.assertIn('--repo "${GITHUB_REPOSITORY}"', ci)
+        self.assertIn("--diagrams-only", ci)
 
     def test_edition_ci_is_dispatched_not_pr_triggered(self):
         """GITHUB_TOKEN PRs do not start pull_request workflows (run 36360998269)."""
@@ -605,6 +610,27 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("sleep 5", narrative)
         self.assertIn("sleep 10", narrative)
         self.assertLess(narrative.index("DONE_DEADLINE"), narrative.index("gh pr merge"))
+        self.assertNotIn("git add -A data", narrative)
+        self.assertIn("data/schedule_2026.json", narrative)
+        self.assertIn("--diagrams-only", narrative)
+
+    def test_human_edition_prs_still_run_check_review(self):
+        """#120 was paths-ignored; human edition edits must still get gates."""
+        root = Path(__file__).resolve().parents[2] / ".github" / "workflows"
+        qa = (root / "edition-qa.yml").read_text(encoding="utf-8")
+        self.assertIn("pull_request_target:", qa)
+        self.assertIn("github-actions[bot]", qa)
+        self.assertIn("--check-edition", qa)
+        self.assertIn("--diagrams-only", qa)
+        self.assertIn('gh workflow run "Deploy Hugo site to GitHub Pages"', qa)
+        self.assertIn('--repo "${GITHUB_REPOSITORY}"', qa)
+
+    def test_generate_cli_can_render_and_gate_diagrams(self):
+        src = Path(generate.__file__).read_text(encoding="utf-8")
+        self.assertIn("--diagrams-only", src)
+        self.assertIn("--check-edition", src)
+        self.assertIn("--stamp-updated", src)
+        self.assertIn("check_diagram_captions", src)
 
 
 def _espn_event(
@@ -826,6 +852,8 @@ class SeasonClock(unittest.TestCase):
         edition = (root / "layouts" / "partials" / "narrative-edition.html").read_text(encoding="utf-8")
         self.assertIn('partial "nrt-ct.html"', edition)
         self.assertIn("CT</strong>", edition)
+        self.assertIn("updatedAt", edition)
+        self.assertIn("$stamp", edition)
         ct = (root / "layouts" / "partials" / "nrt-ct.html").read_text(encoding="utf-8")
         self.assertIn('time.AsTime .t | time.In "America/Chicago"', ct)
         slate = (root / "layouts" / "partials" / "season-slate.html").read_text(encoding="utf-8")
@@ -2726,6 +2754,90 @@ class FactCheck(unittest.TestCase):
         self.assertIn("illegal-use", retry.lower())
         self.assertIn("do not repeat the flagged wording", retry)
 
+    def test_v8_word_numbers_sacks_hits_and_sentence_split(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        must_reject = [
+            "Mahomes threw 40 passes.",
+            "Mahomes was sacked three times.",
+            "Mahomes was hit 12 times.",
+            "Nourzad was eligible on both snaps.",
+            "Kansas City scored in the first 90 seconds.",
+        ]
+        for sentence in must_reject:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertTrue(issues, f"should reject {sentence!r}")
+        recap_18 = json.loads(json.dumps(recap))
+        recap_18["touches"][0]["touches"] = 18
+        twenty = facts.check_review(
+            self._review(lede="Walker already handled twenty touches."),
+            last,
+            recap_18,
+        )
+        self.assertTrue(twenty, "spelled-out twenty touches must compare to ESPN")
+        self.assertEqual(
+            facts.check_review(
+                self._review(lede="Walker already handled twenty touches."),
+                last,
+                recap,
+            ),
+            [],
+        )
+        live_143 = (
+            "Walker’s 10-yard touchdown came with J. Moore eligible; of the "
+            "two stuffed snaps at the Miami 12, only the Q2 6:15 snap had "
+            "H. Nourzad reported eligible."
+        )
+        self.assertIn(
+            "H. Nourzad",
+            facts._sentence_at(live_143, live_143.index("snaps")),
+        )
+        self.assertEqual(
+            facts.check_review(self._review(lede=live_143), last, recap),
+            [],
+        )
+
+    def test_xo_visible_caption_must_match_why(self):
+        svg, _ = diagrams.render_concept(
+            "play_action_boot",
+            title="Boot",
+            blurb="The Miami passing tape still produced the 48- and 24-yard shots.",
+        )
+        self.assertIn("48- and 24-yard shots", diagrams.visible_caption(svg))
+        self.assertNotIn("too much punishment", diagrams.visible_caption(svg))
+        self.assertTrue(
+            diagrams.caption_matches_why(
+                diagrams.visible_caption(svg),
+                "The Miami passing tape still produced the 48- and 24-yard shots.",
+            )
+        )
+        stale = svg.replace(
+            "48- and 24-yard shots",
+            "Play-action was the cleanest part and too much punishment",
+        )
+        self.assertFalse(
+            diagrams.caption_matches_why(
+                diagrams.visible_caption(stale),
+                "The Miami passing tape still produced the 48- and 24-yard shots.",
+            )
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "xo-play_action_boot.svg"
+            path.write_text(stale, encoding="utf-8")
+            narrative = {
+                "xsandos": [
+                    {
+                        "concept": "play_action_boot",
+                        "why": "The Miami passing tape still produced the 48- and 24-yard shots.",
+                        "diagram": path.name,
+                    }
+                ]
+            }
+            with patch.object(facts.config, "PUBLIC_DIR", Path(tmp)):
+                issues = facts.check_diagram_captions(narrative)
+            self.assertTrue(issues)
+
     def test_parse_usage_penalty_and_eligible(self):
         drives = {
             "previous": [
@@ -2850,6 +2962,10 @@ class FactCheck(unittest.TestCase):
         self.assertIn("G.Karlaftis", text)
         self.assertIn("ELIGIBLE-PLAYER REPORTS", text)
         self.assertIn("H.Nourzad", text)
+        self.assertIn("Do not write too many hits or punishment", text)
+        self.assertIn("play-action", prompts.SYSTEM_PROMPT)
+        self.assertIn("survival tape", prompts.SYSTEM_PROMPT)
+        self.assertIn("correction-note", prompts.SYSTEM_PROMPT)
 
     def test_narrative_pr_lists_drops_and_holds_automerge(self):
         yaml = (

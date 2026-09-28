@@ -10,6 +10,7 @@ registering it in :data:`CONCEPTS` with a human title + teaching blurb.
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 # Canvas / palette -----------------------------------------------------------
@@ -216,6 +217,38 @@ def _svg(title: str, body: list[str], caption: str) -> str:
         + header + footer
         + "</svg>"
     )
+
+
+def _unesc(text: str) -> str:
+    return (
+        (text or "")
+        .replace("&quot;", '"')
+        .replace("&gt;", ">")
+        .replace("&lt;", "<")
+        .replace("&amp;", "&")
+    )
+
+
+def visible_caption(svg: str) -> str:
+    """Footer copy drawn on the field, not the aria-label."""
+    parts = re.findall(
+        r'<text[^>]*fill="#f7f1e5"[^>]*>(.*?)</text>',
+        svg or "",
+        flags=re.I | re.S,
+    )
+    return " ".join(_unesc(part).strip() for part in parts if part.strip())
+
+
+def caption_matches_why(visible: str, why: str) -> bool:
+    """Wrapped/ellipsis footer still has to be the card why."""
+    def norm(value: str) -> str:
+        return re.sub(r"\s+", " ", (value or "").replace("…", "").strip()).lower()
+
+    shown = norm(visible)
+    source = norm(why)
+    if not shown or not source:
+        return not shown and not source
+    return source.startswith(shown) or shown.startswith(source)
 
 
 def _esc(text: str) -> str:

@@ -1,41 +1,21 @@
-name: CI gates
+name: Edition gates (human)
 
-# Every pull request against main runs the merge gates:
-#   1. Python unit tests for the Chiefs Narrative engine (offline, no keys).
-#   2. A full Hugo build with the exact production version.
-# If both gates pass and the PR is not a draft (and not labeled "hold"),
-# the PR is squash-merged into main automatically. A GITHUB_TOKEN merge
-# does not fire pages.yml's push trigger, so automerge then dispatches
-# "Deploy Hugo site to GitHub Pages" on main.
-#
-# Edition PRs opened with GITHUB_TOKEN still emit a pull_request event,
-# but they must not queue this workflow. Runs #106, #110, #114, #118
-# (36446331690) sat on "This workflow run required approval but was not
-# approved before it expired" with 0 jobs — that is a first-time /
-# bot-approval gate, not a concurrency/workflow_call bug. Ignore
-# edition-only paths here; narrative.yml already workflow_dispatches
-# these gates against the edition branch and merges.
+# Human data-only PRs (#120) match ci.yml paths-ignore, so that workflow
+# never starts. Bot edition PRs stay on narrative.yml + workflow_dispatch.
+# pull_request_target runs the trusted workflow from main and skips
+# github-actions[bot], so first-time bot approval does not come back.
 
 on:
-  pull_request:
+  pull_request_target:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore:
+    paths:
       - "data/narrative.json"
       - "data/narrative_archive.json"
       - "data/narrative_repair.json"
       - "data/narrative_editions/**"
       - "data/wire.json"
-      - "data/schedule_2026.json"
       - "public/images/narrative/**"
-  workflow_dispatch:
-  workflow_call:
-    inputs:
-      checkout_ref:
-        description: "Branch or SHA to gate (edition branch)"
-        required: false
-        type: string
-        default: ""
 
 permissions:
   contents: write
@@ -43,21 +23,25 @@ permissions:
   actions: write
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: edition-qa-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 env:
   HUGO_VERSION: 0.152.2
 
 jobs:
-  gates:
-    if: ${{ github.event_name != 'pull_request' || !startsWith(github.head_ref, 'narrative/update-') }}
+  edition-gates:
+    if: >-
+      ${{ github.actor != 'github-actions[bot]' &&
+          github.event.pull_request.user.login != 'github-actions[bot]' &&
+          !startsWith(github.head_ref, 'narrative/update-') }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout the pull request
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.checkout_ref || github.ref }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -78,6 +62,9 @@ jobs:
       - name: Gate 1 — narrative engine tests
         run: python -m unittest discover -s tools/tests -v
 
+      - name: Fact-check the published edition
+        run: python -m tools.chiefs_narrative.generate --check-edition
+
       - name: Render XO diagrams from narrative.json
         run: python -m tools.chiefs_narrative.generate --diagrams-only
 
@@ -85,12 +72,10 @@ jobs:
         run: hugo --gc --minify
 
   automerge:
-    needs: gates
-    # Only human/PAT pull_request events. workflow_dispatch / workflow_call
-    # have no pull_request payload — do not invent a merge.
-    # Edition PRs are merged by narrative.yml after this gates job succeeds.
+    needs: edition-gates
     if: >-
-      ${{ github.event_name == 'pull_request' &&
+      ${{ github.actor != 'github-actions[bot]' &&
+          github.event.pull_request.user.login != 'github-actions[bot]' &&
           !startsWith(github.head_ref, 'narrative/update-') &&
           github.event.pull_request.draft == false &&
           !contains(github.event.pull_request.labels.*.name, 'hold') }}
@@ -101,7 +86,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # Prefer GitHub auto-merge; fall back to an immediate squash merge.
           gh pr merge "${{ github.event.pull_request.html_url }}" \
             --squash --auto --delete-branch \
             || gh pr merge "${{ github.event.pull_request.html_url }}" \
@@ -112,7 +96,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # GITHUB_TOKEN merges do not fire pages.yml's push trigger.
-          # This job has no checkout; gh needs an explicit repo.
           gh workflow run "Deploy Hugo site to GitHub Pages" \
             --repo "${GITHUB_REPOSITORY}" --ref main

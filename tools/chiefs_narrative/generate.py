@@ -6,6 +6,8 @@ Run it directly::
     python -m tools.chiefs_narrative.generate --provider grok
     python -m tools.chiefs_narrative.generate --provider offline
     python -m tools.chiefs_narrative.generate --schedule-only  # slate only
+    python -m tools.chiefs_narrative.generate --diagrams-only  # SVG from JSON
+    python -m tools.chiefs_narrative.generate --check-edition  # review + SVG gate
     python -m tools.chiefs_narrative.generate --dry-run  # print, don't write
 
 Environment (all optional):
@@ -471,6 +473,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
     # then hard-fails — never publish yesterday's headline/dek/theEdge again.
     meta = {
         "generatedAt": config.iso_now(),
+        "updatedAt": config.iso_now(),
         "generator": generator_label,
         "record": config.TEAM["last_season_record"],
         "markets": signals.get("markets", {}),
@@ -491,6 +494,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             retry_name, system, retry_user, signals, ph, upcoming
         )
         meta["generatedAt"] = config.iso_now()
+        meta["updatedAt"] = config.iso_now()
         meta["generator"] = generator_label
         narrative = _assemble_narrative(raw, ph, meta, signals, upcoming)
         matched = _matched_copy_fields(narrative, previous)
@@ -521,6 +525,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             retry_name, system, retry_user, signals, ph, upcoming
         )
         meta["generatedAt"] = config.iso_now()
+        meta["updatedAt"] = config.iso_now()
         meta["generator"] = generator_label
         narrative = _assemble_narrative(raw, ph, meta, signals, upcoming)
         matched = _matched_copy_fields(narrative, previous)
@@ -579,10 +584,17 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
                 + "; ".join(orphans)
             )
         narrative = repaired
+        narrative["updatedAt"] = config.iso_now()
         print("  [writer] fact-check: dropped sentences logged; edition is clean")
 
     # 6. Render diagrams only after uniqueness and fact-check have passed.
     _render_diagrams(narrative)
+    caption_issues = facts.check_diagram_captions(narrative)
+    if caption_issues:
+        raise FactCheckError(
+            "Chiefs Narrative XO captions do not match why: "
+            + "; ".join(caption_issues)
+        )
 
     return {
         "narrative": narrative,
@@ -590,6 +602,69 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         "news": signals.get("news") or [],
         "droppedSentences": dropped,
     }
+
+
+def _write_edition_payload(narrative: dict) -> None:
+    payload = json.dumps(narrative, indent=2, ensure_ascii=False) + "\n"
+    config.NARRATIVE_JSON.write_text(payload, encoding="utf-8")
+    slug = narrative.get("slug")
+    if slug:
+        (config.EDITIONS_DIR / f"{slug}.json").write_text(payload, encoding="utf-8")
+
+
+def render_published_diagrams(*, stamp: bool = False) -> dict:
+    """Re-render public/images/narrative/<slug>/xo-*.svg from narrative.json."""
+    narrative = json.loads(config.NARRATIVE_JSON.read_text(encoding="utf-8"))
+    _render_diagrams(narrative)
+    if stamp:
+        narrative["updatedAt"] = config.iso_now()
+        _write_edition_payload(narrative)
+    issues = facts.check_diagram_captions(narrative)
+    if issues:
+        raise FactCheckError("; ".join(issues))
+    return narrative
+
+
+def _last_game_from_edition(narrative: dict) -> dict:
+    review = narrative.get("lastGameReview") or {}
+    score = review.get("score") or ""
+    match = re.search(r"(\d+)\s*[–-]\s*(\d+)", score)
+    kc_score = int(match.group(1)) if match else None
+    opp_score = int(match.group(2)) if match else None
+    return {
+        "completed": bool(review.get("result") or score),
+        "kcScore": kc_score,
+        "oppScore": opp_score,
+        "opponent": review.get("opponent") or "",
+        "kickoff": review.get("label") or "",
+        "date": (narrative.get("generatedAt") or "")[:10] + "T17:00:00Z",
+    }
+
+
+def _recap_for_edition(narrative: dict) -> dict:
+    review = narrative.get("lastGameReview") or {}
+    opponent = (review.get("opponent") or "").lower()
+    if "miami" in opponent:
+        path = (
+            config.REPO_ROOT
+            / "tools"
+            / "tests"
+            / "fixtures"
+            / "espn_401872952_recap.json"
+        )
+        if path.is_file():
+            return json.loads(path.read_text(encoding="utf-8"))
+    return {}
+
+
+def check_published_edition() -> list[str]:
+    """Fact-check data/narrative.json plus visible XO captions."""
+    narrative = json.loads(config.NARRATIVE_JSON.read_text(encoding="utf-8"))
+    last = _last_game_from_edition(narrative)
+    recap = _recap_for_edition(narrative)
+    issues = facts.check_review(narrative, last, recap)
+    issues.extend(facts.check_diagram_captions(narrative))
+    return issues
 
 
 def main(argv=None) -> int:
@@ -601,12 +676,46 @@ def main(argv=None) -> int:
         action="store_true",
         help="refresh data/schedule_2026.json from ESPN and exit (no narrative)",
     )
+    parser.add_argument(
+        "--diagrams-only",
+        action="store_true",
+        help="re-render XO SVGs from data/narrative.json and exit",
+    )
+    parser.add_argument(
+        "--stamp-updated",
+        action="store_true",
+        help="with --diagrams-only, write updatedAt on the in-place edition",
+    )
+    parser.add_argument(
+        "--check-edition",
+        action="store_true",
+        help="run check_review and the SVG/why gate on data/narrative.json",
+    )
     args = parser.parse_args(argv)
 
     if args.schedule_only:
         games = collect.refresh_schedule()
         print("-" * 52)
         print(f"  slate: {len(games)} games")
+        return 0
+
+    if args.diagrams_only:
+        try:
+            narrative = render_published_diagrams(stamp=args.stamp_updated)
+        except FactCheckError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
+        print(f"  diagrams: {len(narrative.get('xsandos', []))}")
+        return 0
+
+    if args.check_edition:
+        issues = check_published_edition()
+        if issues:
+            print("ERROR: published edition failed gates:", file=sys.stderr)
+            for item in issues:
+                print(f"  - {item}", file=sys.stderr)
+            return 1
+        print("  edition gates: ok")
         return 0
 
     try:

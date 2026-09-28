@@ -155,6 +155,7 @@ def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
     narrative = {
         "schemaVersion": config.SCHEMA_VERSION,
         "generatedAt": meta.get("generatedAt") or config.iso_now(),
+        "updatedAt": meta.get("updatedAt") or raw.get("updatedAt") or "",
         "generator": meta.get("generator", "offline"),
         "phase": {
             "type": _s(pg.get("type"), "offseason"),
