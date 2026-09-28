@@ -1,0 +1,18 @@
+{
+  "_note": "Daily run 36394515450 on 80993195 (#116). accept = checker false positives. reject = real writer errors that must still fail and feed retry.",
+  "accept": [
+    "Miami held the ball 34:21, posted 19 first downs and 119 rushing yards.",
+    "Credit Miami for 19 first downs, 119 rush, 34:21.",
+    "Kansas City scored 24 points without needing a 30-point night.",
+    "Bolton's 11-tackle night was the defensive headline.",
+    "Can Spagnuolo keep posting 10-point nights if the takeaways dry up?",
+    "Throw a clear-out vertical and wall the first LB versus a Cover-2 shell on 1st-and-10.",
+    "Mahomes hit Kelce for 48 yards on the first snap."
+  ],
+  "reject": [
+    "The Sneed fumble after the 24-10 touchdown flipped the field.",
+    "Walker had 70 of it between the tackles.",
+    "Zone blitz Jones/Karlaftis with a dropping end on second-and-long — the look that helped produce the Willis interception.",
+    "Kansas City won the possession 8:42."
+  ]
+}

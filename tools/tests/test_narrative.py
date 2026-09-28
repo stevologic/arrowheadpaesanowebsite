@@ -2085,15 +2085,27 @@ class FactCheck(unittest.TestCase):
         )
         self.assertEqual(facts.check_review(narrative, last, recap), [])
 
-    def test_daytime_kickoff_rejects_any_night_word(self):
+    def test_daytime_kickoff_accepts_night_idioms(self):
         recap = _load_fixture("espn_401872952_recap.json")
         last = dict(self.LAST)
         last["date"] = "2026-09-27T17:00:00Z"
         narrative = self._review(
-            lede="Can Spagnuolo keep posting 10-point nights if the takeaways dry up?"
+            lede=(
+                "Kansas City scored 24 points without needing a 30-point night. "
+                "Bolton's 11-tackle night was the defensive headline. "
+                "Can Spagnuolo keep posting 10-point nights if the takeaways dry up?"
+            )
         )
         issues = facts.check_review(narrative, last, recap)
-        self.assertTrue(any("nights" in item for item in issues), issues)
+        self.assertFalse(any("night" in item for item in issues), issues)
+
+    def test_daytime_kickoff_rejects_this_game_night(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = self._review(lede="The Miami night was a reminder.")
+        issues = facts.check_review(narrative, last, recap)
+        self.assertTrue(any("night" in item for item in issues), issues)
 
     def test_echoed_writer_instruction_is_rejected(self):
         recap = _load_fixture("espn_401872952_recap.json")
@@ -2117,6 +2129,8 @@ class FactCheck(unittest.TestCase):
     def test_private_night_guidance_is_not_in_the_user_prompt(self):
         self.assertIn("[PRIVATE WRITER INSTRUCTION", prompts.SYSTEM_PROMPT)
         self.assertIn("never copy", prompts.SYSTEM_PROMPT)
+        self.assertIn("never write the words night or nights", prompts.SYSTEM_PROMPT)
+        self.assertIn("11-tackle game", prompts.SYSTEM_PROMPT)
         last = dict(self.LAST)
         last["date"] = "2026-09-27T17:00:00Z"
         last["kickoff"] = "Sun, Sep 27 · 12:00 PM CT"
@@ -2237,7 +2251,6 @@ class FactCheck(unittest.TestCase):
         last["date"] = "2026-09-27T17:00:00Z"
         issues = facts.check_review(payload, last, recap)
         blob = " ".join(issues)
-        self.assertIn("nights", blob)
         self.assertIn("echoed writer instruction", blob)
         self.assertIn("turnover credit", blob)
         self.assertIn("absolute claim", blob)
@@ -2262,14 +2275,14 @@ class FactCheck(unittest.TestCase):
             "lastGameReview": {
                 "lede": (
                     "Kansas City finished 24–10 against Miami. "
-                    "Can Spagnuolo keep posting 10-point nights?"
+                    "The Miami night was a reminder."
                 )
             },
         }
         issues = facts.check_review(narrative, last, recap)
         repaired = facts.repair_offending_copy(narrative, issues, last)
         dropped = facts.dropped_sentences(narrative, repaired)
-        self.assertTrue(any("nights" in s for s in dropped), dropped)
+        self.assertTrue(any("night" in s for s in dropped), dropped)
         self.assertEqual(facts.check_review(repaired, last, recap), [])
 
     def test_real_wrong_subject_still_fails(self):
@@ -2686,6 +2699,81 @@ class FactCheck(unittest.TestCase):
         self.assertIn("PER-GAME STAT TABLE", text)
         self.assertIn("88", text)
         self.assertIn("do not repeat the flagged wording", text)
+
+    def test_run_36394515450_false_positives_pass_and_writer_errors_fail(self):
+        catalog = _load_fixture("edition_run_36394515450.json")
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        for sentence in catalog["accept"]:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertEqual(issues, [], f"should accept {sentence!r}: {issues}")
+        for sentence in catalog["reject"]:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertTrue(issues, f"should reject {sentence!r}")
+        retry = facts.retry_instruction(
+            facts.check_review(
+                self._review(lede=catalog["reject"][0]), last, recap
+            ),
+            recap,
+        )
+        self.assertIn("play order", retry)
+
+    def test_xsandos_first_lb_is_not_an_absolute_claim(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = {
+            "lastGameReview": {
+                "lede": "Kansas City beat Miami 24-10.",
+                "analysis": ["Kelce scored on an 11-yard catch."],
+            },
+            "xsandos": [
+                {
+                    "title": "Clear-out vertical",
+                    "situation": "1st-and-10 vs Las Vegas",
+                    "why": (
+                        "Throw a clear-out vertical and wall the first LB "
+                        "versus a Cover-2 shell on 1st-and-10."
+                    ),
+                    "coaching": (
+                        "The Rodriguez INT was the only deep-middle miss."
+                    ),
+                }
+            ],
+        }
+        issues = facts.check_review(narrative, last, recap)
+        self.assertFalse(any("first-claim" in item for item in issues), issues)
+        self.assertFalse(any("absolute claim" in item for item in issues), issues)
+
+    def test_prompt_allowed_facts_lists_box_and_scoring_order(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        last["kickoff"] = "Sun, Sep 27 · 12:00 PM CT"
+        ph = {
+            "type": "regular",
+            "label": "Week 4",
+            "week": 4,
+            "mode": "review",
+            "lastGame": last,
+            "nextGame": None,
+        }
+        text = prompts.build_user_prompt({"news": [], "lastGameRecap": recap}, ph, [])
+        self.assertIn("ALLOWED FACTS", text)
+        self.assertIn("firstDowns=18", text)
+        self.assertIn("firstDowns=19", text)
+        self.assertIn("rushingYards=88", text)
+        self.assertIn("rushingYards=119", text)
+        self.assertIn("possessionTime=25:39", text)
+        self.assertIn("possessionTime=34:21", text)
+        self.assertIn("SCORING PLAYS IN ORDER", text)
+        self.assertIn("Kenneth Walker III", text)
+        self.assertIn("Ollie Gordon II", text)
+        self.assertLess(text.index("ALLOWED FACTS"), text.index("LAST-GAME BOX"))
+        self.assertLess(
+            text.index("SCORING PLAYS IN ORDER"), text.index("LAST-GAME BOX")
+        )
 
     def test_narrative_pr_lists_drops_and_holds_automerge(self):
         yaml = (

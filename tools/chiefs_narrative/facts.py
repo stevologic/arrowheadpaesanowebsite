@@ -185,11 +185,45 @@ _ABSOLUTE_CLAIM = re.compile(
     re.IGNORECASE,
 )
 _FIRST_PLAY_CLAIM = re.compile(
-    r"\bthe first\b(?!\s*-?\s*(?:down|half|quarter|and|open|clean|window|read|look))"
+    r"\bthe first\b(?!\s*-?\s*(?:down|half|quarter|and|open|clean|window|"
+    r"read|look|lb|linebacker|snap|safety|level|man|wave|hat))"
     r"[^.!?—]{0,60}"
     r"(?:\bTD\b|touchdown|field goal|interception|\bINT\b|fumble|"
     r"deep[- ]|vertical|completion)",
     re.IGNORECASE,
+)
+_FIRST_ORDINAL = re.compile(
+    r"\b(?:the\s+)?first\s+(?:lb|linebacker|snap|down|quarter|half|and)\b"
+    r"|\b1st-and-\d+",
+    re.IGNORECASE,
+)
+_NIGHT_IDIOM = re.compile(
+    r"\b\d+(?:\.\d+)?[-\s]?(?:point|tackle|yard)s?\s+nights?\b"
+    r"|\bnightmare\b",
+    re.IGNORECASE,
+)
+_NIGHT_THIS_GAME = re.compile(
+    r"\bnight game\b"
+    r"|\b(?:sunday|monday|thursday|friday|saturday)\s+night\b"
+    r"|\bfinished the night\b"
+    r"|\bquarterback night\b",
+    re.IGNORECASE,
+)
+_PROSE_KEYS = (
+    "dek",
+    "videoHook",
+    "theEdge",
+    "storyline",
+    "lastGameReview",
+    "currentState",
+    "gamePlan",
+    "nextGame",
+    "matchups",
+    "debates",
+    "coaching",
+    "strategies",
+    "runOfShow",
+    "spotlight",
 )
 _AFTER_NON_PLAY = re.compile(
     r"\b(?:a|the|this|that|their)\s+"
@@ -437,6 +471,15 @@ def edition_text(narrative: dict | None) -> str:
     payload = narrative or {}
     parts: list[str] = []
     for key in _EDITION_KEYS:
+        _walk_prose(payload.get(key), parts)
+    return "\n".join(p for p in parts if p)
+
+
+def prose_text(narrative: dict | None) -> str:
+    """Review and narrative prose only — not X's & O's card fields."""
+    payload = narrative or {}
+    parts: list[str] = []
+    for key in _PROSE_KEYS:
         _walk_prose(payload.get(key), parts)
     return "\n".join(p for p in parts if p)
 
@@ -1030,16 +1073,22 @@ def _check_part_of_day(
     prior_labels = _prior_game_labels(recap)
     issues = []
     seen: set[str] = set()
+    last_labels = _last_game_labels(last_game, recap)
     for match in _NIGHT_WORD.finditer(text):
         sentence = _sentence_at(text, match.start())
         low = sentence.lower()
-        if "nightmare" in low:
+        if _NIGHT_IDIOM.search(low):
             continue
         if prior_labels and any(
             re.search(rf"\b{re.escape(lab)}\b", low) for lab in prior_labels
         ):
             continue
         if _foreign_team_sentence(sentence, last_game, recap):
+            continue
+        about_this = bool(_NIGHT_THIS_GAME.search(low)) or any(
+            re.search(rf"\b{re.escape(lab)}\b", low) for lab in last_labels
+        )
+        if not about_this:
             continue
         snippet = match.group(0)
         key = snippet.lower()
@@ -1729,6 +1778,8 @@ def _check_absolute_claims(text: str, recap: dict | None) -> list[str]:
 
     for match in _FIRST_PLAY_CLAIM.finditer(text):
         sentence = _sentence_at(text, match.start())
+        if _FIRST_ORDINAL.search(sentence):
+            continue
         _add(sentence, "absolute first-claim cannot be verified against the play-by-play")
 
     for match in _NEVER_PLAY_CLAIM.finditer(text):
@@ -1763,6 +1814,9 @@ def _check_team_yards(
         if token in last_labels or any(
             re.search(rf"\b{re.escape(lab)}\b", token) for lab in last_labels
         ):
+            named = _alias_team(token, aliases)
+            if named and named != "KC" and named in last_rush:
+                return named, last_rush.get(named)
             return "last KC", last_rush.get("KC")
         team = _alias_team(token, aliases)
         if team == "KC":
@@ -1778,7 +1832,11 @@ def _check_team_yards(
         team = _alias_team(token, aliases)
         if token in prior_labels:
             return "prior KC", prior_pass.get("KC")
-        if token in last_labels:
+        if token in last_labels or any(
+            re.search(rf"\b{re.escape(lab)}\b", token) for lab in last_labels
+        ):
+            if team and team != "KC" and team in last_pass:
+                return team, last_pass.get(team)
             return "last KC", last_pass.get("KC")
         if team == "KC":
             return "KC", last_pass.get("KC")
@@ -1898,7 +1956,6 @@ def _check_box_clocks(
     allowed_clocks = set().union(*clocks.values()) if clocks else set()
     aliases = _team_aliases(last_game, recap)
     prior_labels = _prior_game_labels(recap)
-    last_labels = _last_game_labels(last_game, recap)
     kc = (recap or {}).get("kc") or {}
     prior = ((recap or {}).get("prior") or {}).get("kc") or {}
 
@@ -1908,8 +1965,13 @@ def _check_box_clocks(
             continue
         if clock not in allowed_clocks and clock.replace(":", ".") not in allowed_clocks:
             # Bare clock that is nobody's TOP — only flag when it claims possession.
-            window = text[match.start() : min(len(text), match.end() + 24)]
-            if re.search(r"possession|clock", window, re.I):
+            # Look behind for 'possession 8:42'; the regex already eats
+            # '8:42 of possession' after the time. Do not treat kickoff
+            # '12:00 PM' plus later 'the clock' as a TOP claim.
+            prefix = text[max(0, match.start() - 40) : match.start()]
+            if re.search(r"possession", prefix, re.I) or re.search(
+                r"possession|clock", match.group(0), re.I
+            ):
                 issues.append(
                     f"possession {clock} is not on the ESPN box "
                     f"({match.group(0)!r}; official {sorted(allowed_clocks)})"
@@ -1923,24 +1985,34 @@ def _check_box_clocks(
             )
 
     kc_fd = _box_int(kc, "firstDowns")
+    opp_fd = _box_int((recap or {}).get("opp"), "firstDowns")
     prior_fd = _box_int(prior, "firstDowns")
+    opp_abbr = ((recap or {}).get("oppAbbr") or "").strip().upper()
     for match in _FIRST_DOWNS.finditer(text):
         try:
             claimed = int(match.group(1))
         except (TypeError, ValueError):
             continue
-        subject = _subject_clause(text, match.start()).lower()
+        sentence = _sentence_at(text, match.start())
+        team = _bound_team(
+            text, match.start(), match.end(), aliases, {}
+        ) or _last_name_in(sentence, aliases)
         official = None
-        label = "KC"
-        if any(re.search(rf"\b{re.escape(lab)}\b", subject) for lab in prior_labels):
-            official, label = prior_fd, "prior KC"
-        elif any(re.search(rf"\b{re.escape(lab)}\b", subject) for lab in last_labels):
+        label = team or "KC"
+        if team and team == opp_abbr:
+            official, label = opp_fd, team
+        elif team == "KC":
             official, label = kc_fd, "KC"
+        elif any(
+            re.search(rf"\b{re.escape(lab)}\b", sentence.lower())
+            for lab in prior_labels
+        ):
+            official, label = prior_fd, "prior KC"
+        elif claimed in {kc_fd, opp_fd, prior_fd}:
+            continue
         else:
             official = kc_fd
         if official is None or claimed == official:
-            continue
-        if claimed in {kc_fd, prior_fd}:
             continue
         issues.append(
             f"first downs {claimed} disagrees with ESPN {official} for "
@@ -2007,7 +2079,7 @@ def check_review(
         issues.extend(_check_stat_lines(text, recap, last_game))
         issues.extend(_check_play_sequence(text, recap))
         issues.extend(_check_turnover_credit(text, recap))
-        issues.extend(_check_absolute_claims(text, recap))
+        issues.extend(_check_absolute_claims(prose_text(narrative), recap))
         issues.extend(_check_team_yards(text, recap, last_game))
         issues.extend(_check_garbled_initials(text, recap))
         issues.extend(_check_scheme_claims(text, recap))

@@ -131,6 +131,78 @@
       "snippet": "18-19 game",
       "sentence": "Kansas City closed it as an 18-19 game.",
       "reason": "Explicit game-score claim whose pair is not the final or any ESPN score-after."
+    },
+    {
+      "id": "36394515450-mia-19-fd",
+      "run": "36394515450",
+      "label": "false-positive",
+      "snippet": "19 first downs",
+      "sentence": "Miami held the ball 34:21, posted 19 first downs and 119 rushing yards.",
+      "reason": "19/119/34:21 are Miami's box. Bind each team stat to the club named in the clause."
+    },
+    {
+      "id": "36394515450-credit-mia-box",
+      "run": "36394515450",
+      "label": "false-positive",
+      "snippet": "19 first downs",
+      "sentence": "Credit Miami for 19 first downs, 119 rush, 34:21.",
+      "reason": "Same Miami box, credited by name."
+    },
+    {
+      "id": "36394515450-30-point-night",
+      "run": "36394515450",
+      "label": "false-positive",
+      "snippet": "30-point night",
+      "sentence": "Kansas City scored 24 points without needing a 30-point night.",
+      "reason": "Performance idiom, not a claim that this midday game kicked off at night."
+    },
+    {
+      "id": "36394515450-bolton-night",
+      "run": "36394515450",
+      "label": "false-positive",
+      "snippet": "11-tackle night",
+      "sentence": "Bolton's 11-tackle night was the defensive headline.",
+      "reason": "Tackle-night idiom, not a kickoff-window claim."
+    },
+    {
+      "id": "36394515450-first-lb",
+      "run": "36394515450",
+      "label": "false-positive",
+      "snippet": "first LB",
+      "sentence": "Throw a clear-out vertical and wall the first LB versus a Cover-2 shell on 1st-and-10.",
+      "reason": "Ordinal coaching 'first LB' / 1st-and-10, not a first-time play claim."
+    },
+    {
+      "id": "36394515450-sneed-after-24-10",
+      "run": "36394515450",
+      "label": "real-error",
+      "snippet": "Sneed fumble after the 24-10",
+      "sentence": "The Sneed fumble after the 24-10 touchdown flipped the field.",
+      "reason": "Sneed fumble is Q2 3:16; the 24-10 TD is Q4 2:55. Play order is reversed."
+    },
+    {
+      "id": "36394515450-walker-btt",
+      "run": "36394515450",
+      "label": "real-error",
+      "snippet": "between the tackles",
+      "sentence": "Walker had 70 of it between the tackles.",
+      "reason": "Walker also had end runs. Do not write that the 70 were between the tackles."
+    },
+    {
+      "id": "36394515450-zone-blitz-int",
+      "run": "36394515450",
+      "label": "real-error",
+      "snippet": "zone blitz",
+      "sentence": "Zone blitz Jones/Karlaftis with a dropping end on second-and-long — the look that helped produce the Willis interception.",
+      "reason": "Play-by-play does not back a zone blitz producing the interception."
+    },
+    {
+      "id": "36394515450-possession-842",
+      "run": "36394515450",
+      "label": "real-error",
+      "snippet": "8:42",
+      "sentence": "Kansas City won the possession 8:42.",
+      "reason": "8:42 is not on the ESPN possession clocks (25:39 / 34:21 / 37:00)."
     }
   ]
 }

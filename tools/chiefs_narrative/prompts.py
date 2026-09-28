@@ -36,8 +36,9 @@ supplied for that game — no "noon", "Sunday night", or invented windows.
 
 [PRIVATE WRITER INSTRUCTION — never copy, quote, or paraphrase this block \
 into any field, talkTrack, debate, or coaching point]
-If the last-game kickoff window is morning, midday, or afternoon, do not \
-write 'night', 'nights', '<opponent> night', or 'yard night' about that game. \
+If the last-game kickoff window is morning, midday, or afternoon, never \
+write the words night or nights anywhere in the edition. Use day, game, \
+or afternoon instead (11-tackle game, 30-point afternoon, this game). \
 Do not call it a night game. Do not write the instruction itself.
 Credit only the player ESPN lists as forcing or recovering a fumble, or as \
 the interceptor. Team rushing and passing totals come from the BOX lines, \
@@ -107,6 +108,53 @@ def _format_scoring_table(plays: list) -> list[str]:
         player = play.get("player") or "unknown"
         quarter = f"Q{play['quarter']}" if play.get("quarter") else "Q?"
         lines.append(f"    {team}  {typ}  {ytxt}  {player}  {quarter}")
+    return lines
+
+
+def _allowed_facts(recap: dict | None) -> list[str]:
+    """Exact box and scoring order the writer must copy, not invent."""
+    recap = recap or {}
+    kc = recap.get("kc") or {}
+    opp = recap.get("opp") or {}
+    abbr = recap.get("oppAbbr") or "OPP"
+    if not kc and not opp and not recap.get("scoringPlays"):
+        return []
+    lines = [
+        "ALLOWED FACTS (copy these numbers; do not invent others):",
+        "  KC BOX: "
+        + ", ".join(
+            f"{k}={kc[k]}"
+            for k in (
+                "firstDowns",
+                "rushingYards",
+                "netPassingYards",
+                "totalYards",
+                "possessionTime",
+                "thirdDownEff",
+            )
+            if kc.get(k)
+        ),
+        f"  {abbr} BOX: "
+        + ", ".join(
+            f"{k}={opp[k]}"
+            for k in (
+                "firstDowns",
+                "rushingYards",
+                "netPassingYards",
+                "totalYards",
+                "possessionTime",
+                "thirdDownEff",
+            )
+            if opp.get(k)
+        ),
+    ]
+    plays = recap.get("scoringPlays") or []
+    if plays:
+        lines.append("  SCORING PLAYS IN ORDER (team and scorer):")
+        for play in plays:
+            if not isinstance(play, dict):
+                continue
+            lines.append(_format_scoring_play(play))
     return lines
 
 
@@ -201,6 +249,9 @@ def _last_game_brief(signals: dict, phase: dict) -> str:
     if live:
         lines = live.split("\n") + [""] + lines
     recap = (signals or {}).get("lastGameRecap") or {}
+    allowed = _allowed_facts(recap)
+    if allowed:
+        lines.extend(allowed)
     kc = recap.get("kc") or {}
     opp = recap.get("opp") or {}
     if kc or opp:
