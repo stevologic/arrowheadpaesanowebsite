@@ -1,0 +1,20 @@
+{
+  "_note": "Daily run 36389259508 on 6d7e208. accept = checker false positives. reject = real writer errors.",
+  "accept": [
+    "when Kenneth Walker III finished a 10-yard run after Mahomes hit Kelce for 48 yards on the first snap",
+    "Walker's 10-yard touchdown in Miami came up the middle after Kelce's 48-yard gain, but consecutive no-gains at the Miami 12 (one with H. Nourzad eligible) are the red-zone tape a 3-0 Raiders front will copy.",
+    "Mahomes's read is throw the first open window — the Rodriguez interception came when he tried to force Rice deep.",
+    "The Chargers' nightmare start has them three games behind before the Week 6 meeting, which is real math.",
+    "Separate the explosives from the 88 rushing yards and the 34:21 clock.",
+    "The Miami interception sat next to the Karlaftis pick.",
+    "He told the young roster not to relax after a win that was never as comfortable as 24-10 looks.",
+    "Harrison Butker's 50-yard miss after the Karlaftis interception did not change 24-10."
+  ],
+  "reject": [
+    "The other 18 rushing yards are the rest of the film.",
+    "Kansas City finished with 18 team rushing yards.",
+    "Willis was intercepted by George.",
+    "The supporting numbers — 18 first downs, 3-of-7 on third down, 25:39 of possession — are why it never felt like a 382-yard night against Indianapolis.",
+    "The 11-yard touchdown after the Karlaftis interception made it 24-10."
+  ]
+}

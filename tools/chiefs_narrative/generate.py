@@ -515,7 +515,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             + "; ".join(violations)
             + f"; retrying {attempt}/{FACT_CHECK_RETRIES}"
         )
-        retry_user = user + "\n\n" + facts.retry_instruction(violations)
+        retry_user = user + "\n\n" + facts.retry_instruction(violations, recap)
         retry_name = name if generator_label != "offline" else "offline"
         raw, generator_label = _draft_raw(
             retry_name, system, retry_user, signals, ph, upcoming
