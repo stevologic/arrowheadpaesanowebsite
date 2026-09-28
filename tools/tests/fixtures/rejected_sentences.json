@@ -321,7 +321,7 @@
       "run": "v9",
       "label": "real-error",
       "snippet": "within 90 seconds",
-      "sentence": "within 90 seconds",
+      "sentence": "Kansas City scored within 90 seconds.",
       "reason": "Opening TD came at 2:06 / Q1 12:54."
     },
     {
@@ -355,6 +355,102 @@
       "snippet": "twenty-two touches",
       "sentence": "Walker already handled twenty-two touches.",
       "reason": "Walker had 20 touches, not 22."
+    },
+    {
+      "id": "v10-jones-hits-on-willis",
+      "run": "v10",
+      "label": "false-positive",
+      "snippet": "two hits on Willis",
+      "sentence": "Chris Jones had two hits on Willis",
+      "reason": "Jones hitting Willis is not Miami's 5 QB hits on Mahomes."
+    },
+    {
+      "id": "v10-karlaftis-sacks-of-willis",
+      "run": "v10",
+      "label": "false-positive",
+      "snippet": "two sacks of Willis",
+      "sentence": "Karlaftis had two sacks of Willis",
+      "reason": "Karlaftis sacking Willis is not Mahomes' 0 sacks taken."
+    },
+    {
+      "id": "v10-crosby-sacks-this-year",
+      "run": "v10",
+      "label": "false-positive",
+      "snippet": "two sacks this year",
+      "sentence": "Crosby has two sacks this year",
+      "reason": "Season sack totals are not the Miami game."
+    },
+    {
+      "id": "v10-crosby-hits-last-season",
+      "run": "v10",
+      "label": "false-positive",
+      "snippet": "12 QB hits last season",
+      "sentence": "Crosby posted 12 QB hits last season",
+      "reason": "Last-season hits are not Miami's 5 on Mahomes."
+    },
+    {
+      "id": "v10-kelce-within-two-minutes-kickoff",
+      "run": "v10",
+      "label": "false-positive",
+      "snippet": "within two minutes of kickoff",
+      "sentence": "Kelce's 48-yarder came within two minutes of kickoff",
+      "reason": "A 48-yard play near kickoff is not a claim that the opening score came inside 2:00."
+    },
+    {
+      "id": "v10-miami-sacked-mahomes-twice",
+      "run": "v10",
+      "label": "real-error",
+      "snippet": "sacked Mahomes twice",
+      "sentence": "Miami sacked Mahomes twice",
+      "reason": "Mahomes was sacked 0 times."
+    },
+    {
+      "id": "v10-in-under-two-minutes",
+      "run": "v10",
+      "label": "real-error",
+      "snippet": "under two minutes",
+      "sentence": "Kansas City scored in under two minutes",
+      "reason": "Opening TD came at 2:06 / Q1 12:54."
+    },
+    {
+      "id": "v10-less-than-two-minutes",
+      "run": "v10",
+      "label": "real-error",
+      "snippet": "less than two minutes",
+      "sentence": "Kansas City scored in less than two minutes",
+      "reason": "Opening TD came at 2:06 / Q1 12:54."
+    },
+    {
+      "id": "v10-each-stuffed-snap",
+      "run": "v10",
+      "label": "real-error",
+      "snippet": "each stuffed snap",
+      "sentence": "Nourzad was eligible on each stuffed snap",
+      "reason": "Nourzad was eligible on Q2 6:15 only."
+    },
+    {
+      "id": "v10-both-of-the-stuffed-snaps",
+      "run": "v10",
+      "label": "real-error",
+      "snippet": "both of the stuffed snaps",
+      "sentence": "Nourzad was eligible on both of the stuffed snaps",
+      "reason": "Nourzad was eligible on Q2 6:15 only."
+    },
+    {
+      "id": "v10-touched-the-ball-18",
+      "run": "v10",
+      "label": "real-error",
+      "snippet": "18 times",
+      "sentence": "touched the ball 18 times",
+      "reason": "Walker had 20 touches, not 18."
+    },
+    {
+      "id": "v10-attempted-30-passes",
+      "run": "v10",
+      "label": "real-error",
+      "snippet": "30 passes",
+      "sentence": "attempted 30 passes",
+      "reason": "Mahomes attempted 24 passes."
     }
   ]
 }

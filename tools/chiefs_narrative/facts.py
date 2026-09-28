@@ -284,26 +284,49 @@ _NUMBER_WORDS = {
     "forty": 40,
 }
 _TOUCH_COUNT = re.compile(
-    rf"\b({_NUM_TOKEN})\s+touches\b",
+    rf"\b({_NUM_TOKEN})\s+touches\b|"
+    rf"\btouched the ball\s+({_NUM_TOKEN})\s+times\b",
     re.IGNORECASE,
 )
 _DROP_ATTEMPT = re.compile(
     rf"\b({_NUM_TOKEN})[-\s](?:drop(?:back)?s?|attempts?)\b|"
     rf"\bthrew\s+({_NUM_TOKEN})\s+passes\b|"
+    rf"\battempted\s+({_NUM_TOKEN})\s+passes\b|"
     rf"\b({_NUM_TOKEN})\s+attempts\b",
     re.IGNORECASE,
 )
 _SACK_COUNT = re.compile(
+    rf"\bsacked\s+(?P<sack_qb>Mahomes|Willis)\s+(once|twice|{_NUM_TOKEN})(?:\s+times)?\b|"
     rf"\bsacked\s+(once|twice|{_NUM_TOKEN})(?:\s+times)?\b|"
+    rf"\b(?P<sack_owner>[A-Z][A-Za-z''-]+)\s+(?:had|has|posted|recorded|notched)\s+"
+    rf"(once|twice|{_NUM_TOKEN})\s+sacks\b|"
     rf"\b({_NUM_TOKEN})\s+sacks\b",
     re.IGNORECASE,
 )
 _QB_HIT_COUNT = re.compile(
+    rf"\bhit\s+(?P<hit_qb>Mahomes|Willis)\s+(?:\w+\s+){{0,2}}({_NUM_TOKEN})\s+times\b|"
     rf"\bhit\s+(?:\w+\s+){{0,2}}({_NUM_TOKEN})\s+times\b|"
+    rf"\b(?P<hit_owner>[A-Z][A-Za-z''-]+)\s+(?:had|has|posted|recorded|notched)\s+"
+    rf"({_NUM_TOKEN})\s+(?:QB\s+)?hits\b|"
     rf"\b({_NUM_TOKEN})\s+QB hits\b|"
     rf"\b({_NUM_TOKEN})\s+hits\b",
     re.IGNORECASE,
 )
+_SEASON_SPAN = re.compile(
+    r"\b(?:this year|last year|this season|last season|"
+    r"a year ago|on the year|for the season)\b",
+    re.IGNORECASE,
+)
+_PRESSURE_OWNER = re.compile(
+    r"\b([A-Z][A-Za-z''-]+(?:\s+[A-Z][A-Za-z''-]+)?)\s+"
+    r"(?:had|has|posted|recorded|notched)\s+",
+)
+_QB_ALIASES = {
+    "mahomes": "kc_qb",
+    "patrick": "kc_qb",
+    "willis": "opp_qb",
+    "malik": "opp_qb",
+}
 _ILLEGAL_USE = re.compile(
     r"\billegal[-\s]use\b|\billegal use of hands\b",
     re.IGNORECASE,
@@ -311,13 +334,21 @@ _ILLEGAL_USE = re.compile(
 _SAME_LOOK = re.compile(
     r"\bsame (?:jumbo )?look\b|"
     r"\bboth snaps\b|"
-    r"\bboth\s+(?:\w+\s+){0,2}snaps\b",
+    r"\bboth of the\s+(?:\w+\s+){0,2}snaps\b|"
+    r"\bboth\s+(?:\w+\s+){0,2}snaps\b|"
+    r"\beach\s+(?:\w+\s+){0,2}snaps?\b",
     re.IGNORECASE,
 )
 _FIRST_MINUTES = re.compile(
     rf"\b(?:first|within|inside)\s+({_NUM_TOKEN})\s+minutes?\b|"
     rf"\b(?:first|within|inside)\s+({_NUM_TOKEN})\s+seconds?\b|"
+    rf"\b(?:in under|under|less than)\s+({_NUM_TOKEN})\s+minutes?\b|"
+    rf"\b(?:in under|under|less than)\s+({_NUM_TOKEN})\s+seconds?\b|"
     rf"\b(?:two|three|{_NUM_TOKEN})[-\s]minute opening\b",
+    re.IGNORECASE,
+)
+_SCORE_CLAIM = re.compile(
+    r"\b(?:scored|score|strike|touchdown|opening|td)\b",
     re.IGNORECASE,
 )
 # Name tokens stay case-sensitive so IGNORECASE cannot turn "was"/"one"/"an"
@@ -2205,6 +2236,9 @@ def _check_touch_counts(text: str, recap: dict | None) -> list[str]:
                 official = int(row["touches"])
                 label = row.get("player") or last
                 break
+        if official is None and len(rows) == 1:
+            official = int(rows[0]["touches"])
+            label = rows[0].get("player") or "player"
         if official is None:
             continue
         if claimed != official:
@@ -2308,7 +2342,7 @@ def _check_same_look_snaps(text: str, recap: dict | None) -> list[str]:
         # The two Walker stuffs at the Miami 12 were Q2 6:58 (no report)
         # and Q2 6:15 (Nourzad). Same-look / both-snaps claims are false.
         if (2, "6:58") not in nourzad_clocks and (
-            "both" in low or "same" in low
+            "both" in low or "same" in low or "each" in low
         ):
             issues.append(
                 "Nourzad was reported eligible only on the Q2 6:15 snap, "
@@ -2328,17 +2362,31 @@ def _first_score_elapsed(recap: dict | None):
     return 15 * 60 - remaining
 
 
+def _clause_at(text: str, start: int, end: int) -> str:
+    """One claim: stop at newlines and sentence punctuation so later fields
+    cannot turn a kickoff-clock note into an opening-score claim."""
+    left = text[:start]
+    for sep in ("\n", ".", "!", "?"):
+        cut = left.rfind(sep)
+        if cut != -1:
+            left = left[cut + 1 :]
+    right = text[end:]
+    for sep in ("\n", ".", "!", "?"):
+        cut = right.find(sep)
+        if cut != -1:
+            right = right[:cut]
+    return left + text[start:end] + right
+
+
 def _check_first_minutes(text: str, recap: dict | None) -> list[str]:
     elapsed = _first_score_elapsed(recap)
     if not text or elapsed is None:
         return []
     issues = []
     for match in _FIRST_MINUTES.finditer(text):
-        sentence = _sentence_at(text, match.start())
         phrase = match.group(0)
-        if not re.search(r"\b(?:within|inside)\b", phrase, re.I) and not re.search(
-            r"\b(?:scored|score|strike|touchdown|opening|td)\b", sentence, re.I
-        ):
+        clause = _clause_at(text, match.start(), match.end())
+        if not _SCORE_CLAIM.search(clause):
             continue
         claimed = _match_count(match)
         if claimed is None:
@@ -2358,39 +2406,97 @@ def _check_first_minutes(text: str, recap: dict | None) -> list[str]:
     return issues
 
 
-def _check_sack_counts(text: str, recap: dict | None) -> list[str]:
+def _pressure_owner_name(sentence: str, match) -> str:
+    groups = match.groupdict() if getattr(match, "re", None) and match.re.groupindex else {}
+    named = (groups.get("sack_owner") or groups.get("hit_owner") or "").strip()
+    if named:
+        return named
+    other = _PRESSURE_OWNER.search(sentence)
+    return (other.group(1) if other else "").strip()
+
+
+def _skip_pressure_claim(sentence: str, match) -> bool:
+    if _SEASON_SPAN.search(sentence):
+        return True
+    owner = _pressure_owner_name(sentence, match)
+    if not owner:
+        return False
+    tokens = {part.lower() for part in re.split(r"[^A-Za-z]+", owner) if part}
+    return not tokens.intersection(_QB_ALIASES)
+
+
+def _pressure_side(sentence: str, match) -> str:
+    groups = match.groupdict() if getattr(match, "re", None) and match.re.groupindex else {}
+    qb = (groups.get("sack_qb") or groups.get("hit_qb") or "").strip().lower()
+    if qb in _QB_ALIASES:
+        return _QB_ALIASES[qb]
+    low = sentence.lower()
+    if re.search(
+        r"\b(?:sacked|hit)\s+willis\b|\b(?:sacks?|hits?)\s+(?:of|on)\s+willis\b",
+        low,
+    ):
+        return "opp_qb"
+    if "willis" in low and "mahomes" not in low:
+        return "opp_qb"
+    return "kc_qb"
+
+
+def _official_sacks(recap: dict | None, side: str):
     passing = [
         row
         for row in (recap or {}).get("passing") or []
         if isinstance(row, dict) and row.get("sacks") is not None
     ]
-    if not text or not passing:
+    if side == "kc_qb":
+        row = next(
+            (item for item in passing if (item.get("team") or "").upper() == "KC"),
+            None,
+        )
+        return None if row is None else int(row["sacks"])
+    row = next(
+        (item for item in passing if (item.get("team") or "").upper() != "KC"),
+        None,
+    )
+    return None if row is None else int(row["sacks"])
+
+
+def _official_qb_hits(recap: dict | None, side: str):
+    hits = (recap or {}).get("qbHits") or {}
+    key = "OPP" if side == "kc_qb" else "KC"
+    value = hits.get(key)
+    return None if value is None else int(value)
+
+
+def _check_sack_counts(text: str, recap: dict | None) -> list[str]:
+    if not text:
         return []
-    kc = next((row for row in passing if (row.get("team") or "").upper() == "KC"), None)
-    if not kc:
-        return []
-    official = int(kc["sacks"])
     issues = []
     for match in _SACK_COUNT.finditer(text):
+        sentence = _sentence_at(text, match.start())
+        if _skip_pressure_claim(sentence, match):
+            continue
         claimed = _match_count(match)
-        if claimed is None or claimed == official:
+        official = _official_sacks(recap, _pressure_side(sentence, match))
+        if claimed is None or official is None or claimed == official:
             continue
         issues.append(
-            f"sacks {claimed} disagrees with ESPN {official} for "
-            f"{kc.get('player') or 'KC'} ({match.group(0)!r})"
+            f"sacks {claimed} disagrees with ESPN {official} "
+            f"({match.group(0)!r})"
         )
     return issues
 
 
 def _check_qb_hit_counts(text: str, recap: dict | None) -> list[str]:
-    hits = (recap or {}).get("qbHits") or {}
-    if not text or hits.get("OPP") is None:
+    if not text:
         return []
-    official = int(hits["OPP"])
     issues = []
     for match in _QB_HIT_COUNT.finditer(text):
+        sentence = _sentence_at(text, match.start())
+        if _skip_pressure_claim(sentence, match):
+            continue
         claimed = _match_count(match)
-        if claimed is None or claimed == official:
+        official = _official_qb_hits(recap, _pressure_side(sentence, match))
+        if claimed is None or official is None or claimed == official:
             continue
         issues.append(
             f"QB hits {claimed} disagrees with ESPN {official} "

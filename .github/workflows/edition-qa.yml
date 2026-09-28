@@ -56,45 +56,10 @@ jobs:
           path: .pr-head
 
       - name: Overlay edition data from the PR head
-        run: |
-          python3 <<'PY'
-          import shutil
-          from pathlib import Path
+        run: python3 -m tools.chiefs_narrative.edition_overlay .pr-head .
 
-          src = Path(".pr-head")
-          dst = Path(".")
-          allowed_files = {
-              "data/narrative.json",
-              "data/narrative_archive.json",
-              "data/narrative_repair.json",
-              "data/wire.json",
-              "data/schedule_2026.json",
-          }
-          allowed_dirs = (
-              "data/narrative_editions/",
-              "public/images/narrative/",
-          )
-
-          def allowed(rel: Path) -> bool:
-              posix = rel.as_posix()
-              if posix in allowed_files:
-                  return True
-              return any(posix.startswith(prefix) for prefix in allowed_dirs)
-
-          copied = 0
-          for path in src.rglob("*"):
-              if path.is_symlink() or not path.is_file():
-                  continue
-              rel = path.relative_to(src)
-              if not allowed(rel):
-                  continue
-              target = dst / rel
-              target.parent.mkdir(parents=True, exist_ok=True)
-              shutil.copyfile(path, target)
-              copied += 1
-          shutil.rmtree(src)
-          print(f"overlaid {copied} edition files from the PR head")
-          PY
+      - name: Stage overlaid edition files
+        run: git add -A -- data public/images/narrative
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -121,8 +86,8 @@ jobs:
       - name: Render XO diagrams from narrative.json
         run: python -m tools.chiefs_narrative.generate --diagrams-only
 
-      - name: Fail if the render rewrote committed SVGs
-        run: git diff --exit-code -- public/images/narrative
+      - name: Fail if the render rewrote overlaid SVGs
+        run: git diff --quiet -- public/images/narrative && test -z "$(git ls-files --others --exclude-standard -- public/images/narrative)"
 
       - name: Gate 2 — Hugo build
         run: hugo --gc --minify
@@ -151,8 +116,10 @@ jobs:
           set -euo pipefail
           gh pr merge "${{ github.event.pull_request.html_url }}" \
             --squash --auto --delete-branch \
+            --match-head-commit ${{ github.event.pull_request.head.sha }} \
             || gh pr merge "${{ github.event.pull_request.html_url }}" \
-              --squash --delete-branch
+              --squash --delete-branch \
+              --match-head-commit ${{ github.event.pull_request.head.sha }}
 
       - name: Trigger Pages deploy
         env:

@@ -19,6 +19,7 @@ from unittest.mock import Mock, patch
 from tools.chiefs_narrative import (
     collect,
     diagrams,
+    edition_overlay,
     facts,
     generate,
     odds,
@@ -610,6 +611,7 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("github.event_name == 'pull_request'", ci)
         automerge = ci.split("automerge:")[1]
         self.assertIn("github.event_name == 'pull_request'", automerge)
+        self.assertIn("head.repo.full_name == github.repository", automerge)
         self.assertIn("gh workflow run ci.yml --ref", narrative)
         self.assertIn("workflow_dispatch", narrative)
         self.assertNotIn("gh pr checks ", narrative)
@@ -635,7 +637,24 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("--check-edition", qa)
         self.assertIn("--diagrams-only", qa)
         self.assertLess(qa.index("--check-edition"), qa.index("--diagrams-only"))
-        self.assertIn("git diff --exit-code -- public/images/narrative", qa)
+        self.assertIn("git add -A -- data public/images/narrative", qa)
+        self.assertLess(
+            qa.index("git add -A -- data public/images/narrative"),
+            qa.index("--diagrams-only"),
+        )
+        self.assertIn(
+            "git diff --quiet -- public/images/narrative && test -z \"$(git ls-files --others --exclude-standard -- public/images/narrative)\"",
+            qa,
+        )
+        self.assertLess(
+            qa.index("--diagrams-only"),
+            qa.index("git diff --quiet -- public/images/narrative"),
+        )
+        self.assertNotIn("git diff --exit-code -- public/images/narrative", qa)
+        self.assertIn("persist-credentials: false", qa)
+        self.assertGreaterEqual(qa.count("persist-credentials: false"), 2)
+        self.assertIn("--match-head-commit", qa)
+        self.assertIn("edition_overlay", qa)
         self.assertIn('gh workflow run "Deploy Hugo site to GitHub Pages"', qa)
         self.assertIn('--repo "${GITHUB_REPOSITORY}"', qa)
         self.assertIn("data/schedule_2026.json", qa)
@@ -660,6 +679,102 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("MEMBER", automerge)
         self.assertIn("COLLABORATOR", automerge)
         self.assertIn("author_association", automerge)
+
+    def test_edition_qa_svg_gate_uses_overlay_index(self):
+        """Staged overlay is the baseline: caption edits pass, tampered+stray fail."""
+        slug = "2026-09-28-1547"
+        rel = Path("public") / "images" / "narrative" / slug / "xo-play_action_boot.svg"
+        main_svg = "<svg><text>old caption</text></svg>\n"
+        pr_svg = "<svg><text>new caption</text></svg>\n"
+        tampered = "<svg><rect id=\"pwn\"/><text>new caption</text></svg>\n"
+        stray_rel = Path("public") / "images" / "narrative" / "2099-01-01-0000" / "xo-mesh.svg"
+
+        def git(cwd, *args, check=True):
+            return subprocess.run(
+                ["git", *args],
+                cwd=cwd,
+                check=check,
+                capture_output=True,
+                text=True,
+            )
+
+        def stage_and_gate(repo: Path, overlay_files: dict[str, str], rendered: str) -> int:
+            src = repo / "pr-head"
+            if src.exists():
+                shutil.rmtree(src)
+            for rel_path, content in overlay_files.items():
+                dest = src / rel_path
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_text(content, encoding="utf-8")
+            copied = edition_overlay.overlay_edition_data(src, repo)
+            self.assertGreater(copied, 0)
+            git(repo, "add", "-A", "--", "data", "public/images/narrative")
+            (repo / rel).write_text(rendered, encoding="utf-8")
+            diff = git(repo, "diff", "--quiet", "--", "public/images/narrative", check=False)
+            extra = git(
+                repo,
+                "ls-files",
+                "--others",
+                "--exclude-standard",
+                "--",
+                "public/images/narrative",
+            )
+            if diff.returncode != 0 or extra.stdout.strip():
+                return 1
+            return 0
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            git(repo, "init")
+            git(repo, "config", "user.email", "ci@example.com")
+            git(repo, "config", "user.name", "CI")
+            (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+            (repo / rel).write_text(main_svg, encoding="utf-8")
+            data_rel = Path("data") / ( "narrative" + ".json")
+            (repo / data_rel).parent.mkdir(parents=True, exist_ok=True)
+            (repo / data_rel).write_text('{"slug":"%s"}\n' % slug, encoding="utf-8")
+            git(repo, "add", "-A")
+            git(repo, "commit", "-m", "main")
+
+            legit = stage_and_gate(
+                repo,
+                {rel.as_posix(): pr_svg, data_rel.as_posix(): '{"why":"new"}\n'},
+                pr_svg,
+            )
+            self.assertEqual(legit, 0, "caption edit + matching render must pass")
+
+            git(repo, "reset", "--hard", "HEAD")
+            git(repo, "clean", "-fd")
+            tamper = stage_and_gate(
+                repo,
+                {
+                    rel.as_posix(): tampered,
+                    stray_rel.as_posix(): "<svg><text>stray</text></svg>\n",
+                },
+                pr_svg,
+            )
+            self.assertEqual(tamper, 1, "tampered drawing plus stray SVG must fail")
+
+        blocked = Path("public") / "images" / "narrative" / "note.txt"
+        scripted = Path("public") / "images" / "narrative" / slug / "xo-zone_blitz.svg"
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "src"
+            dst = Path(tmp) / "dst"
+            (src / blocked).parent.mkdir(parents=True, exist_ok=True)
+            (src / blocked).write_text("nope", encoding="utf-8")
+            (src / scripted).parent.mkdir(parents=True, exist_ok=True)
+            (src / scripted).write_text(
+                '<svg onclick="alert(1)"></svg>\n', encoding="utf-8"
+            )
+            (src / rel).parent.mkdir(parents=True, exist_ok=True)
+            (src / rel).write_text(pr_svg, encoding="utf-8")
+            with self.assertRaises(ValueError):
+                edition_overlay.overlay_edition_data(src, dst)
+            (src / scripted).unlink()
+            copied = edition_overlay.overlay_edition_data(src, dst)
+            self.assertEqual(copied, 1)
+            self.assertFalse((dst / blocked).exists())
+            self.assertTrue((dst / rel).is_file())
 
     def test_generate_cli_can_render_and_gate_diagrams(self):
         src = Path(generate.__file__).read_text(encoding="utf-8")
@@ -2842,7 +2957,7 @@ class FactCheck(unittest.TestCase):
             "Miami hit Mahomes 12 times.",
             "Miami hit Mahomes twelve times.",
             "Nourzad was eligible on both stuffed snaps.",
-            "within 90 seconds",
+            "Kansas City scored within 90 seconds.",
             "Kansas City scored inside two minutes.",
             "Mahomes was sacked twice.",
             "Mahomes took 7 hits.",
@@ -2871,6 +2986,33 @@ class FactCheck(unittest.TestCase):
             ),
             [],
         )
+
+    def test_v10_pressure_subject_clock_and_usage_variants(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        must_pass = [
+            "Chris Jones had two hits on Willis",
+            "Karlaftis had two sacks of Willis",
+            "Crosby has two sacks this year",
+            "Crosby posted 12 QB hits last season",
+            "Kelce's 48-yarder came within two minutes of kickoff",
+        ]
+        for sentence in must_pass:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertEqual(issues, [], f"should accept {sentence!r}: {issues}")
+        must_reject = [
+            "Miami sacked Mahomes twice",
+            "Kansas City scored in under two minutes",
+            "Kansas City scored in less than two minutes",
+            "Nourzad was eligible on each stuffed snap",
+            "Nourzad was eligible on both of the stuffed snaps",
+            "touched the ball 18 times",
+            "attempted 30 passes",
+        ]
+        for sentence in must_reject:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertTrue(issues, f"should reject {sentence!r}")
 
     def test_xo_visible_caption_must_match_why(self):
         svg, _ = diagrams.render_concept(
