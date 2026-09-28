@@ -618,12 +618,33 @@ class GrokModelSelection(unittest.TestCase):
         """#120 was paths-ignored; human edition edits must still get gates."""
         root = Path(__file__).resolve().parents[2] / ".github" / "workflows"
         qa = (root / "edition-qa.yml").read_text(encoding="utf-8")
-        self.assertIn("pull_request_target:", qa)
         self.assertIn("github-actions[bot]", qa)
         self.assertIn("--check-edition", qa)
         self.assertIn("--diagrams-only", qa)
         self.assertIn('gh workflow run "Deploy Hugo site to GitHub Pages"', qa)
         self.assertIn('--repo "${GITHUB_REPOSITORY}"', qa)
+        self.assertIn("data/schedule_2026.json", qa)
+        self.assertIn("Checkout main tools", qa)
+        self.assertIn("github.event.pull_request.base.sha", qa)
+        self.assertIn("repository: ${{ github.repository }}", qa)
+        self.assertIn(".pr-head", qa)
+        self.assertIn("Overlay edition data from the PR head", qa)
+        self.assertIn("path: .pr-head", qa)
+        self.assertNotIn("Checkout the pull request", qa)
+        header = qa.split("\non:", 1)[0]
+        self.assertIn("Never execute PR code", header)
+        self.assertIn("copied from the PR head", header)
+        self.assertNotIn("first-time bot approval does not come back", header)
+        gates = qa.split("automerge:")[0]
+        self.assertIn("contents: read", gates)
+        self.assertNotIn("contents: write", gates)
+        automerge = qa.split("automerge:")[1]
+        self.assertIn("contents: write", automerge)
+        self.assertIn("head.repo.full_name == github.repository", automerge)
+        self.assertIn("OWNER", automerge)
+        self.assertIn("MEMBER", automerge)
+        self.assertIn("COLLABORATOR", automerge)
+        self.assertIn("author_association", automerge)
 
     def test_generate_cli_can_render_and_gate_diagrams(self):
         src = Path(generate.__file__).read_text(encoding="utf-8")
