@@ -1,0 +1,16 @@
+{
+  "previous": [
+    {
+      "team": { "abbreviation": "MIA" },
+      "result": "FUMBLE",
+      "plays": [
+        {
+          "period": { "number": 2 },
+          "clock": { "displayValue": "3:16" },
+          "statYardage": 3,
+          "text": "(Shotgun) M.Willis up the middle to KC 28 for 3 yards (D.Tranquill). Kansas City challenged the runner was down by contact ruling, and the play was REVERSED. (Shotgun) M.Willis up the middle to KC 28 for 3 yards. FUMBLES (L.Sneed), RECOVERED by KC-L.Sneed at KC 25."
+        }
+      ]
+    }
+  ]
+}

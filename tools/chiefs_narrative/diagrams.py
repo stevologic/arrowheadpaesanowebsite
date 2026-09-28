@@ -99,7 +99,7 @@ def _dplayer(x, y, label):
     )
 
 
-def _route(points, color=None, label=None, dashed=False):
+def _route(points, color=None, label=None, dashed=False, label_at=None, label_dx=8, label_dy=-4):
     color = color or "#ffffff"
     d = f'M {points[0][0]} {points[0][1]}'
     for px, py in points[1:]:
@@ -110,9 +110,11 @@ def _route(points, color=None, label=None, dashed=False):
         f'stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrow)"{dash}/>'
     ]
     if label:
-        lx, ly = points[-1]
+        if label_at is None:
+            label_at = points[-1]
+        lx, ly = label_at
         out.append(
-            f'<text x="{lx+8}" y="{ly-4}" font-family="Space Grotesk, Arial, sans-serif" '
+            f'<text x="{lx+label_dx}" y="{ly+label_dy}" font-family="Space Grotesk, Arial, sans-serif" '
             f'font-size="10.5" font-weight="700" fill="#fff">{label}</text>'
         )
     return out
@@ -254,8 +256,14 @@ def _build_play_action_boot(labels, caption):
     )
     # Routes: TE drag/flat, Z deep comeback, X backside post.
     body += _route([(te_x, LOS - 16), (cx + 176, LOS - 30)], color="#fff", label=labels.get("te", "flat"))
-    body += _route([(wr2_x, LOS - 16), (wr2_x, LOS - 120), (wr2_x - 18, LOS - 96)],
-                   color="#fff", label=labels.get("z", "comeback"))
+    body += _route(
+        [(wr2_x, LOS - 16), (wr2_x, LOS - 120), (wr2_x - 18, LOS - 96)],
+        color="#fff",
+        label=labels.get("z", "comeback"),
+        label_at=(wr2_x, LOS - 120),
+        label_dx=12,
+        label_dy=-8,
+    )
     body += _route([(wr1_x, LOS - 16), (wr1_x + 60, LOS - 150)], color="#fff",
                    label=labels.get("x", "post"))
     # A single second-level defender flowing to the fake.

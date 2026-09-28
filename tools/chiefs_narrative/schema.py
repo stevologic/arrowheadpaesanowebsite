@@ -307,11 +307,20 @@ def _norm_next_game(value) -> dict:
 
 
 def _norm_xsandos(value) -> list[dict]:
-    """Validate X&O entries and clamp the concept to a known one."""
+    """Validate X&O entries and drop empty placeholder cards.
+
+    A card with no why and no situation is not a real teaching beat. Do not
+    keep it by falling back to DEFAULT_CONCEPT — generate.py tops up with
+    real offense/defense cards instead.
+    """
     out = []
     valid = set(diagrams.concept_keys())
     for item in _list(value):
         if not isinstance(item, dict):
+            continue
+        why = _s(item.get("why"))
+        situation = _s(item.get("situation"))
+        if not why and not situation:
             continue
         concept = _s(item.get("concept"))
         if concept not in valid:
@@ -320,9 +329,9 @@ def _norm_xsandos(value) -> list[dict]:
         out.append(
             {
                 "title": _s(item.get("title")) or diagrams.CONCEPTS[concept]["title"],
-                "situation": _s(item.get("situation")),
+                "situation": situation,
                 "concept": concept,
-                "why": _s(item.get("why")),
+                "why": why,
                 "coaching": _s(item.get("coaching")),
                 "labels": {str(k): _s(v) for k, v in labels.items()},
                 # diagram file + side filled in during rendering

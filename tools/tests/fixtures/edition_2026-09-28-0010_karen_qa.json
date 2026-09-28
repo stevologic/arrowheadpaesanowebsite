@@ -1,0 +1,60 @@
+{
+  "_note": "Karen QA FAIL on live edition 2026-09-28-0010 (merge 65556525). Each sentence is a published error.",
+  "headline": "3-0, 25:39, and a division game that will not care",
+  "dek": "First AFC West road game of 3-0, favored -5.5 on a 45.5 total.",
+  "lastGameReview": {
+    "lede": "Kansas City finished 24–10 against Miami.",
+    "analysis": [
+      {
+        "body": "That is the only time Kansas City asked the vertical shot to carry a drive, and Miami took it."
+      },
+      {
+        "body": "The Dolphins still scored 10 because Drue Tranquill blew up a Willis keeper that became a fumble Kansas City challenged."
+      }
+    ],
+    "whatWorked": [
+      "Two Miami turnovers — Willis fumble (Tranquill) and Karlaftis interception (Jones in the play)"
+    ]
+  },
+  "matchups": [
+    {
+      "note": "The Rodriguez INT was the only deep-middle miss. Keep the ball on time."
+    }
+  ],
+  "coaching": [
+    {
+      "detail": "Indianapolis was 117 on the ground; Miami was 88 and a stuff at the 12."
+    }
+  ],
+  "debates": [
+    "Can Spagnuolo keep posting 10-point nights if the takeaways dry up and the opponent runs for 119?"
+  ],
+  "runOfShow": [
+    {
+      "talkTrack": "Do not call it a night game — it was Sun Sep 27, 12:00 PM CT, midday, and the clock still looked like 2025."
+    }
+  ],
+  "xsandos": [
+    {
+      "title": "Walker, one cut",
+      "situation": "1st-and-10 vs Las Vegas",
+      "concept": "inside_zone",
+      "why": "Reclaim first down after 88 rush yards.",
+      "coaching": "One cut."
+    },
+    {
+      "title": "Under-Center Play-Action Boot",
+      "situation": "",
+      "concept": "play_action_boot",
+      "why": "",
+      "coaching": ""
+    },
+    {
+      "title": "Under-Center Play-Action Boot",
+      "situation": "",
+      "concept": "play_action_boot",
+      "why": "",
+      "coaching": ""
+    }
+  ]
+}

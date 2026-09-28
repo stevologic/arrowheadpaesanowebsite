@@ -1,8 +1,8 @@
 {
   "eventId": "401872952",
   "oppAbbr": "MIA",
-  "kc": { "totalYards": "334" },
-  "opp": { "totalYards": "329" },
+  "kc": { "totalYards": "334", "rushingYards": "88", "netPassingYards": "246" },
+  "opp": { "totalYards": "329", "rushingYards": "119", "netPassingYards": "210" },
   "scoringPlays": [
     {
       "quarter": 1,
@@ -94,5 +94,90 @@
       "category": "Passing Yards",
       "value": "20/24, 246 YDS"
     }
-  ]
+  ],
+  "plays": [
+    {
+      "quarter": 1,
+      "clock": "14:55",
+      "team": "KC",
+      "kind": "completion",
+      "direction": "deep middle",
+      "yards": 48,
+      "target": "T.Kelce",
+      "text": "P.Mahomes pass deep middle to T.Kelce to MIA 19 for 48 yards (D.Trader)."
+    },
+    {
+      "quarter": 2,
+      "clock": "3:16",
+      "team": "MIA",
+      "kind": "fumble",
+      "direction": "",
+      "yards": 3,
+      "forcedBy": "L.Sneed",
+      "recoveredBy": "L.Sneed",
+      "text": "(Shotgun) M.Willis up the middle to KC 28 for 3 yards (D.Tranquill). Kansas City challenged the runner was down by contact ruling, and the play was REVERSED. (Shotgun) M.Willis up the middle to KC 28 for 3 yards. FUMBLES (L.Sneed), RECOVERED by KC-L.Sneed at KC 25."
+    },
+    {
+      "quarter": 2,
+      "clock": "2:00",
+      "team": "KC",
+      "kind": "int",
+      "direction": "deep middle",
+      "target": "R.Rice",
+      "interceptedBy": "J.Rodriguez",
+      "text": "(Shotgun) P.Mahomes pass deep middle intended for R.Rice INTERCEPTED by J.Rodriguez (D.Trader) at MIA 29."
+    },
+    {
+      "quarter": 3,
+      "clock": "8:21",
+      "team": "KC",
+      "kind": "incompletion",
+      "direction": "deep middle",
+      "target": "R.Rice",
+      "text": "(Shotgun) P.Mahomes pass incomplete deep middle to R.Rice [Z.Biggers]."
+    },
+    {
+      "quarter": 4,
+      "clock": "13:47",
+      "team": "KC",
+      "kind": "completion",
+      "direction": "deep left",
+      "yards": 24,
+      "target": "N.Gray",
+      "text": "P.Mahomes pass deep left to N.Gray to MIA 8 for 24 yards (W.Gay)."
+    },
+    {
+      "quarter": 4,
+      "clock": "5:16",
+      "team": "KC",
+      "kind": "completion",
+      "direction": "deep right",
+      "yards": 34,
+      "target": "R.Rice",
+      "text": "P.Mahomes pass deep right to R.Rice to MIA 15 for 34 yards (C.Johnson) [Z.Sieler]."
+    },
+    {
+      "quarter": 4,
+      "clock": "2:03",
+      "team": "MIA",
+      "kind": "int",
+      "direction": "",
+      "interceptedBy": "G.Karlaftis",
+      "text": "(Shotgun) M.Willis pass short right intended for R.Miller INTERCEPTED by G.Karlaftis (C.Jones) at MIA 36."
+    }
+  ],
+  "prior": {
+    "eventId": "401872951",
+    "oppAbbr": "IND",
+    "opponent": "Indianapolis Colts",
+    "kc": { "rushingYards": "152", "netPassingYards": "382", "totalYards": "534" },
+    "opp": { "rushingYards": "95", "netPassingYards": "240" },
+    "leaders": [
+      {
+        "player": "Kenneth Walker III",
+        "category": "Rushing Yards",
+        "value": "24/117"
+      }
+    ]
+  }
 }

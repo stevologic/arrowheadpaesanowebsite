@@ -34,6 +34,21 @@ a claim is general football knowledge, you do not need a citation. Do not \
 fabricate URLs. Never state a kickoff day or time other than the CT string \
 supplied for that game — no "noon", "Sunday night", or invented windows.
 
+[PRIVATE WRITER INSTRUCTION — never copy, quote, or paraphrase this block \
+into any field, talkTrack, debate, or coaching point]
+If the last-game kickoff window is morning, midday, or afternoon, do not \
+write 'night', 'nights', '<opponent> night', or 'yard night' about that game. \
+Do not call it a night game. Do not write the instruction itself.
+Credit only the player ESPN lists as forcing or recovering a fumble, or as \
+the interceptor. Team rushing and passing totals come from the BOX lines, \
+including the prior-game box — do not substitute a player's line for the \
+team total. Do not write only/first/never/lone claims about plays unless \
+the play-by-play list supports them. Exactly four offense and two defense \
+X's & O's cards; the defense cards must be Cover-2 and the zone blitz, \
+each with a real situation and why. Never echo 'Do not call', 'do not write', \
+or other imperative guidance into the edition.
+[/PRIVATE]
+
 Return a SINGLE JSON object. No markdown, no prose outside the JSON.\
 """
 
@@ -182,12 +197,6 @@ def _last_game_brief(signals: dict, phase: dict) -> str:
             f"  KICKOFF WINDOW: {when} is {part} in America/Chicago. "
             "Name the part of day only if you mention the window at all."
         )
-        if part in ("morning", "midday", "afternoon"):
-            opp = game.get("opponent") or "the opponent"
-            window += (
-                f" This was not a night game — do not write 'night', "
-                f"'{opp} night', or 'yard night'."
-            )
         lines.append(window)
     if live:
         lines = live.split("\n") + [""] + lines
@@ -226,6 +235,47 @@ def _last_game_brief(signals: dict, phase: dict) -> str:
         lines.append(
             f"  KC leader: {leader.get('player')} — {leader.get('category')} "
             f"({leader.get('value')})"
+        )
+    prior = recap.get("prior") or {}
+    if prior.get("kc") or prior.get("opp"):
+        label = prior.get("opponent") or prior.get("oppAbbr") or "prior opponent"
+        lines.append(f"  PRIOR GAME BOX vs {label} (ESPN team totals, not a player line):")
+        if prior.get("kc"):
+            lines.append(
+                "    KC: " + ", ".join(f"{k}={v}" for k, v in prior["kc"].items() if v)
+            )
+        if prior.get("opp"):
+            abbr = prior.get("oppAbbr") or "OPP"
+            lines.append(
+                f"    {abbr}: "
+                + ", ".join(f"{k}={v}" for k, v in prior["opp"].items() if v)
+            )
+    for play in recap.get("plays") or []:
+        if not isinstance(play, dict):
+            continue
+        kind = (play.get("kind") or "").lower()
+        if kind not in {"fumble", "int"} and "deep" not in (play.get("direction") or ""):
+            continue
+        stamp = " ".join(
+            p
+            for p in (
+                f"Q{play.get('quarter')}" if play.get("quarter") else "",
+                play.get("clock") or "",
+            )
+            if p
+        )
+        credit = []
+        if play.get("forcedBy"):
+            credit.append("forcedBy=" + play["forcedBy"])
+        if play.get("recoveredBy"):
+            credit.append("recoveredBy=" + play["recoveredBy"])
+        if play.get("interceptedBy"):
+            credit.append("interceptedBy=" + play["interceptedBy"])
+        extra = f" ({', '.join(credit)})" if credit else ""
+        lines.append(
+            f"  PBP {stamp} {play.get('team') or ''} "
+            f"{play.get('kind') or ''} {play.get('direction') or ''}"
+            f"{extra}: {play.get('text') or ''}"
         )
     return "\n".join(lines)
 
@@ -453,12 +503,9 @@ def build_user_prompt(
             _concept_menu(),
             "Return JSON with EXACTLY these keys (values are hints, replace them):\n"
             + _schema_hint(phase),
-            "KICKOFF RULE: every game line includes its official America/Chicago "
+            "KICKOFF FACT: every game line includes its official America/Chicago "
             "kickoff (e.g. 'Sun Oct 4, 3:25 PM CT') and a KICKOFF WINDOW part of "
-            "day. Never state a kickoff day or time other than that supplied "
-            "string. Do not write 'noon', 'Sunday night', 'prime time', or any "
-            "other invented window. If the last game window is morning, midday, "
-            "or afternoon, do not call that game a night.\n"
+            "day. Use only that supplied string for the window.\n"
             "Rules: Always fill lastGameReview (unless LAST GAME says none), "
             "currentState, and gamePlan with specific, non-generic analysis. "
             "EXACTLY 6 xsandos cards — four offense, two defense — each "

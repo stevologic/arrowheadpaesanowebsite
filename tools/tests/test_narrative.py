@@ -30,6 +30,10 @@ from tools.chiefs_narrative import (
     x_embeds,
 )
 
+
+def _xo_side_ok(card):
+    return diagrams.CONCEPTS.get(card.get("concept"), {}).get("side")
+
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 
@@ -108,6 +112,39 @@ class SixCardGuarantee(unittest.TestCase):
         self.assertIn("currentState", text)
         self.assertIn("gamePlan", text)
         self.assertIn("LAST GAME:", text)
+
+    def test_schema_drops_empty_placeholder_cards(self):
+        raw = [
+            {
+                "title": "Under-Center Play-Action Boot",
+                "situation": "",
+                "concept": "play_action_boot",
+                "why": "",
+                "coaching": "",
+            },
+            {
+                "title": "Walker, one cut",
+                "situation": "1st-and-10",
+                "concept": "inside_zone",
+                "why": "Win first down.",
+                "coaching": "One cut.",
+            },
+        ]
+        out = schema._norm_xsandos(raw)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(out[0]["concept"], "inside_zone")
+
+    def test_all_offense_cards_are_topped_with_real_defense(self):
+        payload = _load_fixture("edition_2026-09-28-0010_karen_qa.json")
+        narrative = {"xsandos": schema._norm_xsandos(payload.get("xsandos"))}
+        self.assertTrue(all(_xo_side_ok(c) == "offense" for c in narrative["xsandos"]))
+        generate._ensure_six_xsandos(narrative, SIGNALS, CAMP_PHASE, NEXT)
+        self.assert_six(narrative["xsandos"])
+        concepts = [c["concept"] for c in narrative["xsandos"]]
+        self.assertIn("cover_two", concepts)
+        self.assertIn("zone_blitz", concepts)
+        for card in narrative["xsandos"]:
+            self.assertTrue(card.get("why") or card.get("situation"))
 
 
 class DeskSections(unittest.TestCase):
@@ -458,6 +495,13 @@ class Diagrams(unittest.TestCase):
         card = css[css.find(".nrt-xo-card {") : css.find(".nrt-xo-card__board {")]
         self.assertIn("min-width: 0", card)
         self.assertIn("max-width: 100%", css[css.find(".nrt-xo-card__board img") :])
+
+    def test_play_action_boot_comeback_label_is_not_on_the_arrowhead(self):
+        svg = diagrams.render_concept("play_action_boot")[0]
+        self.assertIn(">comeback</text>", svg)
+        # Label sits at the stem top (LOS-120), not the return arrowhead.
+        self.assertIn(f'y="{diagrams.LOS - 120 - 8}"', svg)
+        self.assertNotIn(f'y="{diagrams.LOS - 96 - 4}"', svg)
 
 
 class EditionSlugs(unittest.TestCase):
@@ -1539,8 +1583,8 @@ class LiveGamePhase(unittest.TestCase):
             [self.WEEK4],
         )
         self.assertIn("Sun Oct 4, 3:25 PM CT", text)
-        self.assertIn("KICKOFF RULE", text)
-        self.assertIn("Never state a kickoff", text)
+        self.assertIn("KICKOFF FACT", text)
+        self.assertIn("KICKOFF WINDOW", text)
         self.assertNotIn("2026-10-04 KC", text)
 
     def test_prompt_includes_structured_scoring_plays(self):
@@ -2035,6 +2079,193 @@ class FactCheck(unittest.TestCase):
             lede="Play-action boot only after the run fake is real.",
         )
         self.assertEqual(facts.check_review(narrative, last, recap), [])
+
+    def test_daytime_kickoff_rejects_any_night_word(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = self._review(
+            lede="Can Spagnuolo keep posting 10-point nights if the takeaways dry up?"
+        )
+        issues = facts.check_review(narrative, last, recap)
+        self.assertTrue(any("nights" in item for item in issues), issues)
+
+    def test_echoed_writer_instruction_is_rejected(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = {
+            "runOfShow": [
+                {
+                    "talkTrack": (
+                        "Do not call it a night game — it was Sun Sep 27, "
+                        "12:00 PM CT, midday."
+                    )
+                }
+            ]
+        }
+        issues = facts.check_review(narrative, last, recap)
+        blob = " ".join(issues)
+        self.assertIn("echoed writer instruction", blob)
+        self.assertTrue(any("night" in item for item in issues), issues)
+
+    def test_private_night_guidance_is_not_in_the_user_prompt(self):
+        self.assertIn("[PRIVATE WRITER INSTRUCTION", prompts.SYSTEM_PROMPT)
+        self.assertIn("never copy", prompts.SYSTEM_PROMPT)
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        last["kickoff"] = "Sun, Sep 27 · 12:00 PM CT"
+        ph = {
+            "type": "regular",
+            "label": "Week 4",
+            "week": 4,
+            "mode": "review",
+            "lastGame": last,
+            "nextGame": None,
+        }
+        text = prompts.build_user_prompt({"news": [], "lastGameRecap": {}}, ph, [])
+        self.assertIn("KICKOFF WINDOW", text)
+        self.assertNotIn("This was not a night game", text)
+        self.assertNotIn("do not write 'night'", text)
+
+    def test_fumble_credit_rejects_tranquill_for_sneed(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = self._review(
+            lede=(
+                "Drue Tranquill blew up a Willis keeper that became a fumble. "
+                "Two Miami turnovers — Willis fumble (Tranquill)."
+            )
+        )
+        issues = facts.check_review(narrative, last, recap)
+        blob = " ".join(issues)
+        self.assertIn("turnover credit", blob)
+        self.assertIn("Tranquill", blob)
+
+    def test_fumble_credit_accepts_sneed(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = self._review(
+            lede="L'Jarius Sneed forced and recovered the Willis fumble."
+        )
+        issues = facts.check_review(narrative, last, recap)
+        self.assertFalse(any("turnover credit" in item for item in issues), issues)
+
+    def test_only_vertical_shot_is_false(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = self._review(
+            lede=(
+                "That is the only time Kansas City asked the vertical shot "
+                "to carry a drive, and Miami took it."
+            )
+        )
+        issues = facts.check_review(narrative, last, recap)
+        self.assertTrue(any("absolute claim" in item for item in issues), issues)
+
+    def test_only_deep_middle_miss_is_false(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = {
+            "matchups": [
+                {
+                    "note": (
+                        "The Rodriguez INT was the only deep-middle miss."
+                    )
+                }
+            ]
+        }
+        issues = facts.check_review(narrative, last, recap)
+        self.assertTrue(any("absolute claim" in item for item in issues), issues)
+
+    def test_unverifiable_only_claim_is_rejected(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = self._review(
+            lede="That was the only play Miami never solved."
+        )
+        issues = facts.check_review(narrative, last, recap)
+        self.assertTrue(
+            any("cannot be verified" in item for item in issues), issues
+        )
+
+    def test_prior_game_team_rush_rejects_walker_117(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        by_team = facts.official_yards_by_team(recap, "rush")
+        self.assertIn(152, by_team.get("KC", set()))
+        self.assertIn(88, by_team.get("KC", set()))
+        narrative = {
+            "coaching": [
+                {
+                    "detail": (
+                        "Indianapolis was 117 on the ground; Miami was 88 "
+                        "and a stuff at the 12."
+                    )
+                }
+            ]
+        }
+        issues = facts.check_review(narrative, last, recap)
+        blob = " ".join(issues)
+        self.assertIn("117", blob)
+        self.assertIn("152", blob)
+        self.assertFalse(any("88" in item and "disagrees" in item for item in issues), issues)
+
+    def test_garbled_record_ordinal_is_rejected(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = {"dek": "First AFC West road game of 3-0, favored -5.5."}
+        issues = facts.check_review(narrative, last, recap)
+        self.assertTrue(any("garbled record" in item for item in issues), issues)
+
+    def test_karen_qa_0010_fixture_fails_each_claim(self):
+        payload = _load_fixture("edition_2026-09-28-0010_karen_qa.json")
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        issues = facts.check_review(payload, last, recap)
+        blob = " ".join(issues)
+        self.assertIn("nights", blob)
+        self.assertIn("echoed writer instruction", blob)
+        self.assertIn("turnover credit", blob)
+        self.assertIn("absolute claim", blob)
+        self.assertIn("117", blob)
+        self.assertIn("garbled record", blob)
+
+    def test_parse_plays_credits_sneed_not_tranquill(self):
+        drives = _load_fixture("espn_fumble_drive.json")
+        plays = collect.parse_plays(drives)
+        self.assertEqual(len(plays), 1)
+        self.assertEqual(plays[0]["kind"], "fumble")
+        self.assertIn("Sneed", plays[0]["forcedBy"])
+        self.assertIn("Sneed", plays[0]["recoveredBy"])
+        self.assertNotIn("Tranquill", plays[0]["forcedBy"])
+
+    def test_repair_logs_every_dropped_sentence(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = {
+            "headline": "Keep this title",
+            "lastGameReview": {
+                "lede": (
+                    "Kansas City finished 24–10 against Miami. "
+                    "Can Spagnuolo keep posting 10-point nights?"
+                )
+            },
+        }
+        issues = facts.check_review(narrative, last, recap)
+        repaired = facts.repair_offending_copy(narrative, issues, last)
+        dropped = facts.dropped_sentences(narrative, repaired)
+        self.assertTrue(any("nights" in s for s in dropped), dropped)
+        self.assertEqual(facts.check_review(repaired, last, recap), [])
 
     def test_real_wrong_subject_still_fails(self):
         recap = _load_fixture("espn_401872952_recap.json")
