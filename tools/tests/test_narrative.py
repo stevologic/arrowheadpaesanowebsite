@@ -612,6 +612,7 @@ class GrokModelSelection(unittest.TestCase):
         automerge = ci.split("automerge:")[1]
         self.assertIn("github.event_name == 'pull_request'", automerge)
         self.assertIn("head.repo.full_name == github.repository", automerge)
+        self.assertIn("--match-head-commit", automerge)
         self.assertIn("gh workflow run ci.yml --ref", narrative)
         self.assertIn("workflow_dispatch", narrative)
         self.assertNotIn("gh pr checks ", narrative)
@@ -681,13 +682,14 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("author_association", automerge)
 
     def test_edition_qa_svg_gate_uses_overlay_index(self):
-        """Staged overlay is the baseline: caption edits pass, tampered+stray fail."""
+        """Staged overlay is the baseline: caption edits pass, tampered SVG fails."""
         slug = "2026-09-28-1547"
         rel = Path("public") / "images" / "narrative" / slug / "xo-play_action_boot.svg"
         main_svg = "<svg><text>old caption</text></svg>\n"
         pr_svg = "<svg><text>new caption</text></svg>\n"
         tampered = "<svg><rect id=\"pwn\"/><text>new caption</text></svg>\n"
-        stray_rel = Path("public") / "images" / "narrative" / "2099-01-01-0000" / "xo-mesh.svg"
+        data_rel = Path("data") / ("narrative" + ".json")
+        edition = '{"slug":"%s"}\n' % slug
 
         def git(cwd, *args, check=True):
             return subprocess.run(
@@ -698,14 +700,17 @@ class GrokModelSelection(unittest.TestCase):
                 text=True,
             )
 
+        def write_tree(root: Path, files: dict[str, str]) -> None:
+            for rel_path, content in files.items():
+                dest = root / rel_path
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_text(content, encoding="utf-8")
+
         def stage_and_gate(repo: Path, overlay_files: dict[str, str], rendered: str) -> int:
             src = repo / "pr-head"
             if src.exists():
                 shutil.rmtree(src)
-            for rel_path, content in overlay_files.items():
-                dest = src / rel_path
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_text(content, encoding="utf-8")
+            write_tree(src, overlay_files)
             copied = edition_overlay.overlay_edition_data(src, repo)
             self.assertGreater(copied, 0)
             git(repo, "add", "-A", "--", "data", "public/images/narrative")
@@ -728,17 +733,13 @@ class GrokModelSelection(unittest.TestCase):
             git(repo, "init")
             git(repo, "config", "user.email", "ci@example.com")
             git(repo, "config", "user.name", "CI")
-            (repo / rel).parent.mkdir(parents=True, exist_ok=True)
-            (repo / rel).write_text(main_svg, encoding="utf-8")
-            data_rel = Path("data") / ( "narrative" + ".json")
-            (repo / data_rel).parent.mkdir(parents=True, exist_ok=True)
-            (repo / data_rel).write_text('{"slug":"%s"}\n' % slug, encoding="utf-8")
+            write_tree(repo, {rel.as_posix(): main_svg, data_rel.as_posix(): edition})
             git(repo, "add", "-A")
             git(repo, "commit", "-m", "main")
 
             legit = stage_and_gate(
                 repo,
-                {rel.as_posix(): pr_svg, data_rel.as_posix(): '{"why":"new"}\n'},
+                {rel.as_posix(): pr_svg, data_rel.as_posix(): edition},
                 pr_svg,
             )
             self.assertEqual(legit, 0, "caption edit + matching render must pass")
@@ -747,34 +748,100 @@ class GrokModelSelection(unittest.TestCase):
             git(repo, "clean", "-fd")
             tamper = stage_and_gate(
                 repo,
-                {
-                    rel.as_posix(): tampered,
-                    stray_rel.as_posix(): "<svg><text>stray</text></svg>\n",
-                },
+                {rel.as_posix(): tampered, data_rel.as_posix(): edition},
                 pr_svg,
             )
-            self.assertEqual(tamper, 1, "tampered drawing plus stray SVG must fail")
+            self.assertEqual(tamper, 1, "tampered drawing must fail byte-match")
 
-        blocked = Path("public") / "images" / "narrative" / "note.txt"
-        scripted = Path("public") / "images" / "narrative" / slug / "xo-zone_blitz.svg"
-        with tempfile.TemporaryDirectory() as tmp:
-            src = Path(tmp) / "src"
-            dst = Path(tmp) / "dst"
-            (src / blocked).parent.mkdir(parents=True, exist_ok=True)
-            (src / blocked).write_text("nope", encoding="utf-8")
-            (src / scripted).parent.mkdir(parents=True, exist_ok=True)
-            (src / scripted).write_text(
-                '<svg onclick="alert(1)"></svg>\n', encoding="utf-8"
+    def test_edition_overlay_fails_closed_on_disallowed_paths(self):
+        slug = "2026-09-28-1547"
+        data_rel = Path("data") / ("narrative" + ".json")
+        current = Path("public") / "images" / "narrative" / slug / "xo-play_action_boot.svg"
+        stray = Path("public") / "images" / "narrative" / "2099-01-01-0000" / "xo-mesh.svg"
+        older = Path("public") / "images" / "narrative" / "2026-09-28-0142" / "xo-zone_blitz.svg"
+        html = Path("public") / "images" / "narrative" / "evil.html"
+        notes = Path("public") / "images" / "narrative" / "notes.txt"
+        safe = "<svg><text>ok</text></svg>\n"
+        edition = '{"slug":"%s"}\n' % slug
+
+        def overlay_of(files: dict[str, str]):
+            with tempfile.TemporaryDirectory() as tmp:
+                src = Path(tmp) / "src"
+                dst = Path(tmp) / "dst"
+                (dst / data_rel).parent.mkdir(parents=True, exist_ok=True)
+                (dst / data_rel).write_text(edition, encoding="utf-8")
+                for rel_path, content in files.items():
+                    dest = src / rel_path
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    dest.write_text(content, encoding="utf-8")
+                return edition_overlay.overlay_edition_data(src, dst)
+
+        with self.assertRaises(ValueError):
+            overlay_of({stray.as_posix(): safe, data_rel.as_posix(): edition})
+        with self.assertRaises(ValueError):
+            overlay_of({older.as_posix(): safe, data_rel.as_posix(): edition})
+        with self.assertRaises(ValueError):
+            overlay_of({html.as_posix(): "<p>x</p>\n", data_rel.as_posix(): edition})
+        with self.assertRaises(ValueError):
+            overlay_of({notes.as_posix(): "notes\n", data_rel.as_posix(): edition})
+        with self.assertRaises(ValueError):
+            overlay_of(
+                {
+                    data_rel.as_posix(): edition,
+                    "tools/chiefs_narrative/facts.py": "broken = True\n",
+                }
             )
-            (src / rel).parent.mkdir(parents=True, exist_ok=True)
-            (src / rel).write_text(pr_svg, encoding="utf-8")
-            with self.assertRaises(ValueError):
-                edition_overlay.overlay_edition_data(src, dst)
-            (src / scripted).unlink()
-            copied = edition_overlay.overlay_edition_data(src, dst)
-            self.assertEqual(copied, 1)
-            self.assertFalse((dst / blocked).exists())
-            self.assertTrue((dst / rel).is_file())
+        copied = overlay_of({current.as_posix(): safe, data_rel.as_posix(): edition})
+        self.assertEqual(copied, 2)
+
+    def test_edition_overlay_rejects_svg_attack_vectors(self):
+        slug = "2026-09-28-1547"
+        rel = Path("public") / "images" / "narrative" / slug / "xo-mesh.svg"
+        edition = '{"slug":"%s"}\n' % slug
+        data_rel = Path("data") / ("narrative" + ".json")
+        vectors = {
+            "script": "<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>",
+            "svg-script": (
+                "<svg xmlns='http://www.w3.org/2000/svg' "
+                "xmlns:svg='http://www.w3.org/2000/svg'>"
+                "<svg:script>alert(1)</svg:script></svg>"
+            ),
+            "foreignObject": (
+                "<svg xmlns='http://www.w3.org/2000/svg'>"
+                "<foreignObject><p>x</p></foreignObject></svg>"
+            ),
+            "iframe": "<svg xmlns='http://www.w3.org/2000/svg'><iframe href='x'/></svg>",
+            "set-on": (
+                "<svg xmlns='http://www.w3.org/2000/svg'>"
+                "<set attributeName='onclick' to='alert(1)'/></svg>"
+            ),
+            "animate-on": (
+                "<svg xmlns='http://www.w3.org/2000/svg'>"
+                "<animate attributeName='onload' to='1'/></svg>"
+            ),
+            "javascript-href": (
+                "<svg xmlns='http://www.w3.org/2000/svg'>"
+                "<a href='javascript:alert(1)'/></svg>"
+            ),
+            "onclick": "<svg onclick='alert(1)'></svg>",
+        }
+        for name, payload in vectors.items():
+            self.assertTrue(
+                edition_overlay.svg_payload_rejected(payload),
+                f"{name} must be rejected",
+            )
+            with tempfile.TemporaryDirectory() as tmp:
+                src = Path(tmp) / "src"
+                dst = Path(tmp) / "dst"
+                (src / data_rel).parent.mkdir(parents=True, exist_ok=True)
+                (src / data_rel).write_text(edition, encoding="utf-8")
+                (src / rel).parent.mkdir(parents=True, exist_ok=True)
+                (src / rel).write_text(payload, encoding="utf-8")
+                with self.assertRaises(ValueError, msg=name):
+                    edition_overlay.overlay_edition_data(src, dst)
+        self.assertFalse(
+            edition_overlay.svg_payload_rejected("<svg><text>ok</text></svg>")
+        )
 
     def test_generate_cli_can_render_and_gate_diagrams(self):
         src = Path(generate.__file__).read_text(encoding="utf-8")
@@ -3009,6 +3076,39 @@ class FactCheck(unittest.TestCase):
             "Nourzad was eligible on both of the stuffed snaps",
             "touched the ball 18 times",
             "attempted 30 passes",
+        ]
+        for sentence in must_reject:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertTrue(issues, f"should reject {sentence!r}")
+
+    def test_v11_team_pressure_variants_and_low_misses(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        must_pass = [
+            "Crosby already has 12 QB hits and two sacks through three games.",
+            "Kansas City had 3 hits on Willis in the fourth quarter.",
+            "Sneed had one hit and a forced fumble.",
+        ]
+        for sentence in must_pass:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertEqual(issues, [], f"should accept {sentence!r}: {issues}")
+        must_reject = [
+            "Miami recorded two sacks.",
+            "Mahomes went down twice for sacks.",
+            "Mahomes was taken down three times.",
+            "Nourzad was eligible for both stuffed runs at the 12.",
+            "Nourzad lined up eligible on both goal-line snaps.",
+            "Kansas City scored inside of 90 seconds.",
+            "The Chiefs scored within the opening two minutes.",
+            "Kansas City found the end zone in less than 90 seconds.",
+            "Walker handled the ball twenty-two times.",
+            "Walker's 10-yard touchdown came with H. Nourzad eligible.",
+            "Karlaftis intercepted Willis at Q4 0:47.",
+            "The opening drive took 4:06.",
+            "Mahomes went 20-of-24 with three touchdowns.",
+            "Rodriguez intercepted Mahomes at Q2 6:15.",
+            "Mahomes threw 24 touchdown passes.",
         ]
         for sentence in must_reject:
             issues = facts.check_review(self._review(lede=sentence), last, recap)

@@ -451,6 +451,134 @@
       "snippet": "30 passes",
       "sentence": "attempted 30 passes",
       "reason": "Mahomes attempted 24 passes."
+    },
+    {
+      "id": "v11-miami-recorded-two-sacks",
+      "run": "v11",
+      "label": "real-error",
+      "snippet": "two sacks",
+      "sentence": "Miami recorded two sacks.",
+      "reason": "Mahomes was sacked 0 times."
+    },
+    {
+      "id": "v11-crosby-through-three-games",
+      "run": "v11",
+      "label": "false-positive",
+      "snippet": "through three games",
+      "sentence": "Crosby already has 12 QB hits and two sacks through three games.",
+      "reason": "Season-to-date Crosby stats are not the Miami game."
+    },
+    {
+      "id": "v11-went-down-twice-for-sacks",
+      "run": "v11",
+      "label": "real-error",
+      "snippet": "twice for sacks",
+      "sentence": "Mahomes went down twice for sacks.",
+      "reason": "Mahomes was sacked 0 times."
+    },
+    {
+      "id": "v11-taken-down-three-times",
+      "run": "v11",
+      "label": "real-error",
+      "snippet": "taken down three times",
+      "sentence": "Mahomes was taken down three times.",
+      "reason": "Mahomes was sacked 0 times."
+    },
+    {
+      "id": "v11-both-stuffed-runs",
+      "run": "v11",
+      "label": "real-error",
+      "snippet": "both stuffed runs",
+      "sentence": "Nourzad was eligible for both stuffed runs at the 12.",
+      "reason": "Nourzad was eligible on Q2 6:15 only."
+    },
+    {
+      "id": "v11-both-goal-line-snaps",
+      "run": "v11",
+      "label": "real-error",
+      "snippet": "both goal-line snaps",
+      "sentence": "Nourzad lined up eligible on both goal-line snaps.",
+      "reason": "Nourzad was eligible on Q2 6:15 only."
+    },
+    {
+      "id": "v11-inside-of-90-seconds",
+      "run": "v11",
+      "label": "real-error",
+      "snippet": "inside of 90 seconds",
+      "sentence": "Kansas City scored inside of 90 seconds.",
+      "reason": "Opening TD came at 2:06 / Q1 12:54."
+    },
+    {
+      "id": "v11-within-the-opening-two-minutes",
+      "run": "v11",
+      "label": "real-error",
+      "snippet": "opening two minutes",
+      "sentence": "The Chiefs scored within the opening two minutes.",
+      "reason": "Opening TD came at 2:06 / Q1 12:54."
+    },
+    {
+      "id": "v11-end-zone-less-than-90",
+      "run": "v11",
+      "label": "real-error",
+      "snippet": "less than 90 seconds",
+      "sentence": "Kansas City found the end zone in less than 90 seconds.",
+      "reason": "Opening TD came at 2:06 / Q1 12:54."
+    },
+    {
+      "id": "v11-handled-the-ball-twenty-two",
+      "run": "v11",
+      "label": "real-error",
+      "snippet": "twenty-two times",
+      "sentence": "Walker handled the ball twenty-two times.",
+      "reason": "Walker had 20 touches, not 22."
+    },
+    {
+      "id": "v11-nourzad-on-walker-td",
+      "run": "v11",
+      "label": "real-error",
+      "snippet": "Nourzad eligible",
+      "sentence": "Walker's 10-yard touchdown came with H. Nourzad eligible.",
+      "reason": "J. Moore was eligible on the opening TD; Nourzad was Q2 6:15."
+    },
+    {
+      "id": "v11-karlaftis-int-047",
+      "run": "v11",
+      "label": "real-error",
+      "snippet": "Q4 0:47",
+      "sentence": "Karlaftis intercepted Willis at Q4 0:47.",
+      "reason": "Karlaftis INT was Q4 2:03; 0:47 was the illegal-use flag."
+    },
+    {
+      "id": "v11-opening-drive-406",
+      "run": "v11",
+      "label": "real-error",
+      "snippet": "4:06",
+      "sentence": "The opening drive took 4:06.",
+      "reason": "Opening score came 2:06 into the game."
+    },
+    {
+      "id": "v11-mahomes-three-tds",
+      "run": "v11",
+      "label": "real-error",
+      "snippet": "three touchdowns",
+      "sentence": "Mahomes went 20-of-24 with three touchdowns.",
+      "reason": "Mahomes threw 2 TDs, not 3."
+    },
+    {
+      "id": "v11-rodriguez-int-615",
+      "run": "v11",
+      "label": "real-error",
+      "snippet": "Q2 6:15",
+      "sentence": "Rodriguez intercepted Mahomes at Q2 6:15.",
+      "reason": "Rodriguez INT was Q2 2:00; 6:15 was a stuffed run."
+    },
+    {
+      "id": "v11-24-touchdown-passes",
+      "run": "v11",
+      "label": "real-error",
+      "snippet": "24 touchdown",
+      "sentence": "Mahomes threw 24 touchdown passes.",
+      "reason": "Mahomes threw 2 TDs on 24 attempts."
     }
   ]
 }
