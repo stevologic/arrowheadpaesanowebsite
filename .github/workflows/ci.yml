@@ -8,11 +8,11 @@ name: CI gates
 # triggers the Pages deploy workflow as usual.
 #
 # Edition PRs opened with GITHUB_TOKEN never start pull_request workflows
-# (run 36360998269 / #110). The daily job therefore dispatches this file
-# against the edition branch (workflow_dispatch) or calls it
-# (workflow_call). Automerge stays off for narrative/update-* and for
-# any non-pull_request event — narrative.yml waits for this gates job,
-# then merges.
+# (run 36360998269 / #110). When a ghost pull_request event does fire
+# (#106, #110, #114) it used to die with 0 jobs / "workflow file issue"
+# because concurrency referenced workflow_call inputs. Edition PRs skip
+# this file's pull_request path — narrative.yml dispatches the gates
+# itself (workflow_dispatch) and merges.
 
 on:
   pull_request:
@@ -23,15 +23,16 @@ on:
     inputs:
       checkout_ref:
         description: "Branch or SHA to gate (edition branch)"
-        required: true
+        required: false
         type: string
+        default: ""
 
 permissions:
   contents: write
   pull-requests: write
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number || inputs.checkout_ref || github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -39,6 +40,7 @@ env:
 
 jobs:
   gates:
+    if: ${{ github.event_name != 'pull_request' || !startsWith(github.head_ref, 'narrative/update-') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

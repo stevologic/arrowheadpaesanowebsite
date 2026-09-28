@@ -254,7 +254,10 @@ def _last_game_brief(signals: dict, phase: dict) -> str:
         if not isinstance(play, dict):
             continue
         kind = (play.get("kind") or "").lower()
-        if kind not in {"fumble", "int"} and "deep" not in (play.get("direction") or ""):
+        if (
+            kind not in {"fumble", "int", "rush"}
+            and "deep" not in (play.get("direction") or "")
+        ):
             continue
         stamp = " ".join(
             p
@@ -276,6 +279,13 @@ def _last_game_brief(signals: dict, phase: dict) -> str:
             f"  PBP {stamp} {play.get('team') or ''} "
             f"{play.get('kind') or ''} {play.get('direction') or ''}"
             f"{extra}: {play.get('text') or ''}"
+        )
+    if recap.get("plays"):
+        lines.append(
+            "  SCHEME LIMITS: only claim a zone blitz produced a takeaway if "
+            "that play's text says so. Walker end runs mean you may not write "
+            "that his 70 were all between the tackles. Write initials as "
+            "'L. Sneed' or 'L'Jarius Sneed', never 'L'Sneed'."
         )
     return "\n".join(lines)
 

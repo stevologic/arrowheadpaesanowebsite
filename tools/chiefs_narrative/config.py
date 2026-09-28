@@ -19,6 +19,7 @@ ARCHIVE_JSON = DATA_DIR / "narrative_archive.json"
 EDITIONS_DIR = DATA_DIR / "narrative_editions"
 SCHEDULE_JSON = DATA_DIR / "schedule_2026.json"
 WIRE_JSON = DATA_DIR / "wire.json"
+REPAIR_JSON = DATA_DIR / "narrative_repair.json"
 
 SCHEMA_VERSION = 1
 

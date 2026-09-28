@@ -733,6 +733,9 @@ def parse_plays(drives) -> list[dict]:
                 "completion",
                 "pass",
             }
+            if "left end" in low or "right end" in low or "up the middle" in low:
+                kind = kind if interesting else "rush"
+                interesting = True
             if not interesting and "deep" not in low:
                 continue
             direction = ""

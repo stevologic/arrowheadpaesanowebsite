@@ -1,0 +1,33 @@
+{
+  "_note": "Karen QA FAIL on edition PR #114 (merge 2cd082cf, run 36366231677). accept = correct sentences the fact-checker deleted. reject = real errors that must still fail.",
+  "accept": [
+    "Kansas City beat Miami 24-10 at Hard Rock Stadium behind Patrick Mahomes going 20-of-24 for 246 yards, two touchdowns, and one interception.",
+    "The Chiefs led 7-0 on a 10-yard touchdown, saw Miami answer with a 3-yard touchdown to tie it, went back up 14-7 on a 5-yard touchdown, then held on through a 37-yard Miami field goal, a 34-yard Kansas City field goal, and an 11-yard touchdown that made it 24-10.",
+    "Walk the scoring in order: 10-yard TD for 7-0, Miami 3-yard TD for 7-7, 5-yard TD for 14-7, Miami 37-yard field goal for 14-10, Kansas City 34-yard field goal for 17-10, 11-yard TD for 24-10.",
+    "Rice's 34-yard catch to the Miami 15 finally set up the 11-yard touchdown for 24-10.",
+    "Kansas City answered in the fourth with Gray's 24-yarder to the Miami 8 — then settled for a 34-yard field goal and 17-10 instead of finishing from the doorstep.",
+    "Finishing from the 8 (field goal instead of a touchdown) and Butker's 50-yard miss wide left.",
+    "Harrison Butker then missed a 50-yard field goal wide left.",
+    "Miami's best shot was a 42-yard Greg Dulcich catch to the Kansas City 30 that set up a 37-yard field goal and a 14-10 game.",
+    "Sneed then punched a Willis keeper loose and recovered it himself, a takeaway that did not become points because Mahomes, targeting Rice down the middle, was intercepted by J. Rodriguez.",
+    "The second-quarter self-inflicted drive deaths: Walker stuffed at the Miami 12, Mahomes intercepted by Rodriguez on a deep shot to Rice.",
+    "The Colts game was 152 rush yards.",
+    "Indianapolis saw 152 rushing yards.",
+    "L'Jarius Sneed forced and recovered Willis' fumble, Karlaftis intercepted Willis with Chris Jones in the play.",
+    "L. Sneed forced and recovered the Willis fumble."
+  ],
+  "reject": [
+    "Drue Tranquill blew up a Willis keeper that became a fumble.",
+    "Two Miami turnovers — Willis fumble (Tranquill).",
+    "That is the only time Kansas City asked the vertical shot to carry a drive.",
+    "The Rodriguez INT was the only deep-middle miss.",
+    "Indianapolis was 117 on the ground.",
+    "Can Spagnuolo keep posting 10-point nights?",
+    "do not invent a score",
+    "The finishing sequence put an 11-yard touchdown after the Karlaftis interception.",
+    "Karlaftis picked Willis two snaps of game clock later.",
+    "L’Sneed forced the fumble.",
+    "Zone blitz Jones/Karlaftis with a dropping end on second-and-long — the look that helped produce the Willis interception.",
+    "Walker had 70 of it between the tackles."
+  ]
+}
