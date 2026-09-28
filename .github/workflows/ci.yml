@@ -7,22 +7,31 @@ name: CI gates
 # the PR is squash-merged into main automatically. Merging to main then
 # triggers the Pages deploy workflow as usual.
 #
-# Edition PRs (narrative/update-*) must still run the gates job. Skipping
-# every job made GitHub report a "workflow file issue" while the daily
-# bot squash-merged about a second later. Automerge stays off for those
-# branches — narrative.yml waits for this gates check, then merges.
+# Edition PRs opened with GITHUB_TOKEN never start pull_request workflows
+# (run 36360998269 / #110). The daily job therefore dispatches this file
+# against the edition branch (workflow_dispatch) or calls it
+# (workflow_call). Automerge stays off for narrative/update-* and for
+# any non-pull_request event — narrative.yml waits for this gates job,
+# then merges.
 
 on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      checkout_ref:
+        description: "Branch or SHA to gate (edition branch)"
+        required: true
+        type: string
 
 permissions:
   contents: write
   pull-requests: write
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number }}
+  group: ci-${{ github.event.pull_request.number || inputs.checkout_ref || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -34,6 +43,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.checkout_ref || github.ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -59,9 +70,12 @@ jobs:
 
   automerge:
     needs: gates
+    # Only human/PAT pull_request events. workflow_dispatch / workflow_call
+    # have no pull_request payload — do not invent a merge.
     # Edition PRs are merged by narrative.yml after this gates job succeeds.
     if: >-
-      ${{ !startsWith(github.head_ref, 'narrative/update-') &&
+      ${{ github.event_name == 'pull_request' &&
+          !startsWith(github.head_ref, 'narrative/update-') &&
           github.event.pull_request.draft == false &&
           !contains(github.event.pull_request.labels.*.name, 'hold') }}
     runs-on: ubuntu-latest

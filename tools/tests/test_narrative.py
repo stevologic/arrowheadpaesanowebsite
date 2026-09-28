@@ -479,10 +479,20 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn(gate, yaml)
         self.assertLess(yaml.index(gate), yaml.index("Open pull request and wait for CI gates"))
         self.assertLess(yaml.index("hugo --gc --minify"), yaml.index("Open pull request and wait for CI gates"))
-        self.assertIn("gh pr checks", yaml)
-        self.assertIn("--watch --fail-fast", yaml)
-        self.assertLess(yaml.index("gh pr checks"), yaml.index('gh pr merge "$PR_URL" --squash --delete-branch'))
+        self.assertNotIn("gh pr checks ", yaml)
+        self.assertNotIn("gh pr checks\n", yaml)
+        self.assertNotIn("gh pr checks\"", yaml)
+        self.assertIn("gh workflow run ci.yml --ref", yaml)
+        self.assertIn("APPEAR_DEADLINE", yaml)
+        self.assertIn("DONE_DEADLINE", yaml)
+        self.assertLess(
+            yaml.index("gh workflow run ci.yml --ref"),
+            yaml.index('gh pr merge "$PR_URL" --squash --delete-branch'),
+        )
         self.assertNotIn("|| gh pr merge", yaml)
+        self.assertIn("actions: write", yaml)
+        self.assertNotIn("secrets.GH_PAT", yaml)
+        self.assertNotIn("secrets.PAT", yaml)
 
     def test_edition_prs_run_ci_gates_before_merge(self):
         """Skipping every CI job was a workflow-file failure; #106 still merged."""
@@ -492,6 +502,24 @@ class GrokModelSelection(unittest.TestCase):
         gates = ci.split("automerge:")[0]
         self.assertNotIn("startsWith(github.head_ref", gates)
         self.assertIn("narrative/update-", ci.split("automerge:")[1])
+
+    def test_edition_ci_is_dispatched_not_pr_triggered(self):
+        """GITHUB_TOKEN PRs do not start pull_request workflows (run 36360998269)."""
+        root = Path(__file__).resolve().parents[2] / ".github" / "workflows"
+        narrative = (root / "narrative.yml").read_text(encoding="utf-8")
+        ci = (root / "ci.yml").read_text(encoding="utf-8")
+        self.assertIn("workflow_dispatch:", ci)
+        self.assertIn("workflow_call:", ci)
+        self.assertIn("github.event_name == 'pull_request'", ci)
+        automerge = ci.split("automerge:")[1]
+        self.assertIn("github.event_name == 'pull_request'", automerge)
+        self.assertIn("gh workflow run ci.yml --ref", narrative)
+        self.assertIn("workflow_dispatch", narrative)
+        self.assertNotIn("gh pr checks ", narrative)
+        self.assertNotIn("gh pr checks\n", narrative)
+        self.assertIn("sleep 5", narrative)
+        self.assertIn("sleep 10", narrative)
+        self.assertLess(narrative.index("DONE_DEADLINE"), narrative.index("gh pr merge"))
 
 
 def _espn_event(
