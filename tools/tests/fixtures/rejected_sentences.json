@@ -203,6 +203,46 @@
       "snippet": "8:42",
       "sentence": "Kansas City won the possession 8:42.",
       "reason": "8:42 is not on the ESPN possession clocks (25:39 / 34:21 / 37:00)."
+    },
+    {
+      "id": "36444997578-illegal-use-sneed",
+      "run": "36444997578",
+      "label": "real-error",
+      "snippet": "illegal-use",
+      "sentence": "Sneed’s path is the A-gap or the slot seam — do not clip the tackle and pick up the illegal-use flag that wiped a late Miami interception look.",
+      "reason": "Q4 0:47 illegal use was on Karlaftis and wiped a Roland-Wallace interception, not a Miami one."
+    },
+    {
+      "id": "36444997578-18-touches",
+      "run": "36444997578",
+      "label": "real-error",
+      "snippet": "18 touches",
+      "sentence": "A perimeter screen to Walker — who already handled 18 touches — punishes Crosby’s upfield takeoff.",
+      "reason": "Walker had 18 carries + 2 catches = 20 touches."
+    },
+    {
+      "id": "36444997578-40-drop",
+      "run": "36444997578",
+      "label": "real-error",
+      "snippet": "40-drop",
+      "sentence": "Do not ask the tackles to win a 40-drop game after Miami.",
+      "reason": "Mahomes threw 24 passes and was sacked 0 times."
+    },
+    {
+      "id": "36444997578-same-jumbo",
+      "run": "36444997578",
+      "label": "real-error",
+      "snippet": "6:15",
+      "sentence": "Walker’s 10-yard touchdown came with J. Moore eligible; the two stuffed snaps at the Miami 12 came when the same jumbo look lost the line.",
+      "reason": "Nourzad was reported eligible only on Q2 6:15, not on 6:58."
+    },
+    {
+      "id": "36444997578-first-two-minutes",
+      "run": "36444997578",
+      "label": "real-error",
+      "snippet": "first two minutes",
+      "sentence": "Kansas City scored in the first two minutes when Walker went up the middle for a 10-yard touchdown.",
+      "reason": "The opening TD came 2:06 in (Q1 12:54)."
     }
   ]
 }
