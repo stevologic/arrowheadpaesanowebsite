@@ -279,6 +279,22 @@ def slate_record(schedule: list[dict], season_type: str | None = None) -> str:
     return f"{wins}-{losses}"
 
 
+def current_record(schedule: list[dict], phase: dict | None = None) -> str:
+    """Current-season W-L from the slate. Never last season's leftover.
+
+    Regular/postseason use completed regular-season scores. Preseason uses
+    the exhibition slate. Camp/offseason may still show a slate record if
+    games exist; otherwise return empty so callers fail loudly instead of
+    substituting ``TEAM['last_season_record']``.
+    """
+    ptype = (phase or {}).get("type") or ""
+    if ptype in ("regular", "postseason"):
+        return slate_record(schedule, "reg")
+    if ptype == "preseason":
+        return slate_record(schedule, "pre")
+    return slate_record(schedule, "reg") or slate_record(schedule, "pre")
+
+
 def game_result(game: dict | None) -> dict:
     """Scoreboard tokens for a completed (or in-progress) slate row."""
     if not game:

@@ -37,6 +37,7 @@ TEAM = {
     "stadium": "GEHA Field at Arrowhead Stadium",
     "camp_site": "Missouri Western State University, St. Joseph, MO",
     "season": 2026,
+    # Historical only. Never an in-season default for the published record.
     "last_season_record": "6-11",
     "last_season": 2025,
 }

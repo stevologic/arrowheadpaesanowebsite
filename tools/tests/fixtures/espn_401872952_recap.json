@@ -4,19 +4,30 @@
   "kc": {
     "totalYards": "334",
     "rushingYards": "88",
+    "rushingAttempts": "25",
+    "rushingTouchdowns": "1",
     "netPassingYards": "246",
     "firstDowns": "18",
     "thirdDownEff": "3-7",
-    "possessionTime": "25:39"
+    "possessionTime": "25:39",
+    "turnovers": "1",
+    "sacks": "0-0",
+    "totalDrives": "9"
   },
   "opp": {
     "totalYards": "329",
     "rushingYards": "119",
+    "rushingAttempts": "31",
+    "rushingTouchdowns": "1",
     "netPassingYards": "210",
     "firstDowns": "19",
     "thirdDownEff": "8-16",
-    "possessionTime": "34:21"
+    "possessionTime": "34:21",
+    "turnovers": "2",
+    "sacks": "1-8",
+    "totalDrives": "9"
   },
+  "drives": { "KC": 9, "OPP": 9 },
   "scoringPlays": [
     {
       "quarter": 1,
@@ -233,7 +244,9 @@
       "attempts": 24,
       "sacks": 0,
       "sackYards": 0,
-      "touchdowns": 2
+      "touchdowns": 2,
+      "rating": "119.8",
+      "qbr": "65.3"
     }
   ],
   "qbHits": { "KC": 1, "OPP": 5 },

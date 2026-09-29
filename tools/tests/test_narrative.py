@@ -3742,7 +3742,8 @@ class StreamingAndOfflineDekTests(unittest.TestCase):
             raw["dek"],
             "Last game on the tape, where the Chiefs stand, and the plan for who's next.",
         )
-        self.assertIn("desk:", raw["dek"])
+        self.assertNotIn("desk", raw["dek"].lower())
+        self.assertIn("the Denver Broncos", raw["dek"])
 
 
 class XEmbedSlots(unittest.TestCase):
@@ -4200,3 +4201,379 @@ class XEmbedSlots(unittest.TestCase):
         self.assertIn("37 9 * * *", yaml)
         self.assertIn("43 3 * * *", yaml)
         self.assertIn("20 7 * * 0,1,2", yaml)
+
+
+class Week3MiamiWeek4Raiders(unittest.TestCase):
+    """Regression for the 2026-09-29 offline edition (KC 24-10 MIA, next @ LV)."""
+
+    LAST = {
+        "id": "401872952",
+        "week": 3,
+        "seasonType": "reg",
+        "date": "2026-09-27T17:00:00Z",
+        "opponent": "Miami Dolphins",
+        "opponentAbbr": "MIA",
+        "opponentShort": "Dolphins",
+        "homeAway": "away",
+        "venue": "Hard Rock Stadium",
+        "tv": "CBS",
+        "completed": True,
+        "inProgress": False,
+        "kcScore": 24,
+        "oppScore": 10,
+        "kickoff": "Sun, Sep 27 · 12:00 PM CT",
+    }
+    NEXT_GAME = {
+        "id": "401872976",
+        "week": 4,
+        "seasonType": "reg",
+        "date": "2026-10-04T20:25:00Z",
+        "opponent": "Las Vegas Raiders",
+        "opponentAbbr": "LV",
+        "opponentShort": "Raiders",
+        "homeAway": "away",
+        "venue": "Allegiant Stadium",
+        "tv": "CBS",
+        "completed": False,
+        "inProgress": False,
+        "kcScore": None,
+        "oppScore": None,
+        "kickoff": "Sun, Oct 4 · 3:25 PM CT",
+    }
+    WEEK1 = {
+        "id": "401872931",
+        "week": 1,
+        "seasonType": "reg",
+        "date": "2026-09-15T00:15:00Z",
+        "opponent": "Denver Broncos",
+        "opponentAbbr": "DEN",
+        "opponentShort": "Broncos",
+        "homeAway": "home",
+        "venue": "Arrowhead Stadium",
+        "completed": True,
+        "kcScore": 31,
+        "oppScore": 10,
+        "kickoff": "Mon, Sep 14 · 7:15 PM CT",
+    }
+    WEEK2 = {
+        "id": "401872945",
+        "week": 2,
+        "seasonType": "reg",
+        "date": "2026-09-21T00:20:00Z",
+        "opponent": "Indianapolis Colts",
+        "opponentAbbr": "IND",
+        "opponentShort": "Colts",
+        "homeAway": "home",
+        "venue": "Arrowhead Stadium",
+        "completed": True,
+        "kcScore": 33,
+        "oppScore": 30,
+        "kickoff": "Sun, Sep 20 · 7:20 PM CT",
+    }
+    PHASE = {
+        "type": "regular",
+        "label": "Week 4",
+        "week": 4,
+        "mode": "review",
+        "edition": "2026 Week 4 · Week 3 Review",
+        "lastGame": LAST,
+        "nextGame": NEXT_GAME,
+    }
+
+    def _schedule(self):
+        return [self.WEEK1, self.WEEK2, self.LAST, self.NEXT_GAME]
+
+    def _signals(self):
+        return {
+            "news": [
+                {
+                    "title": "NFL Power Rankings Week 4 Roundup: Chiefs’ hot start",
+                    "summary": "Kansas City is 3-0 after Miami.",
+                    "publisher": "Arrowhead Pride",
+                    "url": "https://example.com/rankings",
+                }
+            ],
+            "markets": {
+                "model": {"label": "FPI", "kcWin": 70.0, "source": "ESPN"},
+                "vegas": {
+                    "spreadDetail": "KC -4.5",
+                    "provider": "DraftKings",
+                    "overUnder": 47.5,
+                    "source": "ESPN",
+                },
+                "futures": [
+                    {"label": "Super Bowl champion", "chiefsPct": 8.6},
+                ],
+            },
+            "schedule": self._schedule(),
+            "lastGameRecap": _load_fixture("espn_401872952_recap.json"),
+        }
+
+    def _offline(self):
+        return offline.write(self._signals(), self.PHASE, [self.NEXT_GAME])
+
+    def _normalized(self, raw=None, record="3-0"):
+        return schema.normalize(
+            raw or self._offline(),
+            phase=self.PHASE,
+            meta={
+                "generatedAt": "2026-09-29T17:34:02+00:00",
+                "generator": "offline",
+                "record": record,
+                "markets": self._signals()["markets"],
+            },
+        )
+
+    def test_slate_record_is_3_0_not_last_season(self):
+        self.assertEqual(phase.slate_record(self._schedule(), "reg"), "3-0")
+        self.assertEqual(phase.current_record(self._schedule(), self.PHASE), "3-0")
+        self.assertNotEqual(phase.current_record(self._schedule(), self.PHASE), "6-11")
+
+    def test_schema_does_not_default_to_last_season_record(self):
+        narrative = schema.normalize(
+            {"headline": "x"},
+            phase=self.PHASE,
+            meta={"generatedAt": "2026-09-29T17:34:02+00:00", "generator": "test"},
+        )
+        self.assertEqual(narrative["record"], "")
+
+    def test_offline_and_meta_record_are_3_0(self):
+        raw = self._offline()
+        self.assertEqual(raw["record"], "3-0")
+        narrative = self._normalized(raw)
+        self.assertEqual(narrative["record"], "3-0")
+        self.assertEqual(narrative["currentState"]["record"], "3-0")
+
+    def test_prompt_uses_current_slate_record(self):
+        text = prompts.build_user_prompt(self._signals(), self.PHASE, [self.NEXT_GAME])
+        self.assertIn("CURRENT 2026 slate record: 3-0", text)
+        self.assertNotIn("2025 record 6-11", text)
+        self.assertIn("history, not the live record", text)
+        self.assertIn('"record": "3-0"', text)
+
+    def test_copy_gates_fail_stale_record_august_and_thin_offline(self):
+        narrative = self._normalized()
+        narrative["record"] = "6-11"
+        issues = facts.check_review(
+            narrative, self.LAST, self._signals()["lastGameRecap"],
+            schedule=self._schedule(), copy_gates=True,
+        )
+        self.assertTrue(any("schedule record 3-0" in item for item in issues), issues)
+
+        thin = {
+            "generator": "offline",
+            "phase": {"type": "regular", "label": "Week 4"},
+            "record": "3-0",
+            "headline": "Thin",
+            "dek": "A win over Miami Dolphins is still a win — even in August — leftover.",
+            "storyline": {"lede": "preseason vibes in the regular season", "body": []},
+        }
+        stale = facts.check_copy_gates(thin, self._schedule())
+        self.assertTrue(any("August" in item for item in stale), stale)
+        self.assertTrue(any("preseason" in item for item in stale), stale)
+        self.assertTrue(any("floor" in item for item in stale), stale)
+
+        season = dict(thin)
+        season["dek"] = "The 2025 Chiefs are still rolling."
+        season["storyline"] = {"lede": "looks most 2025 on third down", "body": []}
+        season_issues = facts.check_copy_gates(season, self._schedule())
+        self.assertTrue(
+            any("2025" in item for item in season_issues), season_issues
+        )
+
+    def test_copy_gates_fail_duplicated_paragraphs(self):
+        blob = (
+            "The matchup is a style question first: can Kansas City stay on schedule "
+            "against what the Las Vegas Raiders do best, and can Steve Spagnuolo make "
+            "the Las Vegas Raiders play left-handed? The market sits in the edge line."
+        )
+        narrative = {
+            "generator": "offline",
+            "phase": {"type": "regular"},
+            "record": "3-0",
+            "storyline": {"lede": blob, "body": [blob]},
+            "gamePlan": {"howTheyMatch": blob},
+            "headline": "x " * 400,
+            "dek": "y " * 400,
+        }
+        issues = facts.check_copy_gates(narrative, self._schedule())
+        self.assertTrue(any("duplicated paragraph" in item for item in issues), issues)
+
+    def test_offline_week3_copy_and_box_facts(self):
+        raw = self._offline()
+        narrative = self._normalized(raw)
+        text = facts.edition_text(narrative)
+        self.assertGreaterEqual(facts.edition_word_count(narrative), facts.OFFLINE_WORD_FLOOR)
+        self.assertNotIn("even in August", text)
+        self.assertNotIn("looks most 2025", text)
+        self.assertNotIn("Whatever lost (or nearly lost)", text)
+        self.assertNotIn("turnover(s)", text)
+        self.assertNotIn("Mahomes (or the backup)", text)
+        self.assertNotIn("Wednesday-night keeper", text)
+        self.assertNotIn("Raiders's", text)
+        self.assertNotIn("15-play openers", text)
+        self.assertIn("15-play opening script", text)
+        self.assertIn("the Miami Dolphins", text)
+        self.assertIn("the Las Vegas Raiders", text)
+        self.assertNotIn("desk", narrative["headline"].lower())
+        self.assertNotIn("desk", narrative["dek"].lower())
+        self.assertNotIn("Let's get into it", narrative["videoHook"])
+        self.assertIn("1 turnover", text)
+        self.assertIn("25 rushing attempts", text)
+        self.assertIn("88", text)
+        self.assertIn("first downs KC 18", text)
+        self.assertIn("drives KC 9", text)
+        self.assertIn("25:39", text)
+        self.assertIn("rating 119.8", text)
+        self.assertIn("20 touches", text)
+        self.assertTrue(
+            "QB hits" in text and ("5" in text),
+            "expected Miami's 5 QB hits in the box copy",
+        )
+        nxt = narrative["nextGame"]
+        self.assertIn("Las Vegas", nxt.get("opponent") or "")
+        self.assertIn("Week 4", nxt.get("label") or "")
+        self.assertIn("Oct 4", nxt.get("label") or "")
+        generate._ensure_desk_sections(
+            narrative, self._signals(), self.PHASE, [self.NEXT_GAME]
+        )
+        self.assertIn("Allegiant", narrative["nextGame"].get("at") or "")
+        personnel = " ".join(
+            f"{row.get('move')} {row.get('detail')}"
+            for row in narrative.get("personnel") or []
+        )
+        self.assertNotIn("Roster watch", personnel)
+        self.assertNotIn(
+            "Transactions and depth-chart moves that shape the plan", personnel
+        )
+        edges = {row.get("edge") for row in narrative.get("matchups") or []}
+        self.assertNotEqual(edges, {"PUSH"})
+        story = " ".join(narrative["storyline"].get("body") or [])
+        review_lede = narrative["lastGameReview"]["lede"]
+        self.assertNotIn(review_lede, story)
+        issues = facts.check_review(
+            narrative, self.LAST, self._signals()["lastGameRecap"],
+            schedule=self._schedule(), copy_gates=True,
+        )
+        self.assertEqual(issues, [])
+
+    def test_generate_forces_schedule_record_for_both_providers(self):
+        raw = self._offline()
+        raw["record"] = "6-11"
+        llm = Mock(return_value=(raw, "grok"))
+        with tempfile.TemporaryDirectory() as tmp:
+            editions = Path(tmp) / "editions"
+            editions.mkdir()
+            archive = Path(tmp) / "archive.json"
+            archive.write_text("[]\n", encoding="utf-8")
+            with patch.object(
+                collect, "collect_all",
+                return_value={"schedule": self._schedule(), "news": []},
+            ), patch.object(phase, "detect", return_value=self.PHASE), patch.object(
+                phase, "next_games", return_value=[self.NEXT_GAME]
+            ), patch.object(
+                collect, "fetch_game_recap",
+                side_effect=lambda event_id: (
+                    self._signals()["lastGameRecap"]
+                    if str(event_id) == "401872952"
+                    else {}
+                ),
+            ), patch.object(
+                odds, "collect_markets", return_value=self._signals()["markets"]
+            ), patch.object(
+                providers, "generate_via_llm", llm
+            ), patch.object(
+                generate, "_render_diagrams"
+            ), patch.object(
+                generate, "_write_schedule"
+            ), patch.object(
+                generate.config, "ARCHIVE_JSON", archive
+            ), patch.object(
+                generate.config, "EDITIONS_DIR", editions
+            ), patch.object(
+                generate, "_load_recent_editions", return_value=[]
+            ):
+                grok = generate.build("grok", persist_schedule=False)
+                offline_run = generate.build("offline", persist_schedule=False)
+        self.assertEqual(grok["narrative"]["record"], "3-0")
+        self.assertEqual(offline_run["narrative"]["record"], "3-0")
+        self.assertEqual(offline_run["narrative"]["generator"], "offline")
+
+    def test_in_season_empty_schedule_fails_loudly(self):
+        with patch.object(
+            collect, "collect_all", return_value={"schedule": [], "news": []}
+        ), patch.object(phase, "detect", return_value=self.PHASE), patch.object(
+            phase, "next_games", return_value=[self.NEXT_GAME]
+        ), patch.object(
+            collect, "fetch_game_recap", return_value={}
+        ), patch.object(odds, "collect_markets", return_value={}), patch.object(
+            generate, "_render_diagrams"
+        ):
+            with self.assertRaises(generate.FactCheckError) as ctx:
+                generate.build("offline", persist_schedule=False)
+        self.assertIn("last-season fallback", str(ctx.exception))
+
+    def test_fetch_recap_keeps_rushing_drives_and_rating(self):
+        payload = {
+            "boxscore": {
+                "teams": [
+                    {
+                        "team": {"abbreviation": "KC"},
+                        "statistics": [
+                            {"name": "rushingAttempts", "displayValue": "25"},
+                            {"name": "rushingYards", "displayValue": "88"},
+                            {"name": "rushingTouchdowns", "displayValue": "1"},
+                            {"name": "firstDowns", "displayValue": "18"},
+                            {"name": "possessionTime", "displayValue": "25:39"},
+                            {"name": "sacks", "displayValue": "0-0"},
+                        ],
+                    },
+                    {
+                        "team": {"abbreviation": "MIA"},
+                        "statistics": [
+                            {"name": "rushingAttempts", "displayValue": "31"},
+                            {"name": "rushingYards", "displayValue": "119"},
+                        ],
+                    },
+                ],
+                "players": [
+                    {
+                        "team": {"abbreviation": "KC"},
+                        "statistics": [
+                            {
+                                "name": "passing",
+                                "keys": [
+                                    "completions/passingAttempts",
+                                    "passingYards",
+                                    "QBRating",
+                                    "sacks-sackYardsLost",
+                                ],
+                                "athletes": [
+                                    {
+                                        "athlete": {"displayName": "Patrick Mahomes"},
+                                        "stats": ["20/24", "246", "119.8", "0-0"],
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+            },
+            "scoringPlays": [],
+            "drives": {
+                "previous": [
+                    {"team": {"abbreviation": "KC"}, "result": "TD", "plays": []},
+                    {"team": {"abbreviation": "MIA"}, "result": "PUNT", "plays": []},
+                    {"team": {"abbreviation": "KC"}, "result": "PUNT", "plays": []},
+                ]
+            },
+        }
+        with patch.object(collect, "_get_json", return_value=payload):
+            recap = collect.fetch_game_recap("401872952")
+        self.assertEqual(recap["kc"]["rushingAttempts"], "25")
+        self.assertEqual(recap["kc"]["rushingYards"], "88")
+        self.assertEqual(recap["kc"]["firstDowns"], "18")
+        self.assertEqual(recap["drives"]["KC"], 2)
+        self.assertEqual(recap["drives"]["OPP"], 1)
+        self.assertEqual(recap["passing"][0]["rating"], "119.8")
+        self.assertEqual(recap["passing"][0]["sacks"], 0)

@@ -164,7 +164,7 @@ def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
             "mode": _s(pg.get("mode"), "offseason"),
         },
         "edition": _s(phase_mod.format_edition(pg) or raw.get("edition"), "Chiefs Narrative"),
-        "record": _s(raw.get("record") or meta.get("record"), config.TEAM["last_season_record"]),
+        "record": _s(raw.get("record") or meta.get("record")),
         "headline": _s(raw.get("headline"), "The Chiefs Narrative"),
         "dek": _s(raw.get("dek")),
         "videoHook": _s(raw.get("videoHook")),

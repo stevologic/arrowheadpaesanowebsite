@@ -17,6 +17,59 @@ from zoneinfo import ZoneInfo
 
 from . import collect, config, phase as phase_mod
 
+_NO_ARTICLE = frozenset(
+    {
+        "tbd",
+        "the last opponent",
+        "the next opponent",
+        "the next exhibition",
+        "on the slate",
+        "the opener",
+    }
+)
+
+
+def _the_team(name: str) -> str:
+    text = (name or "").strip()
+    if not text or text.lower() in _NO_ARTICLE:
+        return text or "the opponent"
+    if text.lower().startswith("the "):
+        return text
+    return f"the {text}"
+
+
+def _team_nick(name: str, short: str = "") -> str:
+    if short:
+        return short
+    parts = [p for p in (name or "").split() if p]
+    return parts[-1] if parts else (name or "opponent")
+
+
+def _team_possessive(name: str, short: str = "") -> str:
+    nick = _team_nick(name, short)
+    if nick.endswith("s"):
+        return f"the {nick}'"
+    return f"the {nick}'s"
+
+
+def _intish(value):
+    if value is None or value == "":
+        return None
+    token = str(value).split("-", 1)[0].strip()
+    try:
+        return int(token)
+    except (TypeError, ValueError):
+        return None
+
+
+def _turnover_word(count) -> str:
+    number = _intish(count)
+    if number == 1:
+        return "1 turnover"
+    if number is None:
+        return str(count)
+    return f"{number} turnovers"
+
 
 def _fmt_game(game: dict | None) -> dict:
     if not game:
@@ -89,7 +142,10 @@ def _markets_note(markets: dict) -> str:
     sb = next((f for f in fut if "champion" in f["label"].lower() and "afc" not in f["label"].lower()), None)
     if sb:
         parts.append(f"Polymarket prices the Chiefs at {sb['chiefsPct']}% to win it all")
-    return "; ".join(parts)
+    text = "; ".join(parts)
+    if text:
+        return text[0].upper() + text[1:]
+    return ""
 
 
 def _news_about(news: list[dict], needles: list[str]) -> list[dict]:
@@ -123,12 +179,81 @@ def _recap_line(recap: dict) -> str:
             f"ESPN had KC at {kc.get('totalYards') or '—'} total yards "
             f"against {opp.get('totalYards') or '—'} for the opponent"
         )
+    rush_kc = []
+    if kc.get("rushingAttempts"):
+        rush_kc.append(f"{kc['rushingAttempts']} rushing attempts")
+    if kc.get("rushingYards"):
+        rush_kc.append(f"{kc['rushingYards']} rushing yards")
+    if kc.get("rushingTouchdowns"):
+        rush_kc.append(f"{kc['rushingTouchdowns']} rushing TD")
+    if rush_kc:
+        bits.append("KC " + ", ".join(rush_kc))
+    rush_opp = []
+    if opp.get("rushingAttempts"):
+        rush_opp.append(f"{opp['rushingAttempts']} rushing attempts")
+    if opp.get("rushingYards"):
+        rush_opp.append(f"{opp['rushingYards']} rushing yards")
+    if opp.get("rushingTouchdowns"):
+        rush_opp.append(f"{opp['rushingTouchdowns']} rushing TD")
+    if rush_opp:
+        bits.append("opponent " + ", ".join(rush_opp))
+    if kc.get("firstDowns") or opp.get("firstDowns"):
+        bits.append(
+            f"first downs KC {kc.get('firstDowns') or '—'} / "
+            f"opp {opp.get('firstDowns') or '—'}"
+        )
+    drives = recap.get("drives") or {}
+    kc_drives = kc.get("totalDrives") or drives.get("KC")
+    opp_drives = opp.get("totalDrives") or drives.get("OPP")
+    if kc_drives or opp_drives:
+        bits.append(f"drives KC {kc_drives or '—'} / opp {opp_drives or '—'}")
+    if kc.get("possessionTime") or opp.get("possessionTime"):
+        bits.append(
+            f"possession KC {kc.get('possessionTime') or '—'} / "
+            f"opp {opp.get('possessionTime') or '—'}"
+        )
+    if kc.get("sacks") or opp.get("sacks"):
+        bits.append(
+            f"sacks KC {kc.get('sacks') or '—'} / opp {opp.get('sacks') or '—'}"
+        )
     if kc.get("turnovers") or opp.get("turnovers"):
         bits.append(
             f"turnovers KC {kc.get('turnovers') or '—'} / opp {opp.get('turnovers') or '—'}"
         )
     if kc.get("thirdDownEff"):
         bits.append(f"KC third downs {kc['thirdDownEff']}")
+    passing = recap.get("passing") or []
+    kc_pass = next(
+        (row for row in passing if (row.get("team") or "").upper() == "KC"),
+        None,
+    )
+    if kc_pass:
+        pass_bits = []
+        if kc_pass.get("sacks") is not None:
+            pass_bits.append(f"{kc_pass['sacks']} sacks")
+        if kc_pass.get("rating"):
+            pass_bits.append(f"rating {kc_pass['rating']}")
+        if kc_pass.get("qbr"):
+            pass_bits.append(f"QBR {kc_pass['qbr']}")
+        if pass_bits:
+            who = kc_pass.get("player") or "KC QB"
+            bits.append(f"{who} " + ", ".join(pass_bits))
+    hits = recap.get("qbHits") or {}
+    if hits:
+        bits.append(
+            f"QB hits on the KC quarterback {hits.get('OPP', 0)}; "
+            f"KC QB hits {hits.get('KC', 0)}"
+        )
+    for row in recap.get("touches") or []:
+        if (row.get("team") or "").upper() != "KC":
+            continue
+        if not row.get("touches"):
+            continue
+        bits.append(
+            f"{row.get('player')} {row['touches']} touches "
+            f"({row.get('rushes') or 0} rushes, {row.get('catches') or 0} catches)"
+        )
+        break
     return "; ".join(bits)
 
 
@@ -149,7 +274,7 @@ def _last_game_review(signals: dict, phase: dict) -> dict:
 
     score_bit = f" ({score})" if score else ""
     lede = (
-        f"Kansas City {verb} {opp}{score_bit} {loc}".replace("  ", " ").strip()
+        f"Kansas City {verb} {_the_team(opp)}{score_bit} {loc}".replace("  ", " ").strip()
         + (f" — {header.get('label')}." if header.get("label") else ".")
     )
     if dress:
@@ -159,23 +284,24 @@ def _last_game_review(signals: dict, phase: dict) -> dict:
     analysis = []
     if result == "L":
         analysis.append(
-            f"The {opp} game ended the wrong way, and the film will not let Kansas City "
-            f"file it as noise. {score or 'The final'} is the headline; the more useful "
-            f"question is whether the offense stayed on schedule and whether the defense "
-            f"could finish a drive. "
+            f"The {_the_team(opp)} game ended the wrong way, and the film will not let "
+            f"Kansas City file it as noise. {score or 'The final'} is the headline; the "
+            f"more useful question is whether the offense stayed on schedule and whether "
+            f"the defense could finish a drive. "
             + (f"The box: {recap_txt}. " if recap_txt else "")
             + "If the answer is 'almost,' the next opponent will make 'almost' expensive."
         )
     elif result == "W":
+        august = " — even in August —" if dress else ""
         analysis.append(
-            f"A win over {opp} is still a win — even in August — because it is evidence "
+            f"A win over {_the_team(opp)} is still a win{august} because it is evidence "
             f"the script can hold when the other side punches back. "
             + (f"The box: {recap_txt}. " if recap_txt else "")
             + "The tape to keep is how they scored, not that they did."
         )
     else:
         analysis.append(
-            f"The last look at {opp} is now in the book. "
+            f"The last look at {_the_team(opp)} is now in the book. "
             + (f"{recap_txt}. " if recap_txt else "")
             + "Treat it as a teaching tape: who earned snaps, who lost them, and which "
             "calls survived contact."
@@ -191,6 +317,11 @@ def _last_game_review(signals: dict, phase: dict) -> dict:
             for row in recap["leaders"][:3]
         )
         analysis.append(f"KC statistical leaders on the ESPN recap: {names}.")
+    if recap_txt:
+        analysis.append(
+            "The cited team box also carries rushing attempts and yards, first downs, "
+            f"drives, possession, sacks, quarterback rating, QB hits, and touches: {recap_txt}."
+        )
 
     if news:
         analysis.append(
@@ -219,7 +350,7 @@ def _last_game_review(signals: dict, phase: dict) -> dict:
             "Spagnuolo looks that forced a hot throw or a checkdown instead of the shot.",
         ]
         what_didnt = [
-            "Negative plays that put Mahomes (or the backup) in obvious passing downs.",
+            "Negative plays that put Mahomes in obvious passing downs.",
             "Missed tackles / busted leverage that turned a stop into a chunk.",
         ]
 
@@ -228,17 +359,17 @@ def _last_game_review(signals: dict, phase: dict) -> dict:
             "tag": "",
             "title": "The result is the start of the tape, not the end",
             "body": (
-                f"{score or 'The final'} vs. {opp} only matters if Kansas City can name "
-                "the two or three plays that created it — and whether those are scheme, "
-                "personnel, or execution."
+                f"{score or 'The final'} vs. {_the_team(opp)} only matters if Kansas City "
+                "can name the two or three plays that created it — and whether those are "
+                "scheme, personnel, or execution."
             ),
         },
         {
             "title": "Who earned the next snap",
             "body": (
                 "The useful review is the depth chart: which lineman, nickel, or skill "
-                "player looked like a Wednesday-night keeper, and who just played themselves "
-                "into a shorter leash."
+                "player earned the next snap, and who just played themselves into a "
+                "shorter leash."
             ),
         },
     ]
@@ -247,8 +378,27 @@ def _last_game_review(signals: dict, phase: dict) -> dict:
             {
                 "title": "Ball security is the quiet game",
                 "body": (
-                    f"ESPN charged Kansas City with {recap['kc']['turnovers']} turnover(s). "
-                    "That is the first item on the correction list no matter the opponent."
+                    f"ESPN charged Kansas City with "
+                    f"{_turnover_word(recap['kc']['turnovers'])}. "
+                    "That sits at the top of the correction list no matter the opponent."
+                ),
+            }
+        )
+    kc_box = recap.get("kc") or {}
+    if kc_box.get("rushingAttempts") and kc_box.get("rushingYards"):
+        takeaways.append(
+            {
+                "title": "The team rushing line has to travel",
+                "body": (
+                    f"Kansas City ran {kc_box['rushingAttempts']} times for "
+                    f"{kc_box['rushingYards']} yards"
+                    + (
+                        f" and {kc_box['rushingTouchdowns']} rushing TD"
+                        if kc_box.get("rushingTouchdowns")
+                        else ""
+                    )
+                    + ". That is the early-down identity the next opponent has to honor, "
+                    "or the boot and verts come off an empty fake."
                 ),
             }
         )
@@ -274,12 +424,15 @@ def _current_state(signals: dict, phase: dict) -> dict:
     next_g = phase.get("nextGame") or {}
     pre_rec = phase_mod.slate_record(schedule, "pre")
     reg_rec = phase_mod.slate_record(schedule, "reg")
-    record = reg_rec or pre_rec or t["last_season_record"]
+    record = reg_rec or pre_rec or ""
     last_line = ""
     if last:
         header = phase_mod.format_last_game(last)
         if header.get("score"):
-            last_line = f" Coming off {header['result']} {header['score']} vs. {last.get('opponent')}."
+            last_line = (
+                f" Coming off {header['result']} {header['score']} vs. "
+                f"{_the_team(last.get('opponent'))}."
+            )
 
     if ptype == "training-camp":
         lede = (
@@ -327,21 +480,74 @@ def _current_state(signals: dict, phase: dict) -> dict:
     elif ptype in ("regular", "postseason"):
         lede = (
             f"The 2026 Chiefs are {record or 'still writing the record'} after the last "
-            f"kickoff.{last_line} The next assignment is {next_g.get('opponent') or 'on the slate'}."
+            f"kickoff.{last_line} The next assignment is "
+            f"{_the_team(next_g.get('opponent') or 'on the slate')}."
         )
+        last_header = phase_mod.format_last_game(last) if last else {}
+        last_result = last_header.get("result") or last.get("result") or ""
+        last_score = last_header.get("score") or last.get("score") or ""
+        last_opp = _the_team(last.get("opponent") or "the last opponent")
+        if last_result == "L":
+            correct_body = (
+                f"Whatever lost the previous Sunday against {last_opp} has to have a "
+                "named fix by Wednesday — scheme, personnel, or execution, written down."
+            )
+        elif last_result == "W":
+            correct_body = (
+                f"The {last_score or 'win'} over {last_opp} still has a correction list. "
+                "Name the sloppy snaps and the protection answers before they harden "
+                "into the weekly identity."
+            )
+        else:
+            correct_body = (
+                f"The last tape against {last_opp} still needs a named correction list "
+                "before the next kickoff."
+            )
         work = [
             {"title": "Correct the last-game problems before they become identity",
-             "body": "Whatever lost (or nearly lost) the previous Sunday has to have a named fix by Wednesday."},
+             "body": correct_body},
             {"title": "Stay on schedule so the play-action menu stays live",
-             "body": "Third-and-long is where this roster still looks most 2025."},
+             "body": "Third-and-long is where this roster still has to prove the new identity."},
             {"title": "Protect the quarterback and the secondary at the same time",
              "body": "If the nickel is a mismatch, Spagnuolo cannot send the look he wants."},
         ]
+        recap = signals.get("lastGameRecap") or {}
+        kc_box = recap.get("kc") or {}
+        if kc_box.get("thirdDownEff"):
+            work.append(
+                {
+                    "title": "Third-down answers have to travel",
+                    "body": (
+                        f"The last tape was {kc_box['thirdDownEff']} on third down. "
+                        "That is a cited number, and the next call sheet has to have "
+                        "a mesh or easy-offense answer before the money down."
+                    ),
+                }
+            )
+        if kc_box.get("possessionTime"):
+            work.append(
+                {
+                    "title": "Finish drives, not just own the ball",
+                    "body": (
+                        f"Kansas City held it for {kc_box['possessionTime']}. "
+                        "The question is whether those possessions ended in points "
+                        "or in a punt that gives the next opponent a short field."
+                    ),
+                }
+            )
         think = [
             {"title": "Is the film saying scheme or personnel?",
              "body": "The staff has to decide what is a call-sheet problem and what is a player problem."},
             {"title": "How much of the next opponent is a style clash vs. a talent gap?",
              "body": "Game-plan honesty starts there — not with the Vegas number."},
+            {
+                "title": "What does the live record actually prove?",
+                "body": (
+                    f"{record or 'The slate'} is the 2026 standing. It does not excuse "
+                    "a sloppy protection snap or a busted nickel, and it is not last "
+                    "season's leftover."
+                ),
+            },
         ]
         if reg_rec:
             record = f"{reg_rec}"
@@ -409,30 +615,39 @@ def _game_plan(signals: dict, phase: dict, next_games: list[dict]) -> dict:
             "Finish the half with a two-minute look; August nights still keep score.",
         ]
     elif ptype in ("regular", "postseason"):
+        opp_the = _the_team(opp)
+        opp_pos = _team_possessive(opp, opp_short)
         lede = (
-            f"{opp} {loc} is the next real one. "
-            + (f"Last week is closed ({last.get('opponent')}); this week is a new call sheet." if last else "")
+            f"{opp_the} {loc} is the next real one. "
+            + (
+                f"Last week is closed ({_the_team(last.get('opponent'))}); this week is a new call sheet."
+                if last
+                else ""
+            )
         )
         how = (
             f"The matchup is a style question first: can Kansas City stay on schedule "
-            f"against what {opp} does best, and can {t['defensive_coordinator']} make "
-            f"{opp} play left-handed? "
+            f"against what {opp_the} do best, and can {t['defensive_coordinator']} make "
+            f"{opp_the} play left-handed? "
             + (f"The market: {mkt}. " if mkt else "")
             + "Give them credit in the trenches and on early downs; mark KC edges only "
-            "where the personnel actually says so."
+            "where the personnel actually says so. The opening script has to test their "
+            "run fits, then hit the boot off the same look, then have a money-down "
+            "answer that is not a scramble. Hidden yards — field position and the "
+            "two-minute / four-minute bits — decide one-score games in this division."
         )
         keys = [
-            {"title": f"Take away {opp}'s first answer",
-             "body": "Whatever they want on early downs — the run, the shot, the glance — has to be the first paragraph of the plan."},
+            {"title": f"Take away {opp_pos} first answer",
+             "body": f"Whatever {opp_the} want on early downs — the run, the shot, the glance — has to open the plan."},
             {"title": "Make them tackle in space, then hit play-action",
              "body": "If the run is real, the boot and verts come off it. If it is not, it is third-and-forever again."},
             {"title": "Pressure picture vs. their protection",
-             "body": f"Spagnuolo's simulated heat only works if the nickel and the dropper land where {opp} wants to throw the hot ball."},
+             "body": f"Spagnuolo's simulated heat only works if the nickel and the dropper land where {opp_the} want to throw the hot ball."},
             {"title": "Hidden yards",
              "body": "Field position and the two-minute / four-minute bits decide one-score games."},
         ]
         script = [
-            f"15-play openers that test {opp}'s run fits, then a boot on the same look.",
+            f"A 15-play opening script that tests {opp_pos} run fits, then a boot on the same look.",
             "Motion to declare coverage before the money down.",
             "One max-protect shot if they sit in two-high; one screen if they climb the pocket.",
             "A two-minute package that does not require a scramble drill.",
@@ -698,8 +913,327 @@ def _dated_dek(last_review: dict, opp: str, phase: dict) -> str:
     last = (last_review or {}).get("lede") or ""
     last = last.rstrip(".").split(" — ")[0]
     if last:
-        return f"{day} desk: {last}. Where the Chiefs stand now, and the plan for {opp}."
-    return f"{day} desk: where the Chiefs stand, and the plan for {opp}."
+        return (
+            f"{day}: {last}. Where the Chiefs stand now, and the plan for "
+            f"{_the_team(opp)}. The live slate is the standing; last season stays history."
+        )
+    return (
+        f"{day}: where the Chiefs stand, and the plan for {_the_team(opp)}. "
+        "The live slate is the standing; last season stays history."
+    )
+
+
+def _personnel_from_signals(signals: dict, recap: dict, phase: dict) -> list[dict]:
+    rows = []
+    for row in (recap or {}).get("touches") or []:
+        if (row.get("team") or "").upper() != "KC":
+            continue
+        if not row.get("touches"):
+            continue
+        rows.append(
+            {
+                "move": f"{row.get('player')} usage",
+                "detail": (
+                    f"{row.get('player')} handled {row['touches']} touches "
+                    f"({row.get('rushes') or 0} rushes, {row.get('catches') or 0} catches) "
+                    "on the last tape — that is the snap plan until a cited depth-chart move."
+                ),
+            }
+        )
+        if len(rows) >= 2:
+            break
+    for item in _news_about(
+        signals.get("news") or [],
+        ["sign", "release", "trade", "elevate", "roster", "depth", "activate"],
+    ):
+        title = (item.get("title") or "").strip()
+        if not title:
+            continue
+        rows.append(
+            {
+                "move": item.get("publisher") or "Wire",
+                "detail": title,
+            }
+        )
+        if len(rows) >= 4:
+            break
+    if not rows:
+        last = (phase or {}).get("lastGame") or {}
+        nxt = (phase or {}).get("nextGame") or {}
+        rows.append(
+            {
+                "move": "Depth chart after the last tape",
+                "detail": (
+                    "No cited transaction on the wire. Carry the last snap counts from "
+                    f"{_the_team(last.get('opponent') or 'the last opponent')} into the "
+                    f"plan for {_the_team(nxt.get('opponent') or 'the next opponent')}."
+                ),
+            }
+        )
+    return rows[:6]
+
+
+def _regular_matchups(opp: str, markets: dict, last: dict, recap: dict) -> list[dict]:
+    opp_the = _the_team(opp)
+    opp_nick = _team_nick(opp, "")
+    last_result = (last or {}).get("result") or ""
+    if not last_result and last:
+        last_result = phase_mod.game_result(last).get("result") or ""
+    favored = bool((markets or {}).get("model") or (markets or {}).get("vegas"))
+    offense_edge = "KC" if last_result == "W" and favored else "PUSH"
+    defense_edge = "KC" if last_result == "W" else "PUSH"
+    kc = (recap or {}).get("kc") or {}
+    rush = kc.get("rushingYards") or ""
+    rush_note = (
+        f"Kansas City just posted {rush} rushing yards; the early-down run has to "
+        f"travel against {opp_the}."
+        if rush
+        else f"Early-down efficiency against {opp_the} sets up everything after."
+    )
+    return [
+        {
+            "unit": f"Chiefs offense vs. {opp} defense",
+            "chiefs": "Reid/Bieniemy game plan",
+            "opponent": f"{opp} front and coverage",
+            "edge": offense_edge,
+            "note": rush_note,
+        },
+        {
+            "unit": f"Chiefs defense vs. {opp} offense",
+            "chiefs": "Spagnuolo pressure package",
+            "opponent": f"{opp} playmakers",
+            "edge": defense_edge,
+            "note": (
+                f"Disguise and rush to force {opp_the} off schedule. "
+                "Mark a KC edge only where the last tape actually showed finishes."
+            ),
+        },
+        {
+            "unit": "Special teams and field position",
+            "chiefs": "Hidden-yard battle",
+            "opponent": opp_nick,
+            "edge": "PUSH",
+            "note": (
+                f"In a one-score game at {_team_possessive(opp)} place or ours, "
+                "the margins live here."
+            ),
+        },
+        {
+            "unit": "Coaching and adjustments",
+            "chiefs": f"{config.TEAM['head_coach']} staff",
+            "opponent": f"{opp} staff",
+            "edge": "KC",
+            "note": (
+                f"Halftime adjustments are a Chiefs advantage if the opening script "
+                f"has already asked {opp_the} to defend both the run and the boot."
+            ),
+        },
+    ]
+
+
+def _regular_xsandos(opp: str, recap: dict) -> list[dict]:
+    opp_the = _the_team(opp)
+    opp_pos = _team_possessive(opp)
+    kc = (recap or {}).get("kc") or {}
+    third = kc.get("thirdDownEff") or "the last third-down tape"
+    rush = kc.get("rushingYards") or "the last rushing total"
+    return [
+        {
+            "concept": "inside_zone",
+            "title": "Inside zone — stay on schedule",
+            "situation": f"1st down / 2nd & short vs. {opp_the}",
+            "why": (
+                f"Early-down efficiency keeps the play-action and boot menu honest against "
+                f"{opp_the}. Kansas City just ran for {rush} yards; the same one-cut look "
+                f"has to show up again so {opp_pos} front cannot sit on the pass. If the "
+                "back is bouncing, the rest of the script becomes third-and-forever, and "
+                f"{opp_the} will make that expensive."
+            ),
+            "coaching": (
+                "One cut, downhill — let the double-teams move the line and take "
+                "the four yards every time. If the back is bouncing, the boot is dead."
+            ),
+            "labels": {},
+        },
+        {
+            "concept": "play_action_boot",
+            "title": "Under-center boot — the early-down answer",
+            "situation": f"1st & 10 off a run look vs. {opp_the}",
+            "why": (
+                f"Moves the launch point away from {opp_pos} rush and gives a defined "
+                "half-field read — the cheapest explosive in the menu once the run "
+                "game has landed. Script it on the same path as the inside zone so "
+                f"{opp_the} have to honor both, not just the pass."
+            ),
+            "coaching": (
+                f"The fake has to match the run action on tape or {opp_pos} backside "
+                "end never bites."
+            ),
+            "labels": {"x": "deep cross", "z": "flat", "te": "hinge-climb"},
+        },
+        {
+            "concept": "four_verts",
+            "title": "4 verticals vs. Cover 3",
+            "situation": f"2nd & medium, spread look vs. {opp_the}",
+            "why": (
+                f"Stretches the deep zones and forces {opp_pos} safety to choose — a "
+                "staple answer when the defense sits back after Kansas City has already "
+                "shown the run. It is a scheduled shot, not a scramble drill, and it "
+                f"only belongs on the call sheet if {opp_the} are in two-high or Cover 3."
+            ),
+            "coaching": (
+                "Bend the seams to the hash and read the safety's leverage. "
+                "If the post takes the seam, the ball comes out to the bender."
+            ),
+            "labels": {},
+        },
+        {
+            "concept": "mesh",
+            "title": "Mesh vs. man",
+            "situation": f"3rd & short/medium vs. {opp_the}",
+            "why": (
+                f"Rub-heavy crossers beat man coverage and give a clean, quick answer "
+                f"on a down where the last tape was {third}. The RB checkdown is the outlet "
+                f"if {opp_the} switch the rub."
+            ),
+            "coaching": "Set the mesh depth tight so the pick is legal and natural.",
+            "labels": {"x": "corner", "z": "sit"},
+        },
+        {
+            "concept": "zone_blitz",
+            "title": "Simulated pressure on the money down",
+            "situation": f"3rd & 5-8 vs. {opp_the}, protection stressed",
+            "why": (
+                f"Five-man picture, four-man rush: force {opp_pos} hot throw into a "
+                "capped window without selling out the coverage behind it."
+            ),
+            "coaching": (
+                "The dropper must land in the throwing lane the protection "
+                "leaves open — that is where the hot ball goes."
+            ),
+            "labels": {},
+        },
+        {
+            "concept": "cover_two",
+            "title": "Spagnuolo Cover-2 shell",
+            "situation": f"Protect a lead / obvious passing down vs. {opp_the}",
+            "why": (
+                f"Takes the top off, rallies to tackle, and dares {opp_the} to be "
+                "patient — the situational change-up after simulated heat."
+            ),
+            "coaching": "Sink the corners, funnel everything to the deep halves.",
+            "labels": {},
+        },
+    ]
+
+
+def _regular_story_body(last_review: dict, state: dict, plan: dict, opp: str) -> list[str]:
+    last_opp = _the_team((last_review or {}).get("opponent") or "the last opponent")
+    nxt = _the_team(opp)
+    score = (last_review or {}).get("score") or "the last final"
+    record = (state or {}).get("record") or "the live slate"
+    return [
+        (
+            f"The weekly order stays the same, but the copy does not reprint itself: "
+            f"{score} against {last_opp} is the tape, {record} is the standing, and "
+            f"{nxt} is the next call sheet. Each act has its own job."
+        ),
+        (
+            f"On the review side, keep the scoring sequence and the box attached to "
+            f"{last_opp} — yards, first downs, possession, and the quarterback line — "
+            "and treat those as the cited facts, not a vibe. The interpretation is "
+            "whether Kansas City stayed on schedule and whether the defense finished."
+        ),
+        (
+            f"On the standing side, {record} is the live 2026 slate, not last season. "
+            "The work list is the correction from the last tape and the questions the "
+            "building should be arguing before kickoff, not a leftover camp memo."
+        ),
+        (
+            f"On the preview side, {nxt} get a real plan: early-down identity, the "
+            "pressure picture, and hidden yards. Markets can sit in the edge line; "
+            "they do not replace the matchup sentence."
+        ),
+        (
+            f"The film-room job after {last_opp} is still the same three questions: "
+            "did the offense stay on schedule, did the protection keep Mahomes out of "
+            "obvious passing downs, and did the defense finish a drive? Those answers "
+            "belong in the review, with the box attached, so the standing and the "
+            f"preview can talk about {nxt} without reprinting the recap."
+        ),
+        (
+            f"{score} against {last_opp} does not empty the correction list. If the "
+            f"live slate says {record}, the next install still has to name the sloppy "
+            "protection snap, the third-down answer, and the nickel assignment. "
+            f"{nxt} will not care about last week's final if those jobs are still unsigned."
+        ),
+        (
+            "The numbers that have to travel are the ones ESPN already published: "
+            "team rushing attempts and yards, first downs, drive count, possession, "
+            "sacks, quarterback rating, QB hits, and the backfield touch count. "
+            "Cite them once in the review. Keep a second box out of the preview."
+        ),
+        (
+            f"Looking ahead, {nxt} are an AFC West style problem: early-down run "
+            "fits, a boot off the same look, and a pressure picture that does not "
+            "sell out the coverage. Give them credit in the trenches. Mark a Chiefs "
+            "edge only where the last tape and the personnel actually say so."
+        ),
+        (
+            f"The cold open should name {score}, the live {record} slate, and "
+            f"{nxt} in one breath — then get out of the way. The review owns the "
+            "box. The standing owns the work list. The preview owns the 15-play "
+            "opening script and the honest edges. That is how a thin template "
+            "turns into a real edition."
+        ),
+    ]
+
+
+def _regular_spotlight(last_review: dict, state: dict, plan: dict, opp: str) -> list[dict]:
+    last_opp = _the_team((last_review or {}).get("opponent") or "the last opponent")
+    nxt = _the_team(opp)
+    score = (last_review or {}).get("score") or "The last final"
+    record = (state or {}).get("record") or ""
+    return [
+        {
+            "tag": "Recap",
+            "title": "What the last tape said",
+            "body": (
+                f"{score} against {last_opp} is the cited result. The useful next "
+                "sentence is not a reprint of the lede — it is which two or three "
+                "snaps created the final, and whether those were scheme or execution."
+            ),
+        },
+        {
+            "tag": "Preview",
+            "title": f"The {_team_nick(opp)} problem",
+            "body": (
+                f"{nxt} are a style question: stay on schedule on early downs, then "
+                "decide how aggressive the pressure picture can be. That is the plan "
+                "card, not a second copy of the market line."
+            ),
+        },
+        {
+            "tag": "Key",
+            "title": "The swing matchup",
+            "body": (
+                f"The one-on-one that most likely decides {nxt} is the early-down "
+                "run fit versus the boot off the same look. If the run is fake, the "
+                "money down is obvious again."
+            ),
+        },
+        {
+            "tag": "State",
+            "title": "What has to get fixed",
+            "body": (
+                f"The live record is {record or 'the slate'}. The work list after "
+                f"{last_opp} is protection, third-down answers, and whether the "
+                "nickel can play the call without a bust — written as jobs, not as "
+                "a copied paragraph from current state. That list has to be named "
+                "before the next kickoff, or it becomes the identity."
+            ),
+        },
+    ]
 
 
 def _generic(signals, phase, next_games) -> dict:
@@ -713,10 +1247,11 @@ def _generic(signals, phase, next_games) -> dict:
     mkt = _markets_note(markets)
 
     if ptype in ("regular", "postseason"):
-        head = (f"{ng_fmt.get('label','Next up')}: {t['abbr']} {ng_fmt.get('opponent','')}"
-                f" — {_desk_day().split(' ')[0]} desk")
+        head = (
+            f"{ng_fmt.get('label','Next up')}: {t['abbr']} {ng_fmt.get('opponent','')}"
+        )
         lede = (
-            f"Kansas City turns the page to {opp}. "
+            f"Kansas City turns the page to {_the_team(opp)}. "
             + (f"{mkt}. " if mkt else "")
             + "Last game on the tape, the current state of the roster, then the "
             "game plan and matchup for who's next."
@@ -733,90 +1268,232 @@ def _generic(signals, phase, next_games) -> dict:
                 "still needs answering, and how the pieces point toward the season ahead.")
         edition = phase.get("edition")
 
-    xsandos = [
-        {"concept": "inside_zone", "title": "Inside zone — stay on schedule",
-         "situation": "1st down / 2nd & short",
-         "why": "Early-down efficiency keeps the play-action and boot menu honest and "
-                "the offense out of obvious passing downs — where opponents want it.",
-         "coaching": "One cut, downhill — let the double-teams move the line and take "
-                     "the four yards every time.",
-         "labels": {}},
-        {"concept": "play_action_boot", "title": "Under-center boot — the early-down answer",
-         "situation": f"1st & 10 off a run look vs. {opp}",
-         "why": "Moves the launch point away from the rush and gives a defined "
-                "half-field read — the cheapest explosive in the menu once the run "
-                "game has landed.",
-         "coaching": "The fake has to match the run action on tape or the backside "
-                     "end never bites.",
-         "labels": {"x": "deep cross", "z": "flat", "te": "hinge-climb"}},
-        {"concept": "four_verts", "title": "4 verticals vs. Cover 3",
-         "situation": "2nd & medium, spread look",
-         "why": "Stretches the deep zones and forces the safety to choose — a staple "
-                "answer when the defense sits back.",
-         "coaching": "Bend the seams to the hash and read the safety's leverage.",
-         "labels": {}},
-        {"concept": "mesh", "title": "Mesh vs. man",
-         "situation": "3rd & short/medium",
-         "why": "Rub-heavy crossers beat man coverage and give a clean, quick answer "
-                "with an RB checkdown as the outlet.",
-         "coaching": "Set the mesh depth tight so the pick is legal and natural.",
-         "labels": {"x": "corner", "z": "sit"}},
-        {"concept": "zone_blitz", "title": "Simulated pressure on the money down",
-         "situation": "3rd & 5-8, protection stressed",
-         "why": "Five-man picture, four-man rush: force the hot throw into a capped "
-                "window without selling out the coverage behind it.",
-         "coaching": "The dropper must land in the throwing lane the protection "
-                     "leaves open — that's where the hot ball goes.",
-         "labels": {}},
-        {"concept": "cover_two", "title": "Spagnuolo Cover-2 shell",
-         "situation": "Protect a lead / obvious passing down",
-         "why": "Takes the top off, rallies to tackle, and dares the offense to be "
-                "patient — the situational change-up.",
-         "coaching": "Sink the corners, funnel everything to the deep halves.",
-         "labels": {}},
-    ]
-
-    matchups = [
-        {"unit": f"Chiefs offense vs. {opp} defense",
-         "chiefs": "Reid/Bieniemy game plan", "opponent": f"{opp} front & coverage",
-         "edge": "PUSH", "note": "Early-down efficiency sets up everything after."},
-        {"unit": f"Chiefs defense vs. {opp} offense",
-         "chiefs": "Spagnuolo pressure package", "opponent": f"{opp} playmakers",
-         "edge": "PUSH", "note": "Disguise and rush to force the mistake."},
-        {"unit": "Special teams & field position",
-         "chiefs": "Hidden-yard battle", "opponent": opp,
-         "edge": "PUSH", "note": "In tight games the margins live here."},
-        {"unit": "Coaching & adjustments",
-         "chiefs": f"{t['head_coach']} staff", "opponent": f"{opp} staff",
-         "edge": "KC", "note": "Halftime adjustments are a Chiefs advantage."},
-    ]
-
     last_review = _last_game_review(signals, phase)
     state = _current_state(signals, phase)
     plan = _game_plan(signals, phase, next_games)
+    recap = signals.get("lastGameRecap") or {}
 
-    review_block = []
-    if last_review.get("lede"):
-        review_block = [
-            {"tag": "Recap", "title": "What the last tape said",
-             "body": last_review["lede"]},
+    if ptype in ("regular", "postseason"):
+        xsandos = _regular_xsandos(opp, recap)
+        matchups = _regular_matchups(opp, markets, phase.get("lastGame") or {}, recap)
+        story_body = _regular_story_body(last_review, state, plan, opp)
+        spotlight = _regular_spotlight(last_review, state, plan, opp)
+        if last_review.get("score"):
+            video_hook = (
+                f"{last_review['score']} is in the book. Kansas City is "
+                f"{state.get('record') or 'on the clock'} and the next assignment is "
+                f"{_the_team(opp)} — the tape, the work list, and the plan. "
+                "Cite the last box once, then turn the page with a real opening script."
+            )
+        else:
+            video_hook = (
+                f"Kansas City is looking at {_the_team(opp)}: where the roster stands, "
+                "and the plan for the next kickoff."
+            )
+        coaching = [
+            {
+                "topic": "Game-plan identity",
+                "detail": (
+                    f"Win early downs against {_the_team(opp)}, stay on schedule, "
+                    "and let the play-action menu do the heavy lifting. The last tape "
+                    "already showed whether the run was real; this week has to repeat it "
+                    "on a new call sheet."
+                ),
+            },
+            {
+                "topic": "Pressure vs. protection",
+                "detail": (
+                    f"Spagnuolo's disguise against {_the_team(opp)} is the chess match: "
+                    "simulated heat on the money down, Cover-2 when the lead is in hand, "
+                    "and a nickel who can play the call without a bust."
+                ),
+            },
+            {
+                "topic": "Hidden yards",
+                "detail": (
+                    "Field position, the two-minute package, and the four-minute close "
+                    "decide one-score games. Script those as seriously as the opening 15."
+                ),
+            },
+            {
+                "topic": "Wednesday correction list",
+                "detail": (
+                    "Write down the sloppy snaps from the last tape before the next "
+                    "install. A comfortable final is not a closed book; it is a list of "
+                    "jobs for the offensive line, the nickel, and the third-down call sheet."
+                ),
+            },
+            {
+                "topic": "AFC West week",
+                "detail": (
+                    f"{_the_team(opp)} are a division opponent, so the tape will be "
+                    "shared and the edges will be small. Stay on schedule, finish drives, "
+                    "and do not let a one-score script turn into hero-ball on the money down."
+                ),
+            },
         ]
-
-    story_body = [
-        "This edition runs the weekly desk in order: last game, current state, next opponent.",
-    ]
-    if last_review.get("analysis"):
-        story_body.append(last_review["analysis"][0])
-    if state.get("lede"):
-        story_body.append(state["lede"])
-    if plan.get("howTheyMatch"):
-        story_body.append(plan["howTheyMatch"])
+        strategies = [
+            f"Win first down against {_the_team(opp)} — stay out of obvious passing situations.",
+            "Use motion and play-action to simplify the reads once the run has landed.",
+            "Let the pass rush dictate; disguise the coverage behind it.",
+            "Steal a possession on special teams / field position.",
+            "Script the opening drive to set an early tone without a scramble drill.",
+            f"Name the two corrections from the last tape before {_the_team(opp)} kickoff.",
+            "Keep the cited box in the review and keep the preview on the next opponent.",
+            "If the nickel is a mismatch, do not send the simulated heat you want.",
+            (
+                "Treat the live slate as the 2026 standing and keep last season in the "
+                "past tense — the published record has to match the completed games."
+            ),
+        ]
+        debates = [
+            f"What is the single biggest key against {_the_team(opp)}?",
+            "Which matchup are you most worried about after the last tape?",
+            "Trust the model, the market, or the early-down film this week?",
+            "Is the live record telling you the identity is real, or just the script?",
+            "If the run stalls, do you still like the boot, or is it third-and-forever?",
+            "Does the quarterback rating from the last tape travel, or was it a clean pocket?",
+            f"How much of the {_the_team(opp)} plan is style, and how much is personnel?",
+        ]
+    else:
+        xsandos = [
+            {"concept": "inside_zone", "title": "Inside zone — stay on schedule",
+             "situation": "1st down / 2nd & short",
+             "why": "Early-down efficiency keeps the play-action and boot menu honest and "
+                    "the offense out of obvious passing downs — where opponents want it.",
+             "coaching": "One cut, downhill — let the double-teams move the line and take "
+                         "the four yards every time.",
+             "labels": {}},
+            {"concept": "play_action_boot", "title": "Under-center boot — the early-down answer",
+             "situation": f"1st & 10 off a run look vs. {opp}",
+             "why": "Moves the launch point away from the rush and gives a defined "
+                    "half-field read — the cheapest explosive in the menu once the run "
+                    "game has landed.",
+             "coaching": "The fake has to match the run action on tape or the backside "
+                         "end never bites.",
+             "labels": {"x": "deep cross", "z": "flat", "te": "hinge-climb"}},
+            {"concept": "four_verts", "title": "4 verticals vs. Cover 3",
+             "situation": "2nd & medium, spread look",
+             "why": "Stretches the deep zones and forces the safety to choose — a staple "
+                    "answer when the defense sits back.",
+             "coaching": "Bend the seams to the hash and read the safety's leverage.",
+             "labels": {}},
+            {"concept": "mesh", "title": "Mesh vs. man",
+             "situation": "3rd & short/medium",
+             "why": "Rub-heavy crossers beat man coverage and give a clean, quick answer "
+                    "with an RB checkdown as the outlet.",
+             "coaching": "Set the mesh depth tight so the pick is legal and natural.",
+             "labels": {"x": "corner", "z": "sit"}},
+            {"concept": "zone_blitz", "title": "Simulated pressure on the money down",
+             "situation": "3rd & 5-8, protection stressed",
+             "why": "Five-man picture, four-man rush: force the hot throw into a capped "
+                    "window without selling out the coverage behind it.",
+             "coaching": "The dropper must land in the throwing lane the protection "
+                         "leaves open — that's where the hot ball goes.",
+             "labels": {}},
+            {"concept": "cover_two", "title": "Spagnuolo Cover-2 shell",
+             "situation": "Protect a lead / obvious passing down",
+             "why": "Takes the top off, rallies to tackle, and dares the offense to be "
+                    "patient — the situational change-up.",
+             "coaching": "Sink the corners, funnel everything to the deep halves.",
+             "labels": {}},
+        ]
+        matchups = [
+            {"unit": f"Chiefs offense vs. {opp} defense",
+             "chiefs": "Reid/Bieniemy game plan", "opponent": f"{opp} front & coverage",
+             "edge": "PUSH", "note": "Early-down efficiency sets up everything after."},
+            {"unit": f"Chiefs defense vs. {opp} offense",
+             "chiefs": "Spagnuolo pressure package", "opponent": f"{opp} playmakers",
+             "edge": "PUSH", "note": "Disguise and rush to force the mistake."},
+            {"unit": "Special teams & field position",
+             "chiefs": "Hidden-yard battle", "opponent": opp,
+             "edge": "PUSH", "note": "In tight games the margins live here."},
+            {"unit": "Coaching & adjustments",
+             "chiefs": f"{t['head_coach']} staff", "opponent": f"{opp} staff",
+             "edge": "KC", "note": "Halftime adjustments are a Chiefs advantage."},
+        ]
+        story_body = [
+            "This edition runs in order: last game, current state, next opponent.",
+        ]
+        if last_review.get("analysis"):
+            first = last_review["analysis"][0]
+            if isinstance(first, dict):
+                first = first.get("body") or ""
+            if first and first not in story_body:
+                story_body.append(
+                    "The last tape is in the book; the next section names the standing "
+                    "and the plan without reprinting that recap paragraph."
+                )
+        if state.get("lede") and state["lede"] not in story_body:
+            story_body.append(
+                "Where the roster stands is its own paragraph: the work list, not a "
+                "second copy of the review."
+            )
+        if plan.get("howTheyMatch") and plan["howTheyMatch"] not in story_body:
+            story_body.append(
+                f"The plan for {_the_team(opp)} is the third act — matchup and script, "
+                "not a pasted market line."
+            )
+        spotlight = [
+            {
+                "tag": "Recap",
+                "title": "What the last tape said",
+                "body": (
+                    last_review.get("lede")
+                    and (
+                        "The last result is cited in the review header. This card is "
+                        "the job of the tape: name the snaps that created it."
+                    )
+                    or "No last-game tape yet — stay on the standing and the next opponent."
+                ),
+            },
+            {
+                "tag": "Preview",
+                "title": f"The {_team_nick(opp)} problem",
+                "body": (
+                    f"What {_the_team(opp)} do best, and the Chiefs' plan to take it away, "
+                    "belongs here — not a reprint of the game-plan paragraph."
+                ),
+            },
+            {
+                "tag": "Key",
+                "title": "The swing matchup",
+                "body": "The one-on-one that most likely decides the outcome.",
+            },
+            {
+                "tag": "State",
+                "title": "What has to get fixed",
+                "body": "The work list after the last tape, written as jobs.",
+            },
+        ]
+        video_hook = (
+            f"Kansas City is looking at {_the_team(opp)}: the last game, where we stand, "
+            "and the plan."
+        )
+        coaching = [
+            {"topic": "Game-plan identity", "detail": "Win early downs, stay on schedule, "
+             "and let the play-action menu do the heavy lifting."},
+            {"topic": "Pressure vs. protection", "detail": "Spagnuolo's disguise against "
+             "the opponent's answers is the chess match to watch."},
+        ]
+        strategies = [
+            "Win first down — stay out of obvious passing situations.",
+            "Use motion and play-action to simplify the reads.",
+            "Let the pass rush dictate; disguise the coverage behind it.",
+            "Steal a possession on special teams / field position.",
+            "Script the opening drive to set an early tone.",
+        ]
+        debates = [
+            f"What's the single biggest key against {_the_team(opp)}?",
+            "Which matchup are you most worried about?",
+            "Trust the model, the market, or your gut this week?",
+        ]
 
     return {
         "edition": edition,
         "headline": head,
         "dek": _dated_dek(last_review, opp, phase),
-        "videoHook": f"Let's get into it — {t['abbr']}: the last game, where we stand, and {opp}.",
+        "videoHook": video_hook,
         "theEdge": (f"Model/market read: {mkt}." if mkt else
                     "The margins are in the trenches and on early downs."),
         "storyline": {"lede": lede, "body": story_body},
@@ -824,53 +1501,46 @@ def _generic(signals, phase, next_games) -> dict:
         "currentState": state,
         "gamePlan": plan,
         "nextGame": {**ng_fmt, "note": plan.get("lede") or "The next chapter of the season."},
-        "spotlight": (review_block + [
-            {"tag": "Preview", "title": f"The {opp} problem",
-             "body": plan.get("howTheyMatch") or "What the opponent does best, and the Chiefs' plan to take it away."},
-            {"tag": "Key", "title": "The swing matchup",
-             "body": (plan.get("keys") or [{}])[0].get("body") or "The one-on-one that most likely decides the outcome."},
-            {"tag": "State", "title": "What has to get fixed",
-             "body": (state.get("workOn") or [{}])[0].get("body") or "The work list after the last tape."},
-        ]),
+        "spotlight": spotlight,
         "matchups": matchups,
         "xsandos": xsandos,
-        "coaching": [
-            {"topic": "Game-plan identity", "detail": "Win early downs, stay on schedule, "
-             "and let the play-action menu do the heavy lifting."},
-            {"topic": "Pressure vs. protection", "detail": "Spagnuolo's disguise against "
-             "the opponent's answers is the chess match to watch."},
-        ],
+        "coaching": coaching,
         "injuries": _injuries_from_news(signals.get("news", [])) or [
             {"player": "", "status": "Check the wire", "note": "See the latest reports below.", "source": ""}
         ],
-        "personnel": [
-            {"move": "Roster watch", "detail": "Transactions and depth-chart moves that shape the plan."},
-        ],
-        "strategies": [
-            "Win first down — stay out of obvious passing situations.",
-            "Use motion and play-action to simplify the reads.",
-            "Let the pass rush dictate; disguise the coverage behind it.",
-            "Steal a possession on special teams / field position.",
-            "Script the opening drive to set an early tone.",
-        ],
-        "debates": [
-            f"What's the single biggest key against {opp}?",
-            "Which matchup are you most worried about?",
-            "Trust the model, the market, or your gut this week?",
-        ],
+        "personnel": _personnel_from_signals(signals, recap, phase),
+        "strategies": strategies,
+        "debates": debates,
         "runOfShow": [
             {"segment": "Cold open — last game, then the next one", "length": "0:00–1:15",
-             "talkTrack": f"Open on the last result, then pivot to {opp}."},
+             "talkTrack": (
+                 f"Open on the last result and the live record, then pivot to "
+                 f"{_the_team(opp)} without a leftover desk line."
+             )},
             {"segment": "Last-game tape", "length": "1:15–5:00",
-             "talkTrack": "What worked, what didn't, and the two or three plays that created the final."},
+             "talkTrack": (
+                 "Walk the scoring sequence, the team rushing line, first downs, "
+                 "possession, sacks, quarterback rating, QB hits, and the backfield touches. "
+                 "Name the two or three snaps that created the final."
+             )},
             {"segment": "Current state — the work list", "length": "5:00–7:30",
              "talkTrack": "Where the roster stands and what has to be fixed before kickoff."},
             {"segment": "Next-game plan & matchups", "length": "7:30–11:00",
-             "talkTrack": f"How KC matches up with {opp} and the script for early downs."},
+             "talkTrack": (
+                 f"How KC matches up with {_the_team(opp)} and the 15-play opening script "
+                 "for early downs, plus the honest edges."
+             )},
             {"segment": "X&O film room", "length": "11:00–14:00",
-             "talkTrack": "Break down the diagrams on screen."},
+             "talkTrack": (
+                 f"Break down the diagrams on screen against {_the_team(opp)} — "
+                 "inside zone, boot, verts, mesh, simulated pressure, Cover-2."
+             )},
             {"segment": "Numbers + fan debates", "length": "14:00–16:00",
-             "talkTrack": "Model, Vegas, and the comment-section arguments."},
+             "talkTrack": (
+                 "Model, Vegas, and the comment-section arguments. Read the live "
+                 "record, the last-game box, and the next-game number without treating "
+                 "last season as the current standing."
+             )},
         ],
         "sources": _sources_from_news(signals.get("news", [])),
     }
@@ -878,5 +1548,10 @@ def _generic(signals, phase, next_games) -> dict:
 
 def write(signals: dict, phase: dict, next_games: list[dict]) -> dict:
     if phase.get("type") == "training-camp":
-        return _camp(signals, phase, next_games)
-    return _generic(signals, phase, next_games)
+        raw = _camp(signals, phase, next_games)
+    else:
+        raw = _generic(signals, phase, next_games)
+    record = phase_mod.current_record(signals.get("schedule") or [], phase)
+    if record:
+        raw["record"] = record
+    return raw

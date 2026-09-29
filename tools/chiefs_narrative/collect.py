@@ -465,11 +465,14 @@ _RECAP_STAT_NAMES = (
     "totalYards",
     "netPassingYards",
     "rushingYards",
+    "rushingAttempts",
+    "rushingTouchdowns",
     "turnovers",
     "firstDowns",
     "thirdDownEff",
     "possessionTime",
     "sacks",
+    "totalDrives",
 )
 
 
@@ -912,17 +915,24 @@ def parse_player_usage(box: dict | None) -> dict:
                             "touchdowns",
                         )
                     )
-                    passing.append(
-                        {
-                            "player": player,
-                            "team": abbr or side,
-                            "completions": completions,
-                            "attempts": attempts,
-                            "sacks": sacks,
-                            "sackYards": sack_yards,
-                            "touchdowns": touchdowns,
-                        }
+                    rating = _stat_at(
+                        stats, index_by, "QBRating", "rating", "passerRating"
                     )
+                    qbr = _stat_at(stats, index_by, "QBR", "totalQBR", "qbr")
+                    row_out = {
+                        "player": player,
+                        "team": abbr or side,
+                        "completions": completions,
+                        "attempts": attempts,
+                        "sacks": sacks,
+                        "sackYards": sack_yards,
+                        "touchdowns": touchdowns,
+                    }
+                    if rating:
+                        row_out["rating"] = rating
+                    if qbr:
+                        row_out["qbr"] = qbr
+                    passing.append(row_out)
                 elif name == "defensive":
                     hits = _to_int(_stat_at(stats, index_by, "QBHits")) or 0
                     qb_hits[side] = qb_hits.get(side, 0) + hits
@@ -963,6 +973,28 @@ def prior_completed_game(schedule: list, last_game: dict | None) -> dict | None:
         if prior is None or (game.get("date") or "") > (prior.get("date") or ""):
             prior = game
     return prior
+
+
+def parse_drive_counts(drives) -> dict:
+    """Completed-drive counts by side from the ESPN drive chart."""
+    if isinstance(drives, dict):
+        rows = drives.get("previous") or []
+    elif isinstance(drives, list):
+        rows = drives
+    else:
+        rows = []
+    kc = opp = 0
+    for drive in rows:
+        if not isinstance(drive, dict):
+            continue
+        abbr = _drive_team(drive)
+        if not abbr:
+            continue
+        if abbr == "KC":
+            kc += 1
+        else:
+            opp += 1
+    return {"KC": kc, "OPP": opp}
 
 
 def parse_drive_results(drives) -> list[dict]:
@@ -1069,6 +1101,13 @@ def fetch_game_recap(event_id: str) -> dict:
     recap["touches"] = usage["touches"]
     recap["passing"] = usage["passing"]
     recap["qbHits"] = usage["qbHits"]
+    drive_counts = parse_drive_counts(data.get("drives"))
+    if drive_counts["KC"] or drive_counts["OPP"]:
+        recap["drives"] = drive_counts
+        if not recap["kc"].get("totalDrives") and drive_counts["KC"]:
+            recap["kc"]["totalDrives"] = str(drive_counts["KC"])
+        if not recap["opp"].get("totalDrives") and drive_counts["OPP"]:
+            recap["opp"]["totalDrives"] = str(drive_counts["OPP"])
 
     for group in data.get("leaders") or []:
         if not isinstance(group, dict):
