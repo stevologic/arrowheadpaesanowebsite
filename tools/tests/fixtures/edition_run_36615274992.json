@@ -1,0 +1,17 @@
+{
+  "_note": "Grok full run 36615274992 on main 465154d8 after #133/#134. accept = prior-game / newline / opponent-clock / QB-hit sentences the Miami box must not reject. reject = real writer errors that must still fail.",
+  "accept": [
+    "Against Indianapolis the Chiefs posted 29 first downs, 152 rushing yards, 523 total yards, and 37:00 of possession.",
+    "Denver 31-10, Indianapolis 33-30 with 29 first downs and 37:00, Miami 24-10 with 18 and 25:39.",
+    "And the tape that actually leaves Miami is 88 on the ground, 3-of-7 on third down, and 25:39 with the football.",
+    "Miami got 5 QB hits with 0 sacks.",
+    "Miami’s 5 QB hits are the reason, not a guess.",
+    "Separate the 24-10 scoreboard from the 18 first downs and the 34:21 clock.",
+    "carry Miami run game\n88 rushing yards"
+  ],
+  "reject": [
+    "Kansas City finished with 70 rushing yards.",
+    "Miami answered with a 5-yard touchdown.",
+    "Walker’s 10-yard touchdown came with Nourzad eligible."
+  ]
+}

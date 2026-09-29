@@ -639,36 +639,17 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             )
             return repaired, leftover, gone
 
-        analysis_before = facts.analysis_sentences(narrative)
         repaired, leftover, gone = _drop_and_log(narrative, violations)
         dropped.extend(gone)
         if leftover:
             repaired, leftover, gone = _drop_and_log(repaired, leftover)
             dropped.extend(gone)
-        analysis_after = set(facts.analysis_sentences(repaired))
-        analysis_dropped = [s for s in analysis_before if s not in analysis_after]
         orphans = facts.check_repair_orphans(repaired, dropped)
-        if leftover:
-            raise FactCheckError(
-                "Chiefs Narrative fact-check failed after repair: "
-                + "; ".join(leftover)
-                + ". Refusing to publish a review that disagrees with ESPN."
-            )
-        if analysis_dropped:
-            raise FactCheckError(
-                "Chiefs Narrative fact-check refused to drop lastGameReview.analysis: "
-                + "; ".join(analysis_dropped)
-            )
-        if len(dropped) > facts.MAX_REPAIR_DROPS:
-            raise FactCheckError(
-                "Chiefs Narrative fact-check dropped too many sentences "
-                f"({len(dropped)}): " + "; ".join(dropped)
-            )
-        if orphans:
-            raise FactCheckError(
-                "Chiefs Narrative fact-check left fragments after repair: "
-                + "; ".join(orphans)
-            )
+        blockers = facts.repair_publish_blockers(
+            leftover, repaired, orphans, before=narrative
+        )
+        if blockers:
+            raise FactCheckError(blockers[0])
         narrative = repaired
         narrative["updatedAt"] = config.iso_now()
         print("  [writer] fact-check: dropped sentences logged; edition is clean")
