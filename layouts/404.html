@@ -6,15 +6,15 @@
   <title>Redirecting to The Chiefs Narrative</title>
   <link rel="canonical" href="{{ "" | absURL }}" />
   <meta name="robots" content="noindex, follow" />
-  <meta http-equiv="refresh" content="0; url={{ "" | absURL }}" />
+  <meta http-equiv="refresh" content="0; url={{ "" | relURL }}" />
+</head>
+<body data-redirect="{{ "" | relURL }}">
+  <p>That page is gone. Continue to <a href="{{ "" | relURL }}">The Chiefs Narrative</a>.</p>
   <script>
     (function () {
-      var node = document.querySelector('link[rel="canonical"]');
-      if (node && node.href) location.replace(node.href);
+      var dest = document.body.getAttribute("data-redirect") || "/";
+      location.replace(dest);
     })();
   </script>
-</head>
-<body>
-  <p>That page is gone. Continue to <a href="{{ "" | absURL }}">The Chiefs Narrative</a>.</p>
 </body>
 </html>

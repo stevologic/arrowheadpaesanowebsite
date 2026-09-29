@@ -6,15 +6,15 @@
   <title>Redirecting to The Chiefs Narrative</title>
   <link rel="canonical" href="{{ .Permalink }}" />
   <meta name="robots" content="noindex, follow" />
-  <meta http-equiv="refresh" content="0; url={{ .Permalink }}" />
+  <meta http-equiv="refresh" content="0; url={{ "" | relURL }}" />
+</head>
+<body data-redirect="{{ "" | relURL }}">
+  <p>This page has moved to <a href="{{ "" | relURL }}">The Chiefs Narrative</a>.</p>
   <script>
     (function () {
-      var node = document.querySelector('link[rel="canonical"]');
-      if (node && node.href) location.replace(node.href);
+      var dest = document.body.getAttribute("data-redirect") || "/";
+      location.replace(dest);
     })();
   </script>
-</head>
-<body>
-  <p>This page has moved to <a href="{{ .Permalink }}">The Chiefs Narrative</a>.</p>
 </body>
 </html>
