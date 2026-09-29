@@ -1,6 +1,6 @@
-# Arrowhead Paesano
+# Arrowhead Paesano — The Chiefs Narrative
 
-The official static website for the [Arrowhead Paesano YouTube channel](https://www.youtube.com/@arrowheadpaesano). It combines a checked-in channel snapshot, privacy-friendly video playback, direct Chiefs news bookmarks, Amazon fan-find links, and a client-side Shopify Storefront connection.
+The official static website for the [Arrowhead Paesano YouTube channel](https://www.youtube.com/@arrowheadpaesano). The site is a single purpose: the daily **Chiefs Narrative**. The current edition lives at `/`. Earlier editions stay at `/narrative/<slug>/`. `/narrative/` serves the same current edition as the homepage.
 
 There is no application server, database, runtime API, Docker container, or secret environment file. Hugo builds ordinary HTML, CSS, JavaScript, images, and JSON that GitHub Pages can host directly.
 
@@ -21,6 +21,14 @@ npm run build
 
 Hugo writes the generated site to `dist/`. That directory is intentionally ignored because GitHub Actions rebuilds it on every deployment.
 
+After a local build, check:
+
+- `dist/index.html` — current Narrative (homepage)
+- `dist/narrative/index.html` — same current edition
+- `dist/about/index.html` (and the other retired paths) — redirect stubs to `/`
+- `dist/404.html` — sends unknown URLs home
+- Footer “YouTube channel” link — `https://www.youtube.com/@arrowheadpaesano`
+
 ## Deploy with GitHub Pages
 
 1. Push this project to the repository's `main` branch.
@@ -30,19 +38,11 @@ Hugo writes the generated site to `dist/`. That directory is intentionally ignor
 
 The workflow builds with GitHub's actual Pages base URL, so project-site paths such as `/arrowheadpaesanowebsite/` work correctly. A push to `main` deploys automatically, and the workflow can also be run manually.
 
-## YouTube snapshot
-
-The homepage and Watch page read `data/channel_feed.json` during the Hugo build. This keeps the public site fast and avoids a server or YouTube API key. Update that file when you want to refresh the featured uploads and Shorts; visitors can always open the live channel directly from every video section.
+GitHub Pages has no server-side redirects. Retired URLs are checked-in as HTML stubs (meta refresh + canonical + `location.replace`) generated from Hugo aliases on the homepage.
 
 ## The Chiefs Narrative engine
 
-`/narrative/` is an automated weekly Kansas City Chiefs analysis desk. Each
-edition reviews the last game, names the current state of the roster (what to
-work on, what to think about), then looks ahead to the next opponent with a
-game plan and matchup read. It also carries training-camp battles, X's-and-O's
-with hand-drawn field diagrams, injuries, personnel, a model projection, the
-Vegas line, prediction-market odds, cited sources, and a ready-to-shoot YouTube
-run-of-show. It regenerates itself and evolves the story toward the next Sunday.
+The homepage is an automated Kansas City Chiefs analysis desk. Each edition reviews the last game, names the current state of the roster (what to work on, what to think about), then looks ahead to the next opponent with a game plan and matchup read. It also carries training-camp battles, X's-and-O's with hand-drawn field diagrams, injuries, personnel, a model projection, the Vegas line, prediction-market odds, cited sources, and a ready-to-shoot YouTube run-of-show. It regenerates itself and evolves the story toward the next Sunday.
 
 ### How it works
 
@@ -63,7 +63,8 @@ The engine lives in [`tools/chiefs_narrative/`](tools/chiefs_narrative/):
 4. **Diagram** — renders clean X's-and-O's SVGs from a concept library
    (`diagrams.py`) into `public/images/narrative/`.
 5. **Publish** — writes `data/narrative.json` (+ a rolling `data/narrative_archive.json`),
-   the 2026 slate, and today's wire headlines, which the Hugo templates render.
+   the 2026 slate, and today's wire headlines, which the Hugo templates render
+   on `/` and `/narrative/`.
 
 ### Run it locally
 
@@ -95,7 +96,8 @@ sportsbook consensus line.
 [`.github/workflows/narrative.yml`](.github/workflows/narrative.yml) runs every
 day: it regenerates the edition, opens a pull request, auto-merges it, and
 publishes the refreshed site to the `gh-pages` branch (which serves
-arrowheadpaesano.com).
+arrowheadpaesano.com). The generator still writes `data/narrative.json`; Hugo
+renders that file on the homepage.
 
 Add **`XAI_API_KEY`** (or `GROK_API_KEY`) as a repository secret to have Grok
 write it, or `OPENAI_API_KEY` for OpenAI — Grok wins if both are set. With no
@@ -105,39 +107,9 @@ secret at all the offline writer still runs. Optional repository *variables*:
 Trigger it by hand any time from the **Actions** tab (**Run workflow**), where
 the *provider* input can force `grok`, `openai`, `anthropic`, or `offline`.
 
-## Connect Shopify
-
-Set these public Storefront values in `hugo.yaml`:
-
-```yaml
-params:
-  shopifyStoreDomain: "your-store.myshopify.com"
-  shopifyStorefrontPublicToken: "your-public-storefront-token"
-  shopifyApiVersion: "2026-04"
-  shopifyCollectionHandle: "arrowhead-paesano" # optional
-```
-
-The browser then loads products and creates a Shopify cart directly through the Storefront API. A public Storefront token is designed for browser storefronts and will be included in the generated JavaScript configuration. Never put a Shopify Admin token, private token, or other secret in this repository.
-
-Until the public Storefront configuration is present, the shop displays the polished collection preview with no checkout buttons.
-
-## Connect Amazon Associates
-
-Set the public Associates tag in `hugo.yaml`:
-
-```yaml
-params:
-  amazonAssociateTag: "your-tracking-id-20"
-  amazonMarketplace: "www.amazon.com"
-```
-
-The curated shopping cards are built as direct Amazon search links. Prices and product images are intentionally not copied or cached.
-
-As an Amazon Associate I earn from qualifying purchases.
-
 ## Project map
 
-- Site URL, navigation, Amazon, and Shopify settings: `hugo.yaml`
+- Site URL, navigation, and YouTube channel URL: `hugo.yaml`
 - Page templates: `layouts/`
 - Channel snapshot and curated content: `data/`
 - Styles and browser behavior: `public/css/` and `public/js/`

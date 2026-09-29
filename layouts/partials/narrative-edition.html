@@ -3,7 +3,7 @@
   Context (dict):
     n           — the edition data (current narrative or an archived edition)
     site        — .Site
-    isCurrent   — true when rendering the live edition at /narrative/
+    isCurrent   — true when rendering the live edition at / or /narrative/
     archive     — .Site.Data.narrative_archive (optional; renders the timeline)
     currentSlug — slug of the edition being viewed (optional; highlights it)
 */ -}}
@@ -27,7 +27,7 @@
   {{ if not $isCurrent }}
   <div class="nrt-archive-note">
     <span>Archived edition · {{ partial "nrt-ct.html" (dict "t" .generatedAt "layout" "Monday, Jan 2, 2006") }}</span>
-    <a href="{{ "narrative/" | relURL }}">Read the current edition →</a>
+    <a href="{{ "" | relURL }}">Read the current edition →</a>
   </div>
   {{ end }}
 

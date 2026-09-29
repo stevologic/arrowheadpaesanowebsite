@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Redirecting to The Chiefs Narrative</title>
-  <link rel="canonical" href="{{ "" | absURL }}" />
+  <link rel="canonical" href="{{ .Permalink }}" />
   <meta name="robots" content="noindex, follow" />
-  <meta http-equiv="refresh" content="0; url={{ "" | absURL }}" />
+  <meta http-equiv="refresh" content="0; url={{ .Permalink }}" />
   <script>
     (function () {
       var node = document.querySelector('link[rel="canonical"]');
@@ -15,6 +15,6 @@
   </script>
 </head>
 <body>
-  <p>That page is gone. Continue to <a href="{{ "" | absURL }}">The Chiefs Narrative</a>.</p>
+  <p>This page has moved to <a href="{{ .Permalink }}">The Chiefs Narrative</a>.</p>
 </body>
 </html>
