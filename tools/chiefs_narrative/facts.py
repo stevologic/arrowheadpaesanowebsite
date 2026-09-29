@@ -312,6 +312,18 @@ _TOUCH_COUNT = re.compile(
     rf"\bhandled the ball\s+({_NUM_TOKEN})\s+times\b",
     re.IGNORECASE,
 )
+# Game-total touches only. Red-zone / drive / quarter windows are not
+# on the ESPN usage row, so they must not be compared to 20.
+_TOUCH_WINDOW = re.compile(
+    r"\b(?:"
+    r"red[- ]zone|goal[- ]line|"
+    r"on (?:this|the|that) drive|(?:this|that|the) drive|"
+    r"per quarter|each quarter|by quarter|"
+    r"opening (?:drive|script)|two-minute|"
+    r"inside the \d+"
+    r")\b",
+    re.IGNORECASE,
+)
 _DROP_ATTEMPT = re.compile(
     rf"\b({_NUM_TOKEN})[-\s](?:drop(?:back)?s?|attempts?)\b|"
     rf"\bthrew\s+({_NUM_TOKEN})\s+passes\b|"
@@ -2601,9 +2613,54 @@ def _bound_touch_row(text: str, claim_at: int, rows: list[dict]) -> dict | None:
         last = _last_name_in(text[claim_at:end], aliases)
     if last:
         return by_last.get(last)
+    # A named person who is not in the usage table is not the lone listed back.
+    # --check-edition's Walker-only fixture used to take '1 touches' / '6
+    # touches' on Kelce or Rice and score them against Walker's 20.
+    if _clause_names_other_person(text[start:end], aliases):
+        return None
     if len(rows) == 1:
         return rows[0]
     return None
+
+
+def _clause_names_other_person(clause: str, aliases: dict[str, str]) -> bool:
+    """True when the clause names someone who is not a usage last name."""
+    skip = _KC_SCOPE | {
+        "miami",
+        "dolphins",
+        "las",
+        "vegas",
+        "raiders",
+        "indianapolis",
+        "colts",
+        "denver",
+        "broncos",
+        "sunday",
+        "monday",
+        "week",
+        "espn",
+        "arrowhead",
+        "hard",
+        "rock",
+        "stadium",
+    }
+    for hit in re.finditer(r"\b([A-Z][a-z]{2,})\b", clause or ""):
+        token = hit.group(1).lower()
+        if token in aliases or token in skip:
+            continue
+        return True
+    return False
+
+
+def _touch_claim_is_windowed(text: str, match: re.Match) -> bool:
+    """True for red-zone / drive / quarter touch counts, not game totals."""
+    start, end = _stat_clause_span(text, match.start())
+    clause = text[start:end]
+    rel_start = match.start() - start
+    rel_end = match.end() - start
+    if _count_scope(clause, rel_start, rel_end) is not None:
+        return True
+    return bool(_TOUCH_WINDOW.search(clause))
 
 
 def _check_touch_counts(text: str, recap: dict | None) -> list[str]:
@@ -2618,6 +2675,8 @@ def _check_touch_counts(text: str, recap: dict | None) -> list[str]:
     for match in _TOUCH_COUNT.finditer(text):
         claimed = _match_count(match)
         if claimed is None:
+            continue
+        if _touch_claim_is_windowed(text, match):
             continue
         row = _bound_touch_row(text, match.start(), rows)
         if row is None:

@@ -4008,6 +4008,85 @@ class FactCheck(unittest.TestCase):
             indy_wrong,
         )
 
+    def test_run_36617439949_windowed_touches_are_not_walker_game_total(self):
+        catalog = _load_fixture("edition_run_36617439949.json")
+        recap = self._week3_usage_recap()
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        walker_only = json.loads(json.dumps(_load_fixture("espn_401872952_recap.json")))
+        for sentence in catalog["accept"]:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertEqual(issues, [], f"should accept {sentence!r}: {issues}")
+            lone = facts.check_review(
+                self._review(lede=sentence), last, walker_only
+            )
+            self.assertEqual(lone, [], f"Walker-only recap must skip {sentence!r}: {lone}")
+        for sentence in catalog["reject"]:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertTrue(issues, f"should reject {sentence!r}")
+        walker_1 = facts.check_review(
+            self._review(lede=catalog["reject"][0]), last, recap
+        )
+        self.assertTrue(
+            any("touches 1" in item and "Walker" in item for item in walker_1),
+            walker_1,
+        )
+        walker_6 = facts.check_review(
+            self._review(lede=catalog["reject"][1]), last, recap
+        )
+        self.assertTrue(
+            any("touches 6" in item and "Walker" in item for item in walker_6),
+            walker_6,
+        )
+        recap["touches"] = list(recap["touches"]) + [
+            {
+                "player": "Hollywood Brown",
+                "team": "KC",
+                "rushes": 0,
+                "catches": 1,
+                "touches": 1,
+            },
+            {
+                "player": "Travis Kelce",
+                "team": "KC",
+                "rushes": 0,
+                "catches": 6,
+                "touches": 6,
+            },
+        ]
+        recap["touches"].sort(key=lambda row: (row.get("player") or ""))
+        self.assertEqual(recap["touches"][0]["player"], "Emmett Johnson")
+        raw = offline.write(
+            {
+                "news": [],
+                "markets": {},
+                "lastGameRecap": recap,
+            },
+            {
+                "type": "regular",
+                "label": "Week 4",
+                "week": 4,
+                "mode": "review",
+                "lastGame": last,
+                "nextGame": {
+                    "opponent": "Las Vegas Raiders",
+                    "week": 4,
+                },
+            },
+            [{"opponent": "Las Vegas Raiders", "week": 4}],
+        )
+        text = facts.edition_text(
+            schema.normalize(
+                raw,
+                phase={"type": "regular", "label": "Week 4", "mode": "review"},
+                meta={"generatedAt": "2026-09-29T19:11:00+00:00", "generator": "offline"},
+            )
+        )
+        self.assertIn("20 touches", text)
+        self.assertNotIn("1 touches", text)
+        self.assertNotIn("6 touches", text)
+        self.assertIn("Kenneth Walker III", text)
+
     def test_repair_publish_blockers_use_word_floor_not_drop_count(self):
         fat = " ".join(["Chiefs tape review word"] * 400)
         repaired = {
@@ -4848,6 +4927,8 @@ class Week3MiamiWeek4Raiders(unittest.TestCase):
         self.assertIn("25:39", text)
         self.assertIn("rating 119.8", text)
         self.assertIn("20 touches", text)
+        self.assertNotIn("1 touches", text)
+        self.assertNotIn("6 touches", text)
         self.assertTrue(
             "QB hits" in text and ("5" in text),
             "expected Miami's 5 QB hits in the box copy",
