@@ -4,12 +4,12 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Redirecting to The Chiefs Narrative</title>
-  <link rel="canonical" href="{{ "" | absURL }}" />
+  <link rel="canonical" href="{{ .Permalink }}" />
   <meta name="robots" content="noindex, follow" />
   <meta http-equiv="refresh" content="0; url={{ "" | relURL }}" />
 </head>
 <body data-redirect="{{ "" | relURL }}">
-  <p>That page is gone. Continue to <a href="{{ "" | relURL }}">The Chiefs Narrative</a>.</p>
+  <p>This page has moved to <a href="{{ "" | relURL }}">The Chiefs Narrative</a>.</p>
   <script>
     (function () {
       var dest = document.body.getAttribute("data-redirect") || "/";

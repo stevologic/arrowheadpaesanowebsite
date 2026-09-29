@@ -2,7 +2,7 @@
   "name": "arrowhead-paesano",
   "version": "1.0.0",
   "private": true,
-  "description": "Static Hugo site for the Arrowhead Paesano YouTube channel",
+  "description": "The daily Chiefs Narrative from Arrowhead Paesano",
   "scripts": {
     "build": "hugo --gc --minify",
     "dev": "hugo server --bind 127.0.0.1 --port 1515 --baseURL http://localhost:1515/ --disableFastRender --renderToMemory"

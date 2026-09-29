@@ -1311,10 +1311,8 @@ class SeasonClock(unittest.TestCase):
     def test_templates_render_slate_and_wire(self):
         root = Path(__file__).resolve().parents[2]
         index = (root / "layouts" / "index.html").read_text(encoding="utf-8")
-        self.assertIn("Read the latest Narrative", index)
-        self.assertIn("press-hero__actions", index)
-        hero_actions = index[index.find("press-hero__actions"):index.find("press-hero__proof")]
-        self.assertIn("narrative/", hero_actions)
+        self.assertIn('partial "narrative-edition.html"', index)
+        self.assertIn("isCurrent", index)
         hugo = (root / "hugo.yaml").read_text(encoding="utf-8")
         self.assertIn('timeZone: "America/Chicago"', hugo)
         edition = (root / "layouts" / "partials" / "narrative-edition.html").read_text(encoding="utf-8")
@@ -1326,10 +1324,8 @@ class SeasonClock(unittest.TestCase):
         self.assertIn('time.AsTime .t | time.In "America/Chicago"', ct)
         slate = (root / "layouts" / "partials" / "season-slate.html").read_text(encoding="utf-8")
         wire = (root / "layouts" / "partials" / "wire-headlines.html").read_text(encoding="utf-8")
-        self.assertIn('partial "season-slate.html"', index)
-        self.assertIn('dict "limit" 7', index)
-        self.assertIn('partial "wire-headlines.html"', index)
         self.assertIn('partial "season-slate.html"', edition)
+        self.assertNotIn("schedule/", slate)
         self.assertIn(".game", edition)
         self.assertIn("Upcoming game", edition)
         story = edition.find("Always looking ahead")
@@ -1347,9 +1343,6 @@ class SeasonClock(unittest.TestCase):
         self.assertIn("Where we stand", edition)
         self.assertIn("The next-game plan", edition)
         self.assertIn("How they match up", edition)
-        watch = (root / "layouts" / "youtube" / "single.html").read_text(encoding="utf-8")
-        self.assertIn("watch-onair", watch)
-        self.assertIn("watch-monitor", watch)
         watch_css = (root / "public" / "css" / "v2.css").read_text(encoding="utf-8")
         stage = watch_css[watch_css.find(".yt-stage--watch"):watch_css.find(".yt-stage--watch") + 220]
         self.assertNotIn("18px 20px 0 var(--ap-red)", stage)
@@ -1365,8 +1358,10 @@ class SeasonClock(unittest.TestCase):
         self.assertIn("wire-item--lead", wire)
         self.assertIn("first 8 .headlines", wire)
         base = (root / "layouts" / "_default" / "baseof.html").read_text(encoding="utf-8")
-        self.assertIn("Source wire", base)
-        self.assertIn("stripe-item__name", base)
+        self.assertIn("The Chiefs Narrative", base)
+        self.assertIn("youtubeUrl", base)
+        self.assertNotIn("social/", base)
+        self.assertNotIn("sources/", base)
         self.assertNotIn("--accent:", base)
         v2 = (root / "public" / "css" / "v2.css").read_text(encoding="utf-8")
         start = v2.find(".hero-stripe--top {")
@@ -1383,20 +1378,15 @@ class SeasonClock(unittest.TestCase):
 
     def test_schedule_page_lists_preseason_and_regular(self):
         root = Path(__file__).resolve().parents[2]
-        page = (root / "layouts" / "schedule" / "single.html").read_text(encoding="utf-8")
-        row = (root / "layouts" / "partials" / "schedule-row.html").read_text(encoding="utf-8")
+        slate = (root / "layouts" / "partials" / "season-slate.html").read_text(encoding="utf-8")
         nav = (root / "hugo.yaml").read_text(encoding="utf-8")
-        md = (root / "content" / "schedule.md").read_text(encoding="utf-8")
-        self.assertIn('where $all "seasonType" "pre"', page)
-        self.assertIn('where $all "seasonType" "reg"', page)
-        self.assertIn("Bye", page)
-        self.assertIn(".opponent", row)
-        self.assertIn("sched-row__score", row)
-        self.assertIn("kcScore", row)
-        self.assertIn("Score", page)
-        self.assertIn("sched-row__score", page)
-        self.assertIn('href: "schedule/"', nav)
-        self.assertIn("active: \"schedule\"", md)
+        self.assertIn("site.Data.schedule_2026", slate)
+        self.assertIn("kcScore", slate)
+        self.assertNotIn("schedule/", slate)
+        self.assertNotIn('href: "schedule/"', nav)
+        self.assertIn('href: ""', nav)
+        self.assertIn('active: "narrative"', nav)
+        self.assertFalse((root / "content" / "schedule.md").exists())
 
         games = json.loads((root / "data" / "schedule_2026.json").read_text(encoding="utf-8"))
         pre = [g for g in games if g.get("seasonType") == "pre"]
@@ -1410,6 +1400,110 @@ class SeasonClock(unittest.TestCase):
         if rams.get("completed"):
             self.assertIsNotNone(rams.get("kcScore"), "completed Rams game must keep a real ESPN score")
             self.assertIsNotNone(rams.get("oppScore"))
+
+
+RETIRED_PATHS = (
+    "about",
+    "focus",
+    "schedule",
+    "shop",
+    "social",
+    "sources",
+    "youtube",
+)
+
+
+class NarrativeHomepage(unittest.TestCase):
+    """arrowheadpaesano.com is the daily Chiefs Narrative only."""
+
+    def test_homepage_aliases_cover_retired_pages(self):
+        root = Path(__file__).resolve().parents[2]
+        home = (root / "content" / "_index.md").read_text(encoding="utf-8")
+        for slug in RETIRED_PATHS:
+            self.assertIn(f"/{slug}/", home)
+        alias = (root / "layouts" / "alias.html").read_text(encoding="utf-8")
+        self.assertIn('http-equiv="refresh"', alias)
+        self.assertIn('rel="canonical"', alias)
+        self.assertIn("location.replace", alias)
+        gone = (root / "layouts" / "404.html").read_text(encoding="utf-8")
+        self.assertIn('http-equiv="refresh"', gone)
+        self.assertIn("location.replace", gone)
+        robots = (root / "layouts" / "robots.txt").read_text(encoding="utf-8")
+        self.assertIn("Sitemap:", robots)
+        hugo = (root / "hugo.yaml").read_text(encoding="utf-8")
+        self.assertIn("enableRobotsTXT: true", hugo)
+        self.assertIn('youtubeUrl: "https://www.youtube.com/@arrowheadpaesano"', hugo)
+        self.assertNotIn('href: "schedule/"', hugo)
+        self.assertNotIn('href: "youtube/"', hugo)
+        self.assertNotIn('href: "shop/"', hugo)
+        for name in RETIRED_PATHS:
+            self.assertFalse((root / "content" / f"{name}.md").exists(), name)
+        self.assertFalse((root / "public" / "js" / "shopify-storefront.js").exists())
+        for name in (
+            "amazon_finds",
+            "channel_feed",
+            "merch",
+            "social_feeds",
+            "video_archive",
+            "weekly_focus",
+        ):
+            self.assertFalse((root / "data" / f"{name}.json").exists(), name)
+        main = (root / "public" / "js" / "main.js").read_text(encoding="utf-8")
+        self.assertNotIn("data-youtube-grid", main)
+        self.assertNotIn("data-shop-grid", main)
+        self.assertIn("function initNarrativeXEmbeds", main)
+        sitemap_tmpl = (root / "layouts" / "_default" / "sitemap.xml").read_text(encoding="utf-8")
+        self.assertIn('(ne .Kind "section")', sitemap_tmpl)
+
+    def test_build_publishes_narrative_and_redirects(self):
+        hugo_bin = _hugo_bin()
+        self.assertTrue(hugo_bin, "hugo must be on PATH (or ~/.local/hugo/hugo) for this gate")
+        repo = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "dist"
+            result = subprocess.run(
+                [hugo_bin, "--gc", "--minify", "--destination", str(dest)],
+                cwd=repo,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            home = (dest / "index.html").read_text(encoding="utf-8")
+            narrative = (dest / "narrative" / "index.html").read_text(encoding="utf-8")
+            self.assertIn("nrt-headline", home)
+            self.assertIn("nrt-headline", narrative)
+            self.assertIn("The Chiefs Narrative", home)
+            self.assertIn("https://www.youtube.com/@arrowheadpaesano", home)
+            self.assertIn("canonical", home)
+            self.assertIn("https://arrowheadpaesano.com/", home)
+            self.assertIn("og:title", home)
+            self.assertIn("og:description", home)
+            sitemap = (dest / "sitemap.xml").read_text(encoding="utf-8")
+            self.assertIn("https://arrowheadpaesano.com/</loc>", sitemap)
+            self.assertNotIn("https://arrowheadpaesano.com/narrative/</loc>", sitemap)
+            robots = (dest / "robots.txt").read_text(encoding="utf-8")
+            self.assertIn("sitemap.xml", robots.lower())
+            rss = (dest / "index.xml").read_text(encoding="utf-8")
+            self.assertIn("The Chiefs Narrative", rss)
+            for slug in RETIRED_PATHS:
+                self.assertNotIn(f"/{slug}/", sitemap)
+                self.assertNotIn(f"/{slug}/", rss)
+                stub = dest / slug / "index.html"
+                self.assertTrue(stub.is_file(), slug)
+                html = stub.read_text(encoding="utf-8")
+                self.assertIn("refresh", html)
+                self.assertIn("canonical", html)
+                self.assertIn("location.replace", html)
+                self.assertNotIn("location.replace('\"", html)
+                self.assertNotIn('location.replace("\'', html)
+            gone = (dest / "404.html").read_text(encoding="utf-8")
+            self.assertIn("location.replace", gone)
+            editions = dest / "narrative"
+            archived = [p for p in editions.iterdir() if p.is_dir() and (p / "index.html").is_file()]
+            self.assertGreater(len(archived), 10)
+            sample = next(iter(archived))
+            self.assertIn(f"/narrative/{sample.name}/", sitemap)
 
 
 class HeadlineUniqueness(unittest.TestCase):
