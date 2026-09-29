@@ -3557,6 +3557,73 @@ class FactCheck(unittest.TestCase):
         self.assertIn("survival tape", prompts.SYSTEM_PROMPT)
         self.assertIn("correction-note", prompts.SYSTEM_PROMPT)
 
+    def test_touch_counts_bind_nearest_player_not_recap_order(self):
+        recap = json.loads(json.dumps(_load_fixture("espn_401872952_recap.json")))
+        recap["touches"] = sorted(
+            recap["touches"]
+            + [
+                {
+                    "player": "Emmett Johnson",
+                    "team": "OPP",
+                    "rushes": 6,
+                    "catches": 0,
+                    "touches": 6,
+                },
+                {
+                    "player": "Malik Willis",
+                    "team": "OPP",
+                    "rushes": 9,
+                    "catches": 0,
+                    "touches": 9,
+                },
+                {
+                    "player": "Ollie Gordon II",
+                    "team": "OPP",
+                    "rushes": 17,
+                    "catches": 3,
+                    "touches": 20,
+                },
+            ],
+            key=lambda row: (row.get("player") or "", row.get("team") or ""),
+        )
+        self.assertEqual(recap["touches"][0]["player"], "Emmett Johnson")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        compound = (
+            "Ollie Gordon II matched Walker at 20 touches "
+            "(17 rushes, 3 catches), Malik Willis added 9 rushes, "
+            "and Emmett Johnson had 6 rushes."
+        )
+        self.assertEqual(
+            facts._check_touch_counts(compound, recap),
+            [],
+            "Walker's 20 touches must not bind to Johnson or Willis",
+        )
+        self.assertEqual(
+            facts.check_review(self._review(lede=compound), last, recap),
+            [],
+        )
+        semicolon = (
+            "Walker handled 18 rushes and 2 catches (20 touches) in Miami; "
+            "Emmett Johnson had 6 rushes."
+        )
+        self.assertEqual(facts._check_touch_counts(semicolon, recap), [])
+        wrong = facts._check_touch_counts(
+            "Emmett Johnson had 20 touches.", recap
+        )
+        self.assertTrue(wrong, "Johnson at 20 must still fail against ESPN 6")
+        self.assertTrue(
+            any("Emmett Johnson" in item and "touches 20" in item for item in wrong),
+            wrong,
+        )
+        self.assertTrue(
+            facts.check_review(
+                self._review(lede="Emmett Johnson had 20 touches."),
+                last,
+                recap,
+            )
+        )
+
     def test_narrative_pr_lists_drops_and_holds_automerge(self):
         yaml = (
             Path(__file__).resolve().parents[2]
