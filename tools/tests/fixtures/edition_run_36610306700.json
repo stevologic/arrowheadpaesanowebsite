@@ -1,0 +1,22 @@
+{
+  "_note": "Grok full run 36610306700 on main a2285c25 after #130/#131. accept = official KC 24-10 MIA box (ESPN 401872952). reject = real writer errors that must still fail.",
+  "accept": [
+    "Reid said after the game the offense did not have a ton of plays, and the box backs him up: nine drives, 18 first downs, 3-of-7 on third down, 25:39 of possession.",
+    "Willis went 20-of-36 with a 61.1 rating, scrambled repeatedly (nine rushes, nine touches), and Miami still posted 119 rushing yards on 31 attempts.",
+    "Nine drives, 18 first downs, and 25:39 of possession are why Reid is already talking about play count heading into Las Vegas.",
+    "Walker’s 20 touches (18 rushes, two catches) and 70 rushing yards, plus Emmett Johnson’s six rushes, still added up to 88 team rushing yards.",
+    "3-of-7 on third down and 18 first downs against Miami’s 8-of-16 and 19 first downs",
+    "88 rushing yards on 25 attempts, including Walker end runs that did not all go north-south",
+    "Mahomes’ deep-middle interception intended for Rice at Q2 2:00",
+    "Kenneth Walker III handled 18 rushes and two catches in Miami (70 rushing yards, the 10-yard touchdown).",
+    "The tape in Miami. Also 88 rush yards on 25 attempts.",
+    "Willis went 20-of-36 with a 61.1 rating, scrambled repeatedly (nine rushes, nine touches), and Walker still had 20 touches."
+  ],
+  "reject": [
+    "Mahomes did not need 40 dropbacks to beat Miami, and Reid has already noted the play count was light.",
+    "Kansas City won the possession 8:42.",
+    "Kansas City finished with 70 rushing yards.",
+    "Walker had 70 of it between the tackles.",
+    "Emmett Johnson had 20 touches."
+  ]
+}
