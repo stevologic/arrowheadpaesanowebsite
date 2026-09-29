@@ -1691,6 +1691,129 @@ class HeadlineUniqueness(unittest.TestCase):
                     generate.build("offline", persist_schedule=False)
         self.assertEqual(llm.call_count, 0)
 
+    def test_same_day_replacement_skips_today_and_overwrites_slug(self):
+        """A same-day regen must replace today's flawed edition, not clone-fail it.
+
+        Run 36612663271 died on theEdge vs 2026-09-29-1734 (6-11 / Tuesday desk),
+        the edition the re-run was trying to overwrite. Prior-day copy still fails.
+        """
+        now = "2026-09-29T18:45:00+00:00"
+        today_slug = "2026-09-29-1734"
+        today_edge = (
+            "Model/market read: the model gives KC 70.0%; Vegas has it KC -4.5; "
+            "Polymarket prices the Chiefs at 8.6% to win it all."
+        )
+        today = self._edition_payload(
+            generatedAt="2026-09-29T17:34:02+00:00",
+            slug=today_slug,
+            headline="Week 4 · Sun Oct 4: KC @ Las Vegas Raiders — Tuesday desk",
+            dek="Tuesday desk leftover.",
+            theEdge=today_edge,
+        )
+        yesterday = self._edition_payload(
+            generatedAt="2026-09-28T15:47:56+00:00",
+            slug="2026-09-28-1547",
+            headline="20-of-24 beat Miami. Crosby is the next snap.",
+            dek="Yesterday's dek must still be unique.",
+            theEdge="Yesterday's theEdge must still be unique.",
+        )
+        replacement = {
+            "headline": "Fresh Week 4 title after the 6-11 leftover",
+            "dek": "A same-day replacement, not a second Tuesday desk.",
+            "theEdge": today_edge,
+            "edition": "2026 Training Camp",
+        }
+        self.assertEqual(
+            generate._edition_calendar_day(today),
+            generate._edition_calendar_day({"generatedAt": now}),
+        )
+        self.assertEqual(
+            [ed["slug"] for ed in generate._prior_day_editions([today, yesterday], "2026-09-29")],
+            ["2026-09-28-1547"],
+        )
+
+        llm = Mock(return_value=(replacement, "offline"))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "narrative_archive.json"
+            editions = root / "narrative_editions"
+            editions.mkdir()
+            archive.write_text(
+                json.dumps([today, yesterday]) + "\n", encoding="utf-8"
+            )
+            (editions / f"{today_slug}.json").write_text(
+                json.dumps(today) + "\n", encoding="utf-8"
+            )
+            (editions / "2026-09-28-1547.json").write_text(
+                json.dumps(yesterday) + "\n", encoding="utf-8"
+            )
+            extra = [
+                patch.object(generate.config, "NARRATIVE_JSON", root / "narrative.json"),
+                patch.object(generate.config, "WIRE_JSON", root / "wire.json"),
+                patch.object(generate.config, "REPAIR_JSON", root / "repair.json"),
+                patch.object(generate.config, "iso_now", return_value=now),
+            ]
+            with self._generation_stack(
+                llm=llm, archive=archive, editions=editions, extra=extra
+            ):
+                rc = generate.main(["--provider", "grok"])
+            self.assertEqual(rc, 0)
+            self.assertEqual(llm.call_count, 1)
+            prompt = llm.call_args.args[2]
+            self.assertNotIn("Tuesday desk", prompt)
+            self.assertIn(yesterday["headline"], prompt)
+            self.assertEqual(
+                {p.name for p in editions.iterdir()},
+                {f"{today_slug}.json", "2026-09-28-1547.json"},
+            )
+            live = json.loads((root / "narrative.json").read_text(encoding="utf-8"))
+            self.assertEqual(live["slug"], today_slug)
+            self.assertEqual(live["headline"], replacement["headline"])
+            self.assertEqual(live["theEdge"], today_edge)
+            saved = json.loads(archive.read_text(encoding="utf-8"))
+            today_rows = [
+                row
+                for row in saved
+                if generate._edition_calendar_day(row) == "2026-09-29"
+            ]
+            self.assertEqual(len(today_rows), 1)
+            self.assertEqual(today_rows[0]["slug"], today_slug)
+            self.assertEqual(today_rows[0]["headline"], replacement["headline"])
+
+        clone_yesterday = {
+            "headline": yesterday["headline"],
+            "dek": yesterday["dek"],
+            "theEdge": yesterday["theEdge"],
+            "edition": "2026 Training Camp",
+        }
+        llm_clone = Mock(
+            side_effect=[(clone_yesterday, "grok"), (clone_yesterday, "grok")]
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "narrative_archive.json"
+            editions = root / "narrative_editions"
+            editions.mkdir()
+            archive.write_text(
+                json.dumps([today, yesterday]) + "\n", encoding="utf-8"
+            )
+            (editions / f"{today_slug}.json").write_text(
+                json.dumps(today) + "\n", encoding="utf-8"
+            )
+            (editions / "2026-09-28-1547.json").write_text(
+                json.dumps(yesterday) + "\n", encoding="utf-8"
+            )
+            extra = [
+                patch.object(generate.config, "iso_now", return_value=now),
+            ]
+            with self._generation_stack(
+                llm=llm_clone, archive=archive, editions=editions, extra=extra
+            ):
+                with self.assertRaises(generate.DuplicateNarrativeError) as ctx:
+                    generate.build("grok", persist_schedule=False)
+            self.assertIn("2026-09-28-1547", str(ctx.exception))
+            self.assertNotIn(today_slug, str(ctx.exception))
+
 
 class ScheduleScores(unittest.TestCase):
     """Normalize ESPN scores without inventing kickoffs, networks, or results."""
