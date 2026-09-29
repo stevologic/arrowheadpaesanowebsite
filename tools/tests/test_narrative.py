@@ -1438,6 +1438,22 @@ class NarrativeHomepage(unittest.TestCase):
         self.assertNotIn('href: "shop/"', hugo)
         for name in RETIRED_PATHS:
             self.assertFalse((root / "content" / f"{name}.md").exists(), name)
+        self.assertFalse((root / "public" / "js" / "shopify-storefront.js").exists())
+        for name in (
+            "amazon_finds",
+            "channel_feed",
+            "merch",
+            "social_feeds",
+            "video_archive",
+            "weekly_focus",
+        ):
+            self.assertFalse((root / "data" / f"{name}.json").exists(), name)
+        main = (root / "public" / "js" / "main.js").read_text(encoding="utf-8")
+        self.assertNotIn("data-youtube-grid", main)
+        self.assertNotIn("data-shop-grid", main)
+        self.assertIn("function initNarrativeXEmbeds", main)
+        sitemap_tmpl = (root / "layouts" / "_default" / "sitemap.xml").read_text(encoding="utf-8")
+        self.assertIn('(ne .Kind "section")', sitemap_tmpl)
 
     def test_build_publishes_narrative_and_redirects(self):
         hugo_bin = _hugo_bin()
@@ -1464,8 +1480,8 @@ class NarrativeHomepage(unittest.TestCase):
             self.assertIn("og:title", home)
             self.assertIn("og:description", home)
             sitemap = (dest / "sitemap.xml").read_text(encoding="utf-8")
-            self.assertIn("https://arrowheadpaesano.com/", sitemap)
-            self.assertIn("https://arrowheadpaesano.com/narrative/", sitemap)
+            self.assertIn("https://arrowheadpaesano.com/</loc>", sitemap)
+            self.assertNotIn("https://arrowheadpaesano.com/narrative/</loc>", sitemap)
             robots = (dest / "robots.txt").read_text(encoding="utf-8")
             self.assertIn("sitemap.xml", robots.lower())
             rss = (dest / "index.xml").read_text(encoding="utf-8")

@@ -409,201 +409,6 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: 
 .page-head h1 { font-family: var(--display); font-size: clamp(48px, 7vw, 88px); letter-spacing: .005em; margin: 14px 0 20px; line-height: .94; }
 .page-head h1 em { font-family: var(--serif); font-style: italic; color: var(--red); font-weight: 700; }
 .page-head--yt { background: linear-gradient(135deg, rgba(255,0,0,.05), transparent 60%); }
-.page-head--about {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, .42fr);
-  gap: 34px;
-  align-items: end;
-  padding-bottom: 46px;
-  border-bottom: 1px solid var(--line);
-  background:
-    repeating-linear-gradient(135deg, rgba(0,140,69,.08) 0 10px, transparent 10px 32px),
-    linear-gradient(135deg, rgba(255,255,255,.78), rgba(255,184,28,.09));
-}
-.page-head--about h1 { max-width: 10ch; }
-.about-hero-copy .lede { max-width: 68ch; }
-.about-memory-card {
-  background: var(--ink);
-  color: #fff;
-  border-radius: var(--radius);
-  padding: 24px;
-  box-shadow: var(--shadow-lg);
-  position: relative;
-  overflow: hidden;
-}
-.about-memory-card::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto;
-  height: 5px;
-  background: linear-gradient(90deg, var(--tri-green), var(--tri-white), var(--tri-red));
-}
-.about-memory-card span {
-  display: block;
-  font-family: var(--grotesk);
-  font-size: 11px;
-  letter-spacing: .16em;
-  text-transform: uppercase;
-  color: var(--gold);
-  font-weight: 800;
-  margin-bottom: 14px;
-}
-.about-memory-card strong {
-  display: block;
-  font-family: var(--serif);
-  font-size: clamp(22px, 2.2vw, 30px);
-  line-height: 1.14;
-  letter-spacing: -0.015em;
-  margin-bottom: 12px;
-}
-.about-memory-card p { color: rgba(255,255,255,.76); margin-bottom: 18px; }
-
-/* =========================================================
-   This Week's Focus
-   ========================================================= */
-.section-focus {
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  background:
-    linear-gradient(180deg, rgba(11,11,14,.025), transparent),
-    var(--paper);
-  max-width: none;
-}
-.section-focus > .section-head,
-.section-focus > .focus-home {
-  max-width: var(--max);
-  margin-left: auto;
-  margin-right: auto;
-}
-.focus-home {
-  display: grid;
-  grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
-  gap: 26px;
-}
-.focus-home article,
-.focus-home-topics a,
-.focus-feature,
-.focus-panel,
-.focus-card,
-.focus-strategy ol {
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-sm);
-}
-.focus-home article {
-  padding: 26px 28px;
-  border-top: 4px solid var(--red);
-}
-.focus-date,
-.focus-updated {
-  display: inline-flex;
-  font-family: var(--grotesk);
-  font-size: 11px;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: var(--muted);
-  font-weight: 800;
-}
-.focus-home h3,
-.focus-feature h2 {
-  font-family: var(--serif);
-  font-weight: 850;
-  letter-spacing: -0.015em;
-}
-.focus-home h3 { font-size: clamp(22px, 2.5vw, 34px); margin: 12px 0; }
-.focus-home p { color: #2A2A30; margin: 0; font-size: 16px; }
-.focus-home-topics {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-}
-.focus-home-topics a {
-  padding: 18px 18px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  transition: transform .25s var(--ease), box-shadow .25s var(--ease);
-}
-.focus-home-topics a:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
-.focus-home-topics strong {
-  font-family: var(--display);
-  font-size: 23px;
-  letter-spacing: .035em;
-  line-height: 1;
-}
-.focus-home-topics span { color: #45454C; font-size: 13px; line-height: 1.45; }
-.focus-head { padding-bottom: 24px; }
-.focus-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(300px, .55fr);
-  gap: 26px;
-}
-.focus-feature {
-  padding: 32px 34px;
-  border-top: 4px solid var(--red);
-}
-.focus-feature h2 { font-size: clamp(28px, 3.6vw, 52px); margin: 12px 0 14px; }
-.focus-feature p { color: #2A2A30; font-size: 17px; max-width: 68ch; }
-.focus-hook {
-  font-family: var(--serif);
-  font-size: clamp(20px, 2vw, 28px) !important;
-  line-height: 1.25;
-  color: var(--ink) !important;
-}
-.focus-panel { padding: 26px; }
-.focus-panel ul { margin-top: 18px; display: grid; gap: 14px; }
-.focus-panel li {
-  padding-left: 18px;
-  position: relative;
-  font-weight: 700;
-  line-height: 1.4;
-}
-.focus-panel li::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: .7em;
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--red);
-}
-.focus-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 20px;
-}
-.focus-card { padding: 22px; border-top: 4px solid var(--gold); }
-.focus-card h3 {
-  font-family: var(--display);
-  font-size: 28px;
-  letter-spacing: .03em;
-  margin-bottom: 10px;
-}
-.focus-card p { color: #2A2A30; font-weight: 650; }
-.focus-card span { color: var(--muted); font-size: 14px; line-height: 1.5; }
-.focus-strategy ol {
-  counter-reset: focus;
-  padding: 16px 24px;
-}
-.focus-strategy li {
-  counter-increment: focus;
-  padding: 18px 0 18px 48px;
-  border-bottom: 1px solid var(--line-2);
-  position: relative;
-  font-weight: 650;
-}
-.focus-strategy li:last-child { border-bottom: 0; }
-.focus-strategy li::before {
-  content: counter(focus, decimal-leading-zero);
-  position: absolute;
-  left: 0;
-  top: 17px;
-  font-family: var(--display);
-  color: var(--red);
-  font-size: 24px;
-}
 
 /* =========================================================
    Magazine layout — lead + 4 stacked
@@ -772,30 +577,6 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: 
   color: var(--ink);
   border: 1px solid var(--line);
 }
-
-/* =========================================================
-   By-source grid
-   ========================================================= */
-.bysource-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 26px;
-}
-.bysource-grid--full { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 30px; }
-.bysource-col {
-  background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 20px 22px 16px;
-  border-top: 4px solid var(--accent, var(--red));
-  transition: transform .25s var(--ease), box-shadow .25s var(--ease);
-}
-.bysource-col:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
-.bysource-col header { margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid var(--line-2); }
-.bysource-name { font-family: var(--display); font-size: 24px; letter-spacing: .03em; color: var(--ink); display: block; }
-.bysource-name:hover { color: var(--accent, var(--red)); }
-.bysource-col ul li { padding: 11px 0; border-bottom: 1px solid var(--line-2); display: flex; flex-direction: column; gap: 3px; }
-.bysource-col ul li:last-child { border-bottom: none; }
-.bysource-col ul li a { font-size: 14px; font-weight: 600; line-height: 1.36; color: var(--ink); transition: color .2s; }
-.bysource-col ul li a:hover { color: var(--accent, var(--red)); }
 
 .muted { color: var(--muted); }
 .small { font-size: 12px; font-family: var(--grotesk); letter-spacing: .04em; }
@@ -976,149 +757,8 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: 
 .yt-promo p { color: rgba(255,255,255,.8); max-width: 56ch; font-size: 17px; }
 
 /* =========================================================
-   Merch section
+   Codes grid + empty state
    ========================================================= */
-.section-merch .merch-banner {
-  max-width: var(--max); margin: 0 auto;
-  background:
-    radial-gradient(circle at 80% 20%, rgba(255,184,28,.25), transparent 60%),
-    linear-gradient(135deg, var(--ink) 0%, var(--red-deep) 100%);
-  color: #fff; border-radius: var(--radius-lg);
-  padding: 48px 52px;
-  display: flex; justify-content: space-between; align-items: center; gap: 36px;
-  position: relative; overflow: hidden;
-  box-shadow: var(--shadow-lg);
-}
-.section-merch .kicker { color: var(--gold); }
-.section-merch .merch-banner h2 { font-family: var(--display); font-size: clamp(32px, 5vw, 56px); letter-spacing: .02em; margin: 12px 0 12px; line-height: .94; }
-.section-merch .merch-banner p { color: rgba(255,255,255,.85); max-width: 50ch; font-size: 17px; margin-bottom: 22px; }
-.merch-banner-copy { flex: 1; min-width: 280px; }
-.merch-tiles { display: flex; gap: 14px; flex-shrink: 0; }
-.merch-tile {
-  width: 110px; height: 140px; border-radius: 12px;
-  display: grid; place-items: center;
-  font-family: var(--display); font-size: 36px; letter-spacing: .04em; color: rgba(255,255,255,.4);
-  box-shadow: var(--shadow-md);
-  transition: transform .35s var(--ease);
-}
-.merch-tile:nth-child(1) { transform: rotate(-7deg); }
-.merch-tile:nth-child(2) { transform: rotate(2deg) translateY(-12px); }
-.merch-tile:nth-child(3) { transform: rotate(8deg); }
-.section-merch:hover .merch-tile:nth-child(1) { transform: rotate(-9deg) translateY(-4px); }
-.section-merch:hover .merch-tile:nth-child(2) { transform: rotate(0deg) translateY(-16px); }
-.section-merch:hover .merch-tile:nth-child(3) { transform: rotate(10deg) translateY(-4px); }
-
-.merch-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-  gap: 28px;
-}
-.merch-card {
-  background: #fff; border-radius: var(--radius); overflow: hidden;
-  border: 1px solid var(--line); transition: transform .3s var(--ease), box-shadow .3s var(--ease);
-}
-.merch-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-lg); }
-.merch-art {
-  aspect-ratio: 4/5; position: relative;
-  display: grid; place-items: center;
-  color: rgba(255,255,255,.85);
-  overflow: hidden;
-}
-.merch-art::after {
-  content: ""; position: absolute; inset: 0;
-  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.18), transparent 60%);
-}
-.merch-mono {
-  font-family: var(--display); font-size: 110px; letter-spacing: .04em;
-  color: rgba(255,255,255,.36);
-  text-shadow: 0 4px 18px rgba(0,0,0,.28);
-}
-.merch-art img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.merch-art img + .merch-mono { display: none; }
-.merch-badge {
-  position: absolute; top: 16px; left: 16px;
-  background: #fff; color: var(--ink);
-  padding: 5px 12px; border-radius: 999px;
-  font-family: var(--grotesk); font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
-  box-shadow: var(--shadow-sm);
-}
-.merch-info { padding: 20px 22px 24px; }
-.merch-info h3 { font-family: var(--serif); font-size: 20px; font-weight: 800; margin: 0 0 6px; letter-spacing: -0.01em; }
-.merch-info p { color: var(--muted); font-size: 14px; }
-.merch-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
-.merch-price { font-family: var(--display); font-size: 28px; letter-spacing: .03em; color: var(--ink); }
-.shop-status {
-  display: inline-flex;
-  margin-bottom: 22px;
-  padding: 8px 13px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #fff;
-  color: var(--muted);
-  font-family: var(--grotesk);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-.shop-status[data-state="live"] {
-  color: var(--tri-green);
-  border-color: rgba(0,140,69,.28);
-}
-.shop-status[data-state="fallback"] {
-  color: var(--red);
-  border-color: rgba(227,24,55,.25);
-}
-
-/* =========================================================
-   About + codes grid + empty state
-   ========================================================= */
-.about-story {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr);
-  gap: 22px;
-}
-.about-story-card {
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 26px 28px;
-  box-shadow: var(--shadow-sm);
-}
-.about-story-card h2 {
-  font-family: var(--display);
-  font-size: clamp(28px, 3.2vw, 42px);
-  letter-spacing: .025em;
-  margin: 0 0 10px;
-}
-.about-story-card p { font-size: 16px; line-height: 1.65; color: #2A2A30; margin: 0; }
-.about-story-card--lead {
-  grid-row: span 2;
-  border-top: 5px solid var(--red);
-  background:
-    linear-gradient(135deg, rgba(255,184,28,.18), transparent 45%),
-    #fff;
-}
-.about-story-card--lead h2 {
-  font-family: var(--serif);
-  font-size: clamp(34px, 4vw, 58px);
-  line-height: 1.02;
-  letter-spacing: -0.018em;
-  margin-top: 16px;
-}
-.about-story-card--lead p { font-size: 18px; }
-.about-story-card--dark {
-  background: var(--ink);
-  color: #fff;
-  border-color: rgba(255,255,255,.08);
-}
-.about-story-card--dark p { color: rgba(255,255,255,.76); }
 
 .codes-grid {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 22px;
@@ -1149,8 +789,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: 
 }
 .empty-state h3 { font-family: var(--display); font-size: 32px; letter-spacing: .02em; }
 .card-grid > .empty-state,
-.yt-grid > .empty-state,
-.bysource-grid > .empty-state {
+.yt-grid > .empty-state {
   grid-column: 1 / -1;
 }
 
@@ -1550,19 +1189,19 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: 
   .yt-grid { grid-template-columns: repeat(2, 1fr); }
   .yt-promo-inner { flex-direction: column; text-align: center; gap: 32px; }
   .yt-promo-art img { width: 160px; height: 160px; }
-  .focus-home { grid-template-columns: 1fr; }
-  .focus-home-topics { grid-template-columns: 1fr 1fr 1fr; }
+  
+  
   .context-board { grid-template-columns: 1fr; }
 }
 @media (max-width: 960px) {
   .hero-inner { grid-template-columns: 1fr; gap: 30px; padding: 36px var(--gutter) 26px; }
-  .about-grid { grid-template-columns: 1fr; gap: 24px; }
-  .page-head--about { grid-template-columns: 1fr; align-items: start; }
-  .about-story { grid-template-columns: 1fr; }
-  .about-story-card--lead { grid-row: auto; }
+  
+  
+  
+  
   .footer-grid { grid-template-columns: 1fr 1fr; }
-  .section-merch .merch-banner { flex-direction: column; align-items: flex-start; padding: 36px 32px; }
-  .focus-layout { grid-template-columns: 1fr; }
+  
+  
   .context-facts,
   .schedule-watch { grid-template-columns: 1fr; }
 }
@@ -1594,18 +1233,15 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: 
   .section-head h2 { font-size: 30px; }
   .section { padding: 44px var(--gutter); }
   .page-head { padding: 40px var(--gutter) 8px; }
-  .page-head--about { padding-bottom: 32px; }
-  .about-memory-card,
-  .about-story-card { padding: 22px; }
+  
+  
   .hero-badge img, .hero-badge picture { width: 64px; height: 64px; border-radius: 14px; }
   .mag-row { grid-template-columns: 100px 1fr; }
   .mag-row h3 { font-size: 14px; }
-  .merch-tiles { display: none; }
+  
   .hero-meta { gap: 22px; }
-  .focus-home-topics { grid-template-columns: 1fr; }
-  .focus-feature,
-  .focus-home article,
-  .focus-panel { padding: 22px; }
+  
+  
   .context-lead,
   .schedule-watch,
   .social-roster-group { padding: 20px; }
