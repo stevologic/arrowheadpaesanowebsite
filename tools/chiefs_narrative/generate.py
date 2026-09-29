@@ -23,9 +23,13 @@ import argparse
 import json
 import re
 import sys
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from . import collect, config, diagrams, facts, odds, offline, phase as phase_mod
 from . import prompts, providers, schema, x_embeds
+
+_CT = ZoneInfo("America/Chicago")
 
 # How many published headlines to show the writer as "do not reuse".
 RECENT_HEADLINE_LIMIT = 8
@@ -196,6 +200,65 @@ def _edition_slug(narrative: dict) -> str:
     """Stable per-edition slug from the generation timestamp, e.g. 2026-07-25-1930."""
     stamp = (narrative.get("generatedAt") or config.iso_now())[:16]  # YYYY-MM-DDTHH:MM
     return stamp.replace("T", "-").replace(":", "")
+
+
+def _edition_calendar_day(payload: dict | None) -> str:
+    """America/Chicago calendar day for an edition (YYYY-MM-DD).
+
+    Same-day replacements must share one slug and skip uniqueness against
+    the edition they overwrite. UTC midnight is still Tuesday in Kansas City.
+    """
+    stamp = ((payload or {}).get("generatedAt") or "").strip()
+    if stamp:
+        try:
+            dt = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(_CT).date().isoformat()
+        except ValueError:
+            pass
+    slug = ((payload or {}).get("slug") or "").strip()
+    if len(slug) >= 10 and slug[4] == "-" and slug[7] == "-":
+        return slug[:10]
+    return ""
+
+
+def _prior_day_editions(recent: list[dict] | None, day: str) -> list[dict]:
+    """Recent editions from earlier calendar days — not today's live copy."""
+    rows = list(recent or [])
+    if not day:
+        return rows
+    return [ed for ed in rows if _edition_calendar_day(ed) != day]
+
+
+def _reuse_same_day_slug(narrative: dict, recent: list[dict] | None) -> None:
+    """Keep today's published slug so a regen overwrites / and /narrative/."""
+    day = _edition_calendar_day(narrative)
+    if not day:
+        return
+    for ed in recent or []:
+        if _edition_calendar_day(ed) == day and ed.get("slug"):
+            narrative["slug"] = ed["slug"]
+            return
+
+
+def _purge_other_same_day_editions(narrative: dict) -> None:
+    """Drop extra same-day edition files so the archive has one slug."""
+    day = _edition_calendar_day(narrative)
+    keep = (narrative.get("slug") or "").strip()
+    if not day or not config.EDITIONS_DIR.is_dir():
+        return
+    for path in config.EDITIONS_DIR.glob("*.json"):
+        if path.stem == keep:
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            payload = {"slug": path.stem}
+        if not isinstance(payload, dict):
+            payload = {"slug": path.stem}
+        if _edition_calendar_day(payload) == day:
+            path.unlink(missing_ok=True)
 
 
 def normalize_copy(text) -> str:
@@ -378,8 +441,8 @@ def _write_archive(narrative: dict) -> None:
         "theEdge": narrative.get("theEdge", ""),
     }
     # Replace a same-day snapshot rather than duplicating.
-    today = narrative["generatedAt"][:10]
-    archive = [a for a in archive if (a.get("generatedAt", "")[:10] != today)]
+    today = _edition_calendar_day(narrative)
+    archive = [a for a in archive if _edition_calendar_day(a) != today]
     archive.insert(0, snapshot)
     archive = archive[:30]  # keep the last ~month of editions
     config.ARCHIVE_JSON.write_text(
@@ -461,10 +524,12 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         print(f"  [writer] model = {providers.grok_model()}")
 
     recent = _load_recent_editions()
-    previous = recent[0] if recent else None
+    today = _edition_calendar_day({"generatedAt": config.iso_now()})
+    prior_days = _prior_day_editions(recent, today)
+    previous = prior_days[0] if prior_days else None
     system = prompts.SYSTEM_PROMPT
     user = prompts.build_user_prompt(
-        signals, ph, upcoming, prior_editions=recent
+        signals, ph, upcoming, prior_editions=prior_days
     )
 
     raw, generator_label = _draft_raw(name, system, user, signals, ph, upcoming)
@@ -487,6 +552,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
     narrative = _assemble_narrative(raw, ph, meta, signals, upcoming)
     if slate_record:
         narrative["record"] = slate_record
+    _reuse_same_day_slug(narrative, recent)
     matched = _matched_copy_fields(narrative, previous)
     if matched:
         print(
@@ -507,6 +573,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         narrative = _assemble_narrative(raw, ph, meta, signals, upcoming)
         if slate_record:
             narrative["record"] = slate_record
+        _reuse_same_day_slug(narrative, recent)
         matched = _matched_copy_fields(narrative, previous)
         if matched:
             slug = (previous or {}).get("slug") or ""
@@ -542,6 +609,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         narrative = _assemble_narrative(raw, ph, meta, signals, upcoming)
         if slate_record:
             narrative["record"] = slate_record
+        _reuse_same_day_slug(narrative, recent)
         matched = _matched_copy_fields(narrative, previous)
         if matched:
             slug = (previous or {}).get("slug") or ""
@@ -627,7 +695,9 @@ def _write_edition_payload(narrative: dict) -> None:
     config.NARRATIVE_JSON.write_text(payload, encoding="utf-8")
     slug = narrative.get("slug")
     if slug:
+        config.ensure_dirs()
         (config.EDITIONS_DIR / f"{slug}.json").write_text(payload, encoding="utf-8")
+    _purge_other_same_day_editions(narrative)
 
 
 def render_published_diagrams(*, stamp: bool = False) -> dict:
@@ -769,10 +839,7 @@ def main(argv=None) -> int:
         + "\n",
         encoding="utf-8",
     )
-    payload = json.dumps(narrative, indent=2, ensure_ascii=False) + "\n"
-    config.NARRATIVE_JSON.write_text(payload, encoding="utf-8")
-    # Full copy per edition so archived editions stay viewable as their own pages.
-    (config.EDITIONS_DIR / f"{narrative['slug']}.json").write_text(payload, encoding="utf-8")
+    _write_edition_payload(narrative)
     _write_archive(narrative)
     _write_schedule(result["schedule"])
     _write_wire(result.get("news") or [])
