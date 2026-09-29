@@ -19,9 +19,10 @@ _SLASH_LINE = re.compile(r"\d+\s*/\s*\d+")
 
 # Game-score contexts only. Bare "3-0" / "6-11" (records) stay out.
 # Bare "lost 18-19" is first-down volume, not a final — require game/final/it/KC.
+# "N-M game" is handled separately: official score-afters still count,
+# but a 3-0 / 2-0 record is not a score-after.
 _SCORE_PATTERNS = (
     re.compile(r"\bKC\s+(\d{1,2})\s*[–-]\s*(\d{1,2})\b", re.IGNORECASE),
-    re.compile(r"\b(\d{1,2})\s*[–-]\s*(\d{1,2})\s+game\b", re.IGNORECASE),
     re.compile(
         r"\bfinal(?:\s+score)?\s+(?:KC\s+)?"
         r"(\d{1,2})\s*[–-]\s*(\d{1,2})\b",
@@ -47,6 +48,11 @@ _SCORE_PATTERNS = (
 # (either order). An unknown pair is first downs or other volume, not a final.
 _LOOSE_WON_LOST = re.compile(
     r"\b(?:won|lost)\s+(\d{1,2})\s*[–-]\s*(\d{1,2})\b",
+    re.IGNORECASE,
+)
+# "14-10 game" can be a real score-after. "3-0 game" is the slate record.
+_GAME_AS_SCORE = re.compile(
+    r"\b(\d{1,2})\s*[–-]\s*(\d{1,2})\s+game\b",
     re.IGNORECASE,
 )
 
@@ -324,15 +330,20 @@ _TOUCH_WINDOW = re.compile(
     r")\b",
     re.IGNORECASE,
 )
+# Hyphenated "40-drop" is dropback slang. Spaced "40 drops" is a catch count.
 _DROP_ATTEMPT = re.compile(
-    rf"\b({_NUM_TOKEN})[-\s](?:drop(?:back)?s?|attempts?)\b|"
+    rf"\b({_NUM_TOKEN})-drops?(?:backs?)?\b|"
+    rf"\b({_NUM_TOKEN})\s+dropbacks?\b|"
     rf"\bthrew\s+({_NUM_TOKEN})\s+passes\b|"
     rf"\battempted\s+({_NUM_TOKEN})\s+passes\b|"
-    rf"\b({_NUM_TOKEN})\s+attempts\b",
+    rf"\b({_NUM_TOKEN})[-\s]attempts?\b",
     re.IGNORECASE,
 )
 _OWNER_ADVERB = r"(?:(?:\w+ly|already|now|also|still|just|currently)\s+)*"
-_OWNER_VERBS = rf"{_OWNER_ADVERB}(?:had|has|posted|recorded|notched)"
+# "Kansas City has to help after 5 hits" is not a recorded-stat claim.
+_OWNER_VERBS = (
+    rf"{_OWNER_ADVERB}(?:posted|recorded|notched|(?:had|has)(?!\s+to\b))"
+)
 _TEAM_UNIT = r"(?:\s+(?:defense|defence|front))?"
 _PROPER_NAME = r"(?-i:[A-Z][A-Za-z''-]+(?:\s+[A-Z][A-Za-z''-]+)?)"
 _SACK_COUNT = re.compile(
@@ -365,11 +376,13 @@ _SEASON_SPAN = re.compile(
     re.IGNORECASE,
 )
 _PRESSURE_OWNER = re.compile(
-    rf"\b(?:The\s+)?({_PROPER_NAME}){_TEAM_UNIT}\s+{_OWNER_VERBS}\s+|"
-    rf"\b({_PROPER_NAME})'s\b",
+    rf"\b(?:The\s+)?({_PROPER_NAME}){_TEAM_UNIT}\s+{_OWNER_VERBS}\s+",
 )
-_POSSESSIVE_OWNER = re.compile(
-    rf"\b({_PROPER_NAME})'s\b",
+# "Miami's 5 QB hits" binds; "Kansas City's plan after 5 hits" does not.
+_POSSESSIVE_PRESSURE = re.compile(
+    rf"\b({_PROPER_NAME})['’]s\s+(?:(?:{_NUM_TOKEN})\s+)?(?:QB\s+)?"
+    rf"(?:hits?|sacks?)\b",
+    re.IGNORECASE,
 )
 _QB_ALIASES = {
     "mahomes": "kc_qb",
@@ -483,6 +496,21 @@ _BETWEEN_TACKLES = re.compile(r"\bbetween the tackles\b", re.IGNORECASE)
 _ZONE_BLITZ_INT = re.compile(
     r"\bzone[- ]blitz\b[^.!?]{0,160}\b(?:int|intercept)",
     re.IGNORECASE,
+)
+# Repair notes / retry echoes must not re-veto after the claim is gone.
+_SCHEME_NOTE = re.compile(
+    r"\bdo not (?:call|write|invent|include)\b"
+    r"|\bdoes not back\b"
+    r"|\bmay not write\b"
+    r"|\bSCHEME LIMITS\b"
+    r"|\bFACT CHECK RETRY\b"
+    r"|\bSENTENCE REPAIR\b",
+    re.IGNORECASE,
+)
+_SCHEME_SNIPPETS = (
+    "between the tackles",
+    "zone blitz",
+    "zone-blitz",
 )
 _SNAP_LATER = re.compile(
     r"\b(?:\d+|one|two|three|four|five|six)\s+snaps?\b[^.!?]{0,48}\blater\b"
@@ -1013,6 +1041,11 @@ def _attempt_kind(text: str, match: re.Match) -> str:
     return "pass"
 
 
+def _explicit_pass_attempt(match: re.Match) -> bool:
+    token = match.group(0).lower()
+    return bool(re.search(r"drop|pass|threw", token))
+
+
 def _score_team_for_yards(recap: dict | None, kind: str, yards: int) -> str:
     """Team that owns this scoring-play distance on the ESPN list.
 
@@ -1294,6 +1327,18 @@ def _check_scores(text: str, last_game: dict, recap: dict) -> list[str]:
             continue
         if _pair_allowed(pair, pairs):
             seen.add(pair)
+    # "14-10 game" is a score-after when that pair is official. "3-0 game"
+    # is the slate record (one side is 0, not on the ESPN score-after list).
+    for match in _GAME_AS_SCORE.finditer(masked):
+        pair = _int_pair(match.group(1), match.group(2))
+        if not pair or pair in seen:
+            continue
+        if _pair_allowed(pair, pairs):
+            seen.add(pair)
+            continue
+        if 0 in pair and max(pair) <= 16:
+            continue
+        _consider(match)
     return issues
 
 
@@ -2722,9 +2767,31 @@ def _check_attempt_counts(
         if claimed is None:
             continue
         kind = _attempt_kind(text, match)
+        owner = _last_name_in(
+            text[_stat_clause_span(text, match.start())[0] : match.start()],
+            {last: last for last in by_last},
+        )
+        row = by_last.get(owner) or kc
+        if kind == "pass" and not _explicit_pass_attempt(match):
+            try:
+                completions = int(row.get("completions"))
+            except (TypeError, ValueError):
+                completions = None
+            if completions is not None and claimed == completions:
+                continue
+            bound = _bound_box_team(text, match.start(), aliases)
+            if bound and rush_att.get(bound) == claimed:
+                kind = "rush"
+            elif claimed in {n for n in rush_att.values() if n is not None}:
+                kind = "rush"
         if kind == "rush":
             team = _bound_box_team(text, match.start(), aliases) or "KC"
             official = rush_att.get(team)
+            if official != claimed:
+                owners = [t for t, n in rush_att.items() if n == claimed]
+                if not _bound_box_team(text, match.start(), aliases) and owners:
+                    team = owners[0]
+                    official = rush_att.get(team)
             if official is None:
                 continue
             if claimed == official:
@@ -2734,11 +2801,6 @@ def _check_attempt_counts(
                 f"{team} ({match.group(0)!r})"
             )
             continue
-        owner = _last_name_in(
-            text[_stat_clause_span(text, match.start())[0] : match.start()],
-            {last: last for last in by_last},
-        )
-        row = by_last.get(owner) or kc
         official = int(row["attempts"])
         if claimed == official:
             continue
@@ -2887,13 +2949,13 @@ def _pressure_owner_name(sentence: str, match) -> str:
     named = (groups.get("sack_owner") or groups.get("hit_owner") or "").strip()
     if named:
         return named
-    poss = _POSSESSIVE_OWNER.search(sentence)
+    poss = _POSSESSIVE_PRESSURE.search(sentence)
     if poss:
         return poss.group(1).strip()
     other = _PRESSURE_OWNER.search(sentence)
     if not other:
         return ""
-    return (other.group(1) or other.group(2) or "").strip()
+    return (other.group(1) or "").strip()
 
 
 def _owner_tokens(owner: str) -> set[str]:
@@ -3443,7 +3505,12 @@ def sentence_repair_instruction(violations: list[str]) -> str:
 
 
 def violation_snippets(violations: list[str]) -> list[str]:
-    """Quoted match text from a violation, e.g. 'lost 18-19'."""
+    """Quoted match text from a violation, e.g. 'lost 18-19'.
+
+    Scheme leftovers used to ship with no quotes, so the drop pass could
+    not find 'between the tackles' / 'zone blitz'. Quoted matches come
+    first; those phrases are also needles when the note itself names them.
+    """
     out: list[str] = []
     seen: set[str] = set()
     for item in violations or []:
@@ -3452,6 +3519,11 @@ def violation_snippets(violations: list[str]) -> list[str]:
             if snippet and snippet not in seen:
                 seen.add(snippet)
                 out.append(snippet)
+        low = item.lower()
+        for needle in _SCHEME_SNIPPETS:
+            if needle in low and needle not in seen:
+                seen.add(needle)
+                out.append(needle)
     return out
 
 
@@ -3535,7 +3607,12 @@ def _check_garbled_initials(text: str, recap: dict | None) -> list[str]:
 
 
 def _check_scheme_claims(text: str, recap: dict | None) -> list[str]:
-    """Unverifiable scheme color must be rewritten, not salvaged later."""
+    """Unverifiable scheme color must be rewritten, not salvaged later.
+
+    Repair notes and FACT CHECK RETRY echoes are not edition claims — the
+    leftover veto on run 36619750276 was the checker re-flagging those
+    notes after drop, which could not see them because they had no quotes.
+    """
     if not text:
         return []
     issues = []
@@ -3545,23 +3622,36 @@ def _check_scheme_claims(text: str, recap: dict | None) -> list[str]:
         if "end" in ((p.get("direction") or "") + " " + (p.get("text") or "")).lower()
         and "walker" in (p.get("text") or "").lower()
     ]
-    if rushes and _BETWEEN_TACKLES.search(text):
-        issues.append(
-            "Walker also had end runs; do not write that the 70 were "
-            "between the tackles"
-        )
+    if rushes:
+        for match in _BETWEEN_TACKLES.finditer(text):
+            sentence = _sentence_at(text, match.start())
+            if _SCHEME_NOTE.search(sentence):
+                continue
+            issues.append(
+                "Walker also had end runs; do not write that the 70 were "
+                f"between the tackles ({match.group(0)!r})"
+            )
     int_texts = " ".join(
         (p.get("text") or "")
         for p in _plays(recap)
         if p.get("kind") == "int" or "intercept" in (p.get("text") or "").lower()
     ).lower()
-    if _ZONE_BLITZ_INT.search(text) and "blitz" not in int_texts:
+    if "blitz" not in int_texts:
+        for match in _ZONE_BLITZ_INT.finditer(text):
+            sentence = _sentence_at(text, match.start())
+            if _SCHEME_NOTE.search(sentence):
+                continue
+            issues.append(
+                "play-by-play does not back a zone blitz producing the "
+                f"interception ({match.group(0)!r})"
+            )
+    for match in _SNAP_LATER.finditer(text):
+        sentence = _sentence_at(text, match.start())
+        if _SCHEME_NOTE.search(sentence):
+            continue
         issues.append(
-            "play-by-play does not back a zone blitz producing the interception"
-        )
-    if _SNAP_LATER.search(text):
-        issues.append(
-            "snap-count later-claim cannot be verified against the play-by-play"
+            "snap-count later-claim cannot be verified against the "
+            f"play-by-play ({match.group(0)!r})"
         )
     return issues
 

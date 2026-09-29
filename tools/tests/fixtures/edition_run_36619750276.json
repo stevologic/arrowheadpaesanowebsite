@@ -1,0 +1,26 @@
+{
+  "_note": "Grok full run 36619750276 on 01f3e18e (#135+#136). After drop-pass the leftover veto was the scheme repair notes. accept = false positives from that log (3-0 record, completions-as-attempts, 25 rush attempts, 40 drops, Five QB hits on Mahomes, repair-note leftovers). reject = real errors that must still fail.",
+  "accept": [
+    "A 3-0 game still has to travel to Allegiant.",
+    "Twenty attempts sat next to 20 completions.",
+    "Team rushing: 88 yards on 25 attempts.",
+    "25 attempts is the ground volume, not a second Mahomes line.",
+    "40 drops in the rain is a catch problem, not a dropback count.",
+    "Five QB hits.",
+    "Kansas City has to help with boots, chips, and getting Mahomes moving after 5 hits in Miami.",
+    "Miami logged 5 QB hits on Mahomes with 0 sacks.",
+    "0 sacks and 1 Chiefs QB hit; 5 hits on Mahomes.",
+    "Miami’s 5 QB hits are the reason, not a guess.",
+    "play-by-play does not back a zone blitz producing the interception."
+  ],
+  "reject": [
+    "Kansas City finished with 70 rushing yards.",
+    "Walker had 70 of it between the tackles.",
+    "Zone blitz Jones/Karlaftis with a dropping end on second-and-long — the look that helped produce the Willis interception.",
+    "The Chiefs recorded 5 QB hits.",
+    "Mahomes did not need 40 dropbacks to beat Miami, and Reid has already noted the play count was light.",
+    "Walker had 18 touches.",
+    "Ollie Gordon II scored on a 5-yard touchdown.",
+    "Walker's 10-yard touchdown came with H. Nourzad eligible."
+  ]
+}

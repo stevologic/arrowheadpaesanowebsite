@@ -46,8 +46,11 @@ including the prior-game box — do not substitute a player's line for the \
 team total. Do not write only/first/never/lone claims about plays unless \
 the play-by-play list supports them. Exactly four offense and two defense \
 X's & O's cards; the defense cards must be Cover-2 and the zone blitz, \
-each with a real situation and why. Copy PLAYER TOUCHES, PASS ATTEMPTS, \
-SACKS, and QB HITS exactly — do not invent an 18-touch line, a 40-drop, \
+each with a real situation and why. The zone-blitz card is a call to \
+use, not a claim that a blitz created a takeaway. Do not name a rush \
+gap, rush direction, or blitz type unless that play-by-play line names \
+it. Copy PLAYER TOUCHES, PASS ATTEMPTS, \
+SACKS, and QB HITS exactly — do not invent an 18-touch line, a 40-dropback, \
 or a sack/hit count. Do not write punishment, beating, or too many hits \
 when the box says zero sacks; use the QB-hit number. Do not label a throw \
 play-action unless the play-by-play says play-action or play fake. Do not \
@@ -421,9 +424,11 @@ def _last_game_brief(signals: dict, phase: dict) -> str:
         )
     if recap.get("plays"):
         lines.append(
-            "  SCHEME LIMITS: only claim a zone blitz produced a takeaway if "
-            "that play's text says so. Walker end runs mean you may not write "
-            "that his 70 were all between the tackles. Write initials as "
+            "  SCHEME LIMITS: rush gap, rush direction, and blitz type are "
+            "allowed only when that play's PBP direction or text names them. "
+            "Do not invent a gap for Walker's 70 or a blitz that produced an "
+            "interception. The zone-blitz XO card is a call, not a takeaway "
+            "credit. Write initials as "
             "'L. Sneed' or 'L'Jarius Sneed', never 'L'Sneed'."
         )
     return "\n".join(lines)

@@ -3774,6 +3774,8 @@ class FactCheck(unittest.TestCase):
         self.assertIn("play-action", prompts.SYSTEM_PROMPT)
         self.assertIn("survival tape", prompts.SYSTEM_PROMPT)
         self.assertIn("correction-note", prompts.SYSTEM_PROMPT)
+        self.assertIn("rush gap", prompts.SYSTEM_PROMPT)
+        self.assertIn("blitz type", prompts.SYSTEM_PROMPT)
 
     def test_touch_counts_bind_nearest_player_not_recap_order(self):
         recap = json.loads(json.dumps(_load_fixture("espn_401872952_recap.json")))
@@ -4086,6 +4088,121 @@ class FactCheck(unittest.TestCase):
         self.assertNotIn("1 touches", text)
         self.assertNotIn("6 touches", text)
         self.assertIn("Kenneth Walker III", text)
+
+    def test_run_36619750276_scheme_drop_and_attempt_binding(self):
+        catalog = _load_fixture("edition_run_36619750276.json")
+        recap = self._week3_usage_recap()
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        for sentence in catalog["accept"]:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertEqual(issues, [], f"should accept {sentence!r}: {issues}")
+        for sentence in catalog["reject"]:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertTrue(issues, f"should reject {sentence!r}")
+        three_oh = facts.check_review(
+            self._review(lede=catalog["accept"][0]), last, recap
+        )
+        self.assertEqual(three_oh, [])
+        twenty = facts.check_review(
+            self._review(lede=catalog["accept"][1]), last, recap
+        )
+        self.assertFalse(
+            any("pass attempts 20" in item for item in twenty), twenty
+        )
+        drops = facts.check_review(
+            self._review(lede=catalog["accept"][4]), last, recap
+        )
+        self.assertFalse(any("40" in item and "pass attempts" in item for item in drops), drops)
+        five_hits = facts.check_review(
+            self._review(lede=catalog["accept"][5]), last, recap
+        )
+        self.assertEqual(five_hits, [])
+        kc_recorded = facts.check_review(
+            self._review(lede=catalog["reject"][3]), last, recap
+        )
+        self.assertTrue(
+            any("QB hits 5" in item and "1" in item for item in kc_recorded),
+            kc_recorded,
+        )
+        team_70 = facts.check_review(
+            self._review(lede=catalog["reject"][0]), last, recap
+        )
+        self.assertTrue(
+            any("team rushing 70" in item for item in team_70), team_70
+        )
+        forty = facts.check_review(
+            self._review(lede=catalog["reject"][4]), last, recap
+        )
+        self.assertTrue(
+            any("40" in item and "pass attempts" in item for item in forty), forty
+        )
+        btt = "Walker had 70 of it between the tackles."
+        zone = (
+            "Zone blitz Jones/Karlaftis with a dropping end on second-and-long "
+            "— the look that helped produce the Willis interception."
+        )
+        narrative = {
+            "headline": "Keep this title",
+            "lastGameReview": {
+                "lede": "Kansas City finished 24–10 against Miami.",
+                "analysis": [btt, zone],
+            },
+        }
+        issues = facts.check_review(narrative, last, recap)
+        snippets = facts.violation_snippets(issues)
+        self.assertTrue(
+            any("between the tackles" in s.lower() for s in snippets), snippets
+        )
+        self.assertTrue(
+            any("zone" in s.lower() and "blitz" in s.lower() for s in snippets),
+            snippets,
+        )
+        repaired = facts.repair_offending_copy(narrative, issues, last)
+        self.assertEqual(facts.check_review(repaired, last, recap), [])
+        dropped = facts.dropped_sentences(narrative, repaired)
+        self.assertTrue(any("between the tackles" in s for s in dropped), dropped)
+        self.assertTrue(any("zone blitz" in s.lower() for s in dropped), dropped)
+        note = {
+            "lastGameReview": {
+                "lede": "Kansas City finished 24–10 against Miami.",
+                "analysis": [
+                    "Walker also had end runs; do not write that the 70 were "
+                    "between the tackles.",
+                    "play-by-play does not back a zone blitz producing the "
+                    "interception.",
+                ],
+            }
+        }
+        note_issues = facts.check_review(note, last, recap)
+        self.assertFalse(
+            any("between the tackles" in item and "do not write" in item for item in note_issues),
+            note_issues,
+        )
+        self.assertFalse(
+            any("zone blitz producing" in item for item in note_issues),
+            note_issues,
+        )
+        echo_only = [item for item in note_issues if "echoed writer instruction" in item]
+        if echo_only:
+            cleaned = facts.repair_offending_copy(note, note_issues, last)
+            self.assertEqual(facts.check_review(cleaned, last, recap), [])
+        text = prompts.build_user_prompt(
+            {"news": [], "lastGameRecap": recap},
+            {
+                "type": "regular",
+                "label": "Week 4",
+                "week": 4,
+                "mode": "review",
+                "lastGame": last,
+                "nextGame": None,
+            },
+            [],
+        )
+        self.assertIn("SCHEME LIMITS", text)
+        self.assertIn("rush gap", text)
+        self.assertIn("blitz type", text)
+        self.assertIn("40-dropback", prompts.SYSTEM_PROMPT)
 
     def test_repair_publish_blockers_use_word_floor_not_drop_count(self):
         fat = " ".join(["Chiefs tape review word"] * 400)
