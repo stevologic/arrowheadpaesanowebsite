@@ -471,14 +471,22 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
 
     # 5. Normalize + uniqueness. A clone of the most recent edition retries once,
     # then hard-fails — never publish yesterday's headline/dek/theEdge again.
+    slate_record = phase_mod.current_record(schedule, ph)
+    if ph.get("type") in ("regular", "postseason") and not slate_record:
+        raise FactCheckError(
+            "Chiefs Narrative has no current-season record from the schedule; "
+            "refusing last-season fallback."
+        )
     meta = {
         "generatedAt": config.iso_now(),
         "updatedAt": config.iso_now(),
         "generator": generator_label,
-        "record": config.TEAM["last_season_record"],
+        "record": slate_record,
         "markets": signals.get("markets", {}),
     }
     narrative = _assemble_narrative(raw, ph, meta, signals, upcoming)
+    if slate_record:
+        narrative["record"] = slate_record
     matched = _matched_copy_fields(narrative, previous)
     if matched:
         print(
@@ -497,6 +505,8 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         meta["updatedAt"] = config.iso_now()
         meta["generator"] = generator_label
         narrative = _assemble_narrative(raw, ph, meta, signals, upcoming)
+        if slate_record:
+            narrative["record"] = slate_record
         matched = _matched_copy_fields(narrative, previous)
         if matched:
             slug = (previous or {}).get("slug") or ""
@@ -510,7 +520,9 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
     # 5b. ESPN fact-check on every generated section. Feed the exact
     # violations back for up to FACT_CHECK_RETRIES rewrites, then fail loud.
     recap = signals.get("lastGameRecap") or {}
-    violations = facts.check_review(narrative, last, recap)
+    violations = facts.check_review(
+        narrative, last, recap, schedule=schedule, copy_gates=True
+    )
     attempt = 0
     while violations and attempt < FACT_CHECK_RETRIES:
         attempt += 1
@@ -528,6 +540,8 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         meta["updatedAt"] = config.iso_now()
         meta["generator"] = generator_label
         narrative = _assemble_narrative(raw, ph, meta, signals, upcoming)
+        if slate_record:
+            narrative["record"] = slate_record
         matched = _matched_copy_fields(narrative, previous)
         if matched:
             slug = (previous or {}).get("slug") or ""
@@ -537,7 +551,9 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
                 + (f" from {slug}" if slug else " from the most recent edition")
                 + ". Refusing to publish a clone."
             )
-        violations = facts.check_review(narrative, last, recap)
+        violations = facts.check_review(
+            narrative, last, recap, schedule=schedule, copy_gates=True
+        )
     dropped: list[str] = []
     if violations:
         print(
@@ -550,7 +566,9 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             gone = facts.dropped_sentences(payload, repaired)
             for sentence in gone:
                 print(f"  [writer] dropped sentence: {sentence}")
-            leftover = facts.check_review(repaired, last, recap)
+            leftover = facts.check_review(
+                repaired, last, recap, schedule=schedule, copy_gates=True
+            )
             return repaired, leftover, gone
 
         analysis_before = facts.analysis_sentences(narrative)

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 
-from . import collect, config, diagrams
+from . import collect, config, diagrams, phase as phase_mod
 
 
 SYSTEM_PROMPT = """\
@@ -138,11 +138,16 @@ def _allowed_facts(recap: dict | None) -> list[str]:
             f"{k}={kc[k]}"
             for k in (
                 "firstDowns",
+                "rushingAttempts",
                 "rushingYards",
+                "rushingTouchdowns",
                 "netPassingYards",
                 "totalYards",
                 "possessionTime",
                 "thirdDownEff",
+                "turnovers",
+                "sacks",
+                "totalDrives",
             )
             if kc.get(k)
         ),
@@ -151,11 +156,16 @@ def _allowed_facts(recap: dict | None) -> list[str]:
             f"{k}={opp[k]}"
             for k in (
                 "firstDowns",
+                "rushingAttempts",
                 "rushingYards",
+                "rushingTouchdowns",
                 "netPassingYards",
                 "totalYards",
                 "possessionTime",
                 "thirdDownEff",
+                "turnovers",
+                "sacks",
+                "totalDrives",
             )
             if opp.get(k)
         ),
@@ -184,10 +194,16 @@ def _allowed_facts(recap: dict | None) -> list[str]:
         for row in passing:
             if not isinstance(row, dict):
                 continue
+            extra = []
+            if row.get("rating"):
+                extra.append(f"rating {row['rating']}")
+            if row.get("qbr"):
+                extra.append(f"QBR {row['qbr']}")
+            tail = f", {', '.join(extra)}" if extra else ""
             lines.append(
                 f"    {row.get('player')} ({row.get('team')}): "
                 f"{row.get('completions')}-of-{row.get('attempts')}, "
-                f"{row.get('sacks')} sacks"
+                f"{row.get('sacks')} sacks{tail}"
             )
     hits = recap.get("qbHits") or {}
     if hits:
@@ -433,11 +449,15 @@ def _concept_menu() -> str:
     return "\n".join(lines)
 
 
-def _schema_hint(phase: dict) -> str:
+def _schema_hint(phase: dict, record: str = "") -> str:
+    record_hint = (
+        record
+        or "current slate W-L from completed regular-season games — never last season"
+    )
     return json.dumps(
         {
             "edition": "omit — the desk writes the edition header",
-            "record": config.TEAM["last_season_record"] + " or current record",
+            "record": record_hint,
             "headline": "punchy edition headline",
             "dek": "one-sentence standfirst",
             "videoHook": "spoken cold-open line for the YouTube episode",
@@ -593,10 +613,23 @@ def build_user_prompt(
     prior_editions: list[dict] | None = None,
 ) -> str:
     team = config.TEAM
+    slate_record = phase_mod.current_record(signals.get("schedule") or [], phase)
+    last_season_bit = (
+        f"Last season ({team['last_season']}) finished {team['last_season_record']}. "
+        "That is history, not the live record."
+    )
+    current_bit = (
+        f"CURRENT {team['season']} slate record: {slate_record}."
+        if slate_record
+        else (
+            f"CURRENT {team['season']} slate record: none yet. "
+            f"Do not print {team['last_season_record']} as the live record."
+        )
+    )
     facts = (
         f"TEAM FACTS: {team['name']} — HC {team['head_coach']}, OC "
         f"{team['offensive_coordinator']}, DC {team['defensive_coordinator']}, "
-        f"QB {team['quarterback']}. 2025 record {team['last_season_record']}. "
+        f"QB {team['quarterback']}. {last_season_bit} {current_bit} "
         f"Camp at {team['camp_site']}. Home: {team['stadium']}."
     )
     phase_line = (
@@ -635,7 +668,7 @@ def build_user_prompt(
             _news_brief(signals.get("news", [])),
             _concept_menu(),
             "Return JSON with EXACTLY these keys (values are hints, replace them):\n"
-            + _schema_hint(phase),
+            + _schema_hint(phase, slate_record),
             "KICKOFF FACT: every game line includes its official America/Chicago "
             "kickoff (e.g. 'Sun Oct 4, 3:25 PM CT') and a KICKOFF WINDOW part of "
             "day. Use only that supplied string for the window.\n"

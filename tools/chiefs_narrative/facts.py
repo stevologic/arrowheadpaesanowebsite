@@ -2754,6 +2754,149 @@ def _check_pass_touchdowns(text: str, recap: dict | None) -> list[str]:
     return issues
 
 
+# In-season offline editions from the Grok path have been 3,929–4,726 words.
+# The 2026-09-29 fallback was ~1,925 and must not auto-publish.
+OFFLINE_WORD_FLOOR = 3000
+_MIN_DUP_CHARS = 80
+_RECORD_TOKEN = re.compile(r"\b(\d+)-(\d+)(?:-(\d+))?\b")
+_STALE_AUGUST = re.compile(r"\bAugust\b", re.IGNORECASE)
+_STALE_PRESEASON = re.compile(r"\bpreseason\b", re.IGNORECASE)
+_STALE_CURRENT_SEASON = re.compile(
+    r"\blooks?\s+most\s+2025\b"
+    r"|\bthe\s+2025\s+Chiefs\s+are\b"
+    r"|\bKC\s+2025\s+record\b"
+    r"|\bthis\s+2025\s+season\b"
+    r"|\bcurrent\s+2025\b",
+    re.IGNORECASE,
+)
+
+
+def edition_word_count(narrative: dict | None) -> int:
+    """Whitespace-separated words across generated edition sections."""
+    return len(edition_text(narrative).split())
+
+
+def record_token(value: str) -> str:
+    """Normalize '3-0', '3-0-0', or 'Preseason 0-1' for comparison."""
+    text = (value or "").strip()
+    text = re.sub(r"^preseason\s+", "", text, flags=re.IGNORECASE)
+    match = _RECORD_TOKEN.search(text)
+    if not match:
+        return text.lower()
+    wins, losses, ties = match.group(1), match.group(2), match.group(3) or "0"
+    if ties == "0":
+        return f"{wins}-{losses}"
+    return f"{wins}-{losses}-{ties}"
+
+
+def _check_record_match(narrative: dict | None, schedule) -> list[str]:
+    if schedule is None:
+        return []
+    phase = (narrative or {}).get("phase") or {}
+    expected = phase_mod.current_record(schedule, phase)
+    actual = ((narrative or {}).get("record") or "").strip()
+    ptype = phase.get("type") or ""
+    if ptype in ("regular", "postseason") and not expected:
+        return [
+            "in-season record missing from the schedule; refusing last-season fallback"
+        ]
+    if not expected:
+        return []
+    if record_token(actual) != record_token(expected):
+        return [
+            f"record {actual or '(empty)'} disagrees with schedule record {expected}"
+        ]
+    return []
+
+
+def _in_season_phase(narrative: dict | None) -> bool:
+    ptype = ((narrative or {}).get("phase") or {}).get("type") or ""
+    return ptype in ("regular", "postseason")
+
+
+def _check_stale_season_copy(narrative: dict | None) -> list[str]:
+    if not _in_season_phase(narrative):
+        return []
+    text = edition_text(narrative)
+    if not text.strip():
+        return []
+    issues = []
+    if _STALE_AUGUST.search(text):
+        issues.append("in-season edition contains 'August'")
+    if _STALE_PRESEASON.search(text):
+        issues.append("in-season edition contains 'preseason'")
+    for match in _STALE_CURRENT_SEASON.finditer(text):
+        issues.append(
+            f"in-season edition treats 2025 as the current season ({match.group(0)!r})"
+        )
+        break
+    return issues
+
+
+def _section_paragraphs(narrative: dict | None) -> dict[str, list[str]]:
+    sections: dict[str, list[str]] = {}
+    for key in (
+        "storyline",
+        "lastGameReview",
+        "currentState",
+        "gamePlan",
+        "spotlight",
+    ):
+        parts: list[str] = []
+        _walk_prose((narrative or {}).get(key), parts)
+        paras = []
+        for part in parts:
+            text = " ".join(str(part).lower().split())
+            if len(text) >= _MIN_DUP_CHARS:
+                paras.append(text)
+        sections[key] = paras
+    return sections
+
+
+def _check_duplicate_copy(narrative: dict | None) -> list[str]:
+    seen: dict[str, list[str]] = {}
+    for section, paras in _section_paragraphs(narrative).items():
+        for para in paras:
+            seen.setdefault(para, []).append(section)
+    issues = []
+    reported = set()
+    for _text, sections in seen.items():
+        key = tuple(sorted(set(sections)))
+        if len(set(sections)) >= 2 and key not in reported:
+            reported.add(key)
+            issues.append(
+                "duplicated paragraph across " + ", ".join(sorted(set(sections)))
+            )
+        elif len(sections) >= 3 and "repeat" not in reported:
+            reported.add("repeat")
+            issues.append("duplicated paragraph repeated 3+ times")
+    return issues
+
+
+def _check_offline_word_floor(narrative: dict | None) -> list[str]:
+    generator = ((narrative or {}).get("generator") or "").lower()
+    if not generator.startswith("offline"):
+        return []
+    if not _in_season_phase(narrative):
+        return []
+    count = edition_word_count(narrative)
+    if count < OFFLINE_WORD_FLOOR:
+        return [
+            f"offline edition is {count} words; floor is {OFFLINE_WORD_FLOOR} "
+            "(refusing auto-publish)"
+        ]
+    return []
+
+
+def check_copy_gates(narrative: dict | None, schedule=None) -> list[str]:
+    """Record, stale-season, duplication, and offline word-count gates."""
+    issues = _check_record_match(narrative, schedule)
+    issues.extend(_check_stale_season_copy(narrative))
+    issues.extend(_check_duplicate_copy(narrative))
+    issues.extend(_check_offline_word_floor(narrative))
+    return issues
+
+
 def check_diagram_captions(narrative: dict | None) -> list[str]:
     """Visible SVG footer text must come from the card's why."""
     issues = []
@@ -2783,6 +2926,9 @@ def check_review(
     narrative: dict | None,
     last_game: dict | None,
     recap: dict | None,
+    *,
+    schedule=None,
+    copy_gates: bool = False,
 ) -> list[str]:
     """Return human-readable violations, or an empty list when the edition is clean.
 
@@ -2790,42 +2936,46 @@ def check_review(
     xsandos, matchups, strategies, …). If the recap is empty, only
     final-score contexts are checked against ``lastGame`` scores.
     Completions (3-of-7), records (6-11, 3-0), and similar non-score
-    numbers are ignored.
+    numbers are ignored unless ``copy_gates`` is on — then the top-level
+    record must match the slate, in-season copy cannot say August /
+    preseason / 2025-as-current, offline editions must clear the word
+    floor, and heavy duplicated paragraphs fail.
     """
-    if not last_game or not phase_mod.is_final(last_game):
-        return []
-    text = edition_text(narrative)
-    if not text.strip():
-        text = review_text(narrative)
-    if not text.strip():
-        return []
-    recap = recap or {}
-    issues = _check_scores(text, last_game, recap)
-    issues.extend(_check_part_of_day(text, last_game, recap))
-    issues.extend(_check_echoed_instructions(text))
-    issues.extend(_check_record_phrasing(text))
-    if recap.get("scoringPlays") or recap.get("leaders") or recap.get("kc") or recap.get("plays"):
-        issues.extend(_check_td_yards(text, recap, last_game))
-        issues.extend(_check_fg_claims(text, recap, last_game))
-        issues.extend(_check_stat_lines(text, recap, last_game))
-        issues.extend(_check_play_sequence(text, recap))
-        issues.extend(_check_turnover_credit(text, recap))
-        issues.extend(_check_absolute_claims(prose_text(narrative), recap))
-        issues.extend(_check_team_yards(text, recap, last_game))
-        issues.extend(_check_garbled_initials(text, recap))
-        issues.extend(_check_scheme_claims(text, recap))
-        issues.extend(_check_box_clocks(text, recap, last_game))
-        issues.extend(_check_touch_counts(text, recap))
-        issues.extend(_check_attempt_counts(text, recap))
-        issues.extend(_check_sack_counts(text, recap))
-        issues.extend(_check_qb_hit_counts(text, recap))
-        issues.extend(_check_penalty_attribution(text, recap))
-        issues.extend(_check_same_look_snaps(text, recap))
-        issues.extend(_check_first_minutes(text, recap))
-        issues.extend(_check_opening_drive(text, recap))
-        issues.extend(_check_eligible_on_score(text, recap))
-        issues.extend(_check_int_clocks(text, recap))
-        issues.extend(_check_pass_touchdowns(text, recap))
+    issues: list[str] = []
+    if last_game and phase_mod.is_final(last_game):
+        text = edition_text(narrative)
+        if not text.strip():
+            text = review_text(narrative)
+        if text.strip():
+            recap = recap or {}
+            issues.extend(_check_scores(text, last_game, recap))
+            issues.extend(_check_part_of_day(text, last_game, recap))
+            issues.extend(_check_echoed_instructions(text))
+            issues.extend(_check_record_phrasing(text))
+            if recap.get("scoringPlays") or recap.get("leaders") or recap.get("kc") or recap.get("plays"):
+                issues.extend(_check_td_yards(text, recap, last_game))
+                issues.extend(_check_fg_claims(text, recap, last_game))
+                issues.extend(_check_stat_lines(text, recap, last_game))
+                issues.extend(_check_play_sequence(text, recap))
+                issues.extend(_check_turnover_credit(text, recap))
+                issues.extend(_check_absolute_claims(prose_text(narrative), recap))
+                issues.extend(_check_team_yards(text, recap, last_game))
+                issues.extend(_check_garbled_initials(text, recap))
+                issues.extend(_check_scheme_claims(text, recap))
+                issues.extend(_check_box_clocks(text, recap, last_game))
+                issues.extend(_check_touch_counts(text, recap))
+                issues.extend(_check_attempt_counts(text, recap))
+                issues.extend(_check_sack_counts(text, recap))
+                issues.extend(_check_qb_hit_counts(text, recap))
+                issues.extend(_check_penalty_attribution(text, recap))
+                issues.extend(_check_same_look_snaps(text, recap))
+                issues.extend(_check_first_minutes(text, recap))
+                issues.extend(_check_opening_drive(text, recap))
+                issues.extend(_check_eligible_on_score(text, recap))
+                issues.extend(_check_int_clocks(text, recap))
+                issues.extend(_check_pass_touchdowns(text, recap))
+    if copy_gates:
+        issues.extend(check_copy_gates(narrative, schedule))
     # Dedup while keeping order.
     out = []
     seen = set()
