@@ -244,16 +244,9 @@ def _recap_line(recap: dict) -> str:
             f"QB hits on the KC quarterback {hits.get('OPP', 0)}; "
             f"KC QB hits {hits.get('KC', 0)}"
         )
-    for row in recap.get("touches") or []:
-        if (row.get("team") or "").upper() != "KC":
-            continue
-        if not row.get("touches"):
-            continue
-        bits.append(
-            f"{row.get('player')} {row['touches']} touches "
-            f"({row.get('rushes') or 0} rushes, {row.get('catches') or 0} catches)"
-        )
-        break
+    lead = _lead_backfield_touch(recap)
+    if lead:
+        bits.append(_touch_usage_line(lead))
     return "; ".join(bits)
 
 
@@ -923,25 +916,62 @@ def _dated_dek(last_review: dict, opp: str, phase: dict) -> str:
     )
 
 
+def _kc_touch_rows(recap: dict | None) -> list[dict]:
+    """KC usage rows, highest game-total touches first.
+
+    collect.parse_player_usage is alphabetical, so a 1-catch receiver can
+    land before Walker. Only the lead backfield total is verifiable as a
+    game-total claim; complementary 1/6-touch lines are not the snap plan.
+    """
+    rows = [
+        row
+        for row in (recap or {}).get("touches") or []
+        if isinstance(row, dict)
+        and (row.get("team") or "").upper() == "KC"
+        and row.get("touches")
+    ]
+    rows.sort(
+        key=lambda row: (-int(row.get("touches") or 0), row.get("player") or "")
+    )
+    return rows
+
+
+def _lead_backfield_touch(recap: dict | None) -> dict | None:
+    rows = _kc_touch_rows(recap)
+    return rows[0] if rows else None
+
+
+def _touch_noun(count) -> str:
+    try:
+        return "touch" if int(count) == 1 else "touches"
+    except (TypeError, ValueError):
+        return "touches"
+
+
+def _touch_usage_line(row: dict) -> str:
+    count = row.get("touches")
+    return (
+        f"{row.get('player')} {count} {_touch_noun(count)} "
+        f"({row.get('rushes') or 0} rushes, {row.get('catches') or 0} catches)"
+    )
+
+
 def _personnel_from_signals(signals: dict, recap: dict, phase: dict) -> list[dict]:
     rows = []
-    for row in (recap or {}).get("touches") or []:
-        if (row.get("team") or "").upper() != "KC":
-            continue
-        if not row.get("touches"):
-            continue
+    lead = _lead_backfield_touch(recap)
+    if lead:
+        count = lead.get("touches")
         rows.append(
             {
-                "move": f"{row.get('player')} usage",
+                "move": f"{lead.get('player')} usage",
                 "detail": (
-                    f"{row.get('player')} handled {row['touches']} touches "
-                    f"({row.get('rushes') or 0} rushes, {row.get('catches') or 0} catches) "
-                    "on the last tape — that is the snap plan until a cited depth-chart move."
+                    f"{lead.get('player')} handled {count} {_touch_noun(count)} "
+                    f"({lead.get('rushes') or 0} rushes, {lead.get('catches') or 0} catches) "
+                    "on the last tape — that is the game-total snap count, "
+                    "not a red-zone, drive, or quarter split."
                 ),
             }
         )
-        if len(rows) >= 2:
-            break
     for item in _news_about(
         signals.get("news") or [],
         ["sign", "release", "trade", "elevate", "roster", "depth", "activate"],

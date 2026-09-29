@@ -1,0 +1,16 @@
+{
+  "_note": "Offline full run 36617439949 on main after #134. --check-edition flagged '1 touches' and '6 touches' against Walker's ESPN 20. Those were other-player or windowed counts, not Walker's game total.",
+  "accept": [
+    "Travis Kelce handled 1 touches (0 rushes, 1 catches) on the last tape — that is the snap plan until a cited depth-chart move.",
+    "Rashee Rice handled 6 touches (0 rushes, 6 catches) on the last tape — that is the snap plan until a cited depth-chart move.",
+    "Walker had 1 touches in the red zone.",
+    "Walker had 6 touches on the opening drive.",
+    "Walker had 6 touches in the fourth quarter.",
+    "Kenneth Walker III handled 20 touches (18 rushes, 2 catches) on the last tape — that is the game-total snap count, not a red-zone, drive, or quarter split."
+  ],
+  "reject": [
+    "Kenneth Walker III handled 1 touches (0 rushes, 1 catches) on the last tape.",
+    "Walker already handled 6 touches.",
+    "Emmett Johnson had 20 touches."
+  ]
+}
