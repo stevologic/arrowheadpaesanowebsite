@@ -1784,7 +1784,7 @@ def _is_initial_dot(text: str, pos: int) -> bool:
     return True
 
 
-def _sentence_at(text: str, index: int) -> str:
+def _sentence_span(text: str, index: int) -> tuple[int, int]:
     start = 0
     pos = text.rfind(".", 0, index)
     while pos >= 0 and _is_initial_dot(text, pos):
@@ -1797,6 +1797,11 @@ def _sentence_at(text: str, index: int) -> str:
         pos = text.find(".", pos + 1)
     if pos >= 0:
         end = pos
+    return start, end
+
+
+def _sentence_at(text: str, index: int) -> str:
+    start, end = _sentence_span(text, index)
     return text[start:end].strip()
 
 
@@ -2264,6 +2269,41 @@ def _player_last(name: str) -> str:
     return parts[-1].lower() if parts else ""
 
 
+def _bound_touch_row(text: str, claim_at: int, rows: list[dict]) -> dict | None:
+    """Bind N touches to the nearest named ESPN player, not recap order.
+
+    collect.parse_player_usage sorts touches alphabetically, so Emmett
+    Johnson and Malik Willis land before Kenneth Walker. Scanning rows
+    and taking the first last name anywhere in the sentence then treated
+    Walker's 20 touches as Johnson's 6 or Willis's 9.
+    Prefer the rightmost ESPN last name before the claim. If none, take
+    a name in the same clause after it ("20 touches for Walker").
+    """
+    aliases: dict[str, str] = {}
+    by_last: dict[str, dict] = {}
+    for row in rows:
+        last = _player_last(row.get("player") or "")
+        if last:
+            aliases[last] = last
+            by_last[last] = row
+    if not aliases:
+        return rows[0] if len(rows) == 1 else None
+    start, end = _sentence_span(text, claim_at)
+    last = _last_name_in(text[start:claim_at], aliases)
+    if not last:
+        tail = text[claim_at:end]
+        clause_end = len(tail)
+        brk = _CLAUSE_BREAK.search(tail)
+        if brk:
+            clause_end = brk.start()
+        last = _last_name_in(tail[:clause_end], aliases)
+    if last:
+        return by_last.get(last)
+    if len(rows) == 1:
+        return rows[0]
+    return None
+
+
 def _check_touch_counts(text: str, recap: dict | None) -> list[str]:
     rows = [
         row
@@ -2277,20 +2317,11 @@ def _check_touch_counts(text: str, recap: dict | None) -> list[str]:
         claimed = _match_count(match)
         if claimed is None:
             continue
-        sentence = _sentence_at(text, match.start())
-        official = None
-        label = "player"
-        for row in rows:
-            last = _player_last(row.get("player") or "")
-            if last and re.search(rf"\b{re.escape(last)}\b", sentence, re.I):
-                official = int(row["touches"])
-                label = row.get("player") or last
-                break
-        if official is None and len(rows) == 1:
-            official = int(rows[0]["touches"])
-            label = rows[0].get("player") or "player"
-        if official is None:
+        row = _bound_touch_row(text, match.start(), rows)
+        if row is None:
             continue
+        official = int(row["touches"])
+        label = row.get("player") or "player"
         if claimed != official:
             issues.append(
                 f"touches {claimed} disagrees with ESPN {official} for "
