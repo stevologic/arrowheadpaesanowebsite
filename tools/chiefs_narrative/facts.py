@@ -60,6 +60,23 @@ _CLAUSE_BREAK = re.compile(
     r"[.;:!?]|—|,|\n|\b(?:then|after|before|but|and)\b",
     re.IGNORECASE,
 )
+# Stat claims stay with their list. Split on sentence/comparison pivots, not
+# every comma or "and" ("nine drives, 18 first downs, 3-of-7").
+_STAT_CLAUSE_BREAK = re.compile(
+    r"[.;:!?]|—|\n|"
+    r"\b(?:against|versus|compared to|whereas|while|but)\b|"
+    r"\bvs\.?\b",
+    re.IGNORECASE,
+)
+_LOCATION_TEAM = re.compile(
+    r"\b(?:in|at|into|vs\.?|versus)\s+(?:the\s+)?"
+    r"[A-Za-z][A-Za-z '’-]{1,24}",
+    re.IGNORECASE,
+)
+_RUSH_ATTEMPT_NEAR = re.compile(
+    r"\b(?:rush(?:ing)?|rushes|carries|carry|on the ground)\b",
+    re.IGNORECASE,
+)
 
 # Completions only: "20/24" or "20-of-24". A bare "24-10" is a score, not a line.
 _PASS_LINE = re.compile(
@@ -163,7 +180,7 @@ _GARBLED_RECORD = re.compile(
     re.IGNORECASE,
 )
 _TEAM_GROUND = re.compile(
-    r"\b([A-Za-z][A-Za-z .']{1,28}?)(?:'s)?\s+"
+    r"\b([A-Za-z][A-Za-z '’-]{1,28}?)(?:['’]s)?\s+"
     r"(?:was\s+)?(\d{2,3})\s+"
     r"(?:on the ground|rush(?:ing)? yards)\b",
     re.IGNORECASE,
@@ -737,15 +754,47 @@ _YARD_LINE_TEAM = re.compile(
 )
 
 
+def _is_decimal_dot(text: str, pos: int) -> bool:
+    """True for the period in '61.1', not a sentence end."""
+    if pos <= 0 or pos >= len(text) - 1 or text[pos] != ".":
+        return False
+    return text[pos - 1].isdigit() and text[pos + 1].isdigit()
+
+
+def _stat_clause_span(text: str, index: int) -> tuple[int, int]:
+    """Clause holding this index, split on sentence/comparison pivots only."""
+    start, end = 0, len(text or "")
+    for hit in _STAT_CLAUSE_BREAK.finditer(text or ""):
+        token = hit.group(0)
+        if token == "." and (
+            _is_initial_dot(text, hit.start()) or _is_decimal_dot(text, hit.start())
+        ):
+            continue
+        if hit.end() <= index:
+            start = hit.end()
+        elif hit.start() >= index:
+            end = hit.start()
+            break
+    return start, end
+
+
 def _subject_clause(text: str, start: int) -> str:
-    """Prose from the start of this clause up to the claim — the subject side."""
+    """Prose from the start of this clause up to the claim — the subject side.
+
+    Scoring claims still split on list commas so 'Miami answered with a
+    3-yard touchdown, went back up on a 5-yard touchdown' does not keep
+    Miami as the subject of the second score. Box-stat checks use
+    `_stat_clause_span` instead, which keeps 'nine drives, 18 first downs'
+    on one subject.
+    """
     clause_start = 0
     for hit in _CLAUSE_BREAK.finditer(text[:start]):
         clause_start = hit.end()
     return _YARD_LINE_TEAM.sub(" ", text[clause_start:start])
 
 
-def _last_name_in(span: str, names: dict[str, str]) -> str:
+def _last_name_pos(span: str, names: dict[str, str]) -> tuple[int, str]:
+    """Rightmost listed name in span and its start index, or (-1, '')."""
     best = ""
     best_pos = -1
     for name in sorted(names, key=len, reverse=True):
@@ -755,7 +804,11 @@ def _last_name_in(span: str, names: dict[str, str]) -> str:
             if hit.start() >= best_pos:
                 best_pos = hit.start()
                 best = names[name]
-    return best
+    return best_pos, best
+
+
+def _last_name_in(span: str, names: dict[str, str]) -> str:
+    return _last_name_pos(span, names)[1]
 
 
 def _bound_team(
@@ -775,7 +828,76 @@ def _bound_team(
     player = _last_name_in(subject, player_teams)
     if player:
         return player
-    return _last_name_in(subject, aliases)
+    return _last_name_in(_LOCATION_TEAM.sub(" ", subject), aliases)
+
+
+def _player_aliases(recap: dict | None) -> dict[str, str]:
+    """Last-name → last-name for ESPN box players (usage, passers, scorers)."""
+    aliases: dict[str, str] = {}
+    payload = recap or {}
+    for row in list(payload.get("touches") or []) + list(payload.get("passing") or []):
+        if not isinstance(row, dict):
+            continue
+        last = _player_last(row.get("player") or "")
+        if last:
+            aliases[last] = last
+    for play in payload.get("scoringPlays") or []:
+        if not isinstance(play, dict):
+            continue
+        last = _player_last(play.get("player") or "")
+        if last:
+            aliases[last] = last
+    return aliases
+
+
+def _player_owns_stat(
+    text: str, claim_at: int, players: dict[str, str], aliases: dict[str, str]
+) -> str:
+    """Player last name when that player is closer than any team in the clause."""
+    if not text or not players:
+        return ""
+    start, _ = _stat_clause_span(text, claim_at)
+    prefix = _LOCATION_TEAM.sub(" ", text[start:claim_at])
+    poss = re.search(
+        r"([A-Za-z][A-Za-z''-]+(?:\s+[A-Za-z][A-Za-z''-]+)?)['’]s\s*$",
+        prefix,
+    )
+    if poss:
+        last = _player_last(poss.group(1))
+        if last in players:
+            return last
+    player_pos, player = _last_name_pos(prefix, players)
+    team_pos, _ = _last_name_pos(prefix, aliases)
+    if player and player_pos > team_pos:
+        return player
+    return ""
+
+
+def _bound_box_team(text: str, claim_at: int, aliases: dict[str, str]) -> str:
+    """Nearest team subject in this clause, ignoring in/at location names."""
+    start, _ = _stat_clause_span(text, claim_at)
+    prefix = _LOCATION_TEAM.sub(" ", _YARD_LINE_TEAM.sub(" ", text[start:claim_at]))
+    poss = re.search(
+        r"([A-Za-z][A-Za-z '’-]+?)['’]s\s*$",
+        prefix,
+    )
+    if poss:
+        named = _alias_team(poss.group(1), aliases)
+        if named:
+            return named
+    return _last_name_in(prefix, aliases)
+
+
+def _attempt_kind(text: str, match: re.Match) -> str:
+    """Rushing attempts vs dropbacks / pass attempts from the local clause."""
+    token = match.group(0).lower()
+    if "drop" in token or "pass" in token or "threw" in token:
+        return "pass"
+    start, end = _stat_clause_span(text, match.start())
+    window = text[max(start, match.start() - 48) : min(end, match.end() + 16)]
+    if _RUSH_ATTEMPT_NEAR.search(window):
+        return "rush"
+    return "pass"
 
 
 def _score_team_for_yards(recap: dict | None, kind: str, yards: int) -> str:
@@ -2016,6 +2138,7 @@ def _check_team_yards(
     prior_labels = _prior_game_labels(recap)
     last_labels = _last_game_labels(last_game, recap)
     aliases = _team_aliases(last_game, recap)
+    players = _player_aliases(recap)
     issues = []
 
     def _expected_rush(subject: str) -> tuple[str, int | None]:
@@ -2064,6 +2187,8 @@ def _check_team_yards(
             yards = int(match.group(2))
         except (TypeError, ValueError):
             continue
+        if _player_last(match.group(1)) in players:
+            continue
         label, official = _expected_rush(match.group(1))
         if official is None:
             continue
@@ -2078,10 +2203,12 @@ def _check_team_yards(
             yards = int(match.group(1))
         except (TypeError, ValueError):
             continue
-        subject = _subject_clause(text, match.start())
-        label, official = _expected_rush(subject)
+        if not re.search(r"\bteam\s+rush", match.group(0), re.I):
+            if _player_owns_stat(text, match.start(), players, aliases):
+                continue
+        team = _bound_box_team(text, match.start(), aliases)
+        label, official = _expected_rush(team) if team else ("team", None)
         if official is None:
-            team = _bound_team(text, match.start(), match.end(), aliases, {})
             if team and team != "KC" and team in last_rush:
                 official = last_rush[team]
                 label = team
@@ -2207,9 +2334,7 @@ def _check_box_clocks(
         except (TypeError, ValueError):
             continue
         sentence = _sentence_at(text, match.start())
-        team = _bound_team(
-            text, match.start(), match.end(), aliases, {}
-        ) or _last_name_in(sentence, aliases)
+        team = _bound_box_team(text, match.start(), aliases)
         official = None
         label = team or "KC"
         if team and team == opp_abbr:
@@ -2288,15 +2413,10 @@ def _bound_touch_row(text: str, claim_at: int, rows: list[dict]) -> dict | None:
             by_last[last] = row
     if not aliases:
         return rows[0] if len(rows) == 1 else None
-    start, end = _sentence_span(text, claim_at)
+    start, end = _stat_clause_span(text, claim_at)
     last = _last_name_in(text[start:claim_at], aliases)
     if not last:
-        tail = text[claim_at:end]
-        clause_end = len(tail)
-        brk = _CLAUSE_BREAK.search(tail)
-        if brk:
-            clause_end = brk.start()
-        last = _last_name_in(tail[:clause_end], aliases)
+        last = _last_name_in(text[claim_at:end], aliases)
     if last:
         return by_last.get(last)
     if len(rows) == 1:
@@ -2330,7 +2450,9 @@ def _check_touch_counts(text: str, recap: dict | None) -> list[str]:
     return issues
 
 
-def _check_attempt_counts(text: str, recap: dict | None) -> list[str]:
+def _check_attempt_counts(
+    text: str, recap: dict | None, last_game: dict | None = None
+) -> list[str]:
     passing = [
         row
         for row in (recap or {}).get("passing") or []
@@ -2341,17 +2463,47 @@ def _check_attempt_counts(text: str, recap: dict | None) -> list[str]:
     kc = next((row for row in passing if (row.get("team") or "").upper() == "KC"), None)
     if not kc:
         return []
-    official = int(kc["attempts"])
+    by_last = {}
+    for row in passing:
+        last = _player_last(row.get("player") or "")
+        if last:
+            by_last[last] = row
+    aliases = _team_aliases(last_game, recap)
+    opp_abbr = ((recap or {}).get("oppAbbr") or "").strip().upper()
+    rush_att = {
+        "KC": _box_int((recap or {}).get("kc"), "rushingAttempts"),
+    }
+    if opp_abbr:
+        rush_att[opp_abbr] = _box_int((recap or {}).get("opp"), "rushingAttempts")
     issues = []
     for match in _DROP_ATTEMPT.finditer(text):
         claimed = _match_count(match)
         if claimed is None:
             continue
+        kind = _attempt_kind(text, match)
+        if kind == "rush":
+            team = _bound_box_team(text, match.start(), aliases) or "KC"
+            official = rush_att.get(team)
+            if official is None:
+                continue
+            if claimed == official:
+                continue
+            issues.append(
+                f"rush attempts {claimed} disagrees with ESPN {official} for "
+                f"{team} ({match.group(0)!r})"
+            )
+            continue
+        owner = _last_name_in(
+            text[_stat_clause_span(text, match.start())[0] : match.start()],
+            {last: last for last in by_last},
+        )
+        row = by_last.get(owner) or kc
+        official = int(row["attempts"])
         if claimed == official:
             continue
         issues.append(
             f"pass attempts {claimed} disagrees with ESPN {official} for "
-            f"{kc.get('player') or 'KC'} ({match.group(0)!r})"
+            f"{row.get('player') or 'KC'} ({match.group(0)!r})"
         )
     return issues
 
@@ -2701,11 +2853,15 @@ def _check_int_clocks(text: str, recap: dict | None) -> list[str]:
     if not text or not official:
         return []
     issues = []
+    official_names = {name for name, _, _ in official}
     for match in _INT_AT_CLOCK.finditer(text):
-        last = _player_last(match.group(1))
+        raw = match.group(1) or ""
+        if not raw[:1].isupper():
+            continue
+        last = _player_last(raw)
         quarter = int(match.group(2))
         clock = match.group(3)
-        if not last:
+        if not last or last not in official_names:
             continue
         if (last, quarter, clock) in official:
             continue
@@ -2964,7 +3120,7 @@ def check_review(
                 issues.extend(_check_scheme_claims(text, recap))
                 issues.extend(_check_box_clocks(text, recap, last_game))
                 issues.extend(_check_touch_counts(text, recap))
-                issues.extend(_check_attempt_counts(text, recap))
+                issues.extend(_check_attempt_counts(text, recap, last_game))
                 issues.extend(_check_sack_counts(text, recap))
                 issues.extend(_check_qb_hit_counts(text, recap))
                 issues.extend(_check_penalty_attribution(text, recap))

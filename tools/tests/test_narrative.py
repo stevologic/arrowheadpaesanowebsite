@@ -3624,6 +3624,95 @@ class FactCheck(unittest.TestCase):
             )
         )
 
+    def _week3_usage_recap(self):
+        recap = json.loads(json.dumps(_load_fixture("espn_401872952_recap.json")))
+        recap["touches"] = sorted(
+            recap["touches"]
+            + [
+                {
+                    "player": "Emmett Johnson",
+                    "team": "OPP",
+                    "rushes": 6,
+                    "catches": 0,
+                    "touches": 6,
+                },
+                {
+                    "player": "Malik Willis",
+                    "team": "OPP",
+                    "rushes": 9,
+                    "catches": 0,
+                    "touches": 9,
+                },
+                {
+                    "player": "Ollie Gordon II",
+                    "team": "OPP",
+                    "rushes": 17,
+                    "catches": 3,
+                    "touches": 20,
+                },
+            ],
+            key=lambda row: (row.get("player") or "", row.get("team") or ""),
+        )
+        recap["passing"] = list(recap.get("passing") or []) + [
+            {
+                "player": "Malik Willis",
+                "team": "MIA",
+                "completions": 20,
+                "attempts": 36,
+                "sacks": 1,
+                "sackYards": 8,
+                "touchdowns": 1,
+            }
+        ]
+        return recap
+
+    def test_run_36610306700_clause_binding_accepts_box_and_rejects_errors(self):
+        catalog = _load_fixture("edition_run_36610306700.json")
+        recap = self._week3_usage_recap()
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        for sentence in catalog["accept"]:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertEqual(issues, [], f"should accept {sentence!r}: {issues}")
+        for sentence in catalog["reject"]:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertTrue(issues, f"should reject {sentence!r}")
+        forty = facts.check_review(
+            self._review(lede=catalog["reject"][0]), last, recap
+        )
+        self.assertTrue(any("40" in item and "pass attempts" in item for item in forty), forty)
+        poss = facts.check_review(
+            self._review(lede=catalog["reject"][1]), last, recap
+        )
+        self.assertTrue(any("8:42" in item for item in poss), poss)
+        team_70 = facts.check_review(
+            self._review(lede=catalog["reject"][2]), last, recap
+        )
+        self.assertTrue(
+            any("team rushing 70" in item for item in team_70), team_70
+        )
+        mia_70 = facts.check_review(
+            self._review(
+                lede=(
+                    "Willis went 20-of-36, and Miami still posted "
+                    "70 rushing yards on 31 attempts."
+                )
+            ),
+            last,
+            recap,
+        )
+        self.assertTrue(
+            any("team rushing 70" in item and "MIA" in item for item in mia_70),
+            mia_70,
+        )
+        willis_40 = facts.check_review(
+            self._review(lede="Willis threw 40 passes."), last, recap
+        )
+        self.assertTrue(
+            any("40" in item and "Malik Willis" in item for item in willis_40),
+            willis_40,
+        )
+
     def test_narrative_pr_lists_drops_and_holds_automerge(self):
         yaml = (
             Path(__file__).resolve().parents[2]
