@@ -286,6 +286,7 @@
       "rushingYards": "152",
       "netPassingYards": "382",
       "totalYards": "534",
+      "firstDowns": "29",
       "possessionTime": "37:00"
     },
     "opp": { "rushingYards": "95", "netPassingYards": "240" },

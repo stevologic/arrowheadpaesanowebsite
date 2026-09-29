@@ -3016,7 +3016,7 @@ class FactCheck(unittest.TestCase):
         narrative = self._review(whatDidnt=["The INT kept a 14-10 game alive."])
         self.assertEqual(facts.check_review(narrative, live, self.RECAP), [])
 
-    def test_fact_check_retries_twice_then_fails_on_analysis_drop(self):
+    def test_fact_check_retries_twice_then_drops_analysis_and_publishes(self):
         bad = {
             "headline": "Fresh title",
             "dek": "Fresh dek",
@@ -3092,13 +3092,108 @@ class FactCheck(unittest.TestCase):
                 generate.config, "REPAIR_JSON", root / "repair.json"
             ):
                 rc = generate.main(["--provider", "grok"])
-            self.assertEqual(rc, 1)
+            self.assertEqual(rc, 0)
             self.assertEqual(llm.call_count, 3)
             retry_user = llm.call_args_list[1].args[2]
             self.assertIn("FACT CHECK RETRY", retry_user)
             self.assertIn("FACT CHECK RETRY", llm.call_args_list[2].args[2])
-            self.assertFalse(narrative_json.exists())
-            self.assertEqual(list(editions.iterdir()), [])
+            written = json.loads(narrative_json.read_text(encoding="utf-8"))
+            blob = facts.edition_text(written)
+            self.assertNotIn("14-10", blob)
+            self.assertNotIn("from the 12", blob)
+
+    def test_fact_check_analysis_drops_publish_when_word_floor_holds(self):
+        bad = {
+            "headline": "Fresh title",
+            "dek": "Fresh dek",
+            "theEdge": "Fresh edge about the 24-10 tape.",
+            "lastGameReview": {
+                "lede": "Kansas City won 24-10.",
+                "analysis": [
+                    "Kelce scored from the 12.",
+                    "Pacheco scored from the 9.",
+                    "Butker hit a 50-yard field goal.",
+                ],
+            },
+        }
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        last["kickoff"] = "Sun, Sep 27 · 12:00 PM CT"
+        week4 = {
+            "id": "w4",
+            "week": 4,
+            "seasonType": "reg",
+            "date": "2026-10-04T20:25:00Z",
+            "opponent": "Las Vegas Raiders",
+            "completed": False,
+            "inProgress": False,
+            "kcScore": None,
+            "oppScore": None,
+            "kickoff": "Sun, Oct 4 · 3:25 PM CT",
+        }
+        ph = {
+            "type": "regular",
+            "label": "Week 4",
+            "week": 4,
+            "mode": "review",
+            "edition": "2026 Week 4 · Week 3 Review",
+            "lastGame": last,
+            "nextGame": week4,
+            "liveGame": None,
+        }
+        llm = Mock(side_effect=[(bad, "grok"), (bad, "grok"), (bad, "grok")])
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            narrative_json = root / "narrative.json"
+            repair_json = root / "repair.json"
+            wire_json = root / "wire.json"
+            editions = root / "editions"
+            editions.mkdir()
+            archive = root / "archive.json"
+            archive.write_text("[]\n", encoding="utf-8")
+            with patch.object(
+                collect,
+                "collect_all",
+                return_value={"schedule": [last, week4], "news": [], "markets": {}},
+            ), patch.object(
+                collect, "fetch_game_recap", return_value=self.RECAP
+            ), patch.object(
+                phase, "detect", return_value=ph
+            ), patch.object(
+                phase, "next_games", return_value=[week4]
+            ), patch.object(
+                phase, "any_live", return_value=False
+            ), patch.object(
+                odds, "collect_markets", return_value={}
+            ), patch.object(
+                providers, "generate_via_llm", llm
+            ), patch.object(
+                generate, "_render_diagrams"
+            ), patch.object(
+                generate, "_write_schedule"
+            ), patch.object(
+                generate.config, "NARRATIVE_JSON", narrative_json
+            ), patch.object(
+                generate.config, "WIRE_JSON", wire_json
+            ), patch.object(
+                generate.config, "EDITIONS_DIR", editions
+            ), patch.object(
+                generate.config, "ARCHIVE_JSON", archive
+            ), patch.object(
+                generate.config, "REPAIR_JSON", repair_json
+            ):
+                rc = generate.main(["--provider", "grok"])
+            self.assertEqual(
+                rc, 0, repair_json.read_text() if repair_json.exists() else "no repair"
+            )
+            written = json.loads(narrative_json.read_text(encoding="utf-8"))
+            blob = facts.edition_text(written)
+            self.assertNotIn("from the 12", blob)
+            self.assertNotIn("from the 9", blob)
+            self.assertNotIn("50-yard", blob)
+            repair = json.loads(repair_json.read_text(encoding="utf-8"))
+            self.assertGreater(len(repair["droppedSentences"]), facts.MAX_REPAIR_DROPS)
+            self.assertTrue(repair["holdAutomerge"])
 
     def test_fact_check_one_non_analysis_drop_publishes_and_holds(self):
         bad = {
@@ -3835,6 +3930,121 @@ class FactCheck(unittest.TestCase):
             any("40" in item and "Malik Willis" in item for item in willis_40),
             willis_40,
         )
+
+    def test_run_36615274992_prior_game_and_newline_binding(self):
+        catalog = _load_fixture("edition_run_36615274992.json")
+        recap = self._week3_usage_recap()
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        last["id"] = "401872952"
+        slate = [
+            {
+                "id": "401772900",
+                "week": 1,
+                "opponent": "Denver Broncos",
+                "opponentAbbr": "DEN",
+                "completed": True,
+                "kcScore": 31,
+                "oppScore": 10,
+            },
+            {
+                "id": "401872951",
+                "week": 2,
+                "opponent": "Indianapolis Colts",
+                "opponentAbbr": "IND",
+                "completed": True,
+                "kcScore": 33,
+                "oppScore": 30,
+            },
+            {
+                "id": "401872952",
+                "week": 3,
+                "opponent": "Miami Dolphins",
+                "opponentAbbr": "MIA",
+                "completed": True,
+                "kcScore": 24,
+                "oppScore": 10,
+            },
+        ]
+        for sentence in catalog["accept"]:
+            issues = facts.check_review(
+                self._review(lede=sentence), last, recap, schedule=slate
+            )
+            self.assertEqual(issues, [], f"should accept {sentence!r}: {issues}")
+        for sentence in catalog["reject"]:
+            issues = facts.check_review(
+                self._review(lede=sentence), last, recap, schedule=slate
+            )
+            self.assertTrue(issues, f"should reject {sentence!r}")
+        team_70 = facts.check_review(
+            self._review(lede=catalog["reject"][0]), last, recap, schedule=slate
+        )
+        self.assertTrue(
+            any("team rushing 70" in item for item in team_70), team_70
+        )
+        mia_5 = facts.check_review(
+            self._review(lede=catalog["reject"][1]), last, recap, schedule=slate
+        )
+        self.assertTrue(
+            any("5" in item and "MIA" in item for item in mia_5), mia_5
+        )
+        nourzad = facts.check_review(
+            self._review(lede=catalog["reject"][2]), last, recap, schedule=slate
+        )
+        self.assertTrue(any("eligible" in item.lower() for item in nourzad), nourzad)
+        indy_wrong = facts.check_review(
+            self._review(
+                lede=(
+                    "Against Indianapolis the Chiefs posted 18 first downs "
+                    "and 37:00 of possession."
+                )
+            ),
+            last,
+            recap,
+            schedule=slate,
+        )
+        self.assertTrue(
+            any("first downs 18" in item and "prior" in item for item in indy_wrong),
+            indy_wrong,
+        )
+
+    def test_repair_publish_blockers_use_word_floor_not_drop_count(self):
+        fat = " ".join(["Chiefs tape review word"] * 400)
+        repaired = {
+            "headline": fat,
+            "dek": fat,
+            "theEdge": fat,
+            "storyline": fat,
+            "currentState": fat,
+            "gamePlan": fat,
+            "lastGameReview": {"lede": fat, "analysis": [fat]},
+        }
+        self.assertGreaterEqual(
+            facts.edition_word_count(repaired), facts.OFFLINE_WORD_FLOOR
+        )
+        self.assertEqual(facts.repair_publish_blockers([], repaired, []), [])
+        self.assertEqual(
+            facts.repair_publish_blockers([], repaired, None),
+            [],
+        )
+        thin = {"headline": "Short", "lastGameReview": {"lede": "Kansas City won."}}
+        blockers = facts.repair_publish_blockers([], thin, [], before=repaired)
+        self.assertTrue(blockers)
+        self.assertTrue(any("floor" in item for item in blockers), blockers)
+        self.assertEqual(
+            facts.repair_publish_blockers([], thin, [], before=thin),
+            [],
+        )
+        leftover = facts.repair_publish_blockers(
+            ["first downs 29 disagrees with ESPN 18 for KC"],
+            repaired,
+            [],
+        )
+        self.assertTrue(any("29" in item for item in leftover), leftover)
+        orphans = facts.repair_publish_blockers(
+            [], repaired, ["orphan opener after repair"]
+        )
+        self.assertTrue(any("fragments" in item for item in orphans), orphans)
 
     def test_narrative_pr_lists_drops_and_holds_automerge(self):
         yaml = (

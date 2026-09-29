@@ -61,15 +61,17 @@ _CLAUSE_BREAK = re.compile(
     re.IGNORECASE,
 )
 # Stat claims stay with their list. Split on sentence/comparison pivots, not
-# every comma or "and" ("nine drives, 18 first downs, 3-of-7").
+# every comma or "and" ("nine drives, 18 first downs, 3-of-7"). A newline
+# or markdown heading is a clause boundary so a label on the previous line
+# cannot own the next stat.
 _STAT_CLAUSE_BREAK = re.compile(
-    r"[.;:!?]|—|\n|"
+    r"[.;:!?]|—|\n#{0,6}\s*|"
     r"\b(?:against|versus|compared to|whereas|while|but)\b|"
     r"\bvs\.?\b",
     re.IGNORECASE,
 )
 _LOCATION_TEAM = re.compile(
-    r"\b(?:in|at|into|vs\.?|versus)\s+(?:the\s+)?"
+    r"\b(?:in|at|into|from|leaves?|leaving|vs\.?|versus)\s+(?:the\s+)?"
     r"[A-Za-z][A-Za-z '’-]{1,24}",
     re.IGNORECASE,
 )
@@ -179,12 +181,16 @@ _GARBLED_RECORD = re.compile(
     r"[^.!?]{0,48}\bgames?\s+of\s+\d{1,2}-\d{1,2}\b",
     re.IGNORECASE,
 )
+# Same-line team + yards only. Do not let \s+ eat a newline or heading.
 _TEAM_GROUND = re.compile(
-    r"\b([A-Za-z][A-Za-z '’-]{1,28}?)(?:['’]s)?\s+"
-    r"(?:was\s+)?(\d{2,3})\s+"
+    r"\b((?:the\s+)?[A-Za-z][A-Za-z'’-]{1,20}"
+    r"(?:\s+[A-Za-z][A-Za-z'’-]{1,20}){0,2})(?:['’]s)?"
+    r"[ \t]+(?:was[ \t]+)?"
+    r"(\d{2,3})[ \t]+"
     r"(?:on the ground|rush(?:ing)? yards)\b",
     re.IGNORECASE,
 )
+_GROUND_COPULA = frozenset({"is", "are", "were", "be", "been", "am"})
 _TEAM_RUSH_YARDS = re.compile(
     r"\b(\d{2,3})\s+(?:team\s+)?rush(?:ing)?\s+yards\b",
     re.IGNORECASE,
@@ -475,6 +481,8 @@ _ORPHAN_OPENER = re.compile(
     r"^(?:He|She|They|It|This|That|Those|These|His|Her|Their|the same)\b",
     re.IGNORECASE,
 )
+# Historical salvage cap. Drop-pass publish is gated by leftover errors
+# and OFFLINE_WORD_FLOOR, not by how many sentences were removed.
 MAX_REPAIR_DROPS = 2
 _MAX_REPAIR_DROPS = MAX_REPAIR_DROPS
 
@@ -730,6 +738,99 @@ def _last_game_labels(last_game: dict | None, recap: dict | None) -> set[str]:
         if token.lower() not in ("the",) and len(token) >= 3:
             labels.add(token.lower())
     return labels
+
+
+_KC_SCOPE = frozenset({"kc", "chiefs", "kansas"})
+# City names that are not in _FOREIGN_TEAMS nicknames. Used when the
+# schedule is not attached so a Denver-week claim is not the Miami box.
+_OTHER_CITY_LABELS = frozenset({"denver"})
+
+
+def _scope_label_map(
+    recap: dict | None, last_game: dict | None, schedule=None
+) -> list[tuple[str, str]]:
+    """Longest-first (label, last|prior|other) opponent names on the slate."""
+    assigned: dict[str, str] = {}
+    for lab in _last_game_labels(last_game, recap):
+        assigned[lab] = "last"
+    for lab in _prior_game_labels(recap):
+        assigned.setdefault(lab, "prior")
+    known = set(assigned) | _KC_SCOPE
+
+    def _add(label: str, scope: str) -> None:
+        token = " ".join((label or "").lower().split())
+        if len(token) < 3 or token in known:
+            return
+        assigned[token] = scope
+        known.add(token)
+
+    last_id = str((last_game or {}).get("id") or (recap or {}).get("eventId") or "")
+    prior_id = str(((recap or {}).get("prior") or {}).get("eventId") or "")
+    for game in schedule or []:
+        if not isinstance(game, dict):
+            continue
+        gid = str(game.get("id") or "")
+        if gid and gid == last_id:
+            scope = "last"
+        elif gid and gid == prior_id:
+            scope = "prior"
+        else:
+            scope = "other"
+        _add(game.get("opponentAbbr") or "", scope)
+        for field in ("opponent", "opponentShort"):
+            for tok in re.findall(r"[A-Za-z]+", game.get(field) or ""):
+                if tok.lower() not in ("the",) and len(tok) >= 3:
+                    _add(tok, scope)
+        week = game.get("week")
+        if week not in (None, ""):
+            _add(f"week {week}", scope)
+    for lab in _OTHER_CITY_LABELS:
+        _add(lab, "other")
+    for lab in _FOREIGN_TEAMS:
+        _add(lab, "other")
+    return sorted(assigned.items(), key=lambda item: len(item[0]), reverse=True)
+
+
+def _claim_game_scope(
+    text: str,
+    claim_at: int,
+    recap: dict | None,
+    last_game: dict | None,
+    schedule=None,
+) -> str:
+    """Which box owns this claim: last, prior, other, or '' (default last).
+
+    Nearest opponent / week label to the left wins so a Chiefs subject
+    after 'Against Indianapolis' still uses the Indianapolis box, and a
+    Denver-week number is never checked against last week's Miami box.
+    """
+    start, _ = _stat_clause_span(text, claim_at)
+    window = text[max(0, start - 32) : claim_at]
+    best_pos = -1
+    best = ""
+    for lab, scope in _scope_label_map(recap, last_game, schedule):
+        for hit in re.finditer(rf"\b{re.escape(lab)}\b", window, re.IGNORECASE):
+            if hit.start() >= best_pos:
+                best_pos = hit.start()
+                best = scope
+    return best
+
+
+def _ground_subject(raw: str, aliases: dict[str, str]) -> str:
+    """Team token for a same-line 'Name 88 on the ground' match.
+
+    Heading leftovers ('Miami run game 88') do not bind. Copulas inside
+    the name ('leaves Miami is 88') do not bind.
+    """
+    words = re.findall(r"[A-Za-z][A-Za-z'’-]*", raw or "")
+    if not words or any(word.lower() in _GROUND_COPULA for word in words):
+        return ""
+    last = words[-1]
+    if _alias_team(last, aliases):
+        return last
+    if len(words) >= 2 and _alias_team(" ".join(words[-2:]), aliases):
+        return " ".join(words[-2:])
+    return ""
 
 
 def _player_teams(recap: dict | None) -> dict[str, str]:
@@ -1208,6 +1309,9 @@ def _check_td_yards(
                 window,
                 re.I,
             ):
+                continue
+            # 'from the 18 first downs' is volume, not a scoring-play mark.
+            if re.match(r"\s+first downs?\b", text[match.end() :], re.I):
                 continue
         bound = _bound_team(text, match.start(), match.end(), aliases, players)
         team = bound or _score_team_for_yards(recap, "td", yards)
@@ -2124,7 +2228,10 @@ def _check_absolute_claims(text: str, recap: dict | None) -> list[str]:
 
 
 def _check_team_yards(
-    text: str, recap: dict | None, last_game: dict | None
+    text: str,
+    recap: dict | None,
+    last_game: dict | None,
+    schedule=None,
 ) -> list[str]:
     """Team rushing/passing totals vs last-game and prior-game boxes."""
     if not text or not recap:
@@ -2189,7 +2296,21 @@ def _check_team_yards(
             continue
         if _player_last(match.group(1)) in players:
             continue
-        label, official = _expected_rush(match.group(1))
+        subject = _ground_subject(match.group(1), aliases)
+        if not subject:
+            continue
+        scope = _claim_game_scope(
+            text, match.start(), recap, last_game, schedule
+        )
+        if scope == "other":
+            continue
+        if scope == "prior":
+            label, official = "prior KC", prior_rush.get("KC")
+            named = _alias_team(subject, aliases)
+            if named and named != "KC" and named in prior_rush:
+                label, official = f"prior {named}", prior_rush.get(named)
+        else:
+            label, official = _expected_rush(subject)
         if official is None:
             continue
         if yards != official:
@@ -2206,8 +2327,18 @@ def _check_team_yards(
         if not re.search(r"\bteam\s+rush", match.group(0), re.I):
             if _player_owns_stat(text, match.start(), players, aliases):
                 continue
+        scope = _claim_game_scope(
+            text, match.start(), recap, last_game, schedule
+        )
+        if scope == "other":
+            continue
         team = _bound_box_team(text, match.start(), aliases)
-        label, official = _expected_rush(team) if team else ("team", None)
+        if scope == "prior":
+            label, official = "prior KC", prior_rush.get("KC")
+            if team and team != "KC" and team in prior_rush:
+                label, official = f"prior {team}", prior_rush.get(team)
+        else:
+            label, official = _expected_rush(team) if team else ("team", None)
         if official is None:
             if team and team != "KC" and team in last_rush:
                 official = last_rush[team]
@@ -2286,7 +2417,10 @@ def _box_clocks(recap: dict | None) -> dict[str, set[str]]:
 
 
 def _check_box_clocks(
-    text: str, recap: dict | None, last_game: dict | None
+    text: str,
+    recap: dict | None,
+    last_game: dict | None,
+    schedule=None,
 ) -> list[str]:
     """Possession, first downs, and game-yard totals vs the right box."""
     if not text:
@@ -2298,9 +2432,15 @@ def _check_box_clocks(
     prior_labels = _prior_game_labels(recap)
     kc = (recap or {}).get("kc") or {}
     prior = ((recap or {}).get("prior") or {}).get("kc") or {}
+    prior_opp = ((recap or {}).get("prior") or {}).get("opp") or {}
 
     for match in _POSSESSION_CLOCK.finditer(text):
         clock = match.group(1)
+        scope = _claim_game_scope(
+            text, match.start(), recap, last_game, schedule
+        )
+        if scope == "other":
+            continue
         if not allowed_clocks:
             continue
         if clock not in allowed_clocks and clock.replace(":", ".") not in allowed_clocks:
@@ -2317,7 +2457,24 @@ def _check_box_clocks(
                     f"({match.group(0)!r}; official {sorted(allowed_clocks)})"
                 )
             continue
-        team = _bound_team(text, match.start(), match.end(), aliases, {})
+        if scope == "prior":
+            if clock in clocks["prior KC"]:
+                continue
+            if clocks["prior KC"] and re.search(
+                r"possession|clock", match.group(0), re.I
+            ):
+                issues.append(
+                    f"possession {clock} is not on the prior-game ESPN box "
+                    f"({match.group(0)!r}; official "
+                    f"{sorted(clocks['prior KC'])})"
+                )
+            continue
+        team = _bound_box_team(text, match.start(), aliases)
+        owners = [side for side, bag in clocks.items() if clock in bag]
+        # A clock that only appears on the opponent box binds to them
+        # unless the local subject is explicitly KC.
+        if owners == ["OPP"] and team != "KC":
+            continue
         if team == "KC" and clock not in clocks["KC"] and clock in clocks["OPP"]:
             issues.append(
                 f"possession {clock} is Miami's clock, not KC "
@@ -2327,7 +2484,11 @@ def _check_box_clocks(
     kc_fd = _box_int(kc, "firstDowns")
     opp_fd = _box_int((recap or {}).get("opp"), "firstDowns")
     prior_fd = _box_int(prior, "firstDowns")
+    prior_opp_fd = _box_int(prior_opp, "firstDowns")
     opp_abbr = ((recap or {}).get("oppAbbr") or "").strip().upper()
+    prior_abbr = (
+        ((recap or {}).get("prior") or {}).get("oppAbbr") or ""
+    ).strip().upper()
     for match in _FIRST_DOWNS.finditer(text):
         try:
             claimed = int(match.group(1))
@@ -2335,9 +2496,21 @@ def _check_box_clocks(
             continue
         sentence = _sentence_at(text, match.start())
         team = _bound_box_team(text, match.start(), aliases)
+        scope = _claim_game_scope(
+            text, match.start(), recap, last_game, schedule
+        )
         official = None
         label = team or "KC"
-        if team and team == opp_abbr:
+        if scope == "other":
+            continue
+        if scope == "prior":
+            if team and prior_abbr and team == prior_abbr:
+                official, label = prior_opp_fd, f"prior {team}"
+            else:
+                official, label = prior_fd, "prior KC"
+            if official is None:
+                continue
+        elif team and team == opp_abbr:
             official, label = opp_fd, team
         elif team == "KC":
             official, label = kc_fd, "KC"
@@ -2346,6 +2519,8 @@ def _check_box_clocks(
             for lab in prior_labels
         ):
             official, label = prior_fd, "prior KC"
+            if official is None:
+                continue
         elif claimed in {kc_fd, opp_fd, prior_fd}:
             continue
         else:
@@ -2369,7 +2544,14 @@ def _check_box_clocks(
         sentence = _sentence_at(text, match.start()).lower()
         if "passing" in sentence or "rush" in sentence:
             continue
-        if any(re.search(rf"\b{re.escape(lab)}\b", sentence) for lab in prior_labels):
+        scope = _claim_game_scope(
+            text, match.start(), recap, last_game, schedule
+        )
+        if scope == "other":
+            continue
+        if scope == "prior" or any(
+            re.search(rf"\b{re.escape(lab)}\b", sentence) for lab in prior_labels
+        ):
             official = prior_total
             label = "prior KC"
             # 382 is Indy passing, not the game total.
@@ -3115,10 +3297,10 @@ def check_review(
                 issues.extend(_check_play_sequence(text, recap))
                 issues.extend(_check_turnover_credit(text, recap))
                 issues.extend(_check_absolute_claims(prose_text(narrative), recap))
-                issues.extend(_check_team_yards(text, recap, last_game))
+                issues.extend(_check_team_yards(text, recap, last_game, schedule))
                 issues.extend(_check_garbled_initials(text, recap))
                 issues.extend(_check_scheme_claims(text, recap))
-                issues.extend(_check_box_clocks(text, recap, last_game))
+                issues.extend(_check_box_clocks(text, recap, last_game, schedule))
                 issues.extend(_check_touch_counts(text, recap))
                 issues.extend(_check_attempt_counts(text, recap, last_game))
                 issues.extend(_check_sack_counts(text, recap))
@@ -3395,6 +3577,43 @@ def repair_offending_copy(
         review["lede"] = safe_score_lede(last_game)
         payload["lastGameReview"] = review
     return payload
+
+
+def repair_publish_blockers(
+    leftover: list[str],
+    repaired: dict | None,
+    orphans: list[str] | None = None,
+    *,
+    before: dict | None = None,
+) -> list[str]:
+    """Reasons a salvage cannot publish. Empty means the leftover copy is live.
+
+    Analysis sentences and drop count are not blockers. A full edition
+    that started at or above OFFLINE_WORD_FLOOR must still clear it
+    after the drops. Thin drafts that were already under the floor are
+    not failed for length here — leftover ESPN disagreements still are.
+    """
+    if leftover:
+        return [
+            "Chiefs Narrative fact-check failed after repair: "
+            + "; ".join(leftover)
+            + ". Refusing to publish a review that disagrees with ESPN."
+        ]
+    after_count = edition_word_count(repaired)
+    before_count = (
+        edition_word_count(before) if before is not None else after_count
+    )
+    if before_count >= OFFLINE_WORD_FLOOR and after_count < OFFLINE_WORD_FLOOR:
+        return [
+            "Chiefs Narrative fact-check repair left "
+            f"{after_count} words; floor is {OFFLINE_WORD_FLOOR}."
+        ]
+    if orphans:
+        return [
+            "Chiefs Narrative fact-check left fragments after repair: "
+            + "; ".join(orphans)
+        ]
+    return []
 
 
 def dropped_sentences(before, after) -> list[str]:
