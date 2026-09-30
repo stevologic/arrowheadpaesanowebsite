@@ -268,6 +268,12 @@ _POSSESSION_CLOCK = re.compile(
     re.IGNORECASE,
 )
 _FIRST_DOWNS = re.compile(r"\b(\d{1,2})\s+first downs?\b", re.IGNORECASE)
+_POSSESSION_HELD = re.compile(
+    r"\b(?:held|sat on|had the ball|kept the ball|won the clock|"
+    r"lost the clock)\b|"
+    r"\bstays?\s+on\b",
+    re.I,
+)
 _GAME_YARDS = re.compile(r"\b(\d{3})[-\s]yard(?:s)?\b", re.IGNORECASE)
 _NEVER_PLAY_CLAIM = re.compile(
     r"\bnever\s+(?:threw|completed|ran|scored|allowed|asked|hit|found|"
@@ -312,6 +318,10 @@ _NUMBER_WORDS = {
     "thirty": 30,
     "forty": 40,
 }
+_TOTAL_DRIVES = re.compile(
+    rf"\b({_NUM_TOKEN})\s+(?:total\s+)?drives\b",
+    re.IGNORECASE,
+)
 _TOUCH_COUNT = re.compile(
     rf"\b({_NUM_TOKEN})\s+touches\b|"
     rf"\btouched the ball\s+({_NUM_TOKEN})\s+times\b|"
@@ -802,6 +812,8 @@ def _scope_label_map(
     for lab in _last_game_labels(last_game, recap):
         assigned[lab] = "last"
     for lab in _prior_game_labels(recap):
+        assigned.setdefault(lab, "prior")
+    for lab in ("prior-week", "prior week", "prior game"):
         assigned.setdefault(lab, "prior")
     known = set(assigned) | _KC_SCOPE
 
@@ -2468,17 +2480,49 @@ def _box_int(block: dict | None, key: str):
 
 
 def _box_clocks(recap: dict | None) -> dict[str, set[str]]:
-    out: dict[str, set[str]] = {"KC": set(), "OPP": set(), "prior KC": set()}
+    out: dict[str, set[str]] = {
+        "KC": set(),
+        "OPP": set(),
+        "prior KC": set(),
+        "prior OPP": set(),
+    }
     kc = (recap or {}).get("kc") or {}
     opp = (recap or {}).get("opp") or {}
-    prior = ((recap or {}).get("prior") or {}).get("kc") or {}
+    prior_block = (recap or {}).get("prior") or {}
+    prior_kc = prior_block.get("kc") or {}
+    prior_opp = prior_block.get("opp") or {}
     if kc.get("possessionTime"):
         out["KC"].add(str(kc["possessionTime"]).strip())
     if opp.get("possessionTime"):
         out["OPP"].add(str(opp["possessionTime"]).strip())
-    if prior.get("possessionTime"):
-        out["prior KC"].add(str(prior["possessionTime"]).strip())
+    if prior_kc.get("possessionTime"):
+        out["prior KC"].add(str(prior_kc["possessionTime"]).strip())
+    if prior_opp.get("possessionTime"):
+        out["prior OPP"].add(str(prior_opp["possessionTime"]).strip())
     return out
+
+
+def _possession_held_by_named_team(text: str, match: re.Match) -> bool:
+    """True when the clause says that named team held / sat on / stays on TOP."""
+    start, end = _stat_clause_span(text, match.start())
+    # 37:00's colon is a clause break, so keep a short tail after the clock.
+    window = text[start : max(end, match.end() + 48)]
+    return bool(_POSSESSION_HELD.search(window))
+
+
+def _possession_owner_after_clock(
+    text: str, match: re.Match, aliases: dict[str, str]
+) -> str:
+    """'37:00 of possession stays on Indianapolis' names the owner after TOP."""
+    tail = text[match.end() : match.end() + 64]
+    stayed = re.search(
+        r"\bstays?\s+on\s+(?:the\s+)?([A-Za-z][A-Za-z '’-]+)",
+        tail,
+        re.I,
+    )
+    if not stayed:
+        return ""
+    return _alias_team(stayed.group(1), aliases)
 
 
 def _check_box_clocks(
@@ -2523,15 +2567,44 @@ def _check_box_clocks(
                 )
             continue
         if scope == "prior":
-            if clock in clocks["prior KC"]:
+            team = _bound_box_team(text, match.start(), aliases) or (
+                _possession_owner_after_clock(text, match, aliases)
+            )
+            prior_opp_abbr = (
+                ((recap or {}).get("prior") or {}).get("oppAbbr") or ""
+            ).strip().upper()
+            prior_allowed = clocks["prior KC"] | clocks["prior OPP"]
+            if clock in prior_allowed or clock.replace(":", ".") in prior_allowed:
+                if (
+                    team == "KC"
+                    and clock not in clocks["prior KC"]
+                    and clock in clocks["prior OPP"]
+                ):
+                    issues.append(
+                        f"possession {clock} is prior "
+                        f"{prior_opp_abbr or 'OPP'} clock, not KC "
+                        f"({match.group(0)!r})"
+                    )
+                elif (
+                    team
+                    and prior_opp_abbr
+                    and team == prior_opp_abbr
+                    and clock not in clocks["prior OPP"]
+                    and clock in clocks["prior KC"]
+                    and _possession_held_by_named_team(text, match)
+                ):
+                    issues.append(
+                        f"possession {clock} is prior KC clock, not "
+                        f"{prior_opp_abbr} ({match.group(0)!r})"
+                    )
                 continue
-            if clocks["prior KC"] and re.search(
+            if prior_allowed and re.search(
                 r"possession|clock", match.group(0), re.I
             ):
                 issues.append(
                     f"possession {clock} is not on the prior-game ESPN box "
                     f"({match.group(0)!r}; official "
-                    f"{sorted(clocks['prior KC'])})"
+                    f"{sorted(prior_allowed)})"
                 )
             continue
         team = _bound_box_team(text, match.start(), aliases)
@@ -2633,6 +2706,79 @@ def _check_box_clocks(
                     f"game yards {yards} disagrees with ESPN {official} for "
                     f"{label} ({match.group(0)!r})"
                 )
+    return issues
+
+
+def _box_drive_count(block: dict | None, recap_drives=None, side: str = ""):
+    official = _box_int(block, "totalDrives")
+    if official is not None:
+        return official
+    if recap_drives and side:
+        raw = recap_drives.get(side)
+        try:
+            return int(raw) if raw not in (None, "") else None
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def _check_drive_counts(
+    text: str,
+    recap: dict | None,
+    last_game: dict | None,
+    schedule=None,
+) -> list[str]:
+    """Total Drives from the ESPN team box, if the copy names a count."""
+    if not text:
+        return []
+    kc = (recap or {}).get("kc") or {}
+    opp = (recap or {}).get("opp") or {}
+    prior_block = (recap or {}).get("prior") or {}
+    drives = (recap or {}).get("drives") or {}
+    prior_drives = prior_block.get("drives") or {}
+    kc_n = _box_drive_count(kc, drives, "KC")
+    opp_n = _box_drive_count(opp, drives, "OPP")
+    prior_kc_n = _box_drive_count(prior_block.get("kc") or {}, prior_drives, "KC")
+    prior_opp_n = _box_drive_count(prior_block.get("opp") or {}, prior_drives, "OPP")
+    if kc_n is None and opp_n is None and prior_kc_n is None and prior_opp_n is None:
+        return []
+    aliases = _team_aliases(last_game, recap)
+    opp_abbr = ((recap or {}).get("oppAbbr") or "").strip().upper()
+    prior_abbr = (prior_block.get("oppAbbr") or "").strip().upper()
+    issues = []
+    for match in _TOTAL_DRIVES.finditer(text):
+        claimed = _match_count(match)
+        if claimed is None:
+            continue
+        team = _bound_box_team(text, match.start(), aliases)
+        scope = _claim_game_scope(
+            text, match.start(), recap, last_game, schedule
+        )
+        official = None
+        label = team or "KC"
+        if scope == "other":
+            continue
+        if scope == "prior":
+            if team and prior_abbr and team == prior_abbr:
+                official, label = prior_opp_n, f"prior {team}"
+            else:
+                official, label = prior_kc_n, "prior KC"
+            if official is None:
+                continue
+        elif team and team == opp_abbr:
+            official, label = opp_n, team
+        elif team == "KC":
+            official, label = kc_n, "KC"
+        elif claimed in {n for n in (kc_n, opp_n, prior_kc_n) if n is not None}:
+            continue
+        else:
+            official, label = kc_n, "KC"
+        if official is None or claimed == official:
+            continue
+        issues.append(
+            f"total drives {claimed} disagrees with ESPN {official} for "
+            f"{label} ({match.group(0)!r})"
+        )
     return issues
 
 
@@ -3433,6 +3579,7 @@ def check_review(
                 issues.extend(_check_garbled_initials(text, recap))
                 issues.extend(_check_scheme_claims(text, recap))
                 issues.extend(_check_box_clocks(text, recap, last_game, schedule))
+                issues.extend(_check_drive_counts(text, recap, last_game, schedule))
                 issues.extend(_check_touch_counts(text, recap))
                 issues.extend(_check_attempt_counts(text, recap, last_game))
                 issues.extend(_check_sack_counts(text, recap))
@@ -3468,17 +3615,23 @@ def _retry_stat_table(recap: dict | None) -> str:
         + (recap.get("oppAbbr") or "OPP")
         + f": KC rush={kc.get('rushingYards') or '—'} pass={kc.get('netPassingYards') or '—'} "
         f"total={kc.get('totalYards') or '—'} firstDowns={kc.get('firstDowns') or '—'} "
-        f"thirdDown={kc.get('thirdDownEff') or '—'} poss={kc.get('possessionTime') or '—'}; "
-        f"OPP rush={opp.get('rushingYards') or '—'} poss={opp.get('possessionTime') or '—'}.",
+        f"thirdDown={kc.get('thirdDownEff') or '—'} poss={kc.get('possessionTime') or '—'} "
+        f"drives={kc.get('totalDrives') or '—'}; "
+        f"OPP rush={opp.get('rushingYards') or '—'} poss={opp.get('possessionTime') or '—'} "
+        f"drives={opp.get('totalDrives') or '—'}.",
     ]
     if prior.get("kc"):
         pk = prior["kc"]
+        po = prior.get("opp") or {}
         lines.append(
             "  PRIOR vs "
             + (prior.get("oppAbbr") or "prior")
             + f": KC rush={pk.get('rushingYards') or '—'} pass={pk.get('netPassingYards') or '—'} "
             f"total={pk.get('totalYards') or '—'} firstDowns={pk.get('firstDowns') or '—'} "
-            f"thirdDown={pk.get('thirdDownEff') or '—'} poss={pk.get('possessionTime') or '—'}."
+            f"thirdDown={pk.get('thirdDownEff') or '—'} poss={pk.get('possessionTime') or '—'} "
+            f"drives={pk.get('totalDrives') or '—'}; "
+            f"OPP poss={po.get('possessionTime') or '—'} "
+            f"drives={po.get('totalDrives') or '—'}."
         )
     return "\n".join(lines)
 

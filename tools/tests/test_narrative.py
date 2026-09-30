@@ -3612,6 +3612,96 @@ class FactCheck(unittest.TestCase):
         )
         self.assertTrue(any("34:21" in item for item in leftover), leftover)
 
+    def test_prior_week_possession_binds_to_kc_not_indianapolis(self):
+        """Week 2 ESPN 401872945: KC 37:00, IND 33:00. Do not flip them."""
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        last["id"] = "401872952"
+        slate = [
+            {
+                "id": "401872945",
+                "week": 2,
+                "opponent": "Indianapolis Colts",
+                "opponentAbbr": "IND",
+                "completed": True,
+                "kcScore": 33,
+                "oppScore": 30,
+            },
+            {
+                "id": "401872952",
+                "week": 3,
+                "opponent": "Miami Dolphins",
+                "opponentAbbr": "MIA",
+                "completed": True,
+                "kcScore": 24,
+                "oppScore": 10,
+            },
+        ]
+        flipped = self._review(
+            lede="Indianapolis held the ball for 37:00 of possession."
+        )
+        issues = facts.check_review(flipped, last, recap, schedule=slate)
+        self.assertTrue(
+            any(
+                "37:00" in item and "prior KC" in item and "IND" in item
+                for item in issues
+            ),
+            issues,
+        )
+        stays = self._review(
+            lede="The prior-week 37:00 of possession stays on Indianapolis."
+        )
+        stays_issues = facts.check_review(stays, last, recap, schedule=slate)
+        self.assertTrue(
+            any("37:00" in item and "not IND" in item for item in stays_issues),
+            stays_issues,
+        )
+        chiefs = self._review(
+            lede=(
+                "Against Indianapolis the Chiefs posted 29 first downs "
+                "and 37:00 of possession."
+            )
+        )
+        self.assertEqual(
+            facts.check_review(chiefs, last, recap, schedule=slate), []
+        )
+        colts = self._review(
+            lede="Indianapolis held the ball for 33:00 of possession."
+        )
+        self.assertEqual(
+            facts.check_review(colts, last, recap, schedule=slate), []
+        )
+        kc_miami = self._review(
+            lede="Kansas City held the ball for 34:21 of possession."
+        )
+        miami_issues = facts.check_review(kc_miami, last, recap, schedule=slate)
+        self.assertTrue(
+            any("not KC" in item and "34:21" in item for item in miami_issues),
+            miami_issues,
+        )
+
+    def test_total_drives_from_espn_box_are_checked(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        ok = self._review(
+            lede=(
+                "Reid said after the game the offense did not have a ton of "
+                "plays, and the box backs him up: nine drives, 18 first downs, "
+                "3-of-7 on third down, 25:39 of possession."
+            )
+        )
+        self.assertEqual(facts.check_review(ok, last, recap), [])
+        both = self._review(lede="Kansas City and Miami each had 9 total drives.")
+        self.assertEqual(facts.check_review(both, last, recap), [])
+        wrong = self._review(lede="Kansas City finished with 15 drives.")
+        issues = facts.check_review(wrong, last, recap)
+        self.assertTrue(
+            any("total drives 15" in item and "9" in item for item in issues),
+            issues,
+        )
+
     def test_pr114_regression_accepts_real_copy_and_rejects_errors(self):
         catalog = _load_fixture("edition_pr114_karen_qa.json")
         recap = _load_fixture("espn_401872952_recap.json")
@@ -4020,8 +4110,14 @@ class FactCheck(unittest.TestCase):
         self.assertIn("rushingYards=119", text)
         self.assertIn("possessionTime=25:39", text)
         self.assertIn("possessionTime=34:21", text)
+        self.assertIn("totalDrives=9", text)
         self.assertIn("KC possession is 25:39", text)
         self.assertIn("MIA possession is 34:21", text)
+        self.assertIn("KC total drives are 9", text)
+        self.assertIn("MIA total drives are 9", text)
+        self.assertIn("KC possession is 37:00", text)
+        self.assertIn("IND possession is 33:00", text)
+        self.assertNotIn("stays on Indianapolis", text)
         self.assertIn("Never write the opponent clock as Kansas City's", text)
         self.assertIn("Possession time belongs to the team", prompts.SYSTEM_PROMPT)
         self.assertIn("SCORING PLAYS IN ORDER", text)
@@ -4219,7 +4315,7 @@ class FactCheck(unittest.TestCase):
                 "oppScore": 10,
             },
             {
-                "id": "401872951",
+                "id": "401872945",
                 "week": 2,
                 "opponent": "Indianapolis Colts",
                 "opponentAbbr": "IND",
@@ -5414,6 +5510,7 @@ class Week3MiamiWeek4Raiders(unittest.TestCase):
                             {"name": "rushingTouchdowns", "displayValue": "1"},
                             {"name": "firstDowns", "displayValue": "18"},
                             {"name": "possessionTime", "displayValue": "25:39"},
+                            {"name": "totalDrives", "displayValue": "9"},
                             {"name": "sacks", "displayValue": "0-0"},
                         ],
                     },
@@ -5462,6 +5559,7 @@ class Week3MiamiWeek4Raiders(unittest.TestCase):
         self.assertEqual(recap["kc"]["rushingAttempts"], "25")
         self.assertEqual(recap["kc"]["rushingYards"], "88")
         self.assertEqual(recap["kc"]["firstDowns"], "18")
+        self.assertEqual(recap["kc"]["totalDrives"], "9")
         self.assertEqual(recap["drives"]["KC"], 2)
         self.assertEqual(recap["drives"]["OPP"], 1)
         self.assertEqual(recap["passing"][0]["rating"], "119.8")

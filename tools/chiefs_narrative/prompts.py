@@ -242,6 +242,38 @@ def _allowed_facts(recap: dict | None) -> list[str]:
     return lines
 
 
+def _box_clock_note(kc: dict, opp: dict, opp_label: str) -> str:
+    """Bind TOP to the ESPN box sides; never hardcode a week-specific owner."""
+    kc_clock = kc.get("possessionTime") or ""
+    opp_clock = opp.get("possessionTime") or ""
+    if not (kc_clock or opp_clock):
+        return ""
+    return (
+        f" KC possession is {kc_clock or '—'}; "
+        f"{opp_label} possession is {opp_clock or '—'}. "
+        "Never write the opponent clock as Kansas City's."
+    )
+
+
+def _box_drive_note(kc: dict, opp: dict, opp_label: str) -> str:
+    """Bind Total Drives to the ESPN box sides."""
+    kc_drives = kc.get("totalDrives") or ""
+    opp_drives = opp.get("totalDrives") or ""
+    if not (kc_drives or opp_drives):
+        return ""
+    return (
+        f" KC total drives are {kc_drives or '—'}; "
+        f"{opp_label} total drives are {opp_drives or '—'}."
+    )
+
+
+def _prior_passing_note(prior: dict) -> str:
+    yards = ((prior or {}).get("kc") or {}).get("netPassingYards") or ""
+    if yards:
+        return f" A {yards}-yard passing total is the PRIOR game, not this one."
+    return " Do not blend last-game and prior-game passing totals."
+
+
 def _format_drive_result(row: dict) -> str:
     quarter = f"Q{row['quarter']}" if row.get("quarter") else "Q?"
     clock = row.get("clock") or ""
@@ -347,19 +379,11 @@ def _last_game_brief(signals: dict, phase: dict) -> str:
         label = recap.get("oppAbbr") or "OPP"
         if opp:
             lines.append(f"    {label}: " + ", ".join(f"{k}={v}" for k, v in opp.items() if v))
-        kc_clock = kc.get("possessionTime") or ""
-        opp_clock = opp.get("possessionTime") or ""
-        clock_note = ""
-        if kc_clock or opp_clock:
-            clock_note = (
-                f" KC possession is {kc_clock or '—'}; "
-                f"{label} possession is {opp_clock or '—'}. "
-                "Never write the opponent clock as Kansas City's."
-            )
         lines.append(
             "  LAST-GAME CLOCK/DOWNS stay with this opponent."
-            + clock_note
-            + " A 382-yard passing total is the PRIOR game, not this one."
+            + _box_clock_note(kc, opp, label)
+            + _box_drive_note(kc, opp, label)
+            + _prior_passing_note(recap.get("prior") or {})
         )
     plays = recap.get("scoringPlays") or []
     if plays:
@@ -403,6 +427,13 @@ def _last_game_brief(signals: dict, phase: dict) -> str:
             lines.append(
                 f"    {abbr}: "
                 + ", ".join(f"{k}={v}" for k, v in prior["opp"].items() if v)
+            )
+        prior_label = prior.get("oppAbbr") or "OPP"
+        prior_clock = _box_clock_note(prior.get("kc") or {}, prior.get("opp") or {}, prior_label)
+        if prior_clock:
+            lines.append(
+                "  PRIOR-GAME CLOCK belongs to the team on that box line."
+                + prior_clock
             )
     for play in recap.get("plays") or []:
         if not isinstance(play, dict):
