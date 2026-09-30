@@ -279,7 +279,7 @@
     }
   ],
   "prior": {
-    "eventId": "401872951",
+    "eventId": "401872945",
     "oppAbbr": "IND",
     "opponent": "Indianapolis Colts",
     "kc": {
@@ -287,9 +287,15 @@
       "netPassingYards": "382",
       "totalYards": "534",
       "firstDowns": "29",
-      "possessionTime": "37:00"
+      "possessionTime": "37:00",
+      "totalDrives": "11"
     },
-    "opp": { "rushingYards": "95", "netPassingYards": "240" },
+    "opp": {
+      "rushingYards": "95",
+      "netPassingYards": "240",
+      "possessionTime": "33:00",
+      "totalDrives": "10"
+    },
     "leaders": [
       {
         "player": "Kenneth Walker III",
