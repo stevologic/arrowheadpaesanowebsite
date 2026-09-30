@@ -3375,6 +3375,103 @@ class FactCheck(unittest.TestCase):
             self.assertTrue(repair["holdAutomerge"])
             self.assertTrue(repair["droppedSentences"])
 
+    def test_fact_check_orphan_after_40_drop_publishes(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        orphan = (
+            "That is how you finish with 25:39 even after hitting explosives."
+        )
+        bad = {
+            "headline": "Fresh title",
+            "dek": "Fresh dek",
+            "theEdge": "Fresh edge about the 24-10 tape.",
+            "lastGameReview": {
+                "lede": (
+                    "Kansas City finished 24–10 against Miami. "
+                    "Twenty of 24 for 246, two touchdowns, one interception, "
+                    "and a 119.8 rating is a control tape, not a 40-dropback "
+                    "scramble. "
+                    + orphan
+                ),
+            },
+        }
+        last = dict(self.LAST)
+        last["id"] = "401872952"
+        last["date"] = "2026-09-27T17:00:00Z"
+        last["kickoff"] = "Sun, Sep 27 · 12:00 PM CT"
+        week4 = {
+            "id": "w4",
+            "week": 4,
+            "seasonType": "reg",
+            "date": "2026-10-04T20:25:00Z",
+            "opponent": "Las Vegas Raiders",
+            "completed": False,
+            "inProgress": False,
+            "kcScore": None,
+            "oppScore": None,
+            "kickoff": "Sun, Oct 4 · 3:25 PM CT",
+        }
+        ph = {
+            "type": "regular",
+            "label": "Week 4",
+            "week": 4,
+            "mode": "review",
+            "edition": "2026 Week 4 · Week 3 Review",
+            "lastGame": last,
+            "nextGame": week4,
+            "liveGame": None,
+        }
+        llm = Mock(side_effect=[(bad, "grok"), (bad, "grok"), (bad, "grok")])
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            narrative_json = root / "narrative.json"
+            repair_json = root / "repair.json"
+            wire_json = root / "wire.json"
+            editions = root / "editions"
+            editions.mkdir()
+            archive = root / "archive.json"
+            archive.write_text("[]\n", encoding="utf-8")
+            with patch.object(
+                collect,
+                "collect_all",
+                return_value={"schedule": [last, week4], "news": [], "markets": {}},
+            ), patch.object(
+                collect, "fetch_game_recap", return_value=recap
+            ), patch.object(
+                phase, "detect", return_value=ph
+            ), patch.object(
+                phase, "next_games", return_value=[week4]
+            ), patch.object(
+                phase, "any_live", return_value=False
+            ), patch.object(
+                odds, "collect_markets", return_value={}
+            ), patch.object(
+                providers, "generate_via_llm", llm
+            ), patch.object(
+                generate, "_render_diagrams"
+            ), patch.object(
+                generate, "_write_schedule"
+            ), patch.object(
+                generate.config, "NARRATIVE_JSON", narrative_json
+            ), patch.object(
+                generate.config, "WIRE_JSON", wire_json
+            ), patch.object(
+                generate.config, "EDITIONS_DIR", editions
+            ), patch.object(
+                generate.config, "ARCHIVE_JSON", archive
+            ), patch.object(
+                generate.config, "REPAIR_JSON", repair_json
+            ):
+                rc = generate.main(["--provider", "grok"])
+            self.assertEqual(
+                rc, 0, repair_json.read_text() if repair_json.exists() else "no repair"
+            )
+            written = json.loads(narrative_json.read_text(encoding="utf-8"))
+            blob = facts.edition_text(written)
+            self.assertNotIn("40-dropback", blob)
+            self.assertNotIn(orphan, blob)
+            repair = json.loads(repair_json.read_text(encoding="utf-8"))
+            self.assertTrue(any(orphan in item for item in repair["droppedSentences"]))
+
     def test_int_credit_ignores_common_words_and_passers(self):
         recap = _load_fixture("espn_401872952_recap.json")
         last = dict(self.LAST)
@@ -3441,6 +3538,79 @@ class FactCheck(unittest.TestCase):
         )
         self.assertTrue(any("orphan" in item for item in issues), issues)
         self.assertTrue(any("fragment" in item or "dangling" in item for item in issues), issues)
+
+    def test_repair_drops_orphan_opener_left_by_40_drop(self):
+        """Run 36751657899: drop-pass removed the 40-drop sentence and left
+        'That is how you finish with 25:39…' as a fatal orphan.
+        """
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        orphan = (
+            "That is how you finish with 25:39 even after hitting explosives."
+        )
+        narrative = {
+            "headline": "Keep this title",
+            "lastGameReview": {
+                "lede": (
+                    "Kansas City finished 24–10 against Miami. "
+                    "Twenty of 24 for 246, two touchdowns, one interception, "
+                    "and a 119.8 rating is a control tape, not a 40-dropback "
+                    "scramble. "
+                    + orphan
+                ),
+            },
+        }
+        issues = facts.check_review(narrative, last, recap)
+        self.assertTrue(
+            any("40-drop" in item or "pass attempts" in item for item in issues),
+            issues,
+        )
+        repaired = facts.repair_offending_copy(narrative, issues, last)
+        blob = facts.edition_text(repaired)
+        self.assertNotIn("40-dropback", blob)
+        self.assertNotIn(orphan, blob)
+        self.assertIn("24", repaired["lastGameReview"]["lede"])
+        dropped = facts.dropped_sentences(narrative, repaired)
+        self.assertTrue(any("40-dropback" in item for item in dropped), dropped)
+        self.assertTrue(any(orphan in item for item in dropped), dropped)
+        self.assertEqual(facts.check_review(repaired, last, recap), [])
+        self.assertEqual(facts.check_repair_orphans(repaired, dropped), [])
+        self.assertEqual(facts.repair_publish_blockers([], repaired, []), [])
+
+    def test_kc_possession_of_miami_clock_still_fails_and_is_dropped(self):
+        """Run 36741379345: 34:21 is Miami's TOP. Do not publish it as KC."""
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        wrong = self._review(
+            lede="Kansas City held the ball for 34:21 of possession."
+        )
+        issues = facts.check_review(wrong, last, recap)
+        self.assertTrue(
+            any("not KC" in item and "34:21" in item for item in issues),
+            issues,
+        )
+        # Apostrophe in an older 'Miami's clock' note must not hide 34:21.
+        poisoned = (
+            "possession 34:21 is Miami's clock, not KC "
+            "('34:21 of possession')"
+        )
+        self.assertIn("34:21", facts.violation_snippets([poisoned]))
+        self.assertIn("34:21", facts.violation_snippets(issues))
+        repaired = facts.repair_offending_copy(wrong, issues, last)
+        self.assertNotIn("34:21", facts.edition_text(repaired))
+        self.assertEqual(facts.check_review(repaired, last, recap), [])
+        miami = self._review(
+            lede="Miami held the ball for 34:21 of possession."
+        )
+        self.assertEqual(facts.check_review(miami, last, recap), [])
+        leftover = facts.repair_publish_blockers(
+            ["possession 34:21 is MIA clock, not KC ('34:21')"],
+            wrong,
+            [],
+        )
+        self.assertTrue(any("34:21" in item for item in leftover), leftover)
 
     def test_pr114_regression_accepts_real_copy_and_rejects_errors(self):
         catalog = _load_fixture("edition_pr114_karen_qa.json")
@@ -3513,6 +3683,7 @@ class FactCheck(unittest.TestCase):
         self.assertIn("PER-GAME STAT TABLE", text)
         self.assertIn("88", text)
         self.assertIn("do not repeat the flagged wording", text)
+        self.assertIn("Possession clocks stay with the team on that box line", text)
 
     def test_run_36444997578_touch_penalty_look_and_clock_fail(self):
         catalog = _load_fixture("edition_run_36444997578.json")
@@ -3849,6 +4020,10 @@ class FactCheck(unittest.TestCase):
         self.assertIn("rushingYards=119", text)
         self.assertIn("possessionTime=25:39", text)
         self.assertIn("possessionTime=34:21", text)
+        self.assertIn("KC possession is 25:39", text)
+        self.assertIn("MIA possession is 34:21", text)
+        self.assertIn("Never write the opponent clock as Kansas City's", text)
+        self.assertIn("Possession time belongs to the team", prompts.SYSTEM_PROMPT)
         self.assertIn("SCORING PLAYS IN ORDER", text)
         self.assertIn("Kenneth Walker III", text)
         self.assertIn("Ollie Gordon II", text)

@@ -641,9 +641,16 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
 
         repaired, leftover, gone = _drop_and_log(narrative, violations)
         dropped.extend(gone)
-        if leftover:
+        # A snippet drop can expose a newly bound leftover (run 36741379345
+        # gave Miami's 34:21 to KC) or an orphan opener (run 36751657899).
+        # Keep salvaging while a pass still removes copy.
+        passes = 0
+        while leftover and passes < 6:
+            passes += 1
             repaired, leftover, gone = _drop_and_log(repaired, leftover)
             dropped.extend(gone)
+            if not gone:
+                break
         orphans = facts.check_repair_orphans(repaired, dropped)
         blockers = facts.repair_publish_blockers(
             leftover, repaired, orphans, before=narrative
