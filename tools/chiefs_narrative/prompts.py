@@ -43,7 +43,9 @@ Do not call it a night game. Do not write the instruction itself.
 Credit only the player ESPN lists as forcing or recovering a fumble, or as \
 the interceptor. Team rushing and passing totals come from the BOX lines, \
 including the prior-game box — do not substitute a player's line for the \
-team total. Do not write only/first/never/lone claims about plays unless \
+team total. Possession time belongs to the team on that box line; never \
+give the opponent's clock to Kansas City or blend last-game TOP with the \
+prior-game clock. Do not write only/first/never/lone claims about plays unless \
 the play-by-play list supports them. Exactly four offense and two defense \
 X's & O's cards; the defense cards must be Cover-2 and the zone blitz, \
 each with a real situation and why. The zone-blitz card is a call to \
@@ -342,12 +344,22 @@ def _last_game_brief(signals: dict, phase: dict) -> str:
         )
         if kc:
             lines.append("    KC: " + ", ".join(f"{k}={v}" for k, v in kc.items() if v))
+        label = recap.get("oppAbbr") or "OPP"
         if opp:
-            label = recap.get("oppAbbr") or "OPP"
             lines.append(f"    {label}: " + ", ".join(f"{k}={v}" for k, v in opp.items() if v))
+        kc_clock = kc.get("possessionTime") or ""
+        opp_clock = opp.get("possessionTime") or ""
+        clock_note = ""
+        if kc_clock or opp_clock:
+            clock_note = (
+                f" KC possession is {kc_clock or '—'}; "
+                f"{label} possession is {opp_clock or '—'}. "
+                "Never write the opponent clock as Kansas City's."
+            )
         lines.append(
-            "  LAST-GAME CLOCK/DOWNS stay with this opponent. "
-            "A 382-yard passing total is the PRIOR game, not this one."
+            "  LAST-GAME CLOCK/DOWNS stay with this opponent."
+            + clock_note
+            + " A 382-yard passing total is the PRIOR game, not this one."
         )
     plays = recap.get("scoringPlays") or []
     if plays:

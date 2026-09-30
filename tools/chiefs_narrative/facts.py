@@ -521,6 +521,14 @@ _ORPHAN_OPENER = re.compile(
     r"^(?:He|She|They|It|This|That|Those|These|His|Her|Their|the same)\b",
     re.IGNORECASE,
 )
+_DANGLING_NAME = re.compile(
+    r"^[A-Z][a-z]+(?:\s+at\b|\s+took\b).{0,48}$",
+)
+_ORPHAN_VERB = re.compile(
+    r"\b(?:is|was|were|are|won|lost|had|has|scored|made|hit)\b",
+    re.IGNORECASE,
+)
+_CLOCK_SNIPPET = re.compile(r"^\d{1,2}:\d{2}$")
 # Historical salvage cap. Drop-pass publish is gated by leftover errors
 # and OFFLINE_WORD_FLOOR, not by how many sentences were removed.
 MAX_REPAIR_DROPS = 2
@@ -2533,8 +2541,11 @@ def _check_box_clocks(
         if owners == ["OPP"] and team != "KC":
             continue
         if team == "KC" and clock not in clocks["KC"] and clock in clocks["OPP"]:
+            opp_label = (
+                ((recap or {}).get("oppAbbr") or "OPP").strip() or "OPP"
+            )
             issues.append(
-                f"possession {clock} is Miami's clock, not KC "
+                f"possession {clock} is {opp_label} clock, not KC "
                 f"({match.group(0)!r})"
             )
 
@@ -3490,7 +3501,9 @@ def retry_instruction(violations: list[str], recap: dict | None = None) -> str:
         "is 88 in Miami, not 18. Use last names (Karlaftis, not George). "
         "Do not write only/first/never/lone play claims the play-by-play "
         "cannot support. A score 'after' or 'following' a play must bind "
-        "to the play that clause actually names."
+        "to the play that clause actually names. Possession clocks stay "
+        "with the team on that box line — do not give the opponent TOP "
+        "to Kansas City or mix last-game and prior-game clocks."
     )
 
 
@@ -3508,22 +3521,35 @@ def violation_snippets(violations: list[str]) -> list[str]:
     """Quoted match text from a violation, e.g. 'lost 18-19'.
 
     Scheme leftovers used to ship with no quotes, so the drop pass could
-    not find 'between the tackles' / 'zone blitz'. Quoted matches come
-    first; those phrases are also needles when the note itself names them.
+    not find 'between the tackles' / 'zone blitz'. Parenthetical quotes
+    from check_review come first. ASCII possessives like Miami's used to
+    swallow ('34:21') and leave the clock sentence in the edition.
     """
     out: list[str] = []
     seen: set[str] = set()
+
+    def _add(snippet: str) -> None:
+        token = (snippet or "").strip()
+        if not token or token in seen:
+            return
+        # Miami's clock ('34:21') → leftover 's clock, not KC ('
+        if token.startswith("s ") or token.endswith("("):
+            return
+        seen.add(token)
+        out.append(token)
+
     for item in violations or []:
+        for hit in re.findall(r"\('([^']+)'\)", item):
+            _add(hit)
         for hit in re.findall(r"'([^']+)'", item):
-            snippet = hit.strip()
-            if snippet and snippet not in seen:
-                seen.add(snippet)
-                out.append(snippet)
+            _add(hit)
         low = item.lower()
+        claimed = re.match(r"possession (\d{1,2}:\d{2})\b", item, re.I)
+        if claimed:
+            _add(claimed.group(1))
         for needle in _SCHEME_SNIPPETS:
-            if needle in low and needle not in seen:
-                seen.add(needle)
-                out.append(needle)
+            if needle in low:
+                _add(needle)
     return out
 
 
@@ -3561,26 +3587,81 @@ def _review_prose(narrative: dict | None) -> str:
     return "\n".join(p for p in parts if p)
 
 
+def _orphan_issue(sentence: str) -> str | None:
+    words = sentence.split()
+    if not words:
+        return None
+    if _ORPHAN_OPENER.match(sentence):
+        return f"orphan opener after repair ({sentence!r})"
+    if _DANGLING_NAME.match(sentence):
+        return f"dangling name after repair ({sentence!r})"
+    if len(words) <= 4 and not _ORPHAN_VERB.search(sentence):
+        return f"fragment after repair ({sentence!r})"
+    return None
+
+
+def _is_repair_orphan(sentence: str) -> bool:
+    """True when a leftover sentence cannot stand after its antecedent dropped."""
+    return _orphan_issue(sentence) is not None
+
+
 def check_repair_orphans(narrative: dict | None, dropped: list[str]) -> list[str]:
     """Fail leftovers that lost their antecedent in a salvage drop."""
     if not dropped:
         return []
     issues = []
     for sentence in _split_sentences(_review_prose(narrative)):
-        words = sentence.split()
-        if not words:
-            continue
-        if _ORPHAN_OPENER.match(sentence):
-            issues.append(f"orphan opener after repair ({sentence!r})")
-        if re.match(r"^[A-Z][a-z]+(?:\s+at\b|\s+took\b).{0,48}$", sentence):
-            issues.append(f"dangling name after repair ({sentence!r})")
-        if len(words) <= 4 and not re.search(
-            r"\b(?:is|was|were|are|won|lost|had|has|scored|made|hit)\b",
-            sentence,
-            re.I,
-        ):
-            issues.append(f"fragment after repair ({sentence!r})")
+        note = _orphan_issue(sentence)
+        if note:
+            issues.append(note)
     return issues
+
+
+def _drop_orphan_text(text: str) -> str:
+    sentences = _split_sentences(text)
+    if not sentences:
+        return text
+    kept = [item for item in sentences if not _is_repair_orphan(item)]
+    if len(kept) == len(sentences):
+        return text
+    return " ".join(kept).strip()
+
+
+def _strip_review_orphans(review: dict) -> dict:
+    """Drop dependent openers/fragments from lastGameReview only."""
+    lede = review.get("lede")
+    if isinstance(lede, str) and lede.strip():
+        review["lede"] = _drop_orphan_text(lede)
+    analysis = []
+    for para in review.get("analysis") or []:
+        if isinstance(para, dict):
+            body = _drop_orphan_text(str(para.get("body") or ""))
+            item = dict(para)
+            item["body"] = body
+            if body or item.get("title"):
+                analysis.append(item)
+        else:
+            kept = _drop_orphan_text(str(para or ""))
+            if kept:
+                analysis.append(kept)
+    review["analysis"] = analysis
+    for key in ("whatWorked", "whatDidnt"):
+        items = []
+        for item in review.get(key) or []:
+            kept = _drop_orphan_text(str(item or ""))
+            if kept:
+                items.append(kept)
+        review[key] = items
+    return review
+
+
+def drop_repair_orphans(narrative: dict | None) -> dict:
+    """Remove review sentences that check_repair_orphans would veto."""
+    payload = copy.deepcopy(narrative or {})
+    review = payload.get("lastGameReview")
+    if isinstance(review, dict):
+        payload["lastGameReview"] = _strip_review_orphans(review)
+    return payload
 
 
 def _check_garbled_initials(text: str, recap: dict | None) -> list[str]:
@@ -3656,8 +3737,22 @@ def _check_scheme_claims(text: str, recap: dict | None) -> list[str]:
     return issues
 
 
+def _sentence_has_snippet(sentence: str, snip: str) -> bool:
+    """True when this sentence contains the quoted violation match.
+
+    Clock snippets such as 34:21 must still drop even when the colon
+    sits against punctuation that a word-boundary search can miss.
+    """
+    if not snip:
+        return False
+    if re.search(rf"(?<!\w){re.escape(snip)}(?!\w)", sentence, re.I):
+        return True
+    return bool(_CLOCK_SNIPPET.match(snip) and snip in sentence)
+
+
 def _drop_text(text: str, snippets: list[str]) -> str:
-    lowered = [s.lower() for s in snippets if s]
+    needles = [s for s in snippets if s]
+    lowered = [s.lower() for s in needles]
     if not text or not lowered or not any(s in text.lower() for s in lowered):
         return text
     sentences = _split_sentences(text)
@@ -3666,9 +3761,7 @@ def _drop_text(text: str, snippets: list[str]) -> str:
     kept = [
         s
         for s in sentences
-        if not any(
-            re.search(rf"(?<!\w){re.escape(snip)}(?!\w)", s, re.I) for snip in lowered
-        )
+        if not any(_sentence_has_snippet(s, snip) for snip in needles)
     ]
     return " ".join(kept).strip()
 
@@ -3713,14 +3806,17 @@ def repair_offending_copy(
     violations: list[str],
     last_game: dict | None = None,
 ) -> dict:
-    """Drop or blank only the sentences that triggered the violations."""
+    """Drop offending sentences, then dependent orphan openers/fragments."""
     payload = copy.deepcopy(narrative or {})
     snippets = violation_snippets(violations)
-    if not snippets:
-        return payload
-    for key in _EDITION_KEYS:
-        if key in payload:
-            payload[key] = _drop_value(payload[key], snippets)
+    if snippets:
+        for key in _EDITION_KEYS:
+            if key in payload:
+                payload[key] = _drop_value(payload[key], snippets)
+    if dropped_sentences(narrative or {}, payload):
+        review = payload.get("lastGameReview")
+        if isinstance(review, dict):
+            payload["lastGameReview"] = _strip_review_orphans(review)
     review = payload.get("lastGameReview")
     if isinstance(review, dict) and not (review.get("lede") or "").strip():
         review["lede"] = safe_score_lede(last_game)
