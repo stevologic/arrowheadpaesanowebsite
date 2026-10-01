@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-10-01T16:54:56+00:00",
-  "updatedAt": "2026-10-01T18:30:00+00:00",
+  "updatedAt": "2026-10-01T17:57:00+00:00",
   "generator": "grok:grok-4.6",
   "phase": {
     "type": "regular",
@@ -425,7 +425,7 @@
     {
       "segment": "Where 3-0 actually stands",
       "length": "6:00-9:30",
-      "talkTrack": "Week 2 vs Indianapolis: KC 523 yards, 29 first downs, 371 net passing, 152 rushing, 37:00 of possession, a 33-30 overtime win. Miami was 329 yards, 19 first downs, 34:21. Same 3-0, different box. Simmons’ disk, Sneed limited, Crosby waiting. FPI 70.0 percent is a favorite, not a bye."
+      "talkTrack": "Week 2 vs Indianapolis: KC 523 yards, 29 first downs, 371 net passing, 152 rushing, 37:00 of possession, a 33-30 overtime win. Week 3 at Miami: KC 334 yards, 18 first downs, 246 net passing, 88 rushing, 25:39. Same 3-0, different box. Simmons’ disk, Sneed limited, Crosby waiting. FPI 70.0 percent is a favorite, not a bye."
     },
     {
       "segment": "Raiders matchup",
