@@ -4617,8 +4617,293 @@ class FactCheck(unittest.TestCase):
         self.assertIn("narrative_repair.json", yaml)
         self.assertIn("Dropped sentences", yaml)
         self.assertIn("HOLD_MERGE", yaml)
+        self.assertIn("holdAutomerge", yaml)
         self.assertIn("Holding automerge", yaml)
+        self.assertIn("needs.update.outputs.publish", yaml)
         self.assertLess(yaml.index("HOLD_MERGE"), yaml.index("gh pr merge"))
+        self.assertLess(yaml.index("HOLD_MERGE"), yaml.index('echo "publish=true"'))
+        hold_block = yaml[yaml.index("HOLD_MERGE") : yaml.index("gh pr merge")]
+        self.assertIn("publish=false", hold_block)
+
+    def _week3_slate(self):
+        return [
+            {
+                "id": "401872945",
+                "week": 2,
+                "opponent": "Indianapolis Colts",
+                "opponentAbbr": "IND",
+                "completed": True,
+                "kcScore": 33,
+                "oppScore": 30,
+            },
+            {
+                "id": "401872952",
+                "week": 3,
+                "opponent": "Miami Dolphins",
+                "opponentAbbr": "MIA",
+                "completed": True,
+                "kcScore": 24,
+                "oppScore": 10,
+            },
+        ]
+
+    def test_zone_blitz_int_needs_word_boundary(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        interior = self._review(
+            lede=(
+                "Spagnuolo can zone blitz to stress the interior and still "
+                "keep a linebacker on Bowers."
+            )
+        )
+        into = self._review(
+            lede=(
+                "Cover-2 and the zone blitz are how Kansas City keeps Bowers "
+                "from turning Allegiant into another long afternoon."
+            )
+        )
+        self.assertEqual(facts.check_review(interior, last, recap), [])
+        self.assertEqual(facts.check_review(into, last, recap), [])
+        real = self._review(
+            lede=(
+                "Zone blitz Jones/Karlaftis with a dropping end on "
+                "second-and-long — the look that helped produce the Willis "
+                "interception."
+            )
+        )
+        issues = facts.check_review(real, last, recap)
+        self.assertTrue(
+            any("zone blitz producing the interception" in item for item in issues),
+            issues,
+        )
+
+    def test_one_zone_blitz_hit_does_not_strip_every_call(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        keep = (
+            "Cover-2 and the zone blitz are on the call sheet because Las "
+            "Vegas will keep the football if Kansas City lets another offense "
+            "live on third-and-medium."
+        )
+        drop = (
+            "Zone blitz Jones/Karlaftis with a dropping end on second-and-long "
+            "— the look that helped produce the Willis interception."
+        )
+        narrative = {
+            "headline": "Keep this title",
+            "lastGameReview": {
+                "lede": "Kansas City finished 24–10 against Miami.",
+                "analysis": [keep, drop],
+            },
+            "strategies": [
+                "Cover-2 on third-and-long to take away Bowers; zone blitz "
+                "on second-and-long to steal the down."
+            ],
+        }
+        issues = facts.check_review(narrative, last, recap)
+        snippets = facts.violation_snippets(issues)
+        self.assertFalse(
+            any(s.lower() == "zone blitz" for s in snippets), snippets
+        )
+        repaired = facts.repair_offending_copy(narrative, issues, last)
+        blob = facts.edition_text(repaired)
+        self.assertNotIn("produce the Willis interception", blob)
+        self.assertIn("zone blitz are on the call sheet", blob)
+        self.assertIn("steal the down", blob)
+
+    def test_qb_hits_bind_to_the_team_that_recorded_them(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        both = self._review(
+            lede=(
+                "He was not running for his life — zero sacks — but Miami "
+                "did record 5 QB hits, and Kansas City recorded 1."
+            )
+        )
+        self.assertEqual(facts.check_review(both, last, recap), [])
+        kc_only = self._review(lede="The Chiefs recorded 5 QB hits.")
+        issues = facts.check_review(kc_only, last, recap)
+        self.assertTrue(
+            any("QB hits 5" in item and "1" in item for item in issues), issues
+        )
+
+    def test_first_downs_bind_to_the_team_that_owns_them(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        last["id"] = "401872952"
+        slate = self._week3_slate()
+        tape = self._review(
+            lede=(
+                "The Indianapolis tape is a different movie and has to stay "
+                "in its own box: 523 yards, 29 first downs, 371 net passing, "
+                "152 rushing, 37:00 of possession in a 33-30 overtime win."
+            )
+        )
+        self.assertEqual(
+            facts.check_review(tape, last, recap, schedule=slate), []
+        )
+        chiefs = self._review(
+            lede=(
+                "Against Indianapolis the Chiefs posted 29 first downs "
+                "and 37:00 of possession."
+            )
+        )
+        self.assertEqual(
+            facts.check_review(chiefs, last, recap, schedule=slate), []
+        )
+        flipped = self._review(
+            lede="Indianapolis was 523 yards, 29 first downs, 37:00 of possession."
+        )
+        issues = facts.check_review(flipped, last, recap, schedule=slate)
+        self.assertTrue(
+            any("first downs 29" in item and "IND" in item for item in issues)
+            or any("523" in item for item in issues),
+            issues,
+        )
+
+    def test_possession_binding_works_both_ways(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        last["id"] = "401872952"
+        slate = self._week3_slate()
+        miami_had = self._review(lede="Miami had 25:39 of possession.")
+        miami_issues = facts.check_review(miami_had, last, recap, schedule=slate)
+        self.assertTrue(
+            any("25:39" in item and "KC" in item for item in miami_issues),
+            miami_issues,
+        )
+        dolphins = self._review(lede="The Dolphins held the ball for 25:39.")
+        dolph_issues = facts.check_review(dolphins, last, recap, schedule=slate)
+        self.assertTrue(
+            any("25:39" in item for item in dolph_issues), dolph_issues
+        )
+        kc_prior = self._review(
+            lede="Kansas City held the ball for 33:00 against Indianapolis."
+        )
+        prior_issues = facts.check_review(kc_prior, last, recap, schedule=slate)
+        self.assertTrue(
+            any("33:00" in item and "not KC" in item for item in prior_issues),
+            prior_issues,
+        )
+        list_form = self._review(lede="Miami was 334, 18, 25:39.")
+        list_issues = facts.check_review(list_form, last, recap, schedule=slate)
+        self.assertTrue(
+            any("25:39" in item and "KC" in item for item in list_issues),
+            list_issues,
+        )
+        squeezed = self._review(
+            lede=(
+                "Miami squeezed that same offense to 88 on the ground and "
+                "25:39 with the football."
+            )
+        )
+        self.assertEqual(
+            facts.check_review(squeezed, last, recap, schedule=slate), []
+        )
+
+    def test_salvage_cleans_every_section_and_empty_cards(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        drop = (
+            "Zone blitz Jones/Karlaftis with a dropping end on "
+            "second-and-long — the look that helped produce the Willis "
+            "interception."
+        )
+        narrative = {
+            "headline": "Keep this title",
+            "lastGameReview": {
+                "lede": "Kansas City finished 24–10 against Miami.",
+            },
+            "storyline": {
+                "body": [drop + " That is leftover after the cut."]
+            },
+            "gamePlan": {
+                "script": [
+                    "Second-and-long vs Las Vegas: " + drop + " Steal the down; "
+                    "do not hunt a takeaway that is not there."
+                ]
+            },
+            "matchups": [
+                {
+                    "unit": "Spagnuolo vs. Kubiak / Bowers",
+                    "note": drop + " Miami converted 8-of-16.",
+                }
+            ],
+            "xsandos": [
+                {
+                    "title": drop,
+                    "why": drop,
+                    "coaching": "Hunt a hurried throw.",
+                    "concept": "zone_blitz",
+                }
+            ],
+        }
+        issues = facts.check_review(narrative, last, recap)
+        repaired = facts.repair_offending_copy(narrative, issues, last)
+        blob = facts.edition_text(repaired)
+        self.assertNotIn("produce the Willis interception", blob)
+        self.assertNotIn("That is leftover after the cut", blob)
+        script = ((repaired.get("gamePlan") or {}).get("script") or [])
+        self.assertTrue(
+            all("Steal the down" not in str(item) for item in script), script
+        )
+        cards = repaired.get("xsandos") or []
+        self.assertFalse(
+            any(
+                isinstance(card, dict) and not (card.get("title") or "").strip()
+                for card in cards
+            ),
+            cards,
+        )
+        matchups = repaired.get("matchups") or []
+        self.assertFalse(
+            any(
+                "8-of-16" in str((card or {}).get("note") or "")
+                for card in matchups
+            ),
+            matchups,
+        )
+        emptied = facts._drop_value(
+            {"title": drop, "why": "Keep the rest of this card."},
+            facts.violation_snippets(issues),
+        )
+        self.assertNotIn("title", emptied)
+        self.assertIn("why", emptied)
+
+    def test_hold_automerge_on_noisy_salvage_or_short_desk(self):
+        fat = " ".join(["Chiefs tape review word"] * 800)
+        fat_edition = {
+            "headline": fat,
+            "dek": fat,
+            "theEdge": fat,
+            "storyline": fat,
+            "currentState": fat,
+            "gamePlan": fat,
+            "lastGameReview": {"lede": fat, "analysis": [fat]},
+        }
+        self.assertGreaterEqual(
+            facts.edition_word_count(fat_edition), facts.PUBLISH_WORD_FLOOR
+        )
+        self.assertFalse(
+            facts.should_hold_automerge(["one drop"], fat_edition)
+        )
+        self.assertFalse(
+            facts.should_hold_automerge(["a", "b", "c"], fat_edition)
+        )
+        self.assertTrue(
+            facts.should_hold_automerge(["a", "b", "c", "d"], fat_edition)
+        )
+        thin = {"headline": "Short", "lastGameReview": {"lede": "Kansas City won."}}
+        self.assertTrue(facts.should_hold_automerge([], thin))
+        self.assertLess(
+            facts.edition_word_count(thin), facts.PUBLISH_WORD_FLOOR
+        )
 
 
 class ArchiveDates(unittest.TestCase):

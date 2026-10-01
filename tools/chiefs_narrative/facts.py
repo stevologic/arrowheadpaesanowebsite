@@ -271,9 +271,21 @@ _FIRST_DOWNS = re.compile(r"\b(\d{1,2})\s+first downs?\b", re.IGNORECASE)
 _POSSESSION_HELD = re.compile(
     r"\b(?:held|sat on|had the ball|kept the ball|won the clock|"
     r"lost the clock)\b|"
+    r"\bhad\s+\d{1,2}:\d{2}\b|"
+    r"\bwas\s+\d{3},\s+\d{1,2},\s+\d{1,2}:\d{2}\b|"
     r"\bstays?\s+on\b",
     re.I,
 )
+_GAME_LABEL_TEAM = re.compile(
+    r"\b(?:the\s+)?[A-Za-z][A-Za-z '’-]{1,24}?\s+"
+    r"(?:tape|film|box)\b",
+    re.IGNORECASE,
+)
+_SCRIPT_OPENER = re.compile(
+    r"^(?:Open|First-and|Second-and|Third-and|Fourth-and|If)\b",
+    re.IGNORECASE,
+)
+_CARD_HEADING_KEYS = ("title", "topic", "unit", "segment")
 _GAME_YARDS = re.compile(r"\b(\d{3})[-\s]yard(?:s)?\b", re.IGNORECASE)
 _NEVER_PLAY_CLAIM = re.compile(
     r"\bnever\s+(?:threw|completed|ran|scored|allowed|asked|hit|found|"
@@ -352,7 +364,8 @@ _DROP_ATTEMPT = re.compile(
 _OWNER_ADVERB = r"(?:(?:\w+ly|already|now|also|still|just|currently)\s+)*"
 # "Kansas City has to help after 5 hits" is not a recorded-stat claim.
 _OWNER_VERBS = (
-    rf"{_OWNER_ADVERB}(?:posted|recorded|notched|(?:had|has)(?!\s+to\b))"
+    rf"{_OWNER_ADVERB}(?:posted|recorded|notched|did\s+record|"
+    rf"(?:had|has)(?!\s+to\b))"
 )
 _TEAM_UNIT = r"(?:\s+(?:defense|defence|front))?"
 _PROPER_NAME = r"(?-i:[A-Z][A-Za-z''-]+(?:\s+[A-Z][A-Za-z''-]+)?)"
@@ -504,7 +517,7 @@ _NOT_PLAYER_TOKENS = frozenset(
 _GARBLED_INITIAL = re.compile(r"\b([A-Z])['’]([A-Z][a-z]{3,})\b")
 _BETWEEN_TACKLES = re.compile(r"\bbetween the tackles\b", re.IGNORECASE)
 _ZONE_BLITZ_INT = re.compile(
-    r"\bzone[- ]blitz\b[^.!?]{0,160}\b(?:int|intercept)",
+    r"\bzone[- ]blitz\b[^.!?]{0,160}\b(?:int|intercept(?:ion)?)\b",
     re.IGNORECASE,
 )
 # Repair notes / retry echoes must not re-veto after the claim is gone.
@@ -543,6 +556,10 @@ _CLOCK_SNIPPET = re.compile(r"^\d{1,2}:\d{2}$")
 # and OFFLINE_WORD_FLOOR, not by how many sentences were removed.
 MAX_REPAIR_DROPS = 2
 _MAX_REPAIR_DROPS = MAX_REPAIR_DROPS
+# Hold automerge (label, no merge, no deploy) when salvage is this noisy
+# or the edition is shorter than the in-season desk norm.
+HOLD_REPAIR_DROPS = 3
+PUBLISH_WORD_FLOOR = 3900
 
 # Qualified counts are not whole-game totals. Compare against the window
 # when quarter data can compute it; otherwise skip.
@@ -863,15 +880,32 @@ def _claim_game_scope(
     Nearest opponent / week label to the left wins so a Chiefs subject
     after 'Against Indianapolis' still uses the Indianapolis box, and a
     Denver-week number is never checked against last week's Miami box.
+    Labels after the claim still count so '33:00 against Indianapolis'
+    binds to the prior game.
     """
     start, _ = _stat_clause_span(text, claim_at)
-    window = text[max(0, start - 32) : claim_at]
-    best_pos = -1
+    lookback = text[max(0, start - 32) : start]
+    nl = lookback.rfind("\n")
+    left_origin = max(0, start - 32)
+    if nl >= 0:
+        left_origin = left_origin + nl + 1
+    left = text[left_origin:claim_at]
+    _sent_start, sent_end = _sentence_span(text, claim_at)
+    right = text[claim_at:min(sent_end, claim_at + 56)]
+    best_dist = None
     best = ""
     for lab, scope in _scope_label_map(recap, last_game, schedule):
-        for hit in re.finditer(rf"\b{re.escape(lab)}\b", window, re.IGNORECASE):
-            if hit.start() >= best_pos:
-                best_pos = hit.start()
+        for hit in re.finditer(rf"\b{re.escape(lab)}\b", left, re.IGNORECASE):
+            dist = claim_at - (left_origin + hit.start())
+            if best_dist is None or dist < best_dist:
+                best_dist = dist
+                best = scope
+        for hit in re.finditer(rf"\b{re.escape(lab)}\b", right, re.IGNORECASE):
+            if hit.start() == 0:
+                continue
+            dist = hit.start()
+            if best_dist is None or dist < best_dist:
+                best_dist = dist
                 best = scope
     return best
 
@@ -1037,7 +1071,12 @@ def _player_owns_stat(
 def _bound_box_team(text: str, claim_at: int, aliases: dict[str, str]) -> str:
     """Nearest team subject in this clause, ignoring in/at location names."""
     start, _ = _stat_clause_span(text, claim_at)
-    prefix = _LOCATION_TEAM.sub(" ", _YARD_LINE_TEAM.sub(" ", text[start:claim_at]))
+    prefix = _LOCATION_TEAM.sub(
+        " ",
+        _GAME_LABEL_TEAM.sub(
+            " ", _YARD_LINE_TEAM.sub(" ", text[start:claim_at])
+        ),
+    )
     poss = re.search(
         r"([A-Za-z][A-Za-z '’-]+?)['’]s\s*$",
         prefix,
@@ -2613,12 +2652,24 @@ def _check_box_clocks(
         # unless the local subject is explicitly KC.
         if owners == ["OPP"] and team != "KC":
             continue
+        opp_label = (
+            ((recap or {}).get("oppAbbr") or "OPP").strip() or "OPP"
+        )
         if team == "KC" and clock not in clocks["KC"] and clock in clocks["OPP"]:
-            opp_label = (
-                ((recap or {}).get("oppAbbr") or "OPP").strip() or "OPP"
-            )
             issues.append(
                 f"possession {clock} is {opp_label} clock, not KC "
+                f"({match.group(0)!r})"
+            )
+            continue
+        if (
+            team
+            and team == opp_label.upper()
+            and clock in clocks["KC"]
+            and clock not in clocks["OPP"]
+            and _possession_held_by_named_team(text, match)
+        ):
+            issues.append(
+                f"possession {clock} is KC clock, not {opp_label} "
                 f"({match.group(0)!r})"
             )
 
@@ -3106,13 +3157,18 @@ def _pressure_owner_name(sentence: str, match) -> str:
     named = (groups.get("sack_owner") or groups.get("hit_owner") or "").strip()
     if named:
         return named
-    poss = _POSSESSIVE_PRESSURE.search(sentence)
+    token = match.group(0) or ""
+    rel = sentence.lower().rfind(token.lower()) if token else -1
+    prefix = sentence[:rel] if rel >= 0 else sentence
+    # Possessive owners sit on the stat token itself ("Crosby's two sacks").
+    poss_window = prefix + token
+    poss = list(_POSSESSIVE_PRESSURE.finditer(poss_window))
     if poss:
-        return poss.group(1).strip()
-    other = _PRESSURE_OWNER.search(sentence)
-    if not other:
-        return ""
-    return (other.group(1) or "").strip()
+        return poss[-1].group(1).strip()
+    others = list(_PRESSURE_OWNER.finditer(prefix))
+    if others:
+        return (others[-1].group(1) or "").strip()
+    return ""
 
 
 def _owner_tokens(owner: str) -> set[str]:
@@ -3696,13 +3752,9 @@ def violation_snippets(violations: list[str]) -> list[str]:
             _add(hit)
         for hit in re.findall(r"'([^']+)'", item):
             _add(hit)
-        low = item.lower()
         claimed = re.match(r"possession (\d{1,2}:\d{2})\b", item, re.I)
         if claimed:
             _add(claimed.group(1))
-        for needle in _SCHEME_SNIPPETS:
-            if needle in low:
-                _add(needle)
     return out
 
 
@@ -3758,15 +3810,35 @@ def _is_repair_orphan(sentence: str) -> bool:
     return _orphan_issue(sentence) is not None
 
 
-def check_repair_orphans(narrative: dict | None, dropped: list[str]) -> list[str]:
+def check_repair_orphans(
+    narrative: dict | None,
+    dropped: list[str],
+    before: dict | None = None,
+) -> list[str]:
     """Fail leftovers that lost their antecedent in a salvage drop."""
     if not dropped:
         return []
+    dropped_set = {s.strip() for s in dropped if s and s.strip()}
     issues = []
-    for sentence in _split_sentences(_review_prose(narrative)):
-        note = _orphan_issue(sentence)
-        if note:
-            issues.append(note)
+    if before is None:
+        for sentence in _split_sentences(_review_prose(narrative)):
+            note = _orphan_issue(sentence)
+            if note:
+                issues.append(note)
+        return issues
+    for key in _EDITION_KEYS:
+        old_sents = _prose_sentences(before.get(key))
+        new_sents = {s.strip() for s in _prose_sentences((narrative or {}).get(key))}
+        for i, sent in enumerate(old_sents):
+            if sent.strip() not in dropped_set:
+                continue
+            for nxt in old_sents[i + 1 :]:
+                if nxt.strip() not in new_sents:
+                    continue
+                note = _orphan_issue(nxt)
+                if note:
+                    issues.append(note)
+                break
     return issues
 
 
@@ -3778,6 +3850,121 @@ def _drop_orphan_text(text: str) -> str:
     if len(kept) == len(sentences):
         return text
     return " ".join(kept).strip()
+
+
+def _prose_sentences(value) -> list[str]:
+    parts: list[str] = []
+    _walk_prose(value, parts)
+    out: list[str] = []
+    for part in parts:
+        out.extend(_split_sentences(part))
+    return [s for s in out if s]
+
+
+def _card_heading(card: dict) -> str:
+    for key in _CARD_HEADING_KEYS:
+        if key in card:
+            return str(card.get(key) or "").strip()
+    return ""
+
+
+def _drop_orphan_text_aware(before: str, after: str) -> str:
+    """Drop leftover openers whose previous sentence was salvaged."""
+    if not after:
+        return after
+    old = _split_sentences(before or "")
+    new = _split_sentences(after)
+    if not old or not new or old == new:
+        return after
+    dropped = {s.strip() for s in old} - {s.strip() for s in new}
+    if not dropped:
+        return after
+    kept = []
+    for sent in new:
+        if not _is_repair_orphan(sent):
+            kept.append(sent)
+            continue
+        orig_i = next(
+            (j for j, item in enumerate(old) if item.strip() == sent.strip()),
+            -1,
+        )
+        prev_dropped = orig_i > 0 and old[orig_i - 1].strip() in dropped
+        if prev_dropped:
+            continue
+        kept.append(sent)
+    if len(kept) == len(new):
+        return after
+    return " ".join(kept).strip()
+
+
+def _drop_script_leftover(before: str, after: str) -> str:
+    """A script line that lost its down-and-distance opener is an orphan."""
+    if not after or not before:
+        return after
+    if _SCRIPT_OPENER.match(before.strip()) and not _SCRIPT_OPENER.match(
+        after.strip()
+    ):
+        return ""
+    return after
+
+
+def _should_drop_thinned_card(before, after) -> bool:
+    if not isinstance(after, dict):
+        return False
+    after_n = len(_prose_sentences(after))
+    before_n = len(_prose_sentences(before)) if isinstance(before, dict) else after_n
+    if isinstance(before, dict):
+        for key in _CARD_HEADING_KEYS:
+            if (
+                key in before
+                and str(before.get(key) or "").strip()
+                and not str(after.get(key) or "").strip()
+            ):
+                return True
+    return before_n >= 2 and after_n <= 1
+
+
+def _prune_salvage_value(before, after):
+    """Strip leftover fragments and cards emptied by salvage, in every section."""
+    if isinstance(after, list) and isinstance(before, list):
+        out = []
+        used: set[int] = set()
+        for i, item in enumerate(after):
+            prev = before[i] if i < len(before) else None
+            if isinstance(item, dict):
+                head = _card_heading(item)
+                if head:
+                    for j, cand in enumerate(before):
+                        if j in used or not isinstance(cand, dict):
+                            continue
+                        if _card_heading(cand) == head:
+                            prev = cand
+                            used.add(j)
+                            break
+                if _should_drop_thinned_card(prev, item):
+                    continue
+                if prev is not None:
+                    item = _prune_salvage_value(prev, item)
+            elif isinstance(item, str):
+                if isinstance(prev, str):
+                    item = _drop_orphan_text_aware(prev, item)
+                    item = _drop_script_leftover(prev, item)
+                if not item:
+                    continue
+            if item not in (None, "", [], {}):
+                out.append(item)
+        return out
+    if isinstance(after, dict) and isinstance(before, dict):
+        out = {}
+        for key, item in after.items():
+            kept = _prune_salvage_value(before.get(key), item)
+            if kept not in (None, "", [], {}):
+                out[key] = kept
+        return out
+    if isinstance(after, str) and isinstance(before, str):
+        kept = _drop_orphan_text_aware(before, after)
+        return _drop_script_leftover(before, kept)
+    return after
 
 
 def _strip_review_orphans(review: dict) -> dict:
@@ -3939,8 +4126,10 @@ def _drop_value(value, snippets: list[str]):
             kept = _drop_value(item, snippets)
             if kept not in (None, "", [], {}):
                 out[key] = kept
-            elif key in ("lede", "body", "title", "why", "coaching", "note"):
+            elif key in ("lede", "body", "why", "coaching", "note"):
                 out[key] = kept if isinstance(kept, str) else ""
+            # Emptied titles (and the Hugo alt="Diagram: " they produce)
+            # are omitted, not kept as "".
         return out
     return value
 
@@ -3959,7 +4148,7 @@ def repair_offending_copy(
     violations: list[str],
     last_game: dict | None = None,
 ) -> dict:
-    """Drop offending sentences, then dependent orphan openers/fragments."""
+    """Drop offending sentences, then leftover fragments in every section."""
     payload = copy.deepcopy(narrative or {})
     snippets = violation_snippets(violations)
     if snippets:
@@ -3967,6 +4156,7 @@ def repair_offending_copy(
             if key in payload:
                 payload[key] = _drop_value(payload[key], snippets)
     if dropped_sentences(narrative or {}, payload):
+        payload = _prune_salvage_value(narrative or {}, payload)
         review = payload.get("lastGameReview")
         if isinstance(review, dict):
             payload["lastGameReview"] = _strip_review_orphans(review)
@@ -3975,6 +4165,13 @@ def repair_offending_copy(
         review["lede"] = safe_score_lede(last_game)
         payload["lastGameReview"] = review
     return payload
+
+
+def should_hold_automerge(drops: list[str], narrative: dict | None) -> bool:
+    """Hold publish when salvage is noisy or the desk is under the word floor."""
+    if len(drops or []) > HOLD_REPAIR_DROPS:
+        return True
+    return edition_word_count(narrative) < PUBLISH_WORD_FLOOR
 
 
 def repair_publish_blockers(

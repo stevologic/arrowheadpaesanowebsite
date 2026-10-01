@@ -651,7 +651,9 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             dropped.extend(gone)
             if not gone:
                 break
-        orphans = facts.check_repair_orphans(repaired, dropped)
+        orphans = facts.check_repair_orphans(
+            repaired, dropped, before=narrative
+        )
         blockers = facts.repair_publish_blockers(
             leftover, repaired, orphans, before=narrative
         )
@@ -821,7 +823,10 @@ def main(argv=None) -> int:
     drops = result.get("droppedSentences") or []
     config.REPAIR_JSON.write_text(
         json.dumps(
-            {"droppedSentences": drops, "holdAutomerge": bool(drops)},
+            {
+                "droppedSentences": drops,
+                "holdAutomerge": facts.should_hold_automerge(drops, narrative),
+            },
             indent=2,
         )
         + "\n",
