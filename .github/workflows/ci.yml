@@ -67,6 +67,9 @@ jobs:
       - name: Install dependencies
         run: python -m pip install -r tools/requirements.txt
 
+      - name: Gate 0 — workflow YAML parses
+        run: python -m tools.chiefs_narrative.check_workflows
+
       - name: Install Hugo
         run: |
           curl -fsSL --output "${{ runner.temp }}/hugo.tar.gz" \

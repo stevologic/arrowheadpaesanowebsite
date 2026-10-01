@@ -204,16 +204,7 @@ jobs:
           DROP_BODY=""
           if [ -f data/narrative_repair.json ]; then
             HOLD_MERGE="$(python -c "import json;print('true' if json.load(open('data/narrative_repair.json')).get('holdAutomerge') else 'false')")"
-            DROP_BODY="$(python -c '
-import json, sys
-repair = json.load(open("data/narrative_repair.json"))
-rows = repair.get("droppedSentences") or []
-sys.exit(0) if not rows else None
-held = bool(repair.get("holdAutomerge"))
-print("## Dropped sentences\n")
-print("Fact-check salvage removed these lines. Automerge is held.\n" if held else "Fact-check salvage removed these lines.\n")
-[print("-", row) for row in rows]
-')"
+            DROP_BODY="$(python -m tools.chiefs_narrative.drop_body)"
           fi
 
           if [ "$DESK_MODE" = "full" ] && [ -f data/narrative.json ]; then
