@@ -5,6 +5,7 @@ merge gate. Run with:  python -m unittest discover -s tools/tests -v
 """
 from __future__ import annotations
 
+import io
 import json
 import os
 import re
@@ -13,14 +14,18 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from contextlib import ExitStack
+from contextlib import ExitStack, redirect_stdout
 from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import yaml
+
 from tools.chiefs_narrative import (
+    check_workflows,
     collect,
     diagrams,
+    drop_body,
     edition_overlay,
     facts,
     generate,
@@ -624,6 +629,11 @@ class GrokModelSelection(unittest.TestCase):
         self.assertNotIn("as usual", ci)
         self.assertIn('gh workflow run "Deploy Hugo site to GitHub Pages"', ci)
         self.assertIn('--repo "${GITHUB_REPOSITORY}"', ci)
+        self.assertIn("python -m tools.chiefs_narrative.check_workflows", ci)
+        self.assertLess(
+            ci.index("python -m tools.chiefs_narrative.check_workflows"),
+            ci.index("python -m unittest discover"),
+        )
         self.assertIn("--check-edition", ci)
         self.assertIn("--diagrams-only", ci)
         self.assertLess(ci.index("--check-edition"), ci.index("--diagrams-only"))
@@ -4608,22 +4618,74 @@ class FactCheck(unittest.TestCase):
         self.assertTrue(any("fragments" in item for item in orphans), orphans)
 
     def test_narrative_pr_lists_drops_and_holds_automerge(self):
-        yaml = (
+        workflow = (
             Path(__file__).resolve().parents[2]
             / ".github"
             / "workflows"
             / "narrative.yml"
         ).read_text(encoding="utf-8")
-        self.assertIn("narrative_repair.json", yaml)
-        self.assertIn("Dropped sentences", yaml)
-        self.assertIn("HOLD_MERGE", yaml)
-        self.assertIn("holdAutomerge", yaml)
-        self.assertIn("Holding automerge", yaml)
-        self.assertIn("needs.update.outputs.publish", yaml)
-        self.assertLess(yaml.index("HOLD_MERGE"), yaml.index("gh pr merge"))
-        self.assertLess(yaml.index("HOLD_MERGE"), yaml.index('echo "publish=true"'))
-        hold_block = yaml[yaml.index("HOLD_MERGE") : yaml.index("gh pr merge")]
+        parsed = yaml.safe_load(workflow)
+        self.assertEqual(parsed["name"], "Chiefs Narrative (daily)")
+        self.assertIn("narrative_repair.json", workflow)
+        self.assertIn("python -m tools.chiefs_narrative.drop_body", workflow)
+        self.assertNotIn("\nimport json, sys\n", workflow)
+        self.assertIn("HOLD_MERGE", workflow)
+        self.assertIn("holdAutomerge", workflow)
+        self.assertIn("Holding automerge", workflow)
+        self.assertIn("needs.update.outputs.publish", workflow)
+        self.assertLess(workflow.index("HOLD_MERGE"), workflow.index("gh pr merge"))
+        self.assertLess(workflow.index("HOLD_MERGE"), workflow.index('echo "publish=true"'))
+        hold_block = workflow[workflow.index("HOLD_MERGE") : workflow.index("gh pr merge")]
         self.assertIn("publish=false", hold_block)
+
+    def test_drop_body_renders_held_and_quiet_salvage(self):
+        self.assertEqual(drop_body.drop_body({}), "")
+        self.assertEqual(drop_body.drop_body({"droppedSentences": []}), "")
+        held = drop_body.drop_body(
+            {
+                "holdAutomerge": True,
+                "droppedSentences": ["Kelce scored from the 12."],
+            }
+        )
+        self.assertIn("## Dropped sentences", held)
+        self.assertIn("Automerge is held.", held)
+        self.assertIn("- Kelce scored from the 12.", held)
+        quiet = drop_body.drop_body(
+            {
+                "holdAutomerge": False,
+                "droppedSentences": ["One leftover."],
+            }
+        )
+        self.assertIn("Fact-check salvage removed these lines.", quiet)
+        self.assertNotIn("Automerge is held.", quiet)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "narrative_repair.json"
+            path.write_text(
+                json.dumps({"droppedSentences": ["One leftover."]}),
+                encoding="utf-8",
+            )
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                rc = drop_body.main([str(path)])
+            self.assertEqual(rc, 0)
+            self.assertIn("- One leftover.", buf.getvalue())
+
+    def test_workflow_yaml_gate_parses_every_actions_file(self):
+        loaded = check_workflows.load_workflows()
+        self.assertTrue(loaded)
+        names = {path.name: doc.get("name") for path, doc in loaded.items()}
+        self.assertEqual(names["narrative.yml"], "Chiefs Narrative (daily)")
+        self.assertEqual(names["ci.yml"], "CI gates")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            broken = root / ".github" / "workflows"
+            broken.mkdir(parents=True)
+            broken.joinpath("broken.yml").write_text(
+                "name: Broken\njobs:\nimport json, sys\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError):
+                check_workflows.load_workflows(root)
 
     def _week3_slate(self):
         return [
