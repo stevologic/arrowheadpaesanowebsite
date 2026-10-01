@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-10-01T16:54:56+00:00",
-  "updatedAt": "2026-10-01T16:54:57+00:00",
+  "updatedAt": "2026-10-01T18:30:00+00:00",
   "generator": "grok:grok-4.6",
   "phase": {
     "type": "regular",
@@ -20,7 +20,7 @@
     "lede": "Kansas City is 3-0, and the AFC West is still a two-club argument. The 24-10 win at Hard Rock Stadium was real — Mahomes 20-of-24 for 246 yards with two passing touchdowns, Kenneth Walker III’s 10-yard run 2:06 into the game, Rashee Rice’s 7 catches for 88 yards — and it was also incomplete. Eighteen first downs, 88 rushing yards, 3-of-7 on third down, and 25:39 of possession are the numbers that actually travel. The 3-0 Raiders and first-year head coach Klint Kubiak are next on Sun Oct 4, 3:25 PM CT, with the West lead through four games on the table.",
     "body": [
       "Miami won the ugly fights and still lost the scoreboard. The Dolphins posted 19 first downs, 119 rushing yards on 31 carries, 8-of-16 on third down, and 34:21 of possession on nine drives. Kansas City answered with 334 total yards, the explosive shots (Travis Kelce 48 yards down the middle, Rice 34, Noah Gray 24, Xavier Worthy 17, Tyquan Thornton 17), a L. Sneed strip-and-recover on Malik Willis, and a Karlaftis interception. That is how you leave 24-10 without winning the clock.",
-      "Miami squeezed that same offense to 88 on the ground and 25:39 with the football. Eric Bieniemy’s room now has a division road game to decide whether Walker’s 20 touches and Emmett Johnson’s 6 rushes are enough volume when Maxx Crosby is the one walking the edge.",
+      "The Indianapolis tape is a different movie and has to stay in its own box: 523 yards, 29 first downs, 371 net passing, 152 rushing, 37:00 of possession in a 33-30 overtime win. Miami squeezed that same offense to 88 on the ground and 25:39 with the football. Eric Bieniemy’s room now has a division road game to decide whether Walker’s 20 touches and Emmett Johnson’s 6 rushes are enough volume when Maxx Crosby is the one walking the edge.",
       "Andy Reid already called Las Vegas ‘aggressive football,’ and Patrick Mahomes is talking ‘bragging rights’ with Crosby. Josh Simmons has a bulging disk in his lower back and has not debuted in 2026. L'Jarius Sneed was limited on the Wednesday report after playing through Miami. ESPN FPI hangs a 70.0 percent number on Kansas City; DraftKings has the Chiefs -4.5 on 47.5. That is a favorite’s price, not a sealed West. Allegiant is where 3-0 either starts looking like a real club or starts quoting last year’s 6-11 as a ghost story."
     ]
   },
@@ -29,13 +29,13 @@
     "label": "Week 3 · Sun, Sep 27 · 12:00 PM CT",
     "result": "W",
     "score": "KC 24–10",
-    "lede": "Kansas City went to Hard Rock Stadium and came home 3-0 with a 24-10 win. Mahomes was 20-of-24 for 246 yards, two touchdowns, and one interception with zero sacks and a 119.8 rating. Walker carried 18 times for 70 yards and the 10-yard opening touchdown, Rice caught 7 for 88, and Bolton led the defense with 11 tackles. Miami outgained almost nobody (329 to 334) and still held the football 34:21 to Kansas City’s 25:39.",
+    "lede": "Kansas City went to Hard Rock Stadium and came home 3-0 with a 24-10 win. Mahomes was 20-of-24 for 246 yards, two touchdowns, and one interception with zero sacks and a 119.8 rating. Walker carried 18 times for 70 yards, added a 5-yard catch at Q2 12:58, and finished with 73 scrimmage yards and two touchdowns. Rice caught 7 for 88, and Bolton led the defense with 11 tackles. Miami outgained almost nobody (329 to 334) and still held the football 34:21 to Kansas City’s 25:39.",
     "analysis": [
       {
-        "body": "The opening score was a drive, not a trick. At Q1 14:55 Mahomes hit Kelce deep middle for 48 yards to the Miami 19. At Q1 12:54, 2:06 into the game, J. Moore reported in as eligible and Walker went up the middle for 10 yards and the touchdown. Miami answered with a 3-yard touchdown at Q1 3:27 to tie it 7-7, then Kansas City took a 14-7 lead on a 5-yard touchdown at Q2 12:58. From there the game became a possession argument Miami was winning on paper and losing on the scoreboard."
+        "body": "The opening score was a drive, not a trick. At Q1 14:55 Mahomes hit Kelce deep middle for 48 yards to the Miami 19. At Q1 12:54, 2:06 into the game, J. Moore reported in as eligible and Walker went up the middle for 10 yards and the touchdown. Kansas City 7-0. Miami answered with a 3-yard touchdown at Q1 3:27 to tie it 7-7, then Kansas City took a 14-7 lead on Walker’s 5-yard catch at Q2 12:58. From there the game became a possession argument Miami was winning on paper and losing on the scoreboard."
       },
       {
-        "body": "Mahomes’ 20-of-24 was the separator. The ball still came out on time to Rice (7 for 88), Gray (the 24-yarder to the Miami 8 at Q4 13:47), Worthy, and Thornton. The miss that hurt was the Q2 2:00 interception: shotgun, deep middle for Rice, J. Rodriguez, 18-yard return. The red-zone stall that hurt was Q2 6:15, H. Nourzad eligible, Walker up the middle for no gain, turnover on downs at the Miami 12."
+        "body": "Mahomes’ 20-of-24 was the separator. He was not running for his life — zero sacks — but Miami recorded 5 QB hits on Mahomes. Kansas City recorded 1 QB hit. The ball still came out on time to Rice (7 for 88), Gray (the 24-yarder to the Miami 8 at Q4 13:47), Worthy, and Thornton. The miss that hurt was the Q2 2:00 interception: shotgun, deep middle for Rice, J. Rodriguez, 18-yard return. The red-zone stall that hurt was Q2 6:15, H. Nourzad eligible, Walker up the middle for no gain, turnover on downs at the Miami 12."
       },
       {
         "body": "Steve Spagnuolo’s front did not get Willis on the ground — 20-of-36, zero sacks, 61.1 rating — and Ollie Gordon II worked 17 rushes plus 3 catches for 20 touches while De'Von Achane was limited to 3 rushes. Miami still turned it over twice. L. Sneed forced and recovered the Willis fumble at Q2 3:16 after Kansas City challenged the down-by-contact ruling. Karlaftis intercepted Willis short right at Q4 2:03, intended for Ryan Miller, with Chris Jones on the play. A later C. Roland-Wallace interception was wiped by a Karlaftis illegal-use-of-hands penalty. Miami’s 37-yard field goal at Q3 10:10 made it 14-10; Kansas City’s 34-yard field goal at Q4 11:35 made it 17-10; an 11-yard touchdown at Q4 2:55 closed it 24-10. Harrison Butker then missed a 50-yarder wide left at Q4 0:57."
@@ -68,6 +68,7 @@
     "whatDidnt": [
       "Team rushing stuck at 88 yards on 25 carries",
       "Third down at 3-of-7 against Miami’s 8-of-16",
+      "Possession at 25:39 against Miami’s 34:21",
       "Mahomes’ interception deep middle for Rice; turnover on downs at the Miami 12",
       "Five QB hits on Mahomes; Butker’s 50-yard miss; Karlaftis’ penalty wiping the late interception"
     ]
@@ -86,7 +87,7 @@
       },
       {
         "title": "Get off the field on third down",
-        "body": "Miami converted 8-of-16 and held the ball 34:21. Spagnuolo recorded 0 sacks and 1 QB hit."
+        "body": "Miami converted 8-of-16 and held the ball 34:21. Spagnuolo recorded 0 sacks and 1 QB hit. Cover-2 and the zone blitz are on the call sheet because Las Vegas will keep the football if Kansas City lets another offense live on third-and-medium."
       },
       {
         "title": "Left tackle plan without Simmons",
@@ -115,7 +116,7 @@
   "gamePlan": {
     "opponent": "Las Vegas Raiders",
     "lede": "Week 4 at Las Vegas is 3-0 versus 3-0 for the AFC West lead through four games, CBS, Sun Oct 4, 3:25 PM CT. Reid called the Raiders aggressive. Mahomes wants bragging rights over Crosby. Kansas City is a 70.0 percent FPI favorite and -4.5 at DraftKings. That number assumes the Miami efficiency travels and the Miami clock does not.",
-    "howTheyMatch": "Both clubs are 3-0. Kansas City’s offense is Mahomes plus a Walker-led run game that just posted 88 yards; Las Vegas’ defense is Crosby and an aggressive front under Klint Kubiak. Kansas City’s defense is Spagnuolo, Jones, Karlaftis, and Bolton, coming off 0 sacks and 1 QB hit against Willis. The Raiders may be missing a key blocker in front of Jones. The leverage points are Crosby versus Kansas City’s unprotected left edge, Jones versus that interior, Walker versus Las Vegas’ early-down defense, and whether Spagnuolo can keep Bowers and the Raiders’ backs from turning third down into another 34-minute afternoon.",
+    "howTheyMatch": "Both clubs are 3-0. Kansas City’s offense is Mahomes plus a Walker-led run game that just posted 88 yards; Las Vegas’ defense is Crosby and an aggressive front under Klint Kubiak. Kansas City’s defense is Spagnuolo, Jones, Karlaftis, and Bolton, coming off 0 sacks and 1 QB hit against Willis. Las Vegas could be short a blocker on Jones’s side. The leverage points are Crosby versus Kansas City’s unprotected left edge, Jones versus that interior, Walker versus Las Vegas’ early-down defense, and whether Spagnuolo can keep Bowers and the Raiders’ backs from turning third down into another 34-minute afternoon.",
     "keys": [
       {
         "title": "Move Mahomes off the spot",
@@ -143,7 +144,7 @@
       "Second-and-medium: play-action boot away from Crosby, Kelce and Gray as the easy reads on the move.",
       "Third-and-5: mesh to Rice and Kelce, Johnson as the checkdown if Kubiak walks a fifth rusher.",
       "If Crosby wins upfield, spacing screen to Walker or Johnson and let the line lead in space.",
-      "Steal the down; do not hunt a takeaway that is not there.",
+      "Second-and-long vs Las Vegas: Spagnuolo zone blitz — show heat, drop a lineman, Jones and a linebacker exchange. Steal the down; do not hunt a takeaway that is not there.",
       "Third-and-7+: Cover-2 shell, Bolton and Drue Tranquill rallying to Bowers and the back, two-deep to take away the shot."
     ]
   },
@@ -202,7 +203,7 @@
     {
       "tag": "QB vs EDGE",
       "title": "Mahomes wants the Crosby snap",
-      "body": "Mahomes is talking bragging rights with Maxx Crosby, a rivalry that never shares a huddle and always shares a Sunday. Crosby is the rusher who turns that clean column into a problem if the left tackle plan without Simmons leaks."
+      "body": "Mahomes is talking bragging rights with Maxx Crosby, a rivalry that never shares a huddle and always shares a Sunday. Zero sacks in Miami, but 5 QB hits. Crosby is the rusher who turns that clean column into a problem if the left tackle plan without Simmons leaks."
     },
     {
       "tag": "LT",
@@ -212,12 +213,12 @@
     {
       "tag": "WR",
       "title": "Rice is producing without wearing the WR1 crown",
-      "body": "Rice went 7 for 88 in Miami and looks like his old self in a role that does not require the offense to declare a single alpha. Worthy, Thornton, Kelce, and Gray all touched the deep ball. Las Vegas will test whether that spread still gets 246 yards."
+      "body": "Rice’s 7-for-88 night is the volume line, not a coronation. The same Miami drive chart also paid Kelce, Gray, Worthy, and Thornton, and Las Vegas is the first test of whether 246 yards still show up when the defense knows the ball will move around."
     },
     {
       "tag": "RB",
       "title": "Walker is the feature. 88 yards is the team number.",
-      "body": "Walker leads the NFL in rushing through three weeks and just handled 20 touches (18 rushes, 2 catches) for 70 yards and a touchdown. The box that travels is Kansas City’s 88 rushing yards. Allegiant is where the feature back needs the line to finish the identity."
+      "body": "Walker leads the NFL in rushing through three weeks and just handled 20 touches (18 rushes, 2 catches) for 73 scrimmage yards and two touchdowns — a 10-yard run, plus a 5-yard catch at Q2 12:58. The box that travels is Kansas City’s 88 rushing yards. Allegiant is where the feature back needs the line to finish the identity."
     },
     {
       "tag": "IDL",
@@ -236,7 +237,7 @@
       "chiefs": "Patrick Mahomes, chips and boots",
       "opponent": "Maxx Crosby",
       "edge": "OPP",
-      "note": "Crosby is the rusher who makes that edge the game."
+      "note": "Kansas City allowed 5 QB hits with 0 sacks in Miami and is still without Simmons. Crosby is the rusher who makes that edge the game."
     },
     {
       "unit": "Chris Jones vs. Raiders interior",
@@ -257,7 +258,7 @@
       "chiefs": "Steve Spagnuolo, Nick Bolton",
       "opponent": "Klint Kubiak, Brock Bowers",
       "edge": "PUSH",
-      "note": "Miami converted 8-of-16 third downs and held 34:21."
+      "note": "Cover-2 and the zone blitz are how Kansas City keeps Bowers from giving Allegiant another long afternoon. Miami converted 8-of-16 third downs and held 34:21."
     },
     {
       "unit": "Rice / Kelce vs. Raiders secondary",
@@ -339,10 +340,10 @@
       "side": "defense"
     },
     {
-      "title": "",
+      "title": "Spagnuolo zone blitz, steal the down",
       "situation": "2nd-and-10 vs. Las Vegas, Jones inside, a linebacker walking",
       "concept": "zone_blitz",
-      "why": "This is a call to use against Kubiak’s aggressive offense after Kansas City posted 0 sacks and 1 QB hit in Miami — show heat, drop a lineman, make Las Vegas throw into a window Spagnuolo owns.",
+      "why": "The zone blitz is the call to use against Kubiak’s aggressive offense after Kansas City posted 0 sacks and 1 QB hit in Miami — show heat, drop a lineman, make Las Vegas throw to a window Spagnuolo owns.",
       "coaching": "Jones stabs. A linebacker comes. A lineman drops into the throwing lane. Karlaftis and Bolton exchange jobs on the call. Hunt a hurried throw and a long third down, not a takeaway that is not on the card.",
       "labels": {
         "x": "flat drop",
@@ -364,14 +365,14 @@
     },
     {
       "topic": "Spagnuolo’s third-down answers",
-      "detail": "Zero sacks and 1 QB hit against Willis is not the look Kansas City wants heading into a 3-0 opponent."
+      "detail": "Zero sacks and 1 QB hit against Willis is not the look Kansas City wants heading into a 3-0 opponent. Cover-2 to take away Bowers and the zone blitz to steal second-and-long are the two calls that have to show up on the sheet."
     }
   ],
   "injuries": [
     {
       "player": "Josh Simmons",
-      "status": "Out (has not debuted)",
-      "note": "Reid said Simmons has a bulging disk in his lower back, which is why he has not made his 2026 debut heading into the Raiders game.",
+      "status": "Questionable (back)",
+      "note": "Reid said Simmons has a bulging disk in his lower back. He was DNP Wednesday; ESPN lists him Questionable and no game status has been issued yet.",
       "source": "Arrowhead Pride"
     },
     {
@@ -388,7 +389,7 @@
     },
     {
       "move": "Walker as the feature, Johnson as the change-up",
-      "detail": "Walker: 18 rushes, 2 catches, 20 touches, 70 yards, 1 rushing TD in Miami. Johnson: 6 rushes. Team rushing: 88 yards on 25 attempts. That split is the live identity."
+      "detail": "Walker: 18 rushes, 2 catches, 20 touches, 73 scrimmage yards and two touchdowns in Miami (10-yard run, 5-yard catch at Q2 12:58). Johnson: 6 rushes. Team rushing: 88 yards on 25 attempts. That split is the live identity."
     },
     {
       "move": "Rice plus a tight-end committee",
@@ -400,7 +401,8 @@
     "Commit to Walker on first down (inside zone) so Las Vegas cannot pin its ears back.",
     "Use Gray and extra reported linemen in 12/13 to keep the edge honest without pretending Simmons is available.",
     "Hunt Jones into an interior that may be missing a blocker; do not live with another 0-sack, 1-hit afternoon.",
-    "Win the clock: 25:39 in Miami is not a winning possession number against another 3-0 club."
+    "Win the clock: 25:39 in Miami is not a winning possession number against another 3-0 club.",
+    "Cover-2 on third-and-long to take away Bowers; zone blitz on second-and-long to steal the down."
   ],
   "debates": [
     "Is 3-0 vs. 3-0 in Las Vegas the real West measuring stick, or is -4.5 still underselling Crosby?",
@@ -418,27 +420,27 @@
     {
       "segment": "Miami film",
       "length": "1:15-6:00",
-      "talkTrack": "Walk the scoring: Walker 10-yard TD 2:06 into the game, Miami 3-yard TD to tie, Kansas City 5-yard TD for 14-7, Miami 37-yard field goal, Kansas City 34-yard field goal, 11-yard TD to make it 24-10. Credit L. Sneed for the fumble, Karlaftis for the interception, Bolton for 11 tackles. Do not dress 0 sacks up as a party."
+      "talkTrack": "Walk the scoring: Walker 10-yard TD 2:06 into the game, Miami 3-yard TD to tie, Walker 5-yard catch TD for 14-7, Miami 37-yard field goal, Kansas City 34-yard field goal, 11-yard TD to make it 24-10. Credit L. Sneed for the fumble, Karlaftis for the interception, Bolton for 11 tackles. Do not dress 0 sacks up as a party."
     },
     {
       "segment": "Where 3-0 actually stands",
       "length": "6:00-9:30",
-      "talkTrack": "Miami was 334, 18, 25:39. Same 3-0, different box. Simmons’ disk, Sneed limited, Crosby waiting. FPI 70.0 percent is a favorite, not a bye."
+      "talkTrack": "Week 2 vs Indianapolis: KC 523 yards, 29 first downs, 371 net passing, 152 rushing, 37:00 of possession, a 33-30 overtime win. Miami was 329 yards, 19 first downs, 34:21. Same 3-0, different box. Simmons’ disk, Sneed limited, Crosby waiting. FPI 70.0 percent is a favorite, not a bye."
     },
     {
       "segment": "Raiders matchup",
       "length": "9:30-14:00",
-      "talkTrack": "Both 3-0. Reid said aggressive football. Mahomes wants bragging rights over Crosby. Jones may see a Raiders line missing a blocker. Walker vs. their front. Bowers vs. Cover-2. West lead through four games."
+      "talkTrack": "Both 3-0. Reid said aggressive football. The Mahomes–Crosby snap is the Sunday argument. Jones may see a Raiders line missing a blocker. Walker vs. their front. Bowers vs. Cover-2. West lead through four games."
     },
     {
       "segment": "X’s and O’s board",
       "length": "14:00-18:30",
-      "talkTrack": "Four offense: inside zone, play-action boot, mesh, spacing screen. Tie every card to Crosby, Jones, Walker, Rice, Bowers."
+      "talkTrack": "Four offense: inside zone, play-action boot, mesh, spacing screen. Two defense: Cover-2 and the zone blitz as a call, not a takeaway credit. Tie every card to Crosby, Jones, Walker, Rice, Bowers."
     },
     {
       "segment": "Injury / personnel desk",
       "length": "18:30-21:00",
-      "talkTrack": "Simmons bulging disk, no 2026 debut. Sneed limited Wednesday after the fumble-and-return in Miami. Rice 7-88. Gray’s 24-yarder. Walker 20 touches. Johnson 6 rushes."
+      "talkTrack": "Simmons Questionable (back), DNP Wednesday, no game status yet. Sneed limited Wednesday after the fumble-and-return in Miami. Rice 7-88. Gray’s 24-yarder. Walker 20 touches, 73 scrimmage yards, two touchdowns. Johnson 6 rushes."
     },
     {
       "segment": "Close / look-ahead",
