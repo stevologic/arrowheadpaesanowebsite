@@ -58,6 +58,7 @@ jobs:
       HUGO_VERSION: 0.152.2
     outputs:
       changed: ${{ steps.diff.outputs.changed }}
+      publish: ${{ steps.publish.outputs.publish }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -183,12 +184,14 @@ jobs:
           hugo --gc --minify
 
       - name: Open pull request and wait for CI gates
+        id: publish
         if: steps.diff.outputs.changed == 'true' && steps.live.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DESK_MODE: ${{ steps.mode.outputs.mode }}
         run: |
           set -euo pipefail
+          echo "publish=false" >> "$GITHUB_OUTPUT"
           BASE="${GITHUB_REF_NAME}"
           STAMP="$(date -u +%Y%m%d-%H%M)"
           BRANCH="narrative/update-${STAMP}"
@@ -200,8 +203,17 @@ jobs:
           HOLD_MERGE="false"
           DROP_BODY=""
           if [ -f data/narrative_repair.json ]; then
-            HOLD_MERGE="$(python -c "import json;print('true' if json.load(open('data/narrative_repair.json')).get('droppedSentences') else 'false')")"
-            DROP_BODY="$(python -c 'import json,sys; rows=json.load(open("data/narrative_repair.json")).get("droppedSentences") or []; sys.exit(0) if not rows else None; print("## Dropped sentences\n\nFact-check salvage removed these lines. Automerge is held.\n"); [print("-", row) for row in rows]')"
+            HOLD_MERGE="$(python -c "import json;print('true' if json.load(open('data/narrative_repair.json')).get('holdAutomerge') else 'false')")"
+            DROP_BODY="$(python -c '
+import json, sys
+repair = json.load(open("data/narrative_repair.json"))
+rows = repair.get("droppedSentences") or []
+sys.exit(0) if not rows else None
+held = bool(repair.get("holdAutomerge"))
+print("## Dropped sentences\n")
+print("Fact-check salvage removed these lines. Automerge is held.\n" if held else "Fact-check salvage removed these lines.\n")
+[print("-", row) for row in rows]
+')"
           fi
 
           if [ "$DESK_MODE" = "full" ] && [ -f data/narrative.json ]; then
@@ -289,14 +301,16 @@ jobs:
           if [ "$HOLD_MERGE" = "true" ]; then
             echo "Holding automerge: fact-check dropped sentences (listed in the PR body)."
             gh pr edit "$PR_URL" --add-label hold || true
+            echo "publish=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           gh pr merge "$PR_URL" --squash --delete-branch
+          echo "publish=true" >> "$GITHUB_OUTPUT"
 
   deploy:
     needs: update
-    if: needs.update.outputs.changed == 'true'
+    if: needs.update.outputs.publish == 'true'
     runs-on: ubuntu-latest
     concurrency:
       group: pages-publish
