@@ -630,7 +630,9 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         )
 
         def _drop_and_log(payload, problems):
-            repaired = facts.repair_offending_copy(payload, problems, last)
+            repaired = facts.repair_offending_copy(
+                payload, problems, last, recap
+            )
             gone = facts.dropped_sentences(payload, repaired)
             for sentence in gone:
                 print(f"  [writer] dropped sentence: {sentence}")

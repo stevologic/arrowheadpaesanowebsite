@@ -2014,6 +2014,26 @@ def _left_span(text: str, start: int) -> str:
     return re.split(r"[.;!?]|—", chunk)[-1].strip()
 
 
+def _sequence_source_span(text: str, match: re.Match, left: str, right: str) -> str:
+    """Exact source slice covering the after/following claim.
+
+    Reconstructing ``left + match + right`` glued the stripped left span
+    onto ``after`` (run 37030574826: ``nobodyafter``), so salvage could
+    not find the sentence and left an inverted Q1-after-Q2 claim.
+    """
+    start = match.start()
+    if left:
+        found = text.rfind(left, max(0, start - 160), start)
+        if found >= 0:
+            start = found
+    end = match.end()
+    if right:
+        found = text.find(right, end, end + 160)
+        if found >= 0:
+            end = found + len(right)
+    return text[start:end]
+
+
 def _check_play_sequence(text: str, recap: dict | None) -> list[str]:
     """'A after B' / 'A following B' must match ESPN play order."""
     events = _timeline(recap)
@@ -2036,8 +2056,7 @@ def _check_play_sequence(text: str, recap: dict | None) -> list[str]:
             continue
         if _event_sort_key(first) > _event_sort_key(second):
             continue
-        snippet = (left[-48:] + match.group(0) + right).strip()
-        snippet = re.sub(r"\s+", " ", snippet)
+        snippet = re.sub(r"\s+", " ", _sequence_source_span(text, match, left, right)).strip()
         key = snippet.lower()
         if key in seen:
             continue
@@ -3746,6 +3765,15 @@ def violation_snippets(violations: list[str]) -> list[str]:
             return
         seen.add(token)
         out.append(token)
+        # left.strip()+after used to emit 'nobodyafter' (run 37030574826).
+        unglued = re.sub(
+            r"(?<=[A-Za-z])(?=(?:after|following)\b)",
+            " ",
+            token,
+            flags=re.I,
+        )
+        if unglued != token:
+            _add(unglued)
 
     for item in violations or []:
         for hit in re.findall(r"\('([^']+)'\)", item):
@@ -4134,6 +4162,54 @@ def _drop_value(value, snippets: list[str]):
     return value
 
 
+def _drop_inverted_play_order_text(text: str, recap: dict | None) -> str:
+    """Drop leftover sentences whose after/following order still fails ESPN."""
+    if not text or not recap:
+        return text
+    issues = _check_play_sequence(text, recap)
+    if not issues:
+        return text
+    snippets = violation_snippets(issues)
+    if snippets:
+        dropped = _drop_text(text, snippets)
+        if dropped != text:
+            return dropped
+    sentences = _split_sentences(text)
+    if len(sentences) <= 1:
+        return ""
+    kept = [sent for sent in sentences if not _check_play_sequence(sent, recap)]
+    return " ".join(kept).strip()
+
+
+def _drop_inverted_play_order(value, recap: dict | None):
+    """Walk every section and remove inverted play-order claims after salvage."""
+    if not recap:
+        return value
+    if isinstance(value, str):
+        return _drop_inverted_play_order_text(value, recap)
+    if isinstance(value, list):
+        out = []
+        for item in value:
+            kept = _drop_inverted_play_order(item, recap)
+            if kept in (None, "", [], {}):
+                continue
+            out.append(kept)
+        return out
+    if isinstance(value, dict):
+        out = {}
+        for key, item in value.items():
+            if key in _PROTECTED_KEYS:
+                out[key] = item
+                continue
+            kept = _drop_inverted_play_order(item, recap)
+            if kept not in (None, "", [], {}):
+                out[key] = kept
+            elif key in ("lede", "body", "why", "coaching", "note"):
+                out[key] = kept if isinstance(kept, str) else ""
+        return out
+    return value
+
+
 def safe_score_lede(last_game: dict | None) -> str:
     last = last_game or {}
     opp = (last.get("opponent") or "the opponent").strip()
@@ -4147,6 +4223,7 @@ def repair_offending_copy(
     narrative: dict | None,
     violations: list[str],
     last_game: dict | None = None,
+    recap: dict | None = None,
 ) -> dict:
     """Drop offending sentences, then leftover fragments in every section."""
     payload = copy.deepcopy(narrative or {})
@@ -4155,6 +4232,12 @@ def repair_offending_copy(
         for key in _EDITION_KEYS:
             if key in payload:
                 payload[key] = _drop_value(payload[key], snippets)
+    # A glued play-order quote (nobodyafter) can miss the sentence. Re-check
+    # ESPN chronology and drop any leftover inverted after/following claim.
+    if recap:
+        for key in _EDITION_KEYS:
+            if key in payload:
+                payload[key] = _drop_inverted_play_order(payload[key], recap)
     if dropped_sentences(narrative or {}, payload):
         payload = _prune_salvage_value(narrative or {}, payload)
         review = payload.get("lastGameReview")

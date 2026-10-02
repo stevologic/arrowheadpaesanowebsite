@@ -4938,6 +4938,101 @@ class FactCheck(unittest.TestCase):
         self.assertNotIn("title", emptied)
         self.assertIn("why", emptied)
 
+    def test_salvage_drops_walker_q1_after_q2_play_order_splice(self):
+        """Run 37030574826: salvage left an inverted Q1-after-Q2 claim.
+
+        The quoted snippet glued 'nobodyafter', so the drop pass missed
+        Walker's 10-yard Q1 12:54 'after' a 5-yard TD at Q2 12:58 and
+        refused publish. The whole play-order sentence must go; a valid
+        later sequence and the score lede stay.
+        """
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        inverted = (
+            "Walker’s 10-yard run at Q1 12:54, trailed nobody after a "
+            "5-yard touchdown at Q2 12:58 made it 14–7."
+        )
+        keeper_order = (
+            "An 11-yard touchdown following the 34-yard field goal made it 24-10."
+        )
+        rushing = "Kansas City had 70 rushing yards."
+        narrative = {
+            "headline": "Keep this title",
+            "lastGameReview": {
+                "lede": (
+                    "Kansas City finished 24–10 against Miami. "
+                    + inverted
+                    + " "
+                    + keeper_order
+                ),
+                "analysis": [rushing],
+            },
+        }
+        issues = facts.check_review(narrative, last, recap)
+        self.assertTrue(any("play order" in item for item in issues), issues)
+        self.assertTrue(
+            any("12:54" in item and "12:58" in item for item in issues),
+            issues,
+        )
+        snippets = facts.violation_snippets(issues)
+        self.assertFalse(any("nobodyafter" in item for item in snippets), snippets)
+        play_snips = [
+            item
+            for item in snippets
+            if "12:54" in item or "nobody after" in item.lower()
+        ]
+        self.assertTrue(play_snips, snippets)
+        self.assertTrue(
+            any(item in inverted for item in play_snips),
+            play_snips,
+        )
+
+        repaired = facts.repair_offending_copy(narrative, issues, last)
+        blob = facts.edition_text(repaired)
+        self.assertNotIn("12:54", blob)
+        self.assertNotIn("nobody after", blob.lower())
+        self.assertNotIn("70 rushing yards", blob)
+        self.assertIn("24", blob)
+        self.assertIn("11-yard touchdown following the 34-yard", blob)
+        leftover = facts.check_review(repaired, last, recap)
+        self.assertFalse(any("play order" in item for item in leftover), leftover)
+        self.assertEqual(facts.repair_publish_blockers(leftover, repaired, []), [])
+
+        # Historical glued quote from the failed daily run. Snippet miss
+        # must not leave the inverted claim when ESPN chronology is re-checked.
+        glued = (
+            "play order: td 10yd td Q1 12:54 is not after td 5yd td Q2 12:58 "
+            "('Walker’s 10-yard run at Q1 12:54, trailed nobodyafter a "
+            "5-yard touchdown at Q2 12:58 made it 14–7')"
+        )
+        self.assertIn(
+            "nobody after",
+            " ".join(facts.violation_snippets([glued])).lower(),
+        )
+        glued_only = facts.repair_offending_copy(narrative, [glued], last)
+        glued_blob = facts.edition_text(glued_only)
+        self.assertNotIn("12:54", glued_blob)
+        self.assertNotIn("nobody after", glued_blob.lower())
+        self.assertIn("11-yard touchdown following the 34-yard", glued_blob)
+
+        missed = facts.repair_offending_copy(
+            narrative,
+            ["play order: glued miss ('nobodyafter')"],
+            last,
+            recap,
+        )
+        missed_blob = facts.edition_text(missed)
+        self.assertNotIn("12:54", missed_blob)
+        self.assertNotIn("nobody after", missed_blob.lower())
+        self.assertIn("11-yard touchdown following the 34-yard", missed_blob)
+        self.assertFalse(
+            any(
+                "play order" in item
+                for item in facts.check_review(missed, last, recap)
+            )
+        )
+
     def test_hold_automerge_on_noisy_salvage_or_short_desk(self):
         fat = " ".join(["Chiefs tape review word"] * 800)
         fat_edition = {
