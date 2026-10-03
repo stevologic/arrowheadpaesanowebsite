@@ -7556,6 +7556,10 @@ class FactCheck(unittest.TestCase):
         from tools.tests import karen_matrices
         self._run_karen_matrix("pv12", karen_matrices.pv12_cases)
 
+    def test_karen_matrix_pv12x(self):
+        from tools.tests import karen_matrices
+        self._run_karen_matrix("pv12x", karen_matrices.pv12x_cases)
+
     def test_karen_matrix_rs9(self):
         from tools.tests import karen_matrices
         self._run_karen_matrix("rs9", karen_matrices.rs9_cases)
@@ -7626,6 +7630,23 @@ class FactCheck(unittest.TestCase):
         self.assertIn(hunt_alone, text)
         self.assertNotIn("Kansas City had 88 rushing yards from Hunt alone.", text)
         self.assertFalse(any("88 rushing yards from Hunt" in log for log in logs))
+
+        ground = "Kansas City posted 70 on the ground."
+        direct = facts._correct_sentence(
+            ground,
+            "first downs 70 disagrees with ESPN 18 for KC ('70 on the ground')",
+            recap,
+            last,
+        )
+        self.assertIsNone(direct)
+        self.assertEqual(
+            facts._sentence_stat_kind(ground, 70),
+            "team rushing",
+        )
+        self.assertEqual(
+            facts._sentence_stat_kind("The Chiefs managed only 70 yards on the ground.", 70),
+            "team rushing",
+        )
 
     def test_karen_phrase_binding_must_flag(self):
         from tools.tests import karen_matrices
@@ -7768,7 +7789,64 @@ class FactCheck(unittest.TestCase):
         )
         self.assertFalse(issues, f"named older game must pass: {issues}")
 
+        for sentence in (
+            "Kansas City beat the Colts 33-30 in overtime.",
+            "The Colts game ended 33-30.",
+            "Kansas City beat Indianapolis 33-30 in Week 2.",
+        ):
+            issues = facts.check_review(
+                karen_matrices.story(sentence), last, recap, schedule=slate
+            )
+            self.assertFalse(issues, f"named Colts final must pass: {sentence} {issues}")
+
+        two_tds = "Kansas City scored 2 touchdowns."
+        issues = facts.check_review(
+            karen_matrices.story(two_tds), last, recap, schedule=slate
+        )
+        self.assertTrue(issues, f"must flag wrong TD count: {two_tds} {issues}")
+
+        lv_finals = (
+            "Kansas City won 24-10 in Las Vegas.",
+            "Kansas City beat Las Vegas 24-10.",
+            "The final was 14-10.",
+            "Kansas City won 31-3.",
+        )
+        for sentence in lv_finals:
+            issues = facts.check_review(
+                karen_matrices.story(sentence), last, recap, schedule=slate
+            )
+            self.assertTrue(issues, f"must flag LV final: {sentence} {issues}")
+        led = "Kansas City led 14-10 at halftime."
+        issues = facts.check_review(
+            karen_matrices.story(led), last, recap, schedule=slate
+        )
+        self.assertFalse(issues, f"in-game wording must pass: {issues}")
+
         recap, last, slate = karen_matrices.ctx("MIA")
+        for sentence in (
+            "Kansas City beat the Colts 33-30 in overtime.",
+            "The Colts game ended 33-30.",
+            "Kansas City beat Indianapolis 33-30 in Week 2.",
+        ):
+            issues = facts.check_review(
+                karen_matrices.story(sentence), last, recap, schedule=slate
+            )
+            self.assertFalse(
+                issues, f"named Colts final must pass in Preview: {sentence} {issues}"
+            )
+        for sentence in (
+            "Walker plunged in from the 15.",
+            "Walker ran it in from the 15.",
+            "Walker went in from the 15.",
+            "Walker found the end zone from the 15.",
+            "Walker crossed the goal line from the 15.",
+            "Walker capped the drive from the 15.",
+            "Walker walked in from the 15.",
+        ):
+            issues = facts.check_review(
+                karen_matrices.story(sentence), last, recap, schedule=slate
+            )
+            self.assertTrue(issues, f"must flag TD-from-the-N: {sentence} {issues}")
         mia_flag = (
             "The Chiefs managed only 70 yards on the ground.",
             "Walker punched it in from the 15 on second-and-goal.",

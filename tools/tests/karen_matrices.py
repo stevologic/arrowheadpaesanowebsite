@@ -540,6 +540,20 @@ def ctx(code: str) -> tuple[dict, dict, list]:
             ),
         )
         return recap, last, slate
+    if code == "MIA":
+        recap = mia_box()
+        prior = copy.deepcopy(_load("espn_401872945_recap.json"))
+        prior.setdefault("oppAbbr", prior.get("oppAbbr") or "IND")
+        prior.setdefault("opponent", prior.get("opponent") or "Indianapolis Colts")
+        prior.setdefault("week", 2)
+        recap["prior"] = prior
+        older = copy.deepcopy(_load("espn_401872931_recap.json"))
+        older.setdefault("oppAbbr", older.get("oppAbbr") or "DEN")
+        older.setdefault("opponent", older.get("opponent") or "Denver Broncos")
+        older.setdefault("week", 1)
+        recap["older"] = older
+        last = last_for("Miami Dolphins", "MIA", "Dolphins")
+        return recap, last, slate
     name, abbr, short = CITY_CTX[code]
     recap, last = relabel_mia(name, abbr, short)
     return recap, last, slate
@@ -918,22 +932,57 @@ PV11C = (
     ("LV5", "The Chiefs rushed for 95 yards.", True),
 )
 
+# Karen's exact r12 pv12.py 45 rows. Do not flip her expectations.
 PV12 = (
+    ("MIA", "Kansas City had 19 first downs.", True),
+    ("MIA", "Kansas City had 19 first downs.", True),
+    ("MIA", "Kansas City had 19 first downs in Miami.", True),
+    ("MIA", "Kansas City finished with 19 first downs.", True),
+    ("MIA", "Kansas City had 119 rushing yards.", True),
+    ("MIA", "Miami had 18 first downs.", True),
+    ("MIA", "Kansas City ended up with 19 first downs.", True),
+    ("MIA", "Kansas City had 19 first downs while Walker had 18 carries.", True),
+    ("MIA", "Kansas City had 19 first downs and Mahomes threw for 246.", True),
     ("MIA", "Kansas City had 19 first downs, and Miami spent the day chasing.", True),
     ("MIA", "Miami had 25 first downs, and Kansas City spent the day chasing them.", True),
+    ("MIA", "Kansas City had 400 total yards in Miami.", True),
+    ("MIA", "Kansas City had 18 first downs.", False),
+    ("MIA", "The Chiefs ran for 70 yards.", True),
     ("MIA", "Kansas City managed just 70 rushing yards.", True),
+    ("MIA", "Kansas City rushed for 70 yards against Miami.", True),
+    ("MIA", "Kansas City's offense ran for 70 yards.", True),
+    ("MIA", "Kansas City had 18 first downs and 70 rushing yards.", True),
+    ("MIA", "Kansas City allowed 88 rushing yards.", True),
+    ("MIA", "Kansas City allowed 119 rushing yards.", False),
     ("MIA", "Like the preseason, Kansas City never found the end zone in Miami.", True),
     ("MIA", "Kansas City never found the end zone in Miami.", True),
     ("MIA", "Walker scored from the 15 on second-and-goal.", True),
     ("MIA", "Walker's red-zone touchdown came from the 15.", True),
+    ("MIA", "Walker scored from the 15.", True),
+    ("MIA", "Butker hit a 37-yard field goal.", True),
     ("MIA", "Kansas City held the ball 34:21 last week against Miami.", True),
+    ("MIA", "Kansas City held the ball 34:21 against Miami.", True),
+    ("MIA", "Mahomes and Kansas City piled up 523 total yards in Miami.", True),
+    ("MIA", "Kansas City piled up 523 total yards in Miami.", True),
     ("MIA", "Kansas City needed only 30 attempts because Walker had 18 carries.", True),
+    ("MIA", "Mahomes needed only 30 attempts in Miami.", True),
+    ("MIA", "Miami took the first lead on an Ollie Gordon run.", True),
+    ("MIA", "Kansas City’s 31-10 opener was 155 rush yards.", True),
+    ("MIA", "A 34-0 win in Miami put Kansas City at 3-0 with 246 passing yards and 70 on the ground.", True),
+    ("MIA", "Kansas City reached 3-0 with 246 passing yards and 70 on the ground.", True),
+    ("SEA", "Jason Myers hit a 52-yard field goal.", True),
+    ("SEA", "Jason Myers hit a 46-yard field goal.", False),
+    ("SEA", "Kansas City let a 52-yard field goal stand.", True),
+    ("SEA", "Butker answered from 46.", True),
     ("SEA", "Like the preseason finale, Seattle never found the end zone.", True),
+    ("SEA", "Kansas City never found the end zone against the Seahawks.", False),
     ("SEA", "Seattle never found the end zone.", True),
     ("LV5", "Las Vegas held the ball 31:12 last week against Kansas City.", True),
     ("LV5", "Kansas City held the ball 28:48 last week against Las Vegas.", True),
-    ("MIA", "Kansas City had 18 first downs.", False),
-    ("MIA", "Kansas City allowed 119 rushing yards.", False),
+)
+
+# Extra rows kept from the r13 port; not Karen's r12 pv12.
+PV12X = (
     ("MIA", "Kansas City had 88 rushing yards.", False),
     ("MIA", "Kansas City held the ball 25:39.", False),
     ("MIA", "Miami had 19 first downs.", False),
@@ -952,7 +1001,6 @@ PV12 = (
     ("MIA", "Walker had 20 touches.", False),
     ("MIA", "Mahomes at 20-of-24 with a 119.8 passer rating is a winning quarterback night.", False),
     ("MIA", "Last week against Indianapolis, Kansas City held the ball 37:00.", False),
-    ("SEA", "Jason Myers hit a 46-yard field goal.", False),
     ("SEA", "Seattle kicked a 46-yard field goal.", False),
     ("LV5", "Las Vegas had 15 first downs, 95 rushing yards and 28:48.", False),
     ("LV5", "Kansas City had 22 first downs.", False),
@@ -990,6 +1038,7 @@ MATRIX_COUNTS = {
     "pv9": 42,
     "pv11c": 34,
     "pv12": 45,
+    "pv12x": 29,
     "rs9": 40,
     "replay163": 179,
 }
@@ -1021,6 +1070,10 @@ def pv11c_cases() -> list[dict]:
 
 def pv12_cases() -> list[dict]:
     return _pair_cases("pv12", PV12)
+
+
+def pv12x_cases() -> list[dict]:
+    return _pair_cases("pv12x", PV12X)
 
 
 def rs9_cases() -> list[dict]:
