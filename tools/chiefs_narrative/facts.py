@@ -846,6 +846,8 @@ def _add_opponent_aliases(
     if tokens and tokens[0].lower() not in _WEAK_ALIAS_TOKENS:
         if len(tokens) <= 2:
             _put_alias(aliases, tokens[0], team, protected=hold, mode=mode)
+    if team == "LV":
+        _put_alias(aliases, "vegas", team, protected=hold, mode=mode)
 
 
 def _team_aliases(
@@ -900,35 +902,47 @@ def _team_aliases(
     return aliases
 
 
+def _city_and_nick_labels(name: str, abbr: str = "", short: str = "") -> set[str]:
+    """Full city ('los angeles') and nickname, never bay/york/angeles alone."""
+    labels = set()
+    token = (abbr or "").strip().lower()
+    if token:
+        labels.add(token)
+    nick = (short or "").strip().lower()
+    if nick and nick not in _WEAK_ALIAS_TOKENS:
+        labels.add(nick)
+    words = [
+        part
+        for part in re.findall(r"[A-Za-z]+", name or "")
+        if part.lower() not in {"the", "at"}
+    ]
+    if len(words) >= 2:
+        city = " ".join(words[:-1]).lower()
+        if city not in _WEAK_ALIAS_TOKENS:
+            labels.add(city)
+    for word in words:
+        low = word.lower()
+        if low not in _WEAK_ALIAS_TOKENS and len(low) >= 3:
+            labels.add(low)
+    if (abbr or "").strip().upper() == "LV" or "vegas" in " ".join(words).lower():
+        labels.add("vegas")
+    return labels
+
+
 def _prior_game_labels(recap: dict | None) -> set[str]:
     prior = (recap or {}).get("prior") or {}
-    labels = set()
-    abbr = (prior.get("oppAbbr") or "").strip().lower()
-    if abbr:
-        labels.add(abbr)
-    for token in re.findall(r"[A-Za-z]+", prior.get("opponent") or ""):
-        if (
-            token.lower() not in ("the",)
-            and token.lower() not in _WEAK_ALIAS_TOKENS
-            and len(token) >= 3
-        ):
-            labels.add(token.lower())
-    return labels
+    return _city_and_nick_labels(
+        prior.get("opponent") or "",
+        prior.get("oppAbbr") or "",
+    )
 
 
 def _last_game_labels(last_game: dict | None, recap: dict | None) -> set[str]:
-    labels = set()
-    opp = ((recap or {}).get("oppAbbr") or "").strip().lower()
-    if opp:
-        labels.add(opp)
-    for token in re.findall(r"[A-Za-z]+", (last_game or {}).get("opponent") or ""):
-        if (
-            token.lower() not in ("the",)
-            and token.lower() not in _WEAK_ALIAS_TOKENS
-            and len(token) >= 3
-        ):
-            labels.add(token.lower())
-    return labels
+    return _city_and_nick_labels(
+        (last_game or {}).get("opponent") or "",
+        ((recap or {}).get("oppAbbr") or (last_game or {}).get("opponentAbbr") or ""),
+        (last_game or {}).get("opponentShort") or "",
+    )
 
 
 _KC_SCOPE = frozenset({"kc", "chiefs", "kansas"})
@@ -952,7 +966,7 @@ def _scope_label_map(
 
     def _add(label: str, scope: str) -> None:
         token = " ".join((label or "").lower().split())
-        if len(token) < 3 or token in known:
+        if len(token) < 3 or token in known or token in _WEAK_ALIAS_TOKENS:
             return
         assigned[token] = scope
         known.add(token)
@@ -969,11 +983,12 @@ def _scope_label_map(
             scope = "prior"
         else:
             scope = "other"
-        _add(game.get("opponentAbbr") or "", scope)
-        for field in ("opponent", "opponentShort"):
-            for tok in re.findall(r"[A-Za-z]+", game.get(field) or ""):
-                if tok.lower() not in ("the",) and len(tok) >= 3:
-                    _add(tok, scope)
+        for lab in _city_and_nick_labels(
+            game.get("opponent") or "",
+            game.get("opponentAbbr") or "",
+            game.get("opponentShort") or "",
+        ):
+            _add(lab, scope)
         week = game.get("week")
         if week not in (None, ""):
             _add(f"week {week}", scope)
@@ -1008,22 +1023,40 @@ def _claim_game_scope(
     left = text[left_origin:claim_at]
     _sent_start, sent_end = _sentence_span(text, claim_at)
     right = text[claim_at:min(sent_end, claim_at + 56)]
-    best_dist = None
-    best = ""
+    hits: list[tuple[int, int, int, str, int]] = []
     for lab, scope in _scope_label_map(recap, last_game, schedule):
         for hit in re.finditer(rf"\b{re.escape(lab)}\b", left, re.IGNORECASE):
-            dist = claim_at - (left_origin + hit.start())
-            if best_dist is None or dist < best_dist:
-                best_dist = dist
-                best = scope
+            abs_start = left_origin + hit.start()
+            hits.append(
+                (
+                    abs_start,
+                    left_origin + hit.end(),
+                    claim_at - abs_start,
+                    scope,
+                    len(lab),
+                )
+            )
         for hit in re.finditer(rf"\b{re.escape(lab)}\b", right, re.IGNORECASE):
             if hit.start() == 0:
                 continue
-            dist = hit.start()
-            if best_dist is None or dist < best_dist:
-                best_dist = dist
-                best = scope
-    return best
+            hits.append(
+                (
+                    claim_at + hit.start(),
+                    claim_at + hit.end(),
+                    hit.start(),
+                    scope,
+                    len(lab),
+                )
+            )
+    kept: list[tuple[int, int, int, str, int]] = []
+    for item in sorted(hits, key=lambda row: row[4], reverse=True):
+        start, end, _dist, _scope, _length = item
+        if any(k_start <= start and end <= k_end for k_start, k_end, *_ in kept):
+            continue
+        kept.append(item)
+    if not kept:
+        return ""
+    return min(kept, key=lambda row: row[2])[3]
 
 
 def _ground_subject(raw: str, aliases: dict[str, str]) -> str:
@@ -1126,17 +1159,31 @@ def _subject_clause(text: str, start: int) -> str:
     return _YARD_LINE_TEAM.sub(" ", text[clause_start:start])
 
 
+def _alias_hits(span: str, names: dict[str, str]) -> list[tuple[int, int, str]]:
+    """Mentions in span. A multi-word city wins over a weak last-word suffix."""
+    hits: list[tuple[int, int, str]] = []
+    for name in sorted(names, key=len, reverse=True):
+        team = names.get(name) or ""
+        if len(name) < 2 or not team:
+            continue
+        for hit in re.finditer(rf"\b{re.escape(name)}\b", span or "", re.IGNORECASE):
+            if any(
+                start <= hit.start() and hit.end() <= end
+                for start, end, _team in hits
+            ):
+                continue
+            hits.append((hit.start(), hit.end(), team))
+    return hits
+
+
 def _last_name_pos(span: str, names: dict[str, str]) -> tuple[int, str]:
     """Rightmost listed name in span and its start index, or (-1, '')."""
     best = ""
     best_pos = -1
-    for name in sorted(names, key=len, reverse=True):
-        if len(name) < 2:
-            continue
-        for hit in re.finditer(rf"\b{re.escape(name)}\b", span, re.IGNORECASE):
-            if hit.start() >= best_pos:
-                best_pos = hit.start()
-                best = names[name]
+    for start, _end, team in _alias_hits(span, names):
+        if start >= best_pos:
+            best_pos = start
+            best = team
     return best_pos, best
 
 
@@ -1262,13 +1309,10 @@ def _first_alias_in(span: str, aliases: dict[str, str]) -> str:
     """Leftmost team mention in span — nearest after a clock."""
     best = ""
     best_pos = None
-    for name in sorted(aliases, key=len, reverse=True):
-        if len(name) < 2:
-            continue
-        for hit in re.finditer(rf"\b{re.escape(name)}\b", span or "", re.I):
-            if best_pos is None or hit.start() < best_pos:
-                best_pos = hit.start()
-                best = aliases[name]
+    for start, _end, team in _alias_hits(span, aliases):
+        if best_pos is None or start < best_pos:
+            best_pos = start
+            best = team
     return best
 
 
@@ -4820,7 +4864,8 @@ _BOX_CLAUSE_SPLIT = re.compile(
     r"(?i:\beven though\b)|"
     r"(?i:\bbut\b)|"
     r"\band\s+(?=[A-Z][a-z])|"
-    r"\bto\s+(?=[A-Z][a-z])"
+    r"\bto\s+(?=[A-Z][a-z])|"
+    r",\s*(?=[A-Z][a-z])"
 )
 _WAS_LEAD_STOP = frozenset(
     {
@@ -4860,7 +4905,7 @@ def _kc_owned_box(sentence: str) -> bool:
 
 
 def _box_clause_span(text: str, index: int) -> tuple[int, int]:
-    """Subject clause around this claim: ; / while / and Team / but / even though / to."""
+    """Subject clause around this claim: ; / while / and Team / but / even though / to / comma+Name."""
     start, end = _sentence_span(text, index)
     fragment = text[start:end]
     if not fragment:
@@ -4926,6 +4971,19 @@ def _is_multi_stat_box(sentence: str) -> bool:
     Bare 'rush' or a kickoff clock is not a box line.
     """
     return sum(1 for pat in _BOX_KIND_PATTERNS if pat.search(sentence or "")) >= 2
+
+
+_TWO_COUNT_FIRST_DOWNS = re.compile(
+    r"\b\d{1,2}\s+and\s+\d{1,2}\s+first downs?\b",
+    re.IGNORECASE,
+)
+
+
+def _is_two_team_first_down_pair(sentence: str) -> bool:
+    """True for '19 and 18 first downs' or two first-down claims on one line."""
+    if len(_FIRST_DOWNS.findall(sentence or "")) >= 2:
+        return True
+    return bool(_TWO_COUNT_FIRST_DOWNS.search(sentence or ""))
 
 
 def _ingest_opponent_name_parts(names: set[str], raw: str) -> None:
@@ -5292,6 +5350,8 @@ def _correct_sentence(
             return None
         if _is_multi_stat_box(sentence):
             return None
+        if kind == "first downs" and _is_two_team_first_down_pair(sentence):
+            return None
         claim_at = 0
         hit = re.search(rf"\b{claimed}\b", sentence or "")
         if hit:
@@ -5358,6 +5418,8 @@ def apply_fact_corrections(
         if not rewritten:
             rewritten = _correct_sentence(sentence, item, recap, last_game)
         if not rewritten or rewritten == sentence:
+            continue
+        if sentence_fails_review(rewritten, last_game, recap, schedule):
             continue
         next_payload = copy.deepcopy(payload)
         for key in _EDITION_KEYS:

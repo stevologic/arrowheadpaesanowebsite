@@ -5661,6 +5661,124 @@ class FactCheck(unittest.TestCase):
             facts.check_review(edition, last, recap, schedule=slate), []
         )
 
+    def test_karen_160_multiword_city_bind_and_nits(self):
+        """#160 r5: Los Angeles / New York / Tampa Bay / Vegas bind on prod slate."""
+        recap_src = _load_fixture("espn_401872952_recap.json")
+        slate = self._prod_slate()
+        self.assertTrue(
+            any(
+                game.get("opponentAbbr") in {"LAC", "NYJ", "TB", "LV"}
+                for game in slate
+            ),
+            "schedule_2026.json must include Chargers, Jets, Buccaneers, Raiders",
+        )
+
+        def _lede(sentence, opponent):
+            return {
+                "phase": {"type": "regular"},
+                "lastGameReview": {
+                    "opponent": opponent,
+                    "result": "W",
+                    "score": "KC 24–10",
+                    "lede": sentence,
+                },
+            }
+
+        def _city_last(opponent, abbr, short):
+            payload = dict(recap_src)
+            payload["oppAbbr"] = abbr
+            last = dict(self.LAST)
+            last["date"] = "2026-09-27T17:00:00Z"
+            last["id"] = "401872952"
+            last["opponent"] = opponent
+            last["opponentAbbr"] = abbr
+            last["opponentShort"] = short
+            return last, payload
+
+        kc_was = "{} was 18 first downs, 88 rush, 246 net pass, 25:39."
+        kc_had = "{} had 18 first downs and 25:39."
+        kc_held = "{} held the ball 25:39."
+        opp_was = "{} was 19 first downs, 119 rush, 210 net pass, 34:21."
+        opp_had = "{} had 19 first downs and 34:21."
+        opp_held = "{} held the ball 34:21."
+        recaps = (
+            ("Los Angeles Chargers", "LAC", "Chargers", "Los Angeles"),
+            ("New York Jets", "NYJ", "Jets", "New York"),
+            ("Tampa Bay Buccaneers", "TB", "Buccaneers", "Tampa Bay"),
+            ("Las Vegas Raiders", "LV", "Raiders", "Vegas"),
+        )
+        for opponent, abbr, short, city in recaps:
+            last, recap = _city_last(opponent, abbr, short)
+            self.assertEqual(facts._alias_team(city, facts._team_aliases(last, recap, slate)), abbr)
+            for sentence in (kc_was.format(city), kc_had.format(city), kc_held.format(city)):
+                issues = facts.check_review(
+                    _lede(sentence, opponent), last, recap, schedule=slate
+                )
+                self.assertTrue(
+                    any(
+                        ("18" in item and "19" in item)
+                        or ("25:39" in item and abbr in item)
+                        for item in issues
+                    ),
+                    (city, sentence, issues),
+                )
+            for sentence in (opp_was.format(city), opp_had.format(city), opp_held.format(city)):
+                self.assertEqual(
+                    facts.check_review(
+                        _lede(sentence, opponent), last, recap, schedule=slate
+                    ),
+                    [],
+                    (city, sentence),
+                )
+
+        last, recap = _city_last("Miami Dolphins", "MIA", "Dolphins")
+        swapped = "Kansas City had 19 first downs; Miami had 18 first downs."
+        swap_issues = facts.check_review(
+            _lede(swapped, "Miami Dolphins"), last, recap, schedule=slate
+        )
+        self.assertTrue(swap_issues, swap_issues)
+        swap_fixed, swap_logs = facts.apply_fact_corrections(
+            _lede(swapped, "Miami Dolphins"),
+            swap_issues,
+            recap=recap,
+            last_game=last,
+            schedule=slate,
+        )
+        self.assertIn(swapped, facts.edition_text(swap_fixed))
+        self.assertFalse(any("→" in line for line in swap_logs), swap_logs)
+        leftover = facts.check_review(swap_fixed, last, recap, schedule=slate)
+        dropped = facts.repair_offending_copy(swap_fixed, leftover, last, recap)
+        self.assertNotIn(swapped, facts.edition_text(dropped))
+
+        pair = "Kansas City and Miami were 19 and 18 first downs."
+        pair_issues = facts.check_review(
+            _lede(pair, "Miami Dolphins"), last, recap, schedule=slate
+        )
+        self.assertTrue(pair_issues, pair_issues)
+        pair_fixed, pair_logs = facts.apply_fact_corrections(
+            _lede(pair, "Miami Dolphins"),
+            pair_issues,
+            recap=recap,
+            last_game=last,
+            schedule=slate,
+        )
+        blob = facts.edition_text(pair_fixed)
+        self.assertIn(pair, blob)
+        self.assertNotIn("19 and 19", blob)
+        self.assertFalse(any("→" in line for line in pair_logs), pair_logs)
+        pair_left = facts.check_review(pair_fixed, last, recap, schedule=slate)
+        self.assertTrue(pair_left, pair_left)
+        self.assertTrue(facts.should_hold_automerge([], pair_fixed, leftover=pair_left))
+
+        leading = "Even though Miami had 19, Kansas City held the ball 34:21."
+        clock_issues = facts.check_review(
+            _lede(leading, "Miami Dolphins"), last, recap, schedule=slate
+        )
+        self.assertTrue(
+            any("34:21" in item and "KC" in item for item in clock_issues),
+            clock_issues,
+        )
+
     def test_write_archive_survives_missing_headline(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "archive.json"
