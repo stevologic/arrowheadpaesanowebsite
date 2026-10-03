@@ -11,5 +11,11 @@
   "clock_not_rush": "The 12:54 rush was Walker’s opening score.",
   "single_number_swap": "Kansas City posted 24 first downs against Indianapolis.",
   "single_number_ok": "Kansas City posted 29 first downs against Indianapolis.",
-  "walker_again": "Walker scored again early in the second quarter on a 5-yard touchdown catch from Mahomes that made it 14-7."
+  "walker_again": "Walker scored again early in the second quarter on a 5-yard touchdown catch from Mahomes that made it 14-7.",
+  "two_team_semi": "Kansas City had 18 first downs; Miami had 19 first downs.",
+  "two_team_and": "Miami had 19 first downs and Kansas City had 18 first downs.",
+  "kc_clock_even_though": "Kansas City held the ball 34:21 even though Miami had 19 first downs.",
+  "las_vegas_was": "Las Vegas was 18 first downs, 88 rush, 246 net pass, 25:39.",
+  "new_york_was": "New York was 18 first downs, 88 rush, 246 net pass, 25:39.",
+  "green_bay_was": "Green Bay was 18 first downs, 88 rush, 246 net pass, 25:39."
 }

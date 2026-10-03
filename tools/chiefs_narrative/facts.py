@@ -774,18 +774,78 @@ def _play_yards(play: dict):
         return None
 
 
-def _add_opponent_aliases(aliases: dict[str, str], name: str, abbr: str) -> None:
-    tokens = [t for t in re.findall(r"[A-Za-z]+", name or "") if t.lower() not in ("the",)]
+_WEAK_ALIAS_TOKENS = frozenset(
+    {
+        "bay",
+        "new",
+        "los",
+        "las",
+        "angeles",
+        "york",
+        "green",
+        "tampa",
+        "kansas",
+        "city",
+        "saint",
+        "st",
+        "the",
+        "at",
+    }
+)
+
+
+def _put_alias(
+    aliases: dict[str, str],
+    key: str,
+    team: str,
+    *,
+    protected: set[str],
+    mode: str,
+) -> None:
+    token = " ".join((key or "").lower().split())
+    if not token or token in _WEAK_ALIAS_TOKENS or len(token) < 3:
+        return
+    if mode == "trusted":
+        aliases[token] = team
+        protected.add(token)
+        return
+    if token in protected:
+        return
+    prev = aliases.get(token)
+    if prev is None:
+        aliases[token] = team
+        return
+    if prev != team:
+        aliases[token] = ""
+
+
+def _add_opponent_aliases(
+    aliases: dict[str, str],
+    name: str,
+    abbr: str,
+    *,
+    protected: set[str] | None = None,
+    mode: str = "trusted",
+) -> None:
+    tokens = [
+        token
+        for token in re.findall(r"[A-Za-z]+", name or "")
+        if token.lower() not in {"the", "at"}
+    ]
     team = abbr or (tokens[-1][:3].upper() if tokens else "")
     if not team:
         return
+    hold = protected if protected is not None else set()
     if abbr:
-        aliases[abbr.lower()] = abbr
-    for token in tokens:
-        aliases[token.lower()] = team
+        _put_alias(aliases, abbr, team, protected=hold, mode=mode)
+    if tokens:
+        _put_alias(aliases, tokens[-1], team, protected=hold, mode=mode)
     if name and len(tokens) >= 2:
-        aliases[name.lower()] = team
-        aliases[" ".join(tokens[:-1]).lower()] = team
+        _put_alias(aliases, name, team, protected=hold, mode=mode)
+        _put_alias(aliases, " ".join(tokens[:-1]), team, protected=hold, mode=mode)
+    if tokens and tokens[0].lower() not in _WEAK_ALIAS_TOKENS:
+        if len(tokens) <= 2:
+            _put_alias(aliases, tokens[0], team, protected=hold, mode=mode)
 
 
 def _team_aliases(
@@ -798,19 +858,28 @@ def _team_aliases(
         "chiefs": "KC",
         "kansas city": "KC",
     }
+    protected = set(aliases)
     opp = ((recap or {}).get("oppAbbr") or "").strip().upper()
     if opp:
-        aliases[opp.lower()] = opp
-    _add_opponent_aliases(aliases, ((last_game or {}).get("opponent") or "").strip(), opp)
+        _put_alias(aliases, opp, opp, protected=protected, mode="trusted")
+    _add_opponent_aliases(
+        aliases,
+        ((last_game or {}).get("opponent") or "").strip(),
+        opp,
+        protected=protected,
+        mode="trusted",
+    )
     short = ((last_game or {}).get("opponentShort") or "").strip()
     if short and opp:
-        aliases[short.lower()] = opp
+        _put_alias(aliases, short, opp, protected=protected, mode="trusted")
     prior = (recap or {}).get("prior") or {}
     prior_abbr = (prior.get("oppAbbr") or "").strip().upper()
     _add_opponent_aliases(
         aliases,
         (prior.get("opponent") or "").strip(),
         prior_abbr,
+        protected=protected,
+        mode="trusted",
     )
     for game in schedule or []:
         if not isinstance(game, dict):
@@ -818,10 +887,16 @@ def _team_aliases(
         abbr = (game.get("opponentAbbr") or "").strip().upper()
         if not abbr or abbr == "KC":
             continue
-        _add_opponent_aliases(aliases, game.get("opponent") or "", abbr)
+        _add_opponent_aliases(
+            aliases,
+            game.get("opponent") or "",
+            abbr,
+            protected=protected,
+            mode="schedule",
+        )
         nick = (game.get("opponentShort") or "").strip()
         if nick:
-            aliases[nick.lower()] = abbr
+            _put_alias(aliases, nick, abbr, protected=protected, mode="schedule")
     return aliases
 
 
@@ -832,7 +907,11 @@ def _prior_game_labels(recap: dict | None) -> set[str]:
     if abbr:
         labels.add(abbr)
     for token in re.findall(r"[A-Za-z]+", prior.get("opponent") or ""):
-        if token.lower() not in ("the",) and len(token) >= 3:
+        if (
+            token.lower() not in ("the",)
+            and token.lower() not in _WEAK_ALIAS_TOKENS
+            and len(token) >= 3
+        ):
             labels.add(token.lower())
     return labels
 
@@ -843,7 +922,11 @@ def _last_game_labels(last_game: dict | None, recap: dict | None) -> set[str]:
     if opp:
         labels.add(opp)
     for token in re.findall(r"[A-Za-z]+", (last_game or {}).get("opponent") or ""):
-        if token.lower() not in ("the",) and len(token) >= 3:
+        if (
+            token.lower() not in ("the",)
+            and token.lower() not in _WEAK_ALIAS_TOKENS
+            and len(token) >= 3
+        ):
             labels.add(token.lower())
     return labels
 
@@ -1344,7 +1427,7 @@ def _alias_team(phrase: str, aliases: dict[str, str]) -> str:
     if token in aliases:
         return aliases[token]
     for alias in sorted(aliases, key=len, reverse=True):
-        if len(alias) < 3:
+        if len(alias) < 3 or not aliases.get(alias):
             continue
         if re.search(rf"\b{re.escape(alias)}\b", token, re.IGNORECASE):
             return aliases[alias]
@@ -2826,9 +2909,12 @@ def _check_box_clocks(
                 )
             continue
         sentence = _sentence_at(text, match.start())
-        explicit = _explicit_box_subject(sentence, aliases)
+        clause = _box_clause_at(text, match.start())
+        explicit = _explicit_box_subject(clause, aliases)
         if scope == "prior":
-            team = explicit or _bound_possession_team(text, match, aliases) or (
+            team = explicit or _bound_possession_in_clause(
+                text, match, aliases
+            ) or (
                 _possession_owner_after_clock(text, match, aliases)
             )
             prior_opp_abbr = (
@@ -2868,7 +2954,7 @@ def _check_box_clocks(
                     f"{sorted(prior_allowed)})"
                 )
             continue
-        team = explicit or _bound_possession_team(text, match, aliases)
+        team = explicit or _bound_possession_in_clause(text, match, aliases)
         owners = [side for side, bag in clocks.items() if clock in bag]
         # A clock that only appears on the opponent box binds to them
         # unless the local subject is explicitly KC.
@@ -2910,8 +2996,9 @@ def _check_box_clocks(
         except (TypeError, ValueError):
             continue
         sentence = _sentence_at(text, match.start())
+        clause = _box_clause_at(text, match.start())
         team = _bound_box_team(text, match.start(), aliases)
-        explicit = _explicit_box_subject(sentence, aliases)
+        explicit = _explicit_box_subject(clause, aliases)
         if explicit:
             team = explicit
         scope = _claim_game_scope(
@@ -2919,7 +3006,7 @@ def _check_box_clocks(
         )
         official = None
         label = team or "KC"
-        if not explicit and _kc_owned_box(sentence):
+        if not explicit and _kc_owned_box(clause):
             if scope == "prior" or any(
                 re.search(rf"\b{re.escape(lab)}\b", sentence.lower())
                 for lab in prior_labels
@@ -4727,6 +4814,14 @@ _WAS_BOX_LEAD = re.compile(
     r"^(?P<team>[A-Za-z][A-Za-z '’-]+?)\s+was\s+(?P<rest>.+)$",
     re.IGNORECASE,
 )
+_BOX_CLAUSE_SPLIT = re.compile(
+    r";|"
+    r"(?i:\bwhile\b)|"
+    r"(?i:\beven though\b)|"
+    r"(?i:\bbut\b)|"
+    r"\band\s+(?=[A-Z][a-z])|"
+    r"\bto\s+(?=[A-Z][a-z])"
+)
 _WAS_LEAD_STOP = frozenset(
     {
         "that",
@@ -4761,13 +4856,57 @@ _BOX_CLOCK = re.compile(r"\b(\d{1,2}:\d{2})\b(?!\s*(?:AM|PM))", re.I)
 
 def _kc_owned_box(sentence: str) -> bool:
     """True for 'Kansas City's Miami box' / 'KC's box', not 'the other box'."""
-    if _LET_THE_BOX.search(sentence or "") or _HAD_STAT_SUBJECT.search(sentence or ""):
-        return False
     return bool(_KC_OWNED_BOX.search(sentence or ""))
 
 
+def _box_clause_span(text: str, index: int) -> tuple[int, int]:
+    """Subject clause around this claim: ; / while / and Team / but / even though / to."""
+    start, end = _sentence_span(text, index)
+    fragment = text[start:end]
+    if not fragment:
+        return start, end
+    rel = max(0, min(index - start, len(fragment) - 1))
+    clause_start, clause_end = 0, len(fragment)
+    for hit in _BOX_CLAUSE_SPLIT.finditer(fragment):
+        if hit.end() <= rel:
+            clause_start = hit.end()
+        elif hit.start() > rel:
+            clause_end = hit.start()
+            break
+    return start + clause_start, start + clause_end
+
+
+def _box_clause_at(text: str, index: int) -> str:
+    left, right = _box_clause_span(text, index)
+    return text[left:right]
+
+
+def _bound_possession_in_clause(
+    text: str, match: re.Match, aliases: dict[str, str]
+) -> str:
+    """Possession subject stays inside this clause — not after even though."""
+    left, right = _box_clause_span(text, match.start())
+    clip = text[left:right]
+    rel_start = match.start() - left
+    rel_end = match.end() - left
+
+    class _ClipMatch:
+        def start(self, group=0):
+            del group
+            return rel_start
+
+        def end(self, group=0):
+            del group
+            return rel_end
+
+        def group(self, group=0):
+            return match.group(group)
+
+    return _bound_possession_team(clip, _ClipMatch(), aliases)
+
+
 def _explicit_box_subject(sentence: str, aliases: dict[str, str]) -> str:
-    """'Miami had …' / 'let the Miami box' beat a leading Kansas City's."""
+    """'Miami had …' / 'let the Miami box' in this clause only."""
     let_hit = _LET_THE_BOX.search(sentence or "")
     if let_hit:
         named = _alias_team(let_hit.group(1), aliases)
@@ -4800,11 +4939,13 @@ def _ingest_opponent_name_parts(names: set[str], raw: str) -> None:
         if token.lower() not in {"the", "at"}
     ]
     for token in tokens:
-        if len(token) >= 3:
+        if len(token) >= 3 and token.lower() not in _WEAK_ALIAS_TOKENS:
             names.add(token.lower())
     if len(tokens) >= 2:
         names.add(" ".join(tokens[:-1]).lower())
-        names.add(tokens[-1].lower())
+        nick = tokens[-1].lower()
+        if nick not in _WEAK_ALIAS_TOKENS:
+            names.add(nick)
 
 
 def _schedule_opponent_names(
@@ -4886,28 +5027,38 @@ def _against_team_phrase(
     return token
 
 
+def _recap_box_teams(last_game: dict | None, recap: dict | None) -> set[str]:
+    """Last-game and prior-game opponents only — the boxes we can verify."""
+    teams = {"KC"}
+    for raw in (
+        ((recap or {}).get("oppAbbr") or ""),
+        (((recap or {}).get("prior") or {}).get("oppAbbr") or ""),
+    ):
+        abbr = str(raw).strip().upper()
+        if abbr:
+            teams.add(abbr)
+    return teams
+
+
 def _unknown_was_opponent(
     sentence: str,
     last_game: dict | None,
     recap: dict | None,
     schedule=None,
 ) -> str:
-    """Lead of '{Opp} was <box>' when that opponent is not on the slate/recap."""
+    """'{Opp} was <multi-stat box>' when Opp is not the last or prior recap team."""
+    del schedule
     match = _WAS_BOX_LEAD.match((sentence or "").strip())
     if not match:
         return ""
     named = match.group("team").strip()
     if not named or named.lower() in _WAS_LEAD_STOP:
         return ""
-    if not _claimed_box_stats(sentence) and not re.search(
-        r"\bfirst downs\b", sentence or "", re.I
-    ):
+    if not _is_multi_stat_box(sentence):
         return ""
-    aliases = _team_aliases(last_game, recap, schedule)
-    if _alias_team(named, aliases):
-        return ""
-    known = {name.lower() for name in _schedule_opponent_names(last_game, recap, schedule)}
-    if named.lower() in known:
+    aliases = _team_aliases(last_game, recap, schedule=None)
+    team = _alias_team(named, aliases)
+    if team in _recap_box_teams(last_game, recap):
         return ""
     return named
 
@@ -4923,7 +5074,7 @@ def _check_unknown_was_box(
         named = _unknown_was_opponent(sentence, last_game, recap, schedule)
         if named:
             issues.append(
-                f"opponent {named} is not on the slate or recap ({sentence!r})"
+                f"opponent {named} box is unverifiable ({sentence!r})"
             )
     return issues
 
@@ -5116,6 +5267,7 @@ def _correct_sentence(
     sentence: str,
     violation: str,
     recap: dict | None = None,
+    last_game: dict | None = None,
 ) -> str | None:
     """Rewrite one ESPN disagreement, or None when the swap is not clean."""
     if not sentence:
@@ -5140,7 +5292,15 @@ def _correct_sentence(
             return None
         if _is_multi_stat_box(sentence):
             return None
-        if _HAD_STAT_SUBJECT.search(sentence) or _LET_THE_BOX.search(sentence):
+        claim_at = 0
+        hit = re.search(rf"\b{claimed}\b", sentence or "")
+        if hit:
+            claim_at = hit.start()
+        clause = _box_clause_at(sentence, claim_at)
+        if _explicit_box_subject(clause, _team_aliases(last_game, recap)) not in {
+            "",
+            "KC",
+        }:
             return None
         return _swap_count_in_sentence(sentence, claimed, official)
     name = _ILLEGAL_USE_NOT_SNEED.search(violation or "")
@@ -5190,13 +5350,13 @@ def apply_fact_corrections(
             continue
         unknown = _unknown_was_opponent(sentence, last_game, recap, schedule)
         if unknown:
-            logs.append(f"unknown opponent {unknown}; holding")
+            logs.append(f"unverifiable opponent {unknown}; holding")
             continue
         rewritten = _reword_misattributed_box(
             sentence, recap, last_game, schedule
         )
         if not rewritten:
-            rewritten = _correct_sentence(sentence, item, recap)
+            rewritten = _correct_sentence(sentence, item, recap, last_game)
         if not rewritten or rewritten == sentence:
             continue
         next_payload = copy.deepcopy(payload)
