@@ -4022,6 +4022,33 @@ def _check_offline_word_floor(narrative: dict | None) -> list[str]:
     return []
 
 
+def _upcoming_reg_post(schedule) -> bool:
+    for game in schedule or []:
+        if not isinstance(game, dict):
+            continue
+        if game.get("seasonType") not in ("reg", "post"):
+            continue
+        if game.get("completed"):
+            continue
+        return True
+    return False
+
+
+def _offseason_while_slate_open(narrative: dict | None, schedule=None) -> bool:
+    ptype = ((narrative or {}).get("phase") or {}).get("type")
+    return ptype == "offseason" and _upcoming_reg_post(schedule)
+
+
+def _check_offseason_slate(narrative: dict | None, schedule=None) -> list[str]:
+    """Hold offseason editions while regular/post games are still ahead."""
+    if _offseason_while_slate_open(narrative, schedule):
+        return [
+            "offseason phase while the slate still has upcoming "
+            "regular/postseason games"
+        ]
+    return []
+
+
 def check_copy_gates(narrative: dict | None, schedule=None) -> list[str]:
     """Record, stale-season, duplication, and offline word-count gates."""
     issues = _check_record_match(narrative, schedule)
@@ -4110,6 +4137,7 @@ def check_review(
                 issues.extend(_check_eligible_on_score(text, recap))
                 issues.extend(_check_int_clocks(text, recap))
                 issues.extend(_check_pass_touchdowns(text, recap))
+    issues.extend(_check_offseason_slate(narrative, schedule))
     if copy_gates:
         issues.extend(check_copy_gates(narrative, schedule))
     # Dedup while keeping order.
@@ -5541,6 +5569,7 @@ def should_hold_automerge(
     narrative: dict | None,
     leftover: list[str] | None = None,
     corrections: list[str] | None = None,
+    schedule=None,
 ) -> bool:
     """Hold whenever salvage rewrote or dropped copy, leftover, or thin."""
     if leftover:
@@ -5548,6 +5577,8 @@ def should_hold_automerge(
     if drops:
         return True
     if corrections:
+        return True
+    if _offseason_while_slate_open(narrative, schedule):
         return True
     return edition_word_count(narrative) < PUBLISH_WORD_FLOOR
 

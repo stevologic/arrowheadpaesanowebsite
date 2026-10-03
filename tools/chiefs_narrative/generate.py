@@ -136,12 +136,13 @@ def _ensure_six_xsandos(narrative: dict, signals: dict, ph: dict, upcoming: list
 
 def _ensure_next_game(narrative: dict, ph: dict) -> None:
     """If the writer skipped nextGame, fill it from the live schedule row."""
+    nxt = ph.get("nextGame")
+    if not nxt or nxt.get("completed"):
+        return
     if narrative.get("nextGame", {}).get("opponent"):
         return
-    if not ph.get("nextGame"):
-        return
     narrative["nextGame"] = schema._norm_next_game(
-        phase_mod.format_next_game(ph["nextGame"])
+        phase_mod.format_next_game(nxt)
     )
 
 
@@ -189,8 +190,9 @@ def _ensure_desk_sections(
         narrative["lastGameReview"] = review
 
     nxt = narrative.get("nextGame") or {}
-    if ph.get("nextGame") and nxt:
-        card = phase_mod.format_next_game(ph["nextGame"])
+    slate_next = ph.get("nextGame")
+    if slate_next and not slate_next.get("completed") and nxt:
+        card = phase_mod.format_next_game(slate_next)
         for key in ("opponent", "label", "at", "tv"):
             if card.get(key):
                 nxt[key] = card[key]
@@ -1058,6 +1060,7 @@ def main(argv=None) -> int:
                     narrative,
                     leftover=leftover,
                     corrections=corrections,
+                    schedule=result.get("schedule"),
                 ),
             },
             indent=2,

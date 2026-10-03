@@ -63,6 +63,14 @@ def is_live(game: dict | None, now: datetime = None) -> bool:
     return dt < _aware(now)
 
 
+def is_upcoming(game: dict | None, now: datetime = None) -> bool:
+    """True only for a slate row that has not kicked off yet."""
+    if not game or game.get("completed") or is_live(game, now):
+        return False
+    dt = _parse(game.get("date"))
+    return dt is not None and dt > _aware(now)
+
+
 def any_in_progress(schedule: list[dict] | None) -> bool:
     """True when ESPN has any Chiefs game in state ``in``."""
     return any(bool(g.get("inProgress")) and not g.get("completed") for g in schedule or [])
@@ -178,17 +186,17 @@ def detect(schedule: list[dict], now: datetime = None) -> dict:
         if st == "post":
             return _wrap(
                 "postseason", "Playoffs", wk, mode, f"{season} Playoffs",
-                next_game, last_game, live_game,
+                next_game, last_game, live_game, now,
             )
         if st == "pre":
             return _wrap(
                 "preseason", "Preseason", wk, "preview", f"{season} Preseason",
-                next_game, last_game, live_game,
+                next_game, last_game, live_game, now,
             )
         return _wrap(
             "regular", f"Week {wk}", wk, mode,
             _regular_edition(season, wk, mode, last_game),
-            next_game, last_game, live_game,
+            next_game, last_game, live_game, now,
         )
 
     # A live (or past-kickoff unfinished) game owns the week label.
@@ -197,6 +205,16 @@ def detect(schedule: list[dict], now: datetime = None) -> dict:
 
     # --- Game week in progress (only when the next game is actually close) --
     if next_game and days_to_next is not None and days_to_next <= GAME_WEEK_DAYS:
+        return _week_wrap(next_game, _mode())
+
+    # Bye week (or any in-season gap longer than GAME_WEEK_DAYS): keep the
+    # upcoming regular/post week instead of falling through to offseason.
+    if (
+        next_game
+        and last_game
+        and last_game.get("seasonType") in ("reg", "post")
+        and next_game.get("seasonType") in ("reg", "post")
+    ):
         return _week_wrap(next_game, _mode())
 
     # --- Not close to a game: camp window wins over a distant opener --------
@@ -209,13 +227,13 @@ def detect(schedule: list[dict], now: datetime = None) -> dict:
             if in_camp_window:
                 return _wrap(
                     "training-camp", "Training Camp", None, "camp",
-                    f"{season} Training Camp", reg[0] if reg else None, last_game,
-                    live_game,
+                    f"{season} Training Camp", None, last_game,
+                    live_game, now,
                 )
             return _wrap(
                 "offseason", "Offseason", None, "offseason",
-                f"{season} Offseason", reg[0] if reg else None, last_game,
-                live_game,
+                f"{season} Offseason", None, last_game,
+                live_game, now,
             )
 
     # A remaining preseason game means we are still in the dress-rehearsal
@@ -224,32 +242,33 @@ def detect(schedule: list[dict], now: datetime = None) -> dict:
         wk = next_game.get("week")
         return _wrap(
             "preseason", "Preseason", wk, "preview", f"{season} Preseason",
-            next_game, last_game, live_game,
+            next_game, last_game, live_game, now,
         )
 
     if in_camp_window:
         return _wrap(
             "training-camp", "Training Camp", None, "camp",
-            f"{season} Training Camp", next_game or (reg[0] if reg else None), last_game,
-            live_game,
+            f"{season} Training Camp", next_game, last_game,
+            live_game, now,
         )
 
-    # Default: offseason, pointing at the season opener if we know it.
-    opener = reg[0] if reg else next_game
+    # Default: offseason. Never point nextGame at a completed opener.
     return _wrap(
         "offseason", "Offseason", None, "offseason",
-        f"{season} Offseason", opener, last_game, live_game,
+        f"{season} Offseason", next_game, last_game, live_game, now,
     )
 
 
-def _wrap(ptype, label, week, mode, edition, next_game, last_game, live_game=None) -> dict:
+def _wrap(
+    ptype, label, week, mode, edition, next_game, last_game, live_game=None, now=None
+) -> dict:
     return {
         "type": ptype,
         "label": label,
         "week": week,
         "mode": mode,
         "edition": edition,
-        "nextGame": next_game,
+        "nextGame": next_game if is_upcoming(next_game, now) else None,
         "lastGame": last_game,
         "liveGame": live_game,
     }
