@@ -518,8 +518,23 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             prior_recap = collect.fetch_game_recap(str(prior["id"]))
             if prior_recap:
                 prior_recap["opponent"] = prior.get("opponent") or ""
+                prior_recap.setdefault("oppAbbr", prior.get("opponentAbbr") or "")
+                prior_recap["week"] = prior.get("week")
+                prior_recap.setdefault("eventId", prior.get("id"))
                 signals["lastGameRecap"]["prior"] = prior_recap
                 signals["priorGameRecap"] = prior_recap
+                older = collect.prior_completed_game(schedule, prior)
+                if older and older.get("id"):
+                    print(f"  [collect] older-game recap for event {older['id']}…")
+                    older_recap = collect.fetch_game_recap(str(older["id"]))
+                    if older_recap:
+                        older_recap["opponent"] = older.get("opponent") or ""
+                        older_recap.setdefault(
+                            "oppAbbr", older.get("opponentAbbr") or ""
+                        )
+                        older_recap["week"] = older.get("week")
+                        older_recap.setdefault("eventId", older.get("id"))
+                        signals["lastGameRecap"]["older"] = older_recap
 
     # 3. Markets/predictions for the next game.
     next_game = ph.get("nextGame") or (upcoming[0] if upcoming else None)

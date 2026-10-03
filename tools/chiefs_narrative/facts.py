@@ -203,7 +203,8 @@ _TEAM_GROUND = re.compile(
 )
 _GROUND_COPULA = frozenset({"is", "are", "was", "were", "be", "been", "am"})
 _TEAM_RUSH_YARDS = re.compile(
-    r"\b(\d{2,3})\s+(?:(?:team\s+)?rush(?:ing)?\s+yards|on the ground)\b",
+    r"\b(\d{2,3})\s+(?:(?:team\s+)?rush(?:ing)?\s+yards|"
+    r"yards on the ground|on the ground)\b",
     re.IGNORECASE,
 )
 _RAN_FOR_YARDS = re.compile(
@@ -216,15 +217,18 @@ _RUSH_SUBJECT_LEAD = re.compile(
     re.IGNORECASE,
 )
 _PLAYER_ALONE = re.compile(
-    r"\bfrom\s+([A-Za-z][A-Za-z .’-]+?)\s+alone\b",
+    r"\bfrom\s+([A-Za-z][A-Za-z .’-]+?)(?:\s+alone)?\b",
     re.IGNORECASE,
 )
 _SCOPED_STAT_REWRITE = re.compile(
-    r"\b(?:on the opening drive|on (?:its|their|the|a)\s+"
-    r"(?:first|second|third|fourth|opening|\w+)\s+drive|"
+    r"\b(?:"
+    r"on (?:its|their|the|a|his|her)\s+\w+\s+(?:drive|possession)|"
+    r"on the opening (?:drive|possession)|"
+    r"(?:before|after)\s+(?:halftime|the break)|"
     r"in the (?:first|second) half|"
-    r"in the (?:first|second|third|fourth|\d+(?:st|nd|rd|th))\s+quarter|"
-    r"(?:first|second|third|fourth)\s+quarter)\b",
+    r"in the \w+\s+quarter|"
+    r"(?:first|second|third|fourth)\s+quarter"
+    r")\b",
     re.IGNORECASE,
 )
 _TEAM_PASS_YARDS = re.compile(
@@ -269,12 +273,57 @@ _NIGHT_IDIOM = re.compile(
 )
 _NIGHT_THIS_GAME = re.compile(
     r"\bnight game\b"
+    r"|\bprime-time\s+nights?\b"
     r"|\b(?:sunday|monday|thursday|friday|saturday)\s+night\b",
     re.IGNORECASE,
 )
 _ENTIRE_SCORES = re.compile(
     r"\bthose\s+(?P<count>one|two|three|four|\d+)\s+scores?\s+"
-    r"were\s+the\s+entire(?:\s+(?P<points>\d{1,2}))?\b",
+    r"were\s+(?:the\s+entire|all of)\b"
+    r"(?:[^0-9]{0,32}?(?P<points>\d{1,2}))?",
+    re.IGNORECASE,
+)
+_FINAL_SCORE_CLAIMS = (
+    re.compile(
+        r"\bbeat(?:\s+the)?\s+(?:[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,2})\s+"
+        r"(\d{1,2})\s*[–-]\s*(\d{1,2})\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bwon\s+(\d{1,2})\s*[–-]\s*(\d{1,2})\s+(?:in|against)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bended(?:\s+(?:up|it))?\s+(\d{1,2})\s*[–-]\s*(\d{1,2})\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bthe final(?:\s+in\s+[A-Za-z]+)?\s+was\s+"
+        r"(\d{1,2})\s*[–-]\s*(\d{1,2})\b",
+        re.IGNORECASE,
+    ),
+)
+_DOMINATED_CLOCK = re.compile(
+    r"\bdominat\w+\s+possession,\s+(\d{1,2}:\d{2})\s+to\s+(\d{1,2}:\d{2})\b",
+    re.IGNORECASE,
+)
+_HALF_CLOCK = re.compile(
+    r"\b(\d{1,2}:\d{2})\b(?:(?!\s*(?:AM|PM)|\d{1,2}:\d{2}).){0,40}"
+    r"\b(?:in|of)\s+the\s+(?:first|second)\s+half\b"
+    r"|\b(?:in|of)\s+the\s+(?:first|second)\s+half\b"
+    r"(?:(?!\s*(?:AM|PM)|\d{1,2}:\d{2}).){0,40}\b(\d{1,2}:\d{2})\b",
+    re.IGNORECASE,
+)
+_QUARTER_CLOCK = re.compile(
+    r"\b(\d{1,2}:\d{2})\b(?:(?!\s*(?:AM|PM)|\d{1,2}:\d{2}).){0,40}"
+    r"\bin\s+the\s+\w+\s+quarter\b"
+    r"|\bin\s+the\s+\w+\s+quarter\b"
+    r"(?:(?!\s*(?:AM|PM)|\d{1,2}:\d{2}).){0,40}\b(\d{1,2}:\d{2})\b",
+    re.IGNORECASE,
+)
+_PLAYER_RUSH_YARDS = re.compile(
+    r"\b([A-Za-z][A-Za-z .’-]+?)\s+(?:ran|rushed)\s+for\s+(\d{2,3})\s+yards\b"
+    r"|\b([A-Za-z][A-Za-z .’-]+?)\s+had\s+(\d{2,3})\s+rushing yards\b",
     re.IGNORECASE,
 )
 _SCORE_COUNT_WORDS = {
@@ -1137,6 +1186,14 @@ def _prior_game_labels(recap: dict | None) -> set[str]:
     )
 
 
+def _older_game_labels(recap: dict | None) -> set[str]:
+    older = (recap or {}).get("older") or {}
+    return _city_and_nick_labels(
+        older.get("opponent") or "",
+        older.get("oppAbbr") or "",
+    )
+
+
 def _last_game_labels(last_game: dict | None, recap: dict | None) -> set[str]:
     return _city_and_nick_labels(
         (last_game or {}).get("opponent") or "",
@@ -1160,6 +1217,8 @@ def _scope_label_map(
         assigned[lab] = "last"
     for lab in _prior_game_labels(recap):
         assigned.setdefault(lab, "prior")
+    for lab in _older_game_labels(recap):
+        assigned.setdefault(lab, "older")
     for lab in ("prior-week", "prior week", "prior game"):
         assigned.setdefault(lab, "prior")
     known = set(assigned) | _KC_SCOPE
@@ -1169,7 +1228,7 @@ def _scope_label_map(
         if len(token) < 3 or token in _WEAK_ALIAS_TOKENS:
             return
         prev = assigned.get(token)
-        if prev in {"last", "prior"}:
+        if prev in {"last", "prior", "older"}:
             return
         if prev and scope == "other":
             return
@@ -1184,8 +1243,13 @@ def _scope_label_map(
     if prior_week not in (None, ""):
         assigned.setdefault(f"week {prior_week}", "prior")
         known.add(f"week {prior_week}")
+    older_week = ((recap or {}).get("older") or {}).get("week")
+    if older_week not in (None, ""):
+        assigned.setdefault(f"week {older_week}", "older")
+        known.add(f"week {older_week}")
     last_id = str((last_game or {}).get("id") or (recap or {}).get("eventId") or "")
     prior_id = str(((recap or {}).get("prior") or {}).get("eventId") or "")
+    older_id = str(((recap or {}).get("older") or {}).get("eventId") or "")
     for game in schedule or []:
         if not isinstance(game, dict):
             continue
@@ -1194,6 +1258,8 @@ def _scope_label_map(
             scope = "last"
         elif gid and gid == prior_id:
             scope = "prior"
+        elif gid and gid == older_id:
+            scope = "older"
         else:
             scope = "other"
         for lab in _city_and_nick_labels(
@@ -1260,15 +1326,10 @@ def _claim_game_scope(
                 return scope
             if re.search(_alias_pattern(lab), against.group(1), re.I):
                 return scope
-    start, clause_end = _stat_clause_span(text, claim_at)
-    lookback = text[max(0, start - 32) : start]
-    nl = lookback.rfind("\n")
-    left_origin = max(0, start - 32)
-    if nl >= 0:
-        left_origin = left_origin + nl + 1
+    left_origin = sent_start
     left = text[left_origin:claim_at]
-    after = text[claim_at : min(len(text), claim_at + 56)]
-    stop = re.search(r"[.;\n]", after)
+    after = text[claim_at : min(sent_end, claim_at + 56)]
+    stop = re.search(r"[.;\n]|,\s+[A-Z]", after)
     if stop:
         after = after[: stop.start()]
     right = after
@@ -1305,7 +1366,83 @@ def _claim_game_scope(
         kept.append(item)
     if not kept:
         return ""
-    return min(kept, key=lambda row: row[2])[3]
+    left_hits = []
+    for row in kept:
+        if row[0] >= claim_at:
+            continue
+        snippet = text[row[0] : row[1]]
+        if re.search(r"week\s+\d+|opener", snippet, re.I) and (
+            claim_at - row[1]
+        ) > 56:
+            continue
+        left_hits.append(row)
+    right_hits = [row for row in kept if row[0] >= claim_at]
+    tail = text[claim_at : min(len(text), claim_at + 56)]
+    right_ok = bool(
+        re.search(
+            r"(?:against|versus|over the|\bin\s+week\s+\d+|\bopener\b)\b",
+            tail,
+            re.I,
+        )
+    )
+    if left_hits and right_hits and right_ok:
+        pool = left_hits + right_hits
+    elif left_hits:
+        pool = left_hits
+    elif right_ok and right_hits:
+        pool = right_hits
+    else:
+        return ""
+    return min(pool, key=lambda row: row[2])[3]
+
+
+def _known_recap_weeks(
+    recap: dict | None, last_game: dict | None, schedule=None
+) -> set[str]:
+    weeks: set[str] = set()
+    for raw in (
+        (last_game or {}).get("week"),
+        ((recap or {}).get("prior") or {}).get("week"),
+        ((recap or {}).get("older") or {}).get("week"),
+    ):
+        if raw not in (None, ""):
+            weeks.add(str(raw))
+    last_id = str(
+        (last_game or {}).get("id") or (recap or {}).get("eventId") or ""
+    )
+    prior_id = str(((recap or {}).get("prior") or {}).get("eventId") or "")
+    older_id = str(((recap or {}).get("older") or {}).get("eventId") or "")
+    for game in schedule or []:
+        gid = str(game.get("id") or "")
+        week = game.get("week")
+        if week in (None, "") or not gid:
+            continue
+        if gid in {last_id, prior_id, older_id}:
+            weeks.add(str(week))
+    return weeks
+
+
+def _unbound_week_or_venue(
+    text: str,
+    claim_at: int,
+    recap: dict | None,
+    last_game: dict | None,
+    schedule=None,
+) -> bool:
+    """True when the sentence names a week or venue we have no box for."""
+    start, end = _stat_clause_span(text, claim_at)
+    sent_start, sent_end = _sentence_span(text, claim_at)
+    clause = text[max(sent_start, start) : min(end, sent_end)]
+    known = _known_recap_weeks(recap, last_game, schedule)
+    for hit in re.finditer(r"\bweek\s+(\d+)\b", clause, re.I):
+        if hit.group(1) not in known:
+            return True
+    last_labels = _last_game_labels(last_game, recap)
+    if re.search(r"\ballegiant\b", clause, re.I) and not (
+        {"vegas", "raiders"} & last_labels
+    ):
+        return True
+    return False
 
 
 def _ground_subject(raw: str, aliases: dict[str, str]) -> str:
@@ -1874,6 +2011,8 @@ def official_box_yards_by_team(
     payload = recap or {}
     if game == "prior":
         payload = payload.get("prior") or {}
+    elif game == "older":
+        payload = payload.get("older") or {}
     field = "rushingYards" if kind == "rush" else "netPassingYards"
     out: dict[str, int] = {}
     kc = _box_yards_int((payload.get("kc") or {}).get(field))
@@ -2082,6 +2221,9 @@ def _check_scores(text: str, last_game: dict, recap: dict) -> list[str]:
         if 0 in pair and max(pair) <= 16:
             continue
         _consider(match)
+    for rx in _FINAL_SCORE_CLAIMS:
+        for match in rx.finditer(masked):
+            _consider(match)
     return issues
 
 
@@ -2118,19 +2260,21 @@ def _check_td_yards(
                 continue
             sentence = _sentence_at(text, match.start())
             if re.search(
-                r"\b(?:not to kick|not kick|if it is|if\b|4th-and-goal|"
+                r"\b(?:not to kick|not kick|if it is|4th-and-goal|"
                 r"from the \d+-?in|plan from the|number from the|"
-                r"last resort|mesh|no hero ball)\b",
+                r"last resort|no hero ball)\b",
                 sentence,
                 re.I,
             ):
                 continue
-            scored = bool(re.search(r"\b(?:scored|touchdown|\bTD\b)\b", sentence, re.I))
-            if not scored and re.search(
-                r"\b(?:red-zone|(?:first|second|third|fourth)-and)\b",
-                sentence,
-                re.I,
-            ):
+            scored = bool(
+                re.search(
+                    r"\b(?:scored|touchdown|\bTD\b|punched it in)\b",
+                    sentence,
+                    re.I,
+                )
+            )
+            if not scored:
                 continue
         bound = _bound_team(text, match.start(), match.end(), aliases, players)
         team = bound or _score_team_for_yards(recap, "td", yards)
@@ -3226,6 +3370,7 @@ def _check_team_yards(
         return []
     last_rush = official_box_yards_by_team(recap, "rush", "last")
     prior_rush = official_box_yards_by_team(recap, "rush", "prior")
+    older_rush = official_box_yards_by_team(recap, "rush", "older")
     last_pass = official_box_yards_by_team(recap, "pass", "last")
     prior_pass = official_box_yards_by_team(recap, "pass", "prior")
     if not last_rush and not prior_rush and not last_pass and not prior_pass:
@@ -3336,8 +3481,6 @@ def _check_team_yards(
         if not re.search(r"\bteam\s+rush", match.group(0), re.I):
             if _player_owns_stat(text, match.start(), players, aliases):
                 continue
-            if _PLAYER_ALONE.search(sentence):
-                continue
             if re.search(
                 r"\b(?:the\s+)?miami\s+box\b|"
                 r"\bmiami['’]s\s+\d+\s+rush\b",
@@ -3349,6 +3492,26 @@ def _check_team_yards(
             text, match.start(), recap, last_game, schedule
         )
         if scope == "other":
+            team_guess = _explicit_box_subject(
+                _box_clause_at(text, match.start()), aliases
+            ) or _bound_box_team(text, match.start(), aliases)
+            if (
+                (
+                    team_guess == "KC"
+                    or re.search(
+                        r"\b(?:kansas city|the chiefs|\bkc\b)\b",
+                        sentence,
+                        re.I,
+                    )
+                )
+                and _unbound_week_or_venue(
+                    text, match.start(), recap, last_game, schedule
+                )
+            ):
+                issues.append(
+                    f"team rushing {yards} cannot be verified against a bound "
+                    f"ESPN box ({_claim_quote(text, match)!r})"
+                )
             continue
         if (
             re.search(r"on the ground", match.group(0), re.I)
@@ -3392,6 +3555,12 @@ def _check_team_yards(
             )
         ):
             continue
+        if re.search(
+            r"\b(?:squeezed|limited|allowed|kept|gave up|yielded|ate)\b",
+            sentence,
+            re.I,
+        ) and re.search(r"rush|ground", match.group(0), re.I):
+            continue
         if re.search(r"on the ground", match.group(0), re.I):
             ground = _TEAM_GROUND.search(sentence)
             if ground and _ground_subject(ground.group(1), aliases):
@@ -3406,6 +3575,10 @@ def _check_team_yards(
             label, official = "prior KC", prior_rush.get("KC")
             if team and team != "KC" and team in prior_rush:
                 label, official = f"prior {team}", prior_rush.get(team)
+        elif scope == "older":
+            label, official = "older KC", older_rush.get("KC")
+            if team and team != "KC" and team in older_rush:
+                label, official = f"older {team}", older_rush.get(team)
         else:
             label, official = _expected_rush(team) if team else ("team", None)
         if official is None:
@@ -3420,18 +3593,21 @@ def _check_team_yards(
                 label = "KC"
         if official is None:
             continue
-        window = text[max(0, match.start() - 96) : match.end() + 96]
-        names_prior = bool(
-            re.search(r"indianapolis|colts|\bprior\b", window, re.I)
-        ) or any(
-            re.search(rf"\b{re.escape(lab)}\b", window, re.I)
+        names_prior = bool(re.search(r"\bprior\b", sentence, re.I)) or any(
+            re.search(rf"\b{re.escape(lab)}\b", sentence, re.I)
             for lab in prior_labels
         )
         last_named = any(
             re.search(rf"\b{re.escape(lab)}\b", clause, re.I)
             for lab in last_labels
         )
-        if names_prior and yards == prior_rush.get("KC"):
+        if scope == "prior" and yards == prior_rush.get("KC"):
+            official = prior_rush.get("KC")
+            label = "prior KC"
+        elif scope == "older" and yards == older_rush.get("KC"):
+            official = older_rush.get("KC")
+            label = "older KC"
+        elif names_prior and yards == prior_rush.get("KC"):
             official = prior_rush.get("KC")
             label = "prior KC"
         elif (
@@ -3456,7 +3632,9 @@ def _check_team_yards(
             continue
         if team and team in last_rush and yards == last_rush[team]:
             continue
-        if team and team in prior_rush and yards == prior_rush[team]:
+        if scope == "prior" and team and team in prior_rush and yards == prior_rush[team]:
+            continue
+        if scope == "older" and team and team in older_rush and yards == older_rush[team]:
             continue
         # A number that is another club's official total stays theirs when
         # the subject is the other club or unknown — never when it is KC,
@@ -3505,6 +3683,24 @@ def _check_team_yards(
             f"team passing {yards} disagrees with ESPN {official} for "
             f"{label} ({match.group(0)!r})"
         )
+
+    for match in _PLAYER_RUSH_YARDS.finditer(text):
+        name = match.group(1) or match.group(3) or ""
+        raw = match.group(2) or match.group(4) or ""
+        try:
+            yards = int(raw)
+        except (TypeError, ValueError):
+            continue
+        last = _player_last(name)
+        official = player_rush.get(last)
+        if official is None:
+            continue
+        if yards == official:
+            continue
+        issues.append(
+            f"player rushing {yards} disagrees with ESPN {official} for "
+            f"{last} ({match.group(0)!r})"
+        )
     return issues
 
 
@@ -3525,12 +3721,17 @@ def _box_clocks(recap: dict | None) -> dict[str, set[str]]:
         "OPP": set(),
         "prior KC": set(),
         "prior OPP": set(),
+        "older KC": set(),
+        "older OPP": set(),
     }
     kc = (recap or {}).get("kc") or {}
     opp = (recap or {}).get("opp") or {}
     prior_block = (recap or {}).get("prior") or {}
     prior_kc = prior_block.get("kc") or {}
     prior_opp = prior_block.get("opp") or {}
+    older_block = (recap or {}).get("older") or {}
+    older_kc = older_block.get("kc") or {}
+    older_opp = older_block.get("opp") or {}
     if kc.get("possessionTime"):
         out["KC"].add(str(kc["possessionTime"]).strip())
     if opp.get("possessionTime"):
@@ -3539,6 +3740,10 @@ def _box_clocks(recap: dict | None) -> dict[str, set[str]]:
         out["prior KC"].add(str(prior_kc["possessionTime"]).strip())
     if prior_opp.get("possessionTime"):
         out["prior OPP"].add(str(prior_opp["possessionTime"]).strip())
+    if older_kc.get("possessionTime"):
+        out["older KC"].add(str(older_kc["possessionTime"]).strip())
+    if older_opp.get("possessionTime"):
+        out["older OPP"].add(str(older_opp["possessionTime"]).strip())
     return out
 
 
@@ -3878,7 +4083,10 @@ def _check_box_clocks(
         return []
     issues = []
     clocks = _box_clocks(recap)
-    allowed_clocks = set().union(*clocks.values()) if clocks else set()
+    last_clocks = clocks["KC"] | clocks["OPP"]
+    prior_clocks = clocks["prior KC"] | clocks["prior OPP"]
+    older_clocks = clocks.get("older KC", set()) | clocks.get("older OPP", set())
+    allowed_clocks = set(last_clocks)
     aliases = _team_aliases(last_game, recap, schedule)
     prior_labels = _prior_game_labels(recap)
     kc = (recap or {}).get("kc") or {}
@@ -3895,11 +4103,31 @@ def _check_box_clocks(
         scope = _claim_game_scope(
             text, match.start(), recap, last_game, schedule
         )
+        clause = _box_clause_at(text, match.start())
+        explicit = _explicit_box_subject(clause, aliases)
+        if _kc_owns_possession_verb(text, match, aliases):
+            explicit = "KC"
         if scope == "other":
+            if (
+                explicit == "KC"
+                or _kc_owns_possession_verb(text, match, aliases)
+            ) and _unbound_week_or_venue(
+                text, match.start(), recap, last_game, schedule
+            ):
+                issues.append(
+                    f"possession {clock} cannot be verified against a bound "
+                    f"ESPN box ({_clock_quote(text, match)!r})"
+                )
             continue
-        if not allowed_clocks:
+        if scope == "prior":
+            bound_clocks = prior_clocks
+        elif scope == "older":
+            bound_clocks = older_clocks
+        else:
+            bound_clocks = last_clocks
+        if not bound_clocks:
             continue
-        if clock not in allowed_clocks and clock.replace(":", ".") not in allowed_clocks:
+        if clock not in bound_clocks and clock.replace(":", ".") not in bound_clocks:
             # Bare clock that is nobody's TOP — only flag when it claims possession.
             # Look behind for 'possession 8:42'; the regex already eats
             # '8:42 of possession' after the time. Do not treat kickoff
@@ -3916,7 +4144,7 @@ def _check_box_clocks(
             ):
                 issues.append(
                     f"possession {clock} is not on the ESPN box "
-                    f"({match.group(0)!r}; official {sorted(allowed_clocks)})"
+                    f"({match.group(0)!r}; official {sorted(bound_clocks)})"
                 )
             continue
         sentence = _sentence_at(text, match.start())
@@ -4015,6 +4243,40 @@ def _check_box_clocks(
                 f"({quoted!r})"
             )
 
+    def _clock_secs(raw: str):
+        try:
+            minutes, seconds = raw.split(":")
+            return int(minutes) * 60 + int(seconds)
+        except (TypeError, ValueError):
+            return None
+
+    for match in _DOMINATED_CLOCK.finditer(text):
+        left, right = match.group(1), match.group(2)
+        left_s, right_s = _clock_secs(left), _clock_secs(right)
+        if left_s is None or right_s is None:
+            continue
+        if left_s < right_s:
+            issues.append(
+                f"dominated possession {left} to {right} is the losing clock "
+                f"({match.group(0)!r})"
+            )
+    for match in _HALF_CLOCK.finditer(text):
+        clock = match.group(1) or match.group(2)
+        secs = _clock_secs(clock or "")
+        if secs is not None and secs > 30 * 60:
+            issues.append(
+                f"possession {clock} cannot fit in a half "
+                f"({match.group(0)!r})"
+            )
+    for match in _QUARTER_CLOCK.finditer(text):
+        clock = match.group(1) or match.group(2)
+        secs = _clock_secs(clock or "")
+        if secs is not None and secs > 15 * 60:
+            issues.append(
+                f"possession {clock} cannot fit in a quarter "
+                f"({match.group(0)!r})"
+            )
+
     kc_fd = _box_int(kc, "firstDowns")
     opp_fd = _box_int((recap or {}).get("opp"), "firstDowns")
     prior_fd = _box_int(prior, "firstDowns")
@@ -4086,6 +4348,23 @@ def _check_box_clocks(
             )
             continue
         if scope == "other":
+            if (
+                team == "KC"
+                or (
+                    not team
+                    and re.search(
+                        r"\b(?:kansas city|the chiefs|\bkc\b)\b",
+                        sentence,
+                        re.I,
+                    )
+                )
+            ) and _unbound_week_or_venue(
+                text, match.start(), recap, last_game, schedule
+            ):
+                issues.append(
+                    f"first downs {claimed} cannot be verified against a bound "
+                    f"ESPN box ({_claim_quote(text, match)!r})"
+                )
             continue
         if scope == "prior":
             if team and prior_abbr and team == prior_abbr:
@@ -4514,13 +4793,22 @@ def _check_attempt_counts(
                     continue
                 if last:
                     player_att[last] = rushes
-            owner = _last_name_in(sentence, {name: name for name in player_att})
-            if owner and player_att.get(owner) == claimed:
-                continue
-            if claimed in player_att.values() and re.search(
-                r"\bcarries\b", match.group(0) or "", re.I
-            ):
-                continue
+            passer = _last_name_in(
+                text[_stat_clause_span(text, match.start())[0] : match.start()],
+                {last: last for last in by_last},
+            )
+            if passer and passer in by_last:
+                pass
+            else:
+                owner = _last_name_in(sentence, {name: name for name in player_att})
+                if owner and player_att.get(owner) == claimed:
+                    continue
+                if claimed in player_att.values() and re.search(
+                    r"\b(?:carries|feature back|walker)\b",
+                    sentence,
+                    re.I,
+                ):
+                    continue
         owner = _last_name_in(
             text[_stat_clause_span(text, match.start())[0] : match.start()],
             {last: last for last in by_last},
@@ -6622,7 +6910,7 @@ def _correct_sentence(
                 re.I,
             ):
                 return None
-            return _swap_count_in_sentence(sentence, claimed, official)
+            return None
         elif kind in _REWRITE_PLAYER_KINDS:
             return None
         elif kind not in (_REWRITE_BOX_KINDS | _REWRITE_PLAYER_KINDS):

@@ -432,7 +432,17 @@ def mia_box() -> dict:
 
 
 def lv5_box() -> dict:
-    return copy.deepcopy(_load("espn_lv5_synthetic_recap.json"))
+    recap = copy.deepcopy(_load("espn_lv5_synthetic_recap.json"))
+    prior = recap.get("prior") or {}
+    prior.setdefault("week", 3)
+    prior.setdefault("opponent", prior.get("opponent") or "Miami Dolphins")
+    recap["prior"] = prior
+    older = copy.deepcopy(_load("espn_401872945_recap.json"))
+    older.setdefault("oppAbbr", older.get("oppAbbr") or "IND")
+    older.setdefault("opponent", older.get("opponent") or "Indianapolis Colts")
+    older.setdefault("week", 2)
+    recap["older"] = older
+    return recap
 
 
 def sea_box() -> dict:
@@ -815,8 +825,8 @@ PV8B = (
     ("LV", "Las Vegas averaged 22 first downs a game coming in, and had 19 on Sunday", False),
     ("LV", "In Week 4, Las Vegas had 18 first downs.", True),
     ("LV", "Las Vegas had 18 first downs in Week 4.", True),
-    ("LV", "Kansas City had 19 first downs in Week 4.", False),
-    ("LV", "In Week 4 at Allegiant, Kansas City had 19 first downs and 25:39.", False),
+    ("LV", "Kansas City had 19 first downs in Week 4.", True),
+    ("LV", "In Week 4 at Allegiant, Kansas City had 19 first downs and 25:39.", True),
     ("LV", "The Raiders had 18 first downs, their fewest of the season.", True),
     ("LV", "Kansas City’s 19 first downs were a season low.", True),
     ("LV", "Las Vegas had 18 first downs in a game it never led.", True),
@@ -874,11 +884,11 @@ PV9 = (
 PV11C = (
     ("MIA", "Kansas City dominated possession, 41:20 to 18:40.", True),
     ("MIA", "Kansas City dominated possession, 34:21 to 25:39.", True),
-    ("MIA", "Kansas City dominated possession, 25:39 to 34:21.", False),
+    ("MIA", "Kansas City dominated possession, 25:39 to 34:21.", True),
     ("MIA", "Miami dominated possession, 34:21 to 25:39.", False),
     ("MIA", "Kansas City held the ball for 41:20.", True),
     ("MIA", "Kansas City owned the clock 34:21 to 25:39.", True),
-    ("MIA", "Kansas City held the ball 34:21 in the second half.", False),
+    ("MIA", "Kansas City held the ball 34:21 in the second half.", True),
     ("MIA", "Kansas City held the ball 34:21, including a 5:29 drive.", True),
     ("MIA", "Kansas City held the ball 25:39, including a 5:29 drive.", False),
     ("MIA", "Kansas City had 34:21 of possession, including 7:30 in the second quarter.", True),
@@ -922,6 +932,38 @@ PV12 = (
     ("SEA", "Seattle never found the end zone.", True),
     ("LV5", "Las Vegas held the ball 31:12 last week against Kansas City.", True),
     ("LV5", "Kansas City held the ball 28:48 last week against Las Vegas.", True),
+    ("MIA", "Kansas City had 18 first downs.", False),
+    ("MIA", "Kansas City allowed 119 rushing yards.", False),
+    ("MIA", "Kansas City had 88 rushing yards.", False),
+    ("MIA", "Kansas City held the ball 25:39.", False),
+    ("MIA", "Miami had 19 first downs.", False),
+    ("MIA", "Miami had 119 rushing yards.", False),
+    ("MIA", "Kansas City got 70 rushing yards from Walker.", False),
+    ("MIA", "Kansas City had 70 rushing yards from Walker alone.", False),
+    ("MIA", "Last week against Indianapolis, Kansas City ran for 152 yards.", False),
+    ("MIA", "Kansas City had 246 net passing yards.", False),
+    ("MIA", "Kansas City had 18 first downs and 25:39.", False),
+    ("MIA", "Miami finished with 19 first downs and 34:21 of possession.", False),
+    ("MIA", "Walker scored from the 10.", False),
+    ("MIA", "Kansas City won 24-10 in Miami.", False),
+    ("MIA", "Kansas City beat the Dolphins 24-10.", False),
+    ("MIA", "The final was 24-10.", False),
+    ("MIA", "Kansas City ended 24-10.", False),
+    ("MIA", "Walker had 20 touches.", False),
+    ("MIA", "Mahomes at 20-of-24 with a 119.8 passer rating is a winning quarterback night.", False),
+    ("MIA", "Last week against Indianapolis, Kansas City held the ball 37:00.", False),
+    ("SEA", "Jason Myers hit a 46-yard field goal.", False),
+    ("SEA", "Seattle kicked a 46-yard field goal.", False),
+    ("LV5", "Las Vegas had 15 first downs, 95 rushing yards and 28:48.", False),
+    ("LV5", "Kansas City had 22 first downs.", False),
+    ("LV5", "Kansas City had 140 rushing yards.", False),
+    ("LV5", "Kansas City held the ball 31:12.", False),
+    ("LV5", "Last week against Miami, Kansas City held the ball 25:39.", False),
+    ("LV5", "Las Vegas had 15 first downs.", False),
+    ("LV5", "Last week against Miami, Kansas City ran for 88 yards.", False),
+    ("LV5", "Las Vegas held the ball 28:48.", False),
+    ("LV5", "Kansas City had 22 first downs, 140 rushing yards and 31:12.", False),
+    ("LV5", "The Colts game's 152 rushing yards and 37:00 still sit on that box.", False),
 )
 
 RS9_LENGTHS = ("0:00-1:00", "7:00-11:00", "4:00-6:00", "12:00-15:00")
@@ -947,7 +989,7 @@ MATRIX_COUNTS = {
     "pv8b": 12,
     "pv9": 42,
     "pv11c": 34,
-    "pv12": 13,
+    "pv12": 45,
     "rs9": 40,
     "replay163": 179,
 }
@@ -1082,9 +1124,9 @@ def replay163_cases() -> list[dict]:
         ("The Miami game ended 24-10, and Kansas City held the ball 25:39.", False),
         ("The Miami game ended 24-10, and Kansas City held the ball 34:21.", True),
         ("Indianapolis 33-30 was the overtime game; Kansas City had the ball 37:00.", False),
-        ("Indianapolis 33-30 was the overtime game; Kansas City had the ball 33:00.", False),
+        ("Indianapolis 33-30 was the overtime game; Kansas City had the ball 33:00.", True),
         ("Miami 24-10 is the film: Miami had 19 first downs and Kansas City had 18.", False),
-        ("Indianapolis 33-30 was the overtime game; Kansas City had the ball 33:00.", False),
+        ("Indianapolis 33-30 was the overtime game; Kansas City had the ball 33:00.", True),
         ("Kansas City had the ball 33:00 against Indianapolis.", True),
         ("Against Indianapolis, Kansas City had 37:00 of possession.", False),
         ("Against Indianapolis, Kansas City had 33:00 of possession.", True),
