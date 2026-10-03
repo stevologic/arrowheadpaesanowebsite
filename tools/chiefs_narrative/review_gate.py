@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
 
-from tools.chiefs_narrative import config, facts
+from tools.chiefs_narrative import config
 
 REVIEW_SIGNOFF_REQUIRED = True
 QA_PASS_LABEL = "qa-pass"
@@ -23,6 +24,10 @@ EDITION_NAMES = frozenset(
         "data/narrative.json",
         "data/narrative_archive.json",
     }
+)
+_REVIEW_EDITION = re.compile(
+    r"Week\s+\d+\s+·\s+Week\s+\d+\s+Review",
+    re.IGNORECASE,
 )
 
 
@@ -44,7 +49,20 @@ def load_payload(path: Path) -> dict | None:
 
 
 def payload_is_review(payload: dict | None) -> bool:
-    return facts.is_review_edition(payload)
+    """True for phase.mode=review or a 'Week N · Week M Review' edition.
+
+    Duplicated from facts.is_review_edition so automerge/pages can run
+    this module without importing facts (and therefore requests).
+    """
+    if not payload:
+        return False
+    phase = payload.get("phase") if isinstance(payload.get("phase"), dict) else {}
+    if str((phase or {}).get("mode") or "").strip().lower() == "review":
+        return True
+    edition = str(
+        payload.get("edition") or (phase or {}).get("edition") or ""
+    )
+    return bool(_REVIEW_EDITION.search(edition))
 
 
 def labels_include_qa_pass(labels) -> bool:

@@ -5158,6 +5158,14 @@ class FactCheck(unittest.TestCase):
         self.assertEqual(publish.get("if"), "steps.review.outputs.skip != 'true'")
 
     def test_review_gate_blocks_unsigned_review_json(self):
+        gate_src = (
+            Path(__file__).resolve().parents[2]
+            / "tools"
+            / "chiefs_narrative"
+            / "review_gate.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("import facts", gate_src)
+        self.assertNotIn("from tools.chiefs_narrative import config, facts", gate_src)
         preview = {
             "slug": "2026-10-03-1538",
             "edition": "2026 Week 4 · Preview",
