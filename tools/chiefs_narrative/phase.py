@@ -51,9 +51,18 @@ def is_final(game: dict | None) -> bool:
     return game.get("kcScore") is not None and game.get("oppScore") is not None
 
 
+def completed_without_score(game: dict | None) -> bool:
+    """ESPN marked completed but did not post both scores — not a usable final."""
+    return bool(game and game.get("completed") and not is_final(game))
+
+
 def is_live(game: dict | None, now: datetime = None) -> bool:
-    """In progress, or past kickoff without a completed flag."""
-    if not game or game.get("completed"):
+    """In progress, past kickoff without a final, or completed with no scores."""
+    if not game:
+        return False
+    if completed_without_score(game):
+        return True
+    if game.get("completed"):
         return False
     if game.get("inProgress"):
         return True
@@ -141,11 +150,11 @@ def detect(schedule: list[dict], now: datetime = None) -> dict:
         dt = _parse(g.get("date"))
         if dt is None:
             continue
-        # Completed only when ESPN says so. Past kickoff without that flag,
-        # or an in-progress row, is live — never a lastGame for review.
-        if g.get("completed"):
+        # A real final only. Completed-without-score is live: generate
+        # skips so we never mint an unchecked Preview from a hollow box.
+        if is_final(g):
             completed.append((dt, g))
-        elif g.get("inProgress") or dt < now:
+        elif is_live(g, now) or g.get("inProgress") or dt < now:
             live.append((dt, g))
         else:
             upcoming.append((dt, g))

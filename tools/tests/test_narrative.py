@@ -36,6 +36,7 @@ from tools.chiefs_narrative import (
     phase,
     prompts,
     providers,
+    review_gate,
     schema,
     x_embeds,
 )
@@ -107,6 +108,47 @@ def _quoted_py_heredoc_bodies(script: str) -> list[str]:
             bodies.append("".join(chunk))
         i += 1
     return bodies
+
+
+def _job_step_script(parsed, job: str, *, name=None, step_id=None) -> str:
+    job_doc = ((parsed or {}).get("jobs") or {}).get(job) or {}
+    for step in job_doc.get("steps") or []:
+        if not isinstance(step, dict):
+            continue
+        if name and step.get("name") == name:
+            return str(step.get("run") or "")
+        if step_id and step.get("id") == step_id:
+            return str(step.get("run") or "")
+    return ""
+
+
+def _narrative_review_hold_wiring(parsed) -> dict:
+    """Structured review-hold wiring from the parsed narrative.yml publish step."""
+    script = _job_step_script(
+        parsed, "update", name="Open pull request and wait for CI gates"
+    ) or _job_step_script(parsed, "update", step_id="publish")
+    review_cmp = re.search(r'if \[ "\$REVIEW_HOLD" = "([^"]+)" \]', script)
+    hold_assign = re.search(
+        r'if \[ "\$REVIEW_HOLD" = "[^"]+" \]; then\s+HOLD_MERGE="([^"]+)"',
+        script,
+    )
+    merge_cmp = re.search(r'if \[ "\$HOLD_MERGE" = "([^"]+)" \]', script)
+    hold_idx = script.find('if [ "$HOLD_MERGE" = ')
+    merge_idx = script.find("gh pr merge")
+    hold_block = (
+        script[hold_idx:merge_idx] if hold_idx >= 0 and merge_idx > hold_idx else ""
+    )
+    return {
+        "script": script,
+        "uses_review_requires_human": "facts.review_requires_human" in script,
+        "review_hold_equals": review_cmp.group(1) if review_cmp else "",
+        "hold_merge_assign": hold_assign.group(1) if hold_assign else "",
+        "hold_merge_equals": merge_cmp.group(1) if merge_cmp else "",
+        "hold_before_merge": hold_idx >= 0 and merge_idx > hold_idx,
+        "hold_sets_publish_false": 'echo "publish=false"' in hold_block,
+        "hold_adds_label": "--add-label hold" in hold_block,
+        "hold_exits": "exit 0" in hold_block,
+    }
 
 
 # Canned inputs: the writers only use .get() lookups, so minimal dicts work.
@@ -2437,8 +2479,60 @@ class LiveGamePhase(unittest.TestCase):
             "kcScore": None,
             "oppScore": None,
         }
+        self.assertTrue(phase.completed_without_score(week3))
+        self.assertTrue(phase.is_live(week3, now=now))
+        self.assertFalse(phase.is_final(week3))
         ph = phase.detect([self.WEEK2, week3, self.WEEK4], now=now)
         self.assertNotEqual(ph["mode"], "review")
+        self.assertNotIn("Review", ph.get("edition") or "")
+        self.assertTrue(phase.any_live([self.WEEK2, week3, self.WEEK4], now=now))
+
+    def test_oct5_completed_without_score_skips_generate(self):
+        """ESPN completed + no scores must not mint a Preview PR."""
+        slate = copy.deepcopy(collect.load_cached_schedule())
+        lv = None
+        for game in slate:
+            if str(game.get("id")) == "401872976":
+                game["completed"] = True
+                game["inProgress"] = False
+                game["kcScore"] = None
+                game["oppScore"] = None
+                lv = game
+                break
+        self.assertIsNotNone(lv)
+        now = datetime(2026, 10, 5, 9, 37, tzinfo=timezone.utc)
+        self.assertTrue(phase.completed_without_score(lv))
+        self.assertTrue(phase.is_live(lv, now=now))
+        self.assertTrue(phase.any_live(slate, now=now))
+        ph = phase.detect(slate, now=now)
+        self.assertNotEqual(ph["mode"], "review")
+        self.assertNotIn("Review", ph.get("edition") or "")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            narrative_json = root / "narrative.json"
+            wire_json = root / "wire.json"
+            editions = root / "editions"
+            editions.mkdir()
+            archive = root / "archive.json"
+            archive.write_text("[]\n", encoding="utf-8")
+            with patch.object(config, "now_utc", return_value=now), patch.object(
+                collect,
+                "collect_all",
+                return_value={"schedule": slate, "news": [], "markets": {}},
+            ), patch.object(generate, "_write_schedule"), patch.object(
+                generate.config, "NARRATIVE_JSON", narrative_json
+            ), patch.object(
+                generate.config, "WIRE_JSON", wire_json
+            ), patch.object(
+                generate.config, "EDITIONS_DIR", editions
+            ), patch.object(
+                generate.config, "ARCHIVE_JSON", archive
+            ), patch.object(generate, "_render_diagrams"):
+                rc = generate.main(["--provider", "offline"])
+            self.assertEqual(rc, 0)
+            self.assertFalse(narrative_json.exists())
+            self.assertFalse(wire_json.exists())
+            self.assertEqual(list(editions.iterdir()), [])
 
     def test_in_progress_skips_publish(self):
         live = dict(self.WEEK3_LIVE)
@@ -4999,6 +5093,157 @@ class FactCheck(unittest.TestCase):
             )
             with self.assertRaises(ValueError):
                 check_workflows.load_workflows(root)
+
+    def test_narrative_review_hold_wiring_is_load_bearing(self):
+        """S3–S5 must go red: parse the publish step, not a string grep."""
+        root = Path(__file__).resolve().parents[2] / ".github" / "workflows"
+        parsed = yaml.safe_load((root / "narrative.yml").read_text(encoding="utf-8"))
+        wiring = _narrative_review_hold_wiring(parsed)
+        self.assertTrue(wiring["uses_review_requires_human"])
+        self.assertEqual(wiring["review_hold_equals"], "true")
+        self.assertEqual(wiring["hold_merge_assign"], "true")
+        self.assertEqual(wiring["hold_merge_equals"], "true")
+        self.assertTrue(wiring["hold_before_merge"])
+        self.assertTrue(wiring["hold_sets_publish_false"])
+        self.assertTrue(wiring["hold_adds_label"])
+        self.assertTrue(wiring["hold_exits"])
+        mutated = dict(wiring)
+        mutated["hold_merge_assign"] = "$HOLD_MERGE"
+        self.assertNotEqual(mutated["hold_merge_assign"], "true")
+        mutated["review_hold_equals"] = "yes"
+        self.assertNotEqual(mutated["review_hold_equals"], "true")
+        mutated["hold_merge_equals"] = "never"
+        self.assertNotEqual(mutated["hold_merge_equals"], "true")
+
+    def test_automerge_and_pages_refuse_unsigned_reviews(self):
+        root = Path(__file__).resolve().parents[2] / ".github" / "workflows"
+        ci = yaml.safe_load((root / "ci.yml").read_text(encoding="utf-8"))
+        qa = yaml.safe_load((root / "edition-qa.yml").read_text(encoding="utf-8"))
+        pages = yaml.safe_load((root / "pages.yml").read_text(encoding="utf-8"))
+        for parsed, job in ((ci, "automerge"), (qa, "automerge")):
+            scripts = "\n".join(
+                str(step.get("run") or "")
+                for step in ((parsed.get("jobs") or {}).get(job) or {}).get("steps")
+                or []
+                if isinstance(step, dict)
+            )
+            self.assertIn(
+                "python -m tools.chiefs_narrative.review_gate --automerge",
+                scripts,
+                job,
+            )
+            self.assertLess(
+                scripts.index("review_gate --automerge"),
+                scripts.index("gh pr merge"),
+            )
+        pages_scripts = "\n".join(
+            str(step.get("run") or "")
+            for step in ((pages.get("jobs") or {}).get("build-deploy") or {}).get(
+                "steps"
+            )
+            or []
+            if isinstance(step, dict)
+        )
+        self.assertIn(
+            "python -m tools.chiefs_narrative.review_gate --pages", pages_scripts
+        )
+        publish = next(
+            step
+            for step in ((pages.get("jobs") or {}).get("build-deploy") or {}).get(
+                "steps"
+            )
+            or []
+            if isinstance(step, dict) and step.get("name") == "Publish to gh-pages"
+        )
+        self.assertEqual(publish.get("if"), "steps.review.outputs.skip != 'true'")
+
+    def test_review_gate_blocks_unsigned_review_json(self):
+        preview = {
+            "slug": "2026-10-03-1538",
+            "edition": "2026 Week 4 · Preview",
+            "phase": {"mode": "preview"},
+        }
+        review = {
+            "slug": "2026-10-05-0937",
+            "edition": "2026 Week 6 · Week 4 Review",
+            "phase": {"mode": "review"},
+        }
+        self.assertFalse(review_gate.should_block_review(preview))
+        self.assertTrue(review_gate.should_block_review(review))
+        self.assertFalse(
+            review_gate.should_block_review(review, labels=["qa-pass"])
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            editions = root / "data" / "narrative_editions"
+            editions.mkdir(parents=True)
+            (editions / "2026-10-05-0937.json").write_text(
+                json.dumps(review) + "\n", encoding="utf-8"
+            )
+            (root / "data" / "narrative.json").write_text(
+                json.dumps(preview) + "\n", encoding="utf-8"
+            )
+            self.assertTrue(
+                review_gate.automerge_blocked(
+                    ["data/narrative_editions/2026-10-05-0937.json"],
+                    root=root,
+                )
+            )
+            self.assertFalse(
+                review_gate.automerge_blocked(
+                    ["data/narrative_editions/2026-10-05-0937.json"],
+                    labels=["qa-pass"],
+                    root=root,
+                )
+            )
+            self.assertFalse(
+                review_gate.automerge_blocked(
+                    ["tools/chiefs_narrative/facts.py"], root=root
+                )
+            )
+            self.assertEqual(
+                review_gate.main(
+                    [
+                        "--automerge",
+                        "--root",
+                        str(root),
+                        "data/narrative_editions/2026-10-05-0937.json",
+                    ]
+                ),
+                1,
+            )
+            self.assertEqual(
+                review_gate.main(
+                    [
+                        "--automerge",
+                        "--labels",
+                        "qa-pass",
+                        "--root",
+                        str(root),
+                        "data/narrative_editions/2026-10-05-0937.json",
+                    ]
+                ),
+                0,
+            )
+            sign = root / "data" / "review_signoff"
+            sign.mkdir(parents=True)
+            (sign / "2026-10-05-0937.json").write_text(
+                json.dumps({"result": "PASS", "by": "Karen"}) + "\n",
+                encoding="utf-8",
+            )
+            self.assertFalse(review_gate.should_block_review(review, root=root))
+            unsigned = root / "unsigned"
+            unsigned.mkdir()
+            (unsigned / "data").mkdir()
+            (unsigned / "data" / "narrative.json").write_text(
+                json.dumps(review) + "\n", encoding="utf-8"
+            )
+            self.assertTrue(review_gate.pages_blocked(root=unsigned))
+            self.assertFalse(review_gate.pages_blocked(root=root))
+            self.assertEqual(
+                review_gate.main(["--pages", "--root", str(unsigned)]), 2
+            )
+            self.assertEqual(review_gate.main(["--pages", "--root", str(root)]), 0)
 
     def _week3_slate(self):
         return [

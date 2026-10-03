@@ -46,7 +46,25 @@ jobs:
           hugo --gc --minify
           touch dist/.nojekyll
 
+      - name: Skip unsigned Review editions
+        id: review
+        run: |
+          set -euo pipefail
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          if python -m tools.chiefs_narrative.review_gate --pages; then
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          else
+            rc=$?
+            if [ "$rc" -eq 2 ]; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "Unsigned Review edition; skipping gh-pages deploy"
+            else
+              exit "$rc"
+            fi
+          fi
+
       - name: Publish to gh-pages
+        if: steps.review.outputs.skip != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

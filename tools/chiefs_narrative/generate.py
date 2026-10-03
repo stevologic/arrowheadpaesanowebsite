@@ -499,8 +499,8 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
 
     if phase_mod.any_live(schedule):
         raise LiveGameSkip(
-            "Chiefs game is live (in progress or past kickoff, not final); "
-            "skipping new edition"
+            "Chiefs game is live (in progress, past kickoff, or completed "
+            "without scores); skipping new edition"
         )
 
     # 2. Determine phase + upcoming games.
