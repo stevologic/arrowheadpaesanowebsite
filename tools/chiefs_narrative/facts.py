@@ -196,7 +196,7 @@ _TEAM_GROUND = re.compile(
     r"(?:on the ground|rush(?:ing)? yards)\b",
     re.IGNORECASE,
 )
-_GROUND_COPULA = frozenset({"is", "are", "were", "be", "been", "am"})
+_GROUND_COPULA = frozenset({"is", "are", "was", "were", "be", "been", "am"})
 _TEAM_RUSH_YARDS = re.compile(
     r"\b(\d{2,3})\s+(?:team\s+)?rush(?:ing)?\s+yards\b",
     re.IGNORECASE,
@@ -264,7 +264,7 @@ _SEQUENCE_GAIN = re.compile(
     re.IGNORECASE,
 )
 _POSSESSION_CLOCK = re.compile(
-    r"\b(\d{1,2}:\d{2})\b(?:\s+(?:of\s+)?(?:possession|clock))?",
+    r"\b(\d{1,2}:\d{2})\b(?!\s*(?:AM|PM))(?:\s+(?:of\s+)?(?:possession|clock))?",
     re.IGNORECASE,
 )
 _FIRST_DOWNS = re.compile(r"\b(\d{1,2})\s+first downs?\b", re.IGNORECASE)
@@ -352,9 +352,10 @@ _TOUCH_WINDOW = re.compile(
     r")\b",
     re.IGNORECASE,
 )
-# Hyphenated "40-drop" is dropback slang. Spaced "40 drops" is a catch count.
+# "40-dropback" / "40 dropbacks" are attempt claims. Bare "40-drop vacuum"
+# is metaphor and is not Mahomes' pass-attempt total.
 _DROP_ATTEMPT = re.compile(
-    rf"\b({_NUM_TOKEN})-drops?(?:backs?)?\b|"
+    rf"\b({_NUM_TOKEN})-dropbacks?\b|"
     rf"\b({_NUM_TOKEN})\s+dropbacks?\b|"
     rf"\bthrew\s+({_NUM_TOKEN})\s+passes\b|"
     rf"\battempted\s+({_NUM_TOKEN})\s+passes\b|"
@@ -654,6 +655,7 @@ _SEQUENCE_STOP = frozenset(
     }
 )
 
+_REQUIRED_COPY_KEYS = ("headline", "dek", "theEdge")
 _PROTECTED_KEYS = frozenset(
     {
         "score",
@@ -669,6 +671,10 @@ _PROTECTED_KEYS = frozenset(
         "generator",
         "edition",
         "record",
+        "title",
+        "topic",
+        "unit",
+        "segment",
     }
 )
 
@@ -913,17 +919,30 @@ def _claim_game_scope(
 def _ground_subject(raw: str, aliases: dict[str, str]) -> str:
     """Team token for a same-line 'Name 88 on the ground' match.
 
-    Heading leftovers ('Miami run game 88') do not bind. Copulas inside
-    the name ('leaves Miami is 88') do not bind.
+    Heading leftovers ('Miami run game 88') do not bind. Extra words
+    before the team ('leaves Miami is 88') do not bind. A trailing
+    copula ('Indianapolis was 117') is stripped so the team still binds.
     """
     words = re.findall(r"[A-Za-z][A-Za-z'’-]*", raw or "")
+    while words and words[-1].lower() in _GROUND_COPULA:
+        words.pop()
     if not words or any(word.lower() in _GROUND_COPULA for word in words):
         return ""
+
+    def _extras(before: list[str]) -> bool:
+        return any(word.lower() != "the" for word in before)
+
     last = words[-1]
     if _alias_team(last, aliases):
+        if _extras(words[:-1]):
+            return ""
         return last
-    if len(words) >= 2 and _alias_team(" ".join(words[-2:]), aliases):
-        return " ".join(words[-2:])
+    if len(words) >= 2:
+        pair = " ".join(words[-2:]).lower()
+        if pair in aliases:
+            if _extras(words[:-2]):
+                return ""
+            return " ".join(words[-2:])
     return ""
 
 
@@ -2619,6 +2638,18 @@ def _check_team_yards(
                 label = "KC"
         if official is None:
             continue
+        window = text[max(0, match.start() - 96) : match.end() + 96]
+        names_prior = bool(
+            re.search(r"indianapolis|colts|\bprior\b", window, re.I)
+        ) or any(
+            re.search(rf"\b{re.escape(lab)}\b", window, re.I)
+            for lab in prior_labels
+        )
+        if names_prior:
+            official = prior_rush.get("KC")
+            label = "prior KC"
+            if official is None:
+                continue
         if yards == official:
             continue
         # A number that is the opponent's official total is bound to them.
@@ -2749,8 +2780,12 @@ def _check_box_clocks(
             # '8:42 of possession' after the time. Do not treat kickoff
             # '12:00 PM' plus later 'the clock' as a TOP claim.
             prefix = text[max(0, match.start() - 40) : match.start()]
-            if re.search(r"possession", prefix, re.I) or re.search(
-                r"possession|clock", match.group(0), re.I
+            if re.search(r"\b(?:AM|PM)\b", text[match.end() : match.end() + 8], re.I):
+                continue
+            if re.search(r"possession of the\b", prefix, re.I):
+                continue
+            if re.search(r"possession|clock", match.group(0), re.I) or re.search(
+                r"(?:of\s+)?possession\b(?!\s+of\b)", prefix, re.I
             ):
                 issues.append(
                     f"possession {clock} is not on the ESPN box "
@@ -2887,7 +2922,8 @@ def _check_box_clocks(
         except (TypeError, ValueError):
             continue
         sentence = _sentence_at(text, match.start()).lower()
-        if "passing" in sentence or "rush" in sentence:
+        tail = text[match.end() : match.end() + 16].lower()
+        if "passing" in sentence or "rush" in sentence or tail.startswith(" rushing"):
             continue
         scope = _claim_game_scope(
             text, match.start(), recap, last_game, schedule
@@ -2899,13 +2935,20 @@ def _check_box_clocks(
         ):
             official = prior_total
             label = "prior KC"
-            # 382 is Indy passing, not the game total.
+            prior_rush = _box_int(prior, "rushingYards")
+            # 382 is Indy passing; 152 is Indy rushing — not the game total.
             if official and yards != official and yards == prior_pass:
                 issues.append(
                     f"game yards {yards} is prior passing, not the "
                     f"{official}-yard Indianapolis total ({match.group(0)!r})"
                 )
-            elif official and yards != official and yards not in {kc_total, kc_pass, prior_pass}:
+            elif official and yards != official and yards not in {
+                kc_total,
+                kc_pass,
+                prior_pass,
+                prior_rush,
+                _box_int(kc, "rushingYards"),
+            }:
                 issues.append(
                     f"game yards {yards} disagrees with ESPN {official} for "
                     f"{label} ({match.group(0)!r})"
@@ -3648,6 +3691,15 @@ _MIN_DUP_CHARS = 80
 _RECORD_TOKEN = re.compile(r"\b(\d+)-(\d+)(?:-(\d+))?\b")
 _STALE_AUGUST = re.compile(r"\bAugust\b", re.IGNORECASE)
 _STALE_PRESEASON = re.compile(r"\bpreseason\b", re.IGNORECASE)
+# Contrast with the preseason, not "this edition is preseason".
+_PRESEASON_COMPARE = re.compile(
+    r"(?:ahead of|better than|worse than|more than|less than|than|"
+    r"before|after|versus|vs\.?)\s+(?:the\s+)?preseason"
+    r"|preseason\s+(?:forecast|script|expectation|expectations)"
+    r"|preseason\s+did\s+not"
+    r"|problem\s+the\s+preseason",
+    re.IGNORECASE,
+)
 _STALE_CURRENT_SEASON = re.compile(
     r"\blooks?\s+most\s+2025\b"
     r"|\bthe\s+2025\s+Chiefs\s+are\b"
@@ -3701,6 +3753,17 @@ def _in_season_phase(narrative: dict | None) -> bool:
     return ptype in ("regular", "postseason")
 
 
+def _stale_preseason_claim(text: str) -> bool:
+    """True when in-season copy treats now as preseason, not a comparison."""
+    if not _STALE_PRESEASON.search(text or ""):
+        return False
+    for match in _STALE_PRESEASON.finditer(text or ""):
+        window = (text or "")[max(0, match.start() - 48) : match.end() + 32]
+        if not _PRESEASON_COMPARE.search(window):
+            return True
+    return False
+
+
 def _check_stale_season_copy(narrative: dict | None) -> list[str]:
     if not _in_season_phase(narrative):
         return []
@@ -3710,7 +3773,7 @@ def _check_stale_season_copy(narrative: dict | None) -> list[str]:
     issues = []
     if _STALE_AUGUST.search(text):
         issues.append("in-season edition contains 'August'")
-    if _STALE_PRESEASON.search(text):
+    if _stale_preseason_claim(text):
         issues.append("in-season edition contains 'preseason'")
     for match in _STALE_CURRENT_SEASON.finditer(text):
         issues.append(
@@ -3975,13 +4038,15 @@ def violation_snippets(violations: list[str]) -> list[str]:
             _add(unglued)
 
     for item in violations or []:
-        for hit in re.findall(r"\('([^']+)'\)", item):
+        # official ['25:39', '34:21'] is the allowed set, not the claim.
+        cleaned = re.sub(r";\s*official\s*\[[^\]]*\]", "", item or "")
+        for hit in re.findall(r"\('([^']+)'\)", cleaned):
             _add(hit)
-        for hit in re.findall(r"'([^']+)'", item):
+        for hit in re.findall(r"'([^']+)'", cleaned):
             _add(hit)
-        for hit in re.findall(r'"([^"]+)"', item):
+        for hit in re.findall(r'"([^"]+)"', cleaned):
             _add(hit)
-        claimed = re.match(r"possession (\d{1,2}:\d{2})\b", item, re.I)
+        claimed = re.match(r"possession (\d{1,2}:\d{2})\b", cleaned, re.I)
         if claimed:
             clock = claimed.group(1)
             # A sentence-length quote already identifies the offending
@@ -4377,34 +4442,78 @@ def _sentence_has_snippet(sentence: str, snip: str) -> bool:
     return bool(_CLOCK_SNIPPET.match(snip) and snip in sentence)
 
 
-def _drop_text(text: str, snippets: list[str]) -> str:
+def sentence_fails_review(
+    sentence: str,
+    last_game: dict | None,
+    recap: dict | None,
+    schedule=None,
+    phase: dict | None = None,
+) -> bool:
+    """True when this sentence, alone, still disagrees with ESPN."""
+    text = (sentence or "").strip()
+    if not text:
+        return False
+    probe = {
+        "phase": phase or {"type": "regular"},
+        "lastGameReview": {
+            "lede": text,
+            "opponent": (last_game or {}).get("opponent") or "",
+            "result": (last_game or {}).get("result") or "W",
+            "score": "",
+        },
+    }
+    if check_review(probe, last_game, recap, schedule=schedule):
+        return True
+    return _in_season_phase(probe) and _stale_preseason_claim(text)
+
+
+def _drop_text(
+    text: str,
+    snippets: list[str],
+    last_game: dict | None = None,
+    recap: dict | None = None,
+    schedule=None,
+) -> str:
     """Drop only sentences that contain a flagged snippet.
 
     A one-sentence field used to return '' whenever any snippet was a
     substring of the whole block, which swept in neighbors that did
-    not contain the hit (run 37042175518).
+    not contain the hit (run 37042175518). When a recap is present,
+    the snippet must also fail as its own claim — official clocks in
+    a 8:42 note must not delete every correct 25:39 sentence.
     """
     needles = [s for s in snippets if s]
     if not text or not needles:
         return text
     sentences = _split_sentences(text)
-    kept = [
-        s
-        for s in sentences
-        if not any(_sentence_has_snippet(s, snip) for snip in needles)
-    ]
+    kept = []
+    for sent in sentences:
+        if not any(_sentence_has_snippet(sent, snip) for snip in needles):
+            kept.append(sent)
+            continue
+        if recap is not None and not sentence_fails_review(
+            sent, last_game, recap, schedule
+        ):
+            kept.append(sent)
+            continue
     if len(kept) == len(sentences):
         return text
     return " ".join(kept).strip()
 
 
-def _drop_value(value, snippets: list[str]):
+def _drop_value(
+    value,
+    snippets: list[str],
+    last_game: dict | None = None,
+    recap: dict | None = None,
+    schedule=None,
+):
     if isinstance(value, str):
-        return _drop_text(value, snippets)
+        return _drop_text(value, snippets, last_game, recap, schedule)
     if isinstance(value, list):
         out = []
         for item in value:
-            kept = _drop_value(item, snippets)
+            kept = _drop_value(item, snippets, last_game, recap, schedule)
             if kept in (None, "", [], {}):
                 continue
             out.append(kept)
@@ -4415,7 +4524,7 @@ def _drop_value(value, snippets: list[str]):
             if key in _PROTECTED_KEYS:
                 out[key] = item
                 continue
-            kept = _drop_value(item, snippets)
+            kept = _drop_value(item, snippets, last_game, recap, schedule)
             if kept not in (None, "", [], {}):
                 out[key] = kept
             elif key in ("lede", "body", "why", "coaching", "note"):
@@ -4484,9 +4593,9 @@ def safe_score_lede(last_game: dict | None) -> str:
 
 
 _STAT_DISAGREE = re.compile(
-    r"(?:touches|sacks|pass attempts|rush attempts|team rushing|"
-    r"total drives|QB hits|first downs)\s+"
-    r"(\d+)\s+disagrees with ESPN\s+(\d+)",
+    r"(?P<kind>touches|sacks|pass attempts|rush attempts|team rushing|"
+    r"game yards|total drives|QB hits|first downs)\s+"
+    r"(?P<claimed>\d+)\s+disagrees with ESPN\s+(?P<official>\d+)",
     re.IGNORECASE,
 )
 _ILLEGAL_USE_NOT_SNEED = re.compile(
@@ -4546,15 +4655,69 @@ def _quoted_violation(item: str) -> str:
     return max(snippets, key=len).replace("\\n", "\n")
 
 
-def _correct_sentence(sentence: str, violation: str) -> str | None:
+def _sentence_stat_kind(sentence: str, claimed: int) -> str:
+    """Which stat the claimed number is actually naming in this sentence."""
+    token = re.escape(str(claimed))
+    low = sentence or ""
+    if re.search(rf"\b{token}\s+rush", low, re.I) or re.search(
+        rf"\b{token}\s+on the ground\b", low, re.I
+    ):
+        return "team rushing"
+    if re.search(rf"\b{token}-dropbacks?\b", low, re.I) or re.search(
+        rf"\b{token}\s+dropbacks?\b", low, re.I
+    ):
+        return "pass attempts"
+    if re.search(rf"\b{token}-drop\b", low, re.I):
+        return ""
+    if re.search(rf"\b{token}(?:\s+total)?\s+yards\b", low, re.I):
+        return "game yards"
+    return ""
+
+
+def _refuse_rush_swap(
+    sentence: str, claimed: int, official: int, recap: dict | None
+) -> bool:
+    """Do not replace prior-game rushing with last-game (or opp) rushing."""
+    prior_rush = _box_int(
+        ((recap or {}).get("prior") or {}).get("kc"), "rushingYards"
+    )
+    last_rush = _box_int((recap or {}).get("kc"), "rushingYards")
+    last_opp = _box_int((recap or {}).get("opp"), "rushingYards")
+    if re.search(r"indianapolis|colts|\bprior\b", sentence or "", re.I):
+        if prior_rush is not None and prior_rush == claimed:
+            return True
+        if official in {last_rush, last_opp} and official != prior_rush:
+            return True
+    return False
+
+
+def _correct_sentence(
+    sentence: str,
+    violation: str,
+    recap: dict | None = None,
+) -> str | None:
     """Rewrite one ESPN disagreement, or None when the swap is not clean."""
     if not sentence:
         return None
     num = _STAT_DISAGREE.search(violation or "")
     if num:
-        return _swap_count_in_sentence(
-            sentence, int(num.group(1)), int(num.group(2))
-        )
+        kind = (num.group("kind") or "").lower()
+        claimed = int(num.group("claimed"))
+        official = int(num.group("official"))
+        sent_kind = _sentence_stat_kind(sentence, claimed)
+        if sent_kind and sent_kind != kind:
+            return None
+        if kind == "game yards" and re.search(r"\brush", sentence, re.I):
+            return None
+        if kind == "team rushing" and _refuse_rush_swap(
+            sentence, claimed, official, recap
+        ):
+            return None
+        if kind == "pass attempts" and re.search(
+            rf"\b{claimed}-drop\b", sentence or "", re.I
+        ) and "dropback" not in (sentence or "").lower():
+            return None
+        return _swap_count_in_sentence(sentence, claimed, official)
     name = _ILLEGAL_USE_NOT_SNEED.search(violation or "")
     if name:
         return _swap_sneed_for(sentence, name.group(1))
@@ -4577,7 +4740,9 @@ def _replace_sentence_value(value, old: str, new: str):
 
 
 def apply_fact_corrections(
-    narrative: dict | None, violations: list[str]
+    narrative: dict | None,
+    violations: list[str],
+    recap: dict | None = None,
 ) -> tuple[dict, list[str]]:
     """Rewrite number/name mismatches to the ESPN value. Log each swap.
 
@@ -4601,7 +4766,7 @@ def apply_fact_corrections(
                 break
         if not sentence:
             sentence = tails[-1] if tails else ""
-        rewritten = _correct_sentence(sentence, item)
+        rewritten = _correct_sentence(sentence, item, recap)
         if not rewritten or rewritten == sentence:
             continue
         next_payload = copy.deepcopy(payload)
@@ -4630,7 +4795,9 @@ def repair_offending_copy(
     if snippets:
         for key in _EDITION_KEYS:
             if key in payload:
-                payload[key] = _drop_value(payload[key], snippets)
+                payload[key] = _drop_value(
+                    payload[key], snippets, last_game, recap
+                )
     # A glued play-order quote (nobodyafter) can miss the sentence. Re-check
     # ESPN chronology and drop any leftover inverted after/following claim.
     if recap:
@@ -4646,6 +4813,74 @@ def repair_offending_copy(
     if isinstance(review, dict) and not (review.get("lede") or "").strip():
         review["lede"] = safe_score_lede(last_game)
         payload["lastGameReview"] = review
+    for key in _REQUIRED_COPY_KEYS:
+        current = str(payload.get(key) or "").strip()
+        if current and not _required_copy_fails(
+            current, last_game, recap
+        ):
+            continue
+        payload[key] = _safe_required_copy(key, last_game)
+    return payload
+
+
+def _required_copy_fails(
+    text: str,
+    last_game: dict | None,
+    recap: dict | None,
+    schedule=None,
+) -> bool:
+    if recap is None:
+        return False
+    return sentence_fails_review(text, last_game, recap, schedule)
+
+
+def _safe_required_copy(key: str, last_game: dict | None) -> str:
+    """Offline stand-in so headline/dek/theEdge are never empty."""
+    del key
+    return safe_score_lede(last_game)
+
+
+def missing_required_copy(narrative: dict | None) -> list[str]:
+    """Top-level fields salvage must never empty."""
+    missing = []
+    for key in _REQUIRED_COPY_KEYS:
+        if not str((narrative or {}).get(key) or "").strip():
+            missing.append(key)
+    return missing
+
+
+def restore_required_copy(
+    target: dict | None,
+    *sources,
+    last_game: dict | None = None,
+    recap: dict | None = None,
+    schedule=None,
+) -> dict:
+    """Fill empty or still-wrong headline/dek/theEdge from a clean draft."""
+    payload = copy.deepcopy(target or {})
+    for key in _REQUIRED_COPY_KEYS:
+        current = str(payload.get(key) or "").strip()
+        if current and not _required_copy_fails(
+            current, last_game, recap, schedule
+        ):
+            continue
+        restored = False
+        for src in sources:
+            val = (src or {}).get(key)
+            text = str(val or "").strip()
+            if not text:
+                continue
+            if _required_copy_fails(text, last_game, recap, schedule):
+                continue
+            payload[key] = val
+            restored = True
+            break
+        if not restored and not current:
+            payload[key] = _safe_required_copy(key, last_game)
+        elif not restored and _required_copy_fails(
+            current, last_game, recap, schedule
+        ):
+            payload[key] = _safe_required_copy(key, last_game)
     return payload
 
 
