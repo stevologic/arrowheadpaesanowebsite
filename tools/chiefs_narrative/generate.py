@@ -1044,7 +1044,10 @@ def main(argv=None) -> int:
         return 1
 
     narrative = result["narrative"]
-    if not narrative.get("headline"):
+    missing_headline = not bool(str(narrative.get("headline") or "").strip())
+    if missing_headline:
+        # Archive write still needs a string. Hold so the edition label
+        # never automerges as the published headline.
         narrative["headline"] = (
             narrative.get("edition") or "The Chiefs Narrative"
         )
@@ -1069,6 +1072,7 @@ def main(argv=None) -> int:
                     leftover=leftover,
                     corrections=corrections,
                     schedule=result.get("schedule"),
+                    missing_headline=missing_headline,
                 ),
             },
             indent=2,

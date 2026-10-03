@@ -269,12 +269,33 @@ _POSSESSION_CLOCK = re.compile(
 )
 _FIRST_DOWNS = re.compile(r"\b(\d{1,2})\s+first downs?\b", re.IGNORECASE)
 _POSSESSION_HELD = re.compile(
-    r"\b(?:held|sat on|had the ball|kept the ball|won the clock|"
-    r"lost the clock)\b|"
+    r"\b(?:held the ball|sat on|had the ball for|"
+    r"had the ball\s+\d{1,2}:\d{2}|kept the ball for|"
+    r"won the clock|lost the clock|time of possession)\b|"
     r"\bhad\s+\d{1,2}:\d{2}\b|"
     r"\bwas\s+\d{3},\s+\d{1,2},\s+\d{1,2}:\d{2}\b|"
     r"\bstays?\s+on\b",
     re.I,
+)
+_SEGMENT_CLOCK_RANGE = re.compile(
+    r"\d{1,2}:\d{2}\s*[-–]\s*\d{1,2}:\d{2}"
+)
+_GAME_CLOCK_AFTER = re.compile(
+    r"\s*(?:"
+    r"into\s+the\s+(?:game|first|second|third|fourth|"
+    r"opening|quarter|half|period)\b|"
+    r"left\b|remaining\b|to\s+go\b|"
+    r"(?:in|of)\s+the\s+(?:first|second|third|fourth|"
+    r"opening|quarter|half|period)\b|"
+    r"in\b(?!\s+(?:the\s+)?[A-Z])|"
+    r"mark\b"
+    r")",
+    re.IGNORECASE,
+)
+_HAD_ON_GAMEDAY = re.compile(
+    r"\bhad\s+(\d{1,2})\s+on\s+"
+    r"(?:Sunday|Monday|Thursday|Friday|Saturday|gameday)\b",
+    re.IGNORECASE,
 )
 _FIRST_DOWNS_AND_CLOCK = re.compile(
     r"first downs?\s+and\s*$",
@@ -2873,7 +2894,13 @@ def _check_team_yards(
         )
         if scope == "other":
             continue
-        team = _bound_box_team(text, match.start(), aliases)
+        clause = _box_clause_at(text, match.start())
+        explicit = _explicit_box_subject(clause, aliases)
+        if not explicit:
+            lead = _HAD_BOX_LEAD.match(clause.strip())
+            if lead:
+                explicit = _alias_team(lead.group("team"), aliases)
+        team = explicit or _bound_box_team(text, match.start(), aliases)
         if scope == "prior":
             label, official = "prior KC", prior_rush.get("KC")
             if team and team != "KC" and team in prior_rush:
@@ -2906,8 +2933,11 @@ def _check_team_yards(
                 continue
         if yards == official:
             continue
-        # A number that is the opponent's official total is bound to them.
-        if yards in last_rush.values() or yards in prior_rush.values():
+        # A number that is the other club's official total is theirs unless
+        # this clause already named a subject ("Miami had … 88 rushing yards").
+        if not explicit and (
+            yards in last_rush.values() or yards in prior_rush.values()
+        ):
             continue
         issues.append(
             f"team rushing {yards} disagrees with ESPN {official} for "
@@ -2978,19 +3008,61 @@ def _box_clocks(recap: dict | None) -> dict[str, set[str]]:
     return out
 
 
+def _possession_clock_is_game_or_segment(text: str, match: re.Match) -> bool:
+    """True for run-of-show ranges and game-clock phrases — never TOP."""
+    clock = match.group(1)
+    start = match.start(1)
+    end = match.end(1)
+    if clock == "0:00":
+        return True
+    around = text[max(0, start - 12) : min(len(text), end + 12)]
+    if _SEGMENT_CLOCK_RANGE.search(around):
+        return True
+    after = text[end : end + 48]
+    if _GAME_CLOCK_AFTER.match(after):
+        return True
+    before = text[max(0, start - 24) : start]
+    if re.search(r"\b(?:Q[1-4]|quarter\s+[1-4])\s*$", before, re.I):
+        return True
+    if re.search(r"\bat\s+the\s*$", before, re.I) and re.match(
+        r"^\s*mark\b", after, re.I
+    ):
+        return True
+    if re.search(r"\bwith\s*$", before, re.I) and re.match(
+        r"^\s*(?:to\s+go|left|remaining)\b", after, re.I
+    ):
+        return True
+    return False
+
+
 def _possession_held_by_named_team(text: str, match: re.Match) -> bool:
-    """True when the clause says that named team held / sat on / stays on TOP."""
+    """True when the same clause claims TOP with possession wording."""
     start, end = _stat_clause_span(text, match.start())
-    # 37:00's colon is a clause break, so keep a short tail after the clock.
-    window = text[start : max(end, match.end() + 48)]
-    return bool(_POSSESSION_HELD.search(window))
+    sent_start, sent_end = _sentence_span(text, match.start())
+    clause_start, clause_end = _box_clause_span(text, match.start())
+    left = max(start, sent_start, clause_start)
+    # 37:00's colon is a clause break, so keep a short tail after the clock,
+    # but never leave this sentence or this box clause.
+    right = min(sent_end, clause_end, max(end, match.end() + 48))
+    if right <= left:
+        return False
+    return bool(_POSSESSION_HELD.search(text[left:right]))
 
 
 def _clock_tied_to_subject(text: str, match: re.Match) -> bool:
-    """True when this clock is claimed as a team TOP, not a kickoff time."""
+    """True when this clock is a team TOP, not a scoring or segment time.
+
+    An M:SS is a possession claim only when possession wording sits in the
+    same clause, or when the clock is in a first-downs / yards stat list.
+    """
+    if _possession_clock_is_game_or_segment(text, match):
+        return False
     if re.search(r"possession|clock", match.group(0), re.I):
         return True
-    prefix = text[max(0, match.start() - 48) : match.start()]
+    sent_start, sent_end = _sentence_span(text, match.start())
+    clause_start, clause_end = _box_clause_span(text, match.start())
+    left = max(sent_start, clause_start, match.start() - 48)
+    prefix = text[left : match.start()]
     if _FIRST_DOWNS_AND_CLOCK.search(prefix):
         return True
     if re.search(
@@ -3000,7 +3072,7 @@ def _clock_tied_to_subject(text: str, match: re.Match) -> bool:
         re.I,
     ):
         return True
-    clause = _box_clause_at(text, match.start())
+    clause = text[max(clause_start, sent_start) : min(clause_end, sent_end)]
     if _HAD_BOX_LEAD.match(clause.strip()) and (
         _FIRST_DOWNS.search(clause) or _BOX_RUSH.search(clause)
     ):
@@ -3047,6 +3119,33 @@ def _against_non_recap_team(
     return named not in _recap_box_teams(last_game, recap)
 
 
+def _named_week_average_is_box(
+    text: str,
+    match: re.Match,
+    recap: dict | None,
+    last_game: dict | None,
+    schedule=None,
+) -> bool:
+    """True when 'averaged' is the only rate word and Week N is a recap game.
+
+    'Las Vegas averaged 18 first downs in Week 4' is that week's box, not
+    a season rate. Per-game / 'a game' / through-N-weeks stay rates.
+    """
+    window = _stat_phrase_window(text, match)
+    if re.search(
+        r"per[-\s]?game|(?:first downs?|averaged?)\s+a game|"
+        r"through\s+\w+\s+weeks?",
+        window,
+        re.I,
+    ):
+        return False
+    if not re.search(r"\baveraged?\b", window, re.I):
+        return False
+    return _claim_game_scope(
+        text, match.start(), recap, last_game, schedule
+    ) in {"last", "prior"}
+
+
 def _stat_is_rate_or_other_game(
     text: str,
     match: re.Match,
@@ -3058,8 +3157,15 @@ def _stat_is_rate_or_other_game(
 
     Week N and 'season low' stay checkable when we have that game's box.
     'Against Indianapolis' is a prior-box label, not a skip.
+    A named played week plus 'averaged' is still that week's box.
     """
     if _RATE_OR_OTHER_GAME.search(_stat_phrase_window(text, match)):
+        if _named_week_average_is_box(
+            text, match, recap, last_game, schedule
+        ):
+            return _against_non_recap_team(
+                _sentence_at(text, match.start()), recap, last_game, schedule
+            )
         return True
     return _against_non_recap_team(
         _sentence_at(text, match.start()), recap, last_game, schedule
@@ -3100,6 +3206,8 @@ def _check_box_clocks(
     prior_opp = ((recap or {}).get("prior") or {}).get("opp") or {}
 
     for match in _POSSESSION_CLOCK.finditer(text):
+        if _possession_clock_is_game_or_segment(text, match):
+            continue
         clock = match.group(1)
         scope = _claim_game_scope(
             text, match.start(), recap, last_game, schedule
@@ -3210,7 +3318,15 @@ def _check_box_clocks(
     prior_abbr = (
         ((recap or {}).get("prior") or {}).get("oppAbbr") or ""
     ).strip().upper()
-    for match in _FIRST_DOWNS.finditer(text):
+    fd_hits = list(_FIRST_DOWNS.finditer(text))
+    seen_fd = {(hit.start(), hit.end()) for hit in fd_hits}
+    for match in _HAD_ON_GAMEDAY.finditer(text):
+        if not _FIRST_DOWNS.search(_sentence_at(text, match.start())):
+            continue
+        if any(start <= match.start() < end for start, end in seen_fd):
+            continue
+        fd_hits.append(match)
+    for match in fd_hits:
         try:
             claimed = int(match.group(1))
         except (TypeError, ValueError):
@@ -5867,13 +5983,22 @@ def should_hold_automerge(
     leftover: list[str] | None = None,
     corrections: list[str] | None = None,
     schedule=None,
+    missing_headline: bool = False,
 ) -> bool:
-    """Hold whenever salvage rewrote or dropped copy, leftover, or thin."""
+    """Hold whenever salvage rewrote or dropped copy, leftover, or thin.
+
+    A missing headline with no recorded drop must hold. Never automerge
+    the edition label as the published title.
+    """
     if leftover:
         return True
     if drops:
         return True
     if corrections:
+        return True
+    if missing_headline:
+        return True
+    if not str((narrative or {}).get("headline") or "").strip():
         return True
     if _offseason_while_slate_open(narrative, schedule):
         return True
