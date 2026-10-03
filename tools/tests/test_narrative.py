@@ -6354,6 +6354,255 @@ class FactCheck(unittest.TestCase):
             avg_logs,
         )
 
+    def test_karen_165_possession_game_clocks_and_archive_replay(self):
+        """#165 r9: game clocks / run-of-show ranges are not TOP; r8 flags stay."""
+        catalog = _load_fixture("edition_run_karen_165_possession.json")
+        r8 = _load_fixture("edition_run_karen_164_rate_week.json")
+        r7 = _load_fixture("edition_run_karen_162_clock_phase.json")
+        aliases = _load_fixture("edition_run_karen_161_short_aliases.json")
+        recap_src = _load_fixture("espn_401872952_recap.json")
+        slate = self._prod_slate()
+
+        def _lede(sentence, opponent):
+            return {
+                "phase": {"type": "regular"},
+                "lastGameReview": {
+                    "opponent": opponent,
+                    "result": "W",
+                    "score": "KC 24–10",
+                    "lede": sentence,
+                },
+            }
+
+        def _city_last(opponent, abbr, short, week):
+            payload = dict(recap_src)
+            payload["oppAbbr"] = abbr
+            last = dict(self.LAST)
+            last["date"] = "2026-09-27T17:00:00Z"
+            last["id"] = "401872952"
+            last["week"] = week
+            last["opponent"] = opponent
+            last["opponentAbbr"] = abbr
+            last["opponentShort"] = short
+            return last, payload
+
+        last_lv, recap_lv = _city_last("Las Vegas Raiders", "LV", "Raiders", 4)
+        last_mia, recap_mia = _city_last("Miami Dolphins", "MIA", "Dolphins", 3)
+
+        def _issues(sentence, last, recap, opponent, extra=None):
+            payload = _lede(sentence, opponent)
+            if extra:
+                payload.update(extra)
+            return facts.check_review(payload, last, recap, schedule=slate)
+
+        def _possession_not_on_box(issues):
+            return [
+                item
+                for item in issues
+                if re.search(
+                    r"possession \d{1,2}:\d{2} is not on the ESPN box",
+                    item,
+                )
+            ]
+
+        n4 = catalog["week3_review_lede"]
+        self.assertIn("2:06 into the first quarter", n4)
+        self.assertIn("kept the ball", n4)
+        n4_issues = _issues(n4, last_mia, recap_mia, "Miami Dolphins")
+        self.assertFalse(
+            any("2:06" in item and "possession" in item for item in n4_issues),
+            n4_issues,
+        )
+        full = catalog["week3_review_lede_full"]
+        full_issues = _issues(full, last_mia, recap_mia, "Miami Dolphins")
+        self.assertFalse(
+            any(
+                clock in item and "possession" in item
+                for clock in ("2:06", "2:55")
+                for item in full_issues
+            ),
+            full_issues,
+        )
+
+        live_shape = catalog["n4_elapsed"]
+        live_issues = _issues(live_shape, last_mia, recap_mia, "Miami Dolphins")
+        self.assertFalse(
+            any("2:06" in item and "possession" in item for item in live_issues),
+            live_issues,
+        )
+
+        c4 = catalog["c4_scoring_clock"]
+        c4_issues = _issues(c4, last_mia, recap_mia, "Miami Dolphins")
+        self.assertFalse(
+            any("12:54" in item and "possession" in item for item in c4_issues),
+            c4_issues,
+        )
+        across = _issues(
+            catalog["c4_across_sentences"], last_mia, recap_mia, "Miami Dolphins"
+        )
+        self.assertFalse(
+            any("12:54" in item and "possession" in item for item in across),
+            across,
+        )
+
+        ros = catalog["sep27_run_of_show"]
+        ros_issues = _issues(ros, last_mia, recap_mia, "Miami Dolphins")
+        self.assertFalse(_possession_not_on_box(ros_issues), ros_issues)
+        ros_nar = {
+            "phase": {"type": "regular"},
+            "lastGameReview": {
+                "opponent": "Miami Dolphins",
+                "result": "W",
+                "score": "KC 24–10",
+                "lede": "Kansas City won 24-10.",
+            },
+            "runOfShow": [
+                {
+                    "length": "0:00-1:20",
+                    "talkTrack": (
+                        "We are 3-0. We won 24-10. Miami held the ball "
+                        "34 minutes and we went 3-of-7 on third down."
+                    ),
+                }
+            ],
+        }
+        ros_struct = facts.check_review(
+            ros_nar, last_mia, recap_mia, schedule=slate
+        )
+        self.assertFalse(_possession_not_on_box(ros_struct), ros_struct)
+
+        for key in (
+            "la_held_kc",
+            "la_held_opp",
+            "fins_held_kc",
+            "compound_clock_swap",
+        ):
+            wrapped = f"[0:00-1:20] {aliases[key]}"
+            issues = _issues(wrapped, last_mia, recap_mia, "Miami Dolphins")
+            self.assertFalse(
+                any(
+                    clock in item and "possession" in item and "not on the ESPN box" in item
+                    for clock in ("0:00", "1:20")
+                    for item in issues
+                ),
+                (key, issues),
+            )
+
+        for key in (
+            "lv_week4_lead",
+            "lv_week4_tail",
+            "lv_fewest",
+            "kc_season_low",
+            "mia_week3",
+            "ind_week2",
+            "kc_week2",
+        ):
+            last, recap, opp = (
+                (last_lv, recap_lv, "Las Vegas Raiders")
+                if key.startswith(("lv_", "kc_season"))
+                else (last_mia, recap_mia, "Miami Dolphins")
+            )
+            if key == "kc_week2":
+                last, recap, opp = last_mia, recap_mia, "Miami Dolphins"
+            issues = _issues(r8[key], last, recap, opp)
+            self.assertTrue(
+                any("first downs" in item and "disagrees" in item for item in issues),
+                (key, issues),
+            )
+
+        comma = _issues(r8["comma_clock"], last_mia, recap_mia, "Miami Dolphins")
+        self.assertTrue(
+            any("25:39" in item and "MIA" in item for item in comma),
+            comma,
+        )
+        chiefs_tail = _issues(
+            r8["tail_chiefs_fd"], last_lv, recap_lv, "Las Vegas Raiders"
+        )
+        self.assertTrue(
+            any("first downs 19" in item and "18" in item for item in chiefs_tail),
+            chiefs_tail,
+        )
+        miami_tail = _issues(
+            r8["tail_miami_fd"], last_mia, recap_mia, "Miami Dolphins"
+        )
+        self.assertTrue(
+            any("first downs 18" in item and "19" in item for item in miami_tail),
+            miami_tail,
+        )
+        neither = _issues(
+            r8["neither_clock"], last_lv, recap_lv, "Las Vegas Raiders"
+        )
+        self.assertTrue(any("31:05" in item for item in neither), neither)
+
+        for key in (
+            "raiders_compound",
+            "las_vegas_had_kc_clock",
+            "miami_finished_kc_clock",
+        ):
+            last, recap, opp = (
+                (last_lv, recap_lv, "Las Vegas Raiders")
+                if "miami" not in key
+                else (last_mia, recap_mia, "Miami Dolphins")
+            )
+            issues = _issues(r7[key], last, recap, opp)
+            self.assertTrue(
+                any("25:39" in item or "34:21" in item for item in issues),
+                (key, issues),
+            )
+
+        rush_swap = _issues(
+            catalog["comma_rush_swap"], last_mia, recap_mia, "Miami Dolphins"
+        )
+        self.assertTrue(
+            any("team rushing 88" in item and "119" in item for item in rush_swap),
+            rush_swap,
+        )
+
+        for key, last, recap, opp in (
+            ("lv_averaged_week4", last_lv, recap_lv, "Las Vegas Raiders"),
+            ("mia_averaged_week3", last_mia, recap_mia, "Miami Dolphins"),
+        ):
+            issues = _issues(catalog[key], last, recap, opp)
+            self.assertTrue(
+                any("first downs 18" in item and "19" in item for item in issues),
+                (key, issues),
+            )
+
+        sunday = _issues(
+            catalog["averaged_then_sunday"], last_lv, recap_lv, "Las Vegas Raiders"
+        )
+        self.assertFalse(
+            any("first downs 22" in item for item in sunday),
+            sunday,
+        )
+        self.assertTrue(
+            any("first downs 18" in item and "19" in item for item in sunday),
+            sunday,
+        )
+
+        editions_dir = Path("data") / "narrative_editions"
+        self.assertTrue(editions_dir.is_dir(), editions_dir)
+        for path in sorted(editions_dir.glob("*.json")):
+            edition = json.loads(path.read_text(encoding="utf-8"))
+            issues = facts.check_review(
+                edition, last_mia, recap_mia, schedule=slate
+            )
+            blob = facts.edition_text(edition)
+            for item in _possession_not_on_box(issues):
+                clock_hit = re.search(
+                    r"possession (\d{1,2}:\d{2}) is not on the ESPN box",
+                    item,
+                )
+                self.assertIsNotNone(clock_hit, item)
+                clock = clock_hit.group(1)
+                for match in facts._POSSESSION_CLOCK.finditer(blob):
+                    if match.group(1) != clock:
+                        continue
+                    self.assertFalse(
+                        facts._possession_clock_is_game_or_segment(blob, match),
+                        (path.name, item),
+                    )
+
     def test_write_archive_survives_missing_headline(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "archive.json"
@@ -6395,6 +6644,63 @@ class FactCheck(unittest.TestCase):
                 generate._write_archive(dict(result["narrative"]))
             rows = json.loads(path.read_text(encoding="utf-8"))
         self.assertEqual(rows[0]["headline"], "2026 Week 4 · Preview")
+
+    def test_generate_holds_when_headline_missing_without_a_drop(self):
+        """A missing title with no recorded drop must hold, not automerge."""
+        fat = "Kansas City " + ("won in Miami. " * 400)
+        result = {
+            "narrative": {
+                "edition": "2026 Week 4 · Preview",
+                "slug": "2026-10-03-1538",
+                "generatedAt": "2026-10-03T14:40:00Z",
+                "generator": "offline",
+                "dek": fat,
+                "theEdge": fat,
+                "storyline": fat,
+                "currentState": fat,
+                "gamePlan": fat,
+                "lastGameReview": {"lede": fat, "analysis": [fat]},
+            },
+            "schedule": [],
+            "news": [],
+            "droppedSentences": [],
+            "correctedSentences": [],
+            "leftoverIssues": [],
+        }
+        self.assertGreaterEqual(
+            facts.edition_word_count(result["narrative"]),
+            facts.PUBLISH_WORD_FLOOR,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repair_json = root / "repair.json"
+            narrative_json = root / "narrative.json"
+            archive = root / "archive.json"
+            archive.write_text("[]\n", encoding="utf-8")
+            editions = root / "editions"
+            editions.mkdir()
+            wire_json = root / "wire.json"
+            with patch.object(generate, "build", return_value=result), patch.object(
+                generate, "_write_schedule"
+            ), patch.object(
+                generate.config, "NARRATIVE_JSON", narrative_json
+            ), patch.object(
+                generate.config, "WIRE_JSON", wire_json
+            ), patch.object(
+                generate.config, "EDITIONS_DIR", editions
+            ), patch.object(
+                generate.config, "ARCHIVE_JSON", archive
+            ), patch.object(
+                generate.config, "REPAIR_JSON", repair_json
+            ), patch.object(
+                generate.config, "ensure_dirs", lambda: None
+            ):
+                rc = generate.main(["--provider", "offline"])
+            self.assertEqual(rc, 0)
+            repair = json.loads(repair_json.read_text(encoding="utf-8"))
+        self.assertTrue(repair["holdAutomerge"])
+        self.assertEqual(repair["droppedSentences"], [])
+        self.assertEqual(result["narrative"]["headline"], "2026 Week 4 · Preview")
 
     def test_generate_keeps_headline_and_ind_rush_from_37129473980(self):
         catalog = _load_fixture("edition_run_37129473980.json")
@@ -6713,6 +7019,12 @@ class FactCheck(unittest.TestCase):
         self.assertTrue(facts.should_hold_automerge([], thin))
         self.assertLess(
             facts.edition_word_count(thin), facts.PUBLISH_WORD_FLOOR
+        )
+        untitled = dict(fat_edition)
+        untitled["headline"] = ""
+        self.assertTrue(facts.should_hold_automerge([], untitled))
+        self.assertTrue(
+            facts.should_hold_automerge([], fat_edition, missing_headline=True)
         )
 
 
