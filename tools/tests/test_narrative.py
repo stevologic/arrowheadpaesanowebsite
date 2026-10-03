@@ -622,6 +622,13 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("43 3 * * *", yaml)
         self.assertIn("20 7 * * 0,1,2", yaml)
         self.assertIn('github.event.schedule }}" = "37 9 * * *"', yaml)
+        decide = yaml.split("Decide desk mode")[1].split(
+            "Refresh the published slate"
+        )[0]
+        self.assertIn('MODE="schedule"', decide)
+        self.assertIn("37 9 * * *", decide)
+        self.assertNotIn("43 3", decide)
+        self.assertNotIn("20 7", decide)
         self.assertIn("--schedule-only", yaml)
         self.assertIn("python -m tools.chiefs_narrative.generate --schedule-only", yaml)
         self.assertIn("Chiefs schedule: refresh 2026 slate", yaml)
@@ -1263,6 +1270,99 @@ class SeasonClock(unittest.TestCase):
             self.assertNotIn("Denver", ph["nextGame"]["opponent"])
             self.assertTrue(phase.is_upcoming(ph["nextGame"], stamp))
             self.assertFalse(phase.is_upcoming(ph["lastGame"], stamp))
+
+    def test_sep_1_to_5_is_week1_preview(self):
+        """Sep 1–5 is after camp and before GAME_WEEK_DAYS of the opener."""
+        pre = dict(self.RAMS)
+        pre["completed"] = True
+        pre["kcScore"] = 21
+        pre["oppScore"] = 17
+        slate = [pre, dict(self.DEN)]
+        for day in (1, 3, 5):
+            now = datetime(2026, 9, day, 12, 0, tzinfo=timezone.utc)
+            ph = phase.detect(slate, now=now)
+            self.assertEqual(ph["type"], "regular", day)
+            self.assertEqual(ph["mode"], "preview", day)
+            self.assertEqual(ph["edition"], "2026 Week 1 · Preview", day)
+            self.assertEqual(ph["week"], 1, day)
+            self.assertEqual(ph["nextGame"]["opponent"], "Denver Broncos", day)
+            self.assertNotIn("Offseason", ph["edition"])
+            self.assertNotEqual(ph["type"], "offseason")
+
+    def test_playoff_bye_before_divisional_is_not_offseason(self):
+        """A playoff win with no ESPN next row stays postseason and holds."""
+        wild = {
+            "id": "wc",
+            "week": 1,
+            "seasonType": "post",
+            "date": "2027-01-16T21:00:00Z",
+            "opponent": "Houston Texans",
+            "opponentAbbr": "HOU",
+            "completed": True,
+            "kcScore": 31,
+            "oppScore": 14,
+        }
+        slate = [
+            {
+                "id": "w18",
+                "week": 18,
+                "seasonType": "reg",
+                "date": "2027-01-03T18:00:00Z",
+                "opponent": "Denver Broncos",
+                "completed": True,
+                "kcScore": 24,
+                "oppScore": 17,
+            },
+            wild,
+        ]
+        now = datetime(2027, 1, 18, 12, 0, tzinfo=timezone.utc)
+        ph = phase.detect(slate, now=now)
+        self.assertEqual(ph["type"], "postseason")
+        self.assertEqual(ph["mode"], "review")
+        self.assertEqual(ph["edition"], "2026 Playoffs")
+        self.assertIsNone(ph["nextGame"])
+        self.assertNotEqual(ph["type"], "offseason")
+        fat = " ".join(["Chiefs tape review word"] * 800)
+        narrative = {
+            "headline": fat,
+            "dek": fat,
+            "theEdge": fat,
+            "storyline": fat,
+            "phase": {
+                "type": ph["type"],
+                "mode": ph["mode"],
+                "lastGame": wild,
+            },
+        }
+        issues = facts.check_review(narrative, wild, None, schedule=slate)
+        self.assertTrue(
+            any("playoff next game is unknown" in item for item in issues),
+            issues,
+        )
+        self.assertTrue(
+            facts.should_hold_automerge([], narrative, leftover=issues, schedule=slate)
+        )
+        self.assertTrue(facts.should_hold_automerge([], narrative, schedule=slate))
+
+        lost = dict(wild)
+        lost["kcScore"] = 14
+        lost["oppScore"] = 31
+        slate_lost = [slate[0], lost]
+        done = phase.detect(slate_lost, now=now)
+        self.assertEqual(done["type"], "offseason")
+        closed = {
+            "headline": fat,
+            "dek": fat,
+            "theEdge": fat,
+            "storyline": fat,
+            "phase": {"type": "offseason", "mode": "offseason", "lastGame": lost},
+        }
+        self.assertEqual(
+            facts.check_review(closed, lost, None, schedule=slate_lost), []
+        )
+        self.assertFalse(
+            facts.should_hold_automerge([], closed, schedule=slate_lost)
+        )
 
     def test_sunday_pregame_runs_stay_week4_preview(self):
         slate = collect.load_cached_schedule()
@@ -5936,6 +6036,133 @@ class FactCheck(unittest.TestCase):
                 any("unverifiable" in item for item in issues),
                 (key, issues),
             )
+
+    def test_karen_162_clock_bind_preview_rate_and_phase(self):
+        """#162 r7: opp-subject KC clocks; preview rate hold; no average swap."""
+        catalog = _load_fixture("edition_run_karen_162_clock_phase.json")
+        recap_src = _load_fixture("espn_401872952_recap.json")
+        slate = self._prod_slate()
+
+        def _lede(sentence, opponent):
+            return {
+                "phase": {"type": "regular"},
+                "lastGameReview": {
+                    "opponent": opponent,
+                    "result": "W",
+                    "score": "KC 24–10",
+                    "lede": sentence,
+                },
+            }
+
+        def _city_last(opponent, abbr, short):
+            payload = dict(recap_src)
+            payload["oppAbbr"] = abbr
+            last = dict(self.LAST)
+            last["date"] = "2026-09-27T17:00:00Z"
+            last["id"] = "401872952"
+            last["opponent"] = opponent
+            last["opponentAbbr"] = abbr
+            last["opponentShort"] = short
+            return last, payload
+
+        last_lv, recap_lv = _city_last("Las Vegas Raiders", "LV", "Raiders")
+        last_mia, recap_mia = _city_last("Miami Dolphins", "MIA", "Dolphins")
+
+        raiders = catalog["raiders_compound"]
+        self.assertEqual(
+            raiders,
+            "The Raiders had 19 first downs and 25:39 to the Chiefs’ 18 and 34:21.",
+        )
+        raiders_issues = facts.check_review(
+            _lede(raiders, "Las Vegas Raiders"), last_lv, recap_lv, schedule=slate
+        )
+        self.assertTrue(
+            any("25:39" in item and "LV" in item for item in raiders_issues),
+            raiders_issues,
+        )
+        self.assertTrue(
+            any("34:21" in item and "KC" in item for item in raiders_issues),
+            raiders_issues,
+        )
+
+        vegas = catalog["las_vegas_had_kc_clock"]
+        self.assertEqual(vegas, "Las Vegas had 19 first downs and 25:39.")
+        vegas_issues = facts.check_review(
+            _lede(vegas, "Las Vegas Raiders"), last_lv, recap_lv, schedule=slate
+        )
+        self.assertTrue(
+            any("25:39" in item and "LV" in item for item in vegas_issues),
+            vegas_issues,
+        )
+
+        miami = catalog["miami_finished_kc_clock"]
+        self.assertEqual(
+            miami, "Miami finished with 19 first downs and 25:39 of possession."
+        )
+        miami_issues = facts.check_review(
+            _lede(miami, "Miami Dolphins"), last_mia, recap_mia, schedule=slate
+        )
+        self.assertTrue(
+            any("25:39" in item and "MIA" in item for item in miami_issues),
+            miami_issues,
+        )
+
+        reverse = "Kansas City had 18 first downs and 34:21."
+        reverse_issues = facts.check_review(
+            _lede(reverse, "Las Vegas Raiders"), last_lv, recap_lv, schedule=slate
+        )
+        self.assertTrue(
+            any("34:21" in item and "KC" in item for item in reverse_issues),
+            reverse_issues,
+        )
+
+        for key in (
+            "preview_per_game",
+            "preview_against_denver",
+            "preview_denver_week1",
+        ):
+            sentence = catalog[key]
+            issues = facts.check_review(
+                _lede(sentence, "Miami Dolphins"),
+                last_mia,
+                recap_mia,
+                schedule=slate,
+            )
+            self.assertFalse(
+                any("unverifiable" in item for item in issues),
+                (key, sentence, issues),
+            )
+            self.assertFalse(
+                any("first downs" in item and "disagrees" in item for item in issues),
+                (key, sentence, issues),
+            )
+
+        averaged = catalog["averaged_coming_in"]
+        self.assertEqual(
+            averaged,
+            "Las Vegas averaged 22 first downs a game coming in, and had 19 on Sunday",
+        )
+        avg_nar = _lede(averaged, "Las Vegas Raiders")
+        avg_issues = facts.check_review(avg_nar, last_lv, recap_lv, schedule=slate)
+        self.assertFalse(
+            any("first downs 22" in item for item in avg_issues),
+            avg_issues,
+        )
+        avg_fixed, avg_logs = facts.apply_fact_corrections(
+            avg_nar,
+            avg_issues
+            + [
+                "first downs 22 disagrees with ESPN 19 for LV "
+                f"({averaged!r})"
+            ],
+            recap=recap_lv,
+            last_game=last_lv,
+            schedule=slate,
+        )
+        blob = facts.edition_text(avg_fixed)
+        self.assertIn("averaged 22", blob)
+        self.assertNotIn("averaged 19", blob)
+        self.assertFalse(any("averaged 22" in line and "→" in line for line in avg_logs), avg_logs)
 
     def test_write_archive_survives_missing_headline(self):
         with tempfile.TemporaryDirectory() as tmp:

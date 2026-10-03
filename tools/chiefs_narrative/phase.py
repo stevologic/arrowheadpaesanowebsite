@@ -217,6 +217,21 @@ def detect(schedule: list[dict], now: datetime = None) -> dict:
     ):
         return _week_wrap(next_game, _mode())
 
+    # Still alive in the playoffs, but ESPN has not posted the next row
+    # (divisional after a bye / wild-card win). Do not fall to offseason.
+    if (
+        not upcoming
+        and last_game
+        and last_game.get("seasonType") == "post"
+        and is_final(last_game)
+    ):
+        kc, opp = last_game.get("kcScore"), last_game.get("oppScore")
+        if kc is not None and opp is not None and kc > opp:
+            return _wrap(
+                "postseason", "Playoffs", last_game.get("week"), "review",
+                f"{season} Playoffs", None, last_game, live_game, now,
+            )
+
     # --- Not close to a game: camp window wins over a distant opener --------
     # If regular-season games exist but none are upcoming and the last one is in
     # the past by the end of the schedule, the season is complete.
@@ -251,6 +266,15 @@ def detect(schedule: list[dict], now: datetime = None) -> dict:
             f"{season} Training Camp", next_game, last_game,
             live_game, now,
         )
+
+    # After camp / preseason, the regular opener still owns the desk even
+    # when kickoff is more than GAME_WEEK_DAYS away (Sep 1–5).
+    if (
+        next_game
+        and next_game.get("seasonType") in ("reg", "post")
+        and (last_game is None or last_game.get("seasonType") not in ("reg", "post"))
+    ):
+        return _week_wrap(next_game, "preview")
 
     # Default: offseason. Never point nextGame at a completed opener.
     return _wrap(

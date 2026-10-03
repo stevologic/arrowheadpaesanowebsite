@@ -276,6 +276,20 @@ _POSSESSION_HELD = re.compile(
     r"\bstays?\s+on\b",
     re.I,
 )
+_FIRST_DOWNS_AND_CLOCK = re.compile(
+    r"first downs?\s+and\s*$",
+    re.IGNORECASE,
+)
+_RATE_OR_OTHER_GAME = re.compile(
+    r"per[-\s]?game|\ba game\b|averaged?|season(?:al)?|"
+    r"coming in|through\s+\w+\s+weeks?|"
+    r"\bweek\s+\d+",
+    re.IGNORECASE,
+)
+_AGAINST_OTHER_TEAM = re.compile(
+    r"\bagainst\s+(?:the\s+)?[A-Z][A-Za-z][A-Za-z'’.-]*"
+    r"(?:\s+[A-Z][A-Za-z'’.-]*){0,2}"
+)
 _GAME_LABEL_TEAM = re.compile(
     r"\b(?:the\s+)?[A-Za-z][A-Za-z '’-]{1,24}?\s+"
     r"(?:tape|film|box)\b",
@@ -2954,6 +2968,46 @@ def _possession_held_by_named_team(text: str, match: re.Match) -> bool:
     return bool(_POSSESSION_HELD.search(window))
 
 
+def _clock_tied_to_subject(text: str, match: re.Match) -> bool:
+    """True when this clock is claimed as a team TOP, not a kickoff time."""
+    if re.search(r"possession|clock", match.group(0), re.I):
+        return True
+    prefix = text[max(0, match.start() - 48) : match.start()]
+    if _FIRST_DOWNS_AND_CLOCK.search(prefix):
+        return True
+    return _possession_held_by_named_team(text, match)
+
+
+def _stat_phrase_window(text: str, match: re.Match) -> str:
+    """Local phrase around this number, split so an average does not
+    poison a later 'had N on Sunday'."""
+    start = match.start()
+    end = match.end()
+    left = max(0, start - 56)
+    prefix = text[left:start]
+    for sep in (";", ". ", ", and ", " and had ", " and finished "):
+        idx = prefix.rfind(sep)
+        if idx >= 0:
+            left = left + idx + len(sep)
+    right = min(len(text), end + 56)
+    suffix = text[end:right]
+    for sep in (";", ". ", ", and "):
+        idx = suffix.find(sep)
+        if idx >= 0:
+            right = end + idx
+    return text[left:right]
+
+
+def _stat_is_rate_or_other_game(text: str, match: re.Match) -> bool:
+    """True for per-game / season / average / week-N claims.
+
+    'Against Indianapolis' is a prior-box label, not a rate — leave
+    that to ``_claim_game_scope``. Preview 'against Denver' holds are
+    exempted in ``_unknown_was_opponent``.
+    """
+    return bool(_RATE_OR_OTHER_GAME.search(_stat_phrase_window(text, match)))
+
+
 def _possession_owner_after_clock(
     text: str, match: re.Match, aliases: dict[str, str]
 ) -> str:
@@ -3044,7 +3098,7 @@ def _check_box_clocks(
                     and team == prior_opp_abbr
                     and clock not in clocks["prior OPP"]
                     and clock in clocks["prior KC"]
-                    and _possession_held_by_named_team(text, match)
+                    and _clock_tied_to_subject(text, match)
                 ):
                     issues.append(
                         f"possession {clock} is prior KC clock, not "
@@ -3081,7 +3135,7 @@ def _check_box_clocks(
             and team == opp_label.upper()
             and clock in clocks["KC"]
             and clock not in clocks["OPP"]
-            and _possession_held_by_named_team(text, match)
+            and _clock_tied_to_subject(text, match)
         ):
             issues.append(
                 f"possession {clock} is KC clock, not {opp_label} "
@@ -3102,6 +3156,8 @@ def _check_box_clocks(
         except (TypeError, ValueError):
             continue
         sentence = _sentence_at(text, match.start())
+        if _stat_is_rate_or_other_game(text, match):
+            continue
         clause = _box_clause_at(text, match.start())
         team = _bound_box_team(text, match.start(), aliases)
         explicit = _explicit_box_subject(clause, aliases)
@@ -4111,6 +4167,41 @@ def _check_offseason_slate(narrative: dict | None, schedule=None) -> list[str]:
     return []
 
 
+def _playoff_last_game(narrative: dict | None) -> dict | None:
+    phase = ((narrative or {}).get("phase") or {})
+    last = phase.get("lastGame") or (narrative or {}).get("lastGame")
+    return last if isinstance(last, dict) else None
+
+
+def _playoff_next_unknown(narrative: dict | None, schedule=None) -> bool:
+    """True after a playoff win when ESPN has not posted the next row."""
+    last = _playoff_last_game(narrative)
+    if not last or last.get("seasonType") != "post":
+        return False
+    if not phase_mod.is_final(last):
+        return False
+    kc, opp = last.get("kcScore"), last.get("oppScore")
+    if kc is None or opp is None or kc <= opp:
+        return False
+    for game in schedule or []:
+        if not isinstance(game, dict):
+            continue
+        if game.get("seasonType") not in ("reg", "post"):
+            continue
+        if phase_mod.is_upcoming(game):
+            return False
+    return True
+
+
+def _check_playoff_next_unknown(
+    narrative: dict | None, schedule=None
+) -> list[str]:
+    """Hold a playoff bye / unposted opponent instead of treating it as over."""
+    if _playoff_next_unknown(narrative, schedule):
+        return ["playoff next game is unknown; holding"]
+    return []
+
+
 def check_copy_gates(narrative: dict | None, schedule=None) -> list[str]:
     """Record, stale-season, duplication, and offline word-count gates."""
     issues = _check_record_match(narrative, schedule)
@@ -4200,6 +4291,7 @@ def check_review(
                 issues.extend(_check_int_clocks(text, recap))
                 issues.extend(_check_pass_touchdowns(text, recap))
     issues.extend(_check_offseason_slate(narrative, schedule))
+    issues.extend(_check_playoff_next_unknown(narrative, schedule))
     if copy_gates:
         issues.extend(check_copy_gates(narrative, schedule))
     # Dedup while keeping order.
@@ -4941,7 +5033,7 @@ _LET_THE_BOX = re.compile(
     re.IGNORECASE,
 )
 _HAD_STAT_SUBJECT = re.compile(
-    r"\b([A-Za-z][A-Za-z '’-]+?)\s+had\s+\d+\s+first downs\b",
+    r"\b([A-Za-z][A-Za-z '’-]+?)\s+(?:had|finished with)\s+\d+\s+first downs\b",
     re.IGNORECASE,
 )
 _TEAM_LEAD = r"(?:the\s+)?(?P<team>[A-Za-z][A-Za-z .''’-]{0,32}?)"
@@ -4950,7 +5042,7 @@ _WAS_BOX_LEAD = re.compile(
     re.IGNORECASE,
 )
 _HAD_BOX_LEAD = re.compile(
-    rf"^{_TEAM_LEAD}\s+had\s+(?P<rest>.+)$",
+    rf"^{_TEAM_LEAD}\s+(?:had|finished with)\s+(?P<rest>.+)$",
     re.IGNORECASE,
 )
 _HELD_BOX_LEAD = re.compile(
@@ -4963,7 +5055,7 @@ _BOX_CLAUSE_SPLIT = re.compile(
     r"(?i:\beven though\b)|"
     r"(?i:\bbut\b)|"
     r"\band\s+(?=[A-Z][a-z])|"
-    r"\bto\s+(?=[A-Z][a-z])|"
+    r"\bto\s+(?:the\s+)?(?=[A-Z])|"
     r",\s*(?=[A-Z][a-z])"
 )
 _WAS_LEAD_STOP = frozenset(
@@ -5230,6 +5322,12 @@ def _unknown_was_opponent(
         return ""
     if not _is_box_like_lead(text):
         return ""
+    fd = _FIRST_DOWNS.search(text)
+    if fd and _stat_is_rate_or_other_game(text, fd):
+        return ""
+    rest = match.groupdict().get("rest") or ""
+    if _RATE_OR_OTHER_GAME.search(rest) or _AGAINST_OTHER_TEAM.search(rest):
+        return ""
     aliases = _team_aliases(last_game, recap, schedule)
     team = _alias_team(named, aliases)
     if team in _recap_box_teams(last_game, recap):
@@ -5464,6 +5562,8 @@ def _correct_sentence(
         hit = re.search(rf"\b{claimed}\b", sentence or "")
         if hit:
             claim_at = hit.start()
+            if _stat_is_rate_or_other_game(sentence, hit):
+                return None
         clause = _box_clause_at(sentence, claim_at)
         if _explicit_box_subject(clause, _team_aliases(last_game, recap)) not in {
             "",
@@ -5659,6 +5759,8 @@ def should_hold_automerge(
     if corrections:
         return True
     if _offseason_while_slate_open(narrative, schedule):
+        return True
+    if _playoff_next_unknown(narrative, schedule):
         return True
     return edition_word_count(narrative) < PUBLISH_WORD_FLOOR
 
