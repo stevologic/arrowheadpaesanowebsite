@@ -118,14 +118,14 @@ jobs:
           python-version: "3.11"
 
       - name: Refuse unsigned Review editions
-        env:
-          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
         run: |
           set -euo pipefail
           git fetch --no-tags origin "${{ github.base_ref }}"
-          python -m tools.chiefs_narrative.review_gate --automerge \
+          GATE_BASE="${RUNNER_TEMP}/gate-base"
+          git worktree add --detach "$GATE_BASE" "origin/${{ github.base_ref }}"
+          PYTHONPATH="$GATE_BASE" python -m tools.chiefs_narrative.review_gate --automerge \
             --base "origin/${{ github.base_ref }}" \
-            --labels "$PR_LABELS"
+            --root "${GITHUB_WORKSPACE}"
 
       - name: Squash-merge the pull request
         env:

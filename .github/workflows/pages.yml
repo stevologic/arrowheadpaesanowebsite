@@ -50,7 +50,6 @@ jobs:
         id: review
         run: |
           set -euo pipefail
-          echo "skip=false" >> "$GITHUB_OUTPUT"
           if python -m tools.chiefs_narrative.review_gate --pages; then
             echo "skip=false" >> "$GITHUB_OUTPUT"
           else
