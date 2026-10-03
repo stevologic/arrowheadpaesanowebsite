@@ -308,17 +308,17 @@ _DOMINATED_CLOCK = re.compile(
     re.IGNORECASE,
 )
 _HALF_CLOCK = re.compile(
-    r"\b(\d{1,2}:\d{2})\b(?:(?!\s*(?:AM|PM)).){0,40}"
+    r"\b(\d{1,2}:\d{2})\b(?:(?!\s*(?:AM|PM)|\d{1,2}:\d{2}).){0,40}"
     r"\b(?:in|of)\s+the\s+(?:first|second)\s+half\b"
     r"|\b(?:in|of)\s+the\s+(?:first|second)\s+half\b"
-    r"(?:(?!\s*(?:AM|PM)).){0,40}\b(\d{1,2}:\d{2})\b",
+    r"(?:(?!\s*(?:AM|PM)|\d{1,2}:\d{2}).){0,40}\b(\d{1,2}:\d{2})\b",
     re.IGNORECASE,
 )
 _QUARTER_CLOCK = re.compile(
-    r"\b(\d{1,2}:\d{2})\b(?:(?!\s*(?:AM|PM)).){0,40}"
+    r"\b(\d{1,2}:\d{2})\b(?:(?!\s*(?:AM|PM)|\d{1,2}:\d{2}).){0,40}"
     r"\bin\s+the\s+\w+\s+quarter\b"
     r"|\bin\s+the\s+\w+\s+quarter\b"
-    r"(?:(?!\s*(?:AM|PM)).){0,40}\b(\d{1,2}:\d{2})\b",
+    r"(?:(?!\s*(?:AM|PM)|\d{1,2}:\d{2}).){0,40}\b(\d{1,2}:\d{2})\b",
     re.IGNORECASE,
 )
 _PLAYER_RUSH_YARDS = re.compile(
