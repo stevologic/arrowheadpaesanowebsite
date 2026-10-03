@@ -5509,6 +5509,153 @@ class FactCheck(unittest.TestCase):
             )
         )
 
+    def test_karen_157_score_label_subjects_and_published_edition(self):
+        """#157 r3: lost 24-10, Miami had, let-the-box, slate aliases, clocks."""
+        catalog = _load_fixture("edition_run_karen_157_gaps.json")
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        last["id"] = "401872952"
+        last["opponent"] = "Miami Dolphins"
+        last["opponentAbbr"] = "MIA"
+        last["opponentShort"] = "Dolphins"
+        slate = self._week3_slate() + [
+            {
+                "id": "401872976",
+                "week": 4,
+                "opponent": "Las Vegas Raiders",
+                "opponentAbbr": "LV",
+                "opponentShort": "Raiders",
+                "completed": False,
+            },
+            {
+                "id": "401873120",
+                "week": 6,
+                "opponent": "Los Angeles Chargers",
+                "opponentAbbr": "LAC",
+                "opponentShort": "Chargers",
+                "completed": False,
+            },
+        ]
+
+        def _lede(sentence):
+            return {
+                "phase": {"type": "regular"},
+                "lastGameReview": {
+                    "opponent": "Miami Dolphins",
+                    "result": "W",
+                    "score": "KC 24–10",
+                    "lede": sentence,
+                },
+            }
+
+        held = catalog["held_clock"]
+        self.assertEqual(
+            facts.check_review(_lede(held), last, recap, schedule=slate), []
+        )
+        self.assertEqual(
+            facts.check_review(
+                _lede(held + " " + catalog["orphan_after_held"]),
+                last,
+                recap,
+                schedule=slate,
+            ),
+            [],
+        )
+        self.assertEqual(
+            facts.check_review(_lede(catalog["miami_had"]), last, recap, schedule=slate),
+            [],
+        )
+        had_fixed, had_logs = facts.apply_fact_corrections(
+            _lede(catalog["miami_had"]),
+            [
+                "first downs 19 disagrees with ESPN 18 for KC "
+                "('Miami had 19 first downs')"
+            ],
+            recap=recap,
+            last_game=last,
+            schedule=slate,
+        )
+        self.assertIn(catalog["miami_had"], facts.edition_text(had_fixed))
+        self.assertFalse(any("Miami had 18" in line for line in had_logs), had_logs)
+        self.assertEqual(
+            facts.check_review(
+                _lede(catalog["let_miami_box"]), last, recap, schedule=slate
+            ),
+            [],
+        )
+        self.assertTrue(
+            facts.check_review(
+                _lede(catalog["kc_box_wrong"]), last, recap, schedule=slate
+            )
+        )
+        self.assertEqual(
+            facts.check_review(
+                _lede(catalog["walker_again"]), last, recap, schedule=slate
+            ),
+            [],
+        )
+        self.assertEqual(facts._claimed_box_stats(catalog["clock_not_rush"]), [])
+        self.assertFalse(facts._is_multi_stat_box(catalog["clock_not_rush"]))
+
+        swap_issues = facts.check_review(
+            _lede(catalog["single_number_swap"]), last, recap, schedule=slate
+        )
+        self.assertTrue(swap_issues, swap_issues)
+        swap_fixed, swap_logs = facts.apply_fact_corrections(
+            _lede(catalog["single_number_swap"]),
+            swap_issues,
+            recap=recap,
+            last_game=last,
+            schedule=slate,
+        )
+        self.assertIn(catalog["single_number_ok"], facts.edition_text(swap_fixed))
+        self.assertTrue(swap_logs, swap_logs)
+        self.assertEqual(
+            facts.check_review(
+                _lede(catalog["single_number_ok"]), last, recap, schedule=slate
+            ),
+            [],
+        )
+
+        sea = catalog["seattle_was"]
+        sea_issues = facts.check_review(_lede(sea), last, recap, schedule=slate)
+        self.assertTrue(any("Seattle" in item for item in sea_issues), sea_issues)
+        sea_fixed, sea_logs = facts.apply_fact_corrections(
+            _lede(sea), sea_issues, recap=recap, last_game=last, schedule=slate
+        )
+        self.assertIn(sea, facts.edition_text(sea_fixed))
+        self.assertTrue(any("unknown opponent Seattle" in line for line in sea_logs), sea_logs)
+        self.assertTrue(facts.should_hold_automerge([], sea_fixed, corrections=sea_logs))
+
+        lac_recap = _load_fixture("espn_401872952_recap.json")
+        lac_recap["oppAbbr"] = "LAC"
+        last_lac = dict(last)
+        last_lac["opponent"] = "Los Angeles Chargers"
+        last_lac["opponentAbbr"] = "LAC"
+        last_lac["opponentShort"] = "Chargers"
+        la_out = facts._reword_misattributed_box(
+            catalog["los_angeles_was"], lac_recap, last_lac, slate
+        )
+        self.assertEqual(
+            la_out,
+            "Against Los Angeles, Kansas City had 18 first downs, 88 rush, "
+            "246 net pass, 25:39.",
+        )
+        ch_out = facts._reword_misattributed_box(
+            catalog["chargers_was"], lac_recap, last_lac, slate
+        )
+        self.assertEqual(
+            ch_out,
+            "Against the Chargers, Kansas City had 18 first downs, 88 rush, "
+            "246 net pass, 25:39.",
+        )
+
+        edition = _load_fixture("edition_2026-10-03-1538.json")
+        self.assertEqual(
+            facts.check_review(edition, last, recap, schedule=slate), []
+        )
+
     def test_write_archive_survives_missing_headline(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "archive.json"

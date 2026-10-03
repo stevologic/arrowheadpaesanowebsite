@@ -278,9 +278,14 @@ _POSSESSION_HELD = re.compile(
 )
 _GAME_LABEL_TEAM = re.compile(
     r"\b(?:the\s+)?[A-Za-z][A-Za-z '’-]{1,24}?\s+"
-    r"(?:tape|film|box)\b|"
-    r"\b[A-Za-z][A-Za-z '’-]{1,24}?\s+\d{1,2}[-–]\d{1,2}\b",
+    r"(?:tape|film|box)\b",
     re.IGNORECASE,
+)
+# Proper-noun score labels only ("Indianapolis 33-30"). Do not strip
+# verbs like "lost 24-10" — that used to hide Miami and bind KC.
+_GAME_SCORE_LABEL = re.compile(
+    r"\b(?:the\s+)?[A-Z][A-Za-z'’-]+(?:\s+[A-Z][A-Za-z'’-]*){0,2}"
+    r"\s+\d{1,2}[-–]\d{1,2}\b"
 )
 _SCRIPT_OPENER = re.compile(
     r"^(?:Open|First-and|Second-and|Third-and|Fourth-and|If)\b",
@@ -771,15 +776,23 @@ def _play_yards(play: dict):
 
 def _add_opponent_aliases(aliases: dict[str, str], name: str, abbr: str) -> None:
     tokens = [t for t in re.findall(r"[A-Za-z]+", name or "") if t.lower() not in ("the",)]
+    team = abbr or (tokens[-1][:3].upper() if tokens else "")
+    if not team:
+        return
     if abbr:
         aliases[abbr.lower()] = abbr
     for token in tokens:
-        aliases[token.lower()] = abbr or token[:3].upper()
+        aliases[token.lower()] = team
     if name and len(tokens) >= 2:
-        aliases[name.lower()] = abbr or tokens[-1][:3].upper()
+        aliases[name.lower()] = team
+        aliases[" ".join(tokens[:-1]).lower()] = team
 
 
-def _team_aliases(last_game: dict | None, recap: dict | None) -> dict[str, str]:
+def _team_aliases(
+    last_game: dict | None,
+    recap: dict | None,
+    schedule=None,
+) -> dict[str, str]:
     aliases = {
         "kc": "KC",
         "chiefs": "KC",
@@ -789,6 +802,9 @@ def _team_aliases(last_game: dict | None, recap: dict | None) -> dict[str, str]:
     if opp:
         aliases[opp.lower()] = opp
     _add_opponent_aliases(aliases, ((last_game or {}).get("opponent") or "").strip(), opp)
+    short = ((last_game or {}).get("opponentShort") or "").strip()
+    if short and opp:
+        aliases[short.lower()] = opp
     prior = (recap or {}).get("prior") or {}
     prior_abbr = (prior.get("oppAbbr") or "").strip().upper()
     _add_opponent_aliases(
@@ -796,6 +812,16 @@ def _team_aliases(last_game: dict | None, recap: dict | None) -> dict[str, str]:
         (prior.get("opponent") or "").strip(),
         prior_abbr,
     )
+    for game in schedule or []:
+        if not isinstance(game, dict):
+            continue
+        abbr = (game.get("opponentAbbr") or "").strip().upper()
+        if not abbr or abbr == "KC":
+            continue
+        _add_opponent_aliases(aliases, game.get("opponent") or "", abbr)
+        nick = (game.get("opponentShort") or "").strip()
+        if nick:
+            aliases[nick.lower()] = abbr
     return aliases
 
 
@@ -1102,8 +1128,11 @@ def _bound_box_team(text: str, claim_at: int, aliases: dict[str, str]) -> str:
     start, _ = _stat_clause_span(text, claim_at)
     prefix = _LOCATION_TEAM.sub(
         " ",
-        _GAME_LABEL_TEAM.sub(
-            " ", _YARD_LINE_TEAM.sub(" ", text[start:claim_at])
+        _GAME_SCORE_LABEL.sub(
+            " ",
+            _GAME_LABEL_TEAM.sub(
+                " ", _YARD_LINE_TEAM.sub(" ", text[start:claim_at])
+            ),
         ),
     )
     poss = re.search(
@@ -1120,7 +1149,10 @@ def _bound_box_team(text: str, claim_at: int, aliases: dict[str, str]) -> str:
 def _scrub_box_labels(span: str) -> str:
     return _LOCATION_TEAM.sub(
         " ",
-        _GAME_LABEL_TEAM.sub(" ", _YARD_LINE_TEAM.sub(" ", span or "")),
+        _GAME_SCORE_LABEL.sub(
+            " ",
+            _GAME_LABEL_TEAM.sub(" ", _YARD_LINE_TEAM.sub(" ", span or "")),
+        ),
     )
 
 
@@ -2532,7 +2564,7 @@ def _check_team_yards(
         return []
     prior_labels = _prior_game_labels(recap)
     last_labels = _last_game_labels(last_game, recap)
-    aliases = _team_aliases(last_game, recap)
+    aliases = _team_aliases(last_game, recap, schedule)
     players = _player_aliases(recap)
     issues = []
 
@@ -2760,7 +2792,7 @@ def _check_box_clocks(
     issues = []
     clocks = _box_clocks(recap)
     allowed_clocks = set().union(*clocks.values()) if clocks else set()
-    aliases = _team_aliases(last_game, recap)
+    aliases = _team_aliases(last_game, recap, schedule)
     prior_labels = _prior_game_labels(recap)
     kc = (recap or {}).get("kc") or {}
     prior = ((recap or {}).get("prior") or {}).get("kc") or {}
@@ -2793,8 +2825,10 @@ def _check_box_clocks(
                     f"({match.group(0)!r}; official {sorted(allowed_clocks)})"
                 )
             continue
+        sentence = _sentence_at(text, match.start())
+        explicit = _explicit_box_subject(sentence, aliases)
         if scope == "prior":
-            team = _bound_possession_team(text, match, aliases) or (
+            team = explicit or _bound_possession_team(text, match, aliases) or (
                 _possession_owner_after_clock(text, match, aliases)
             )
             prior_opp_abbr = (
@@ -2834,7 +2868,7 @@ def _check_box_clocks(
                     f"{sorted(prior_allowed)})"
                 )
             continue
-        team = _bound_possession_team(text, match, aliases)
+        team = explicit or _bound_possession_team(text, match, aliases)
         owners = [side for side, bag in clocks.items() if clock in bag]
         # A clock that only appears on the opponent box binds to them
         # unless the local subject is explicitly KC.
@@ -2877,12 +2911,15 @@ def _check_box_clocks(
             continue
         sentence = _sentence_at(text, match.start())
         team = _bound_box_team(text, match.start(), aliases)
+        explicit = _explicit_box_subject(sentence, aliases)
+        if explicit:
+            team = explicit
         scope = _claim_game_scope(
             text, match.start(), recap, last_game, schedule
         )
         official = None
         label = team or "KC"
-        if _kc_owned_box(sentence):
+        if not explicit and _kc_owned_box(sentence):
             if scope == "prior" or any(
                 re.search(rf"\b{re.escape(lab)}\b", sentence.lower())
                 for lab in prior_labels
@@ -3005,7 +3042,7 @@ def _check_drive_counts(
     prior_opp_n = _box_drive_count(prior_block.get("opp") or {}, prior_drives, "OPP")
     if kc_n is None and opp_n is None and prior_kc_n is None and prior_opp_n is None:
         return []
-    aliases = _team_aliases(last_game, recap)
+    aliases = _team_aliases(last_game, recap, schedule)
     opp_abbr = ((recap or {}).get("oppAbbr") or "").strip().upper()
     prior_abbr = (prior_block.get("oppAbbr") or "").strip().upper()
     issues = []
@@ -3929,6 +3966,7 @@ def check_review(
                 issues.extend(_check_garbled_initials(text, recap))
                 issues.extend(_check_scheme_claims(text, recap))
                 issues.extend(_check_box_clocks(text, recap, last_game, schedule))
+                issues.extend(_check_unknown_was_box(text, last_game, recap, schedule))
                 issues.extend(_check_drive_counts(text, recap, last_game, schedule))
                 issues.extend(_check_touch_counts(text, recap))
                 issues.extend(_check_attempt_counts(text, recap, last_game))
@@ -4672,28 +4710,75 @@ def _quoted_violation(item: str) -> str:
 
 
 _KC_OWNED_BOX = re.compile(
-    r"\b(?:kansas\s+city|kc)['’]s\b[^.!?]{0,120}\bbox\b",
+    r"\b(?:kansas\s+city|kc)['’]s\s+"
+    r"(?:[A-Za-z][A-Za-z'’-]*(?:\s+[A-Za-z][A-Za-z'’-]*){0,2}\s+)?"
+    r"box\b",
     re.IGNORECASE,
+)
+_LET_THE_BOX = re.compile(
+    r"\blet the\s+([A-Za-z][A-Za-z '’-]+?)\s+box\b",
+    re.IGNORECASE,
+)
+_HAD_STAT_SUBJECT = re.compile(
+    r"\b([A-Za-z][A-Za-z '’-]+?)\s+had\s+\d+\s+first downs\b",
+    re.IGNORECASE,
+)
+_WAS_BOX_LEAD = re.compile(
+    r"^(?P<team>[A-Za-z][A-Za-z '’-]+?)\s+was\s+(?P<rest>.+)$",
+    re.IGNORECASE,
+)
+_WAS_LEAD_STOP = frozenset(
+    {
+        "that",
+        "this",
+        "it",
+        "he",
+        "she",
+        "there",
+        "what",
+        "which",
+        "who",
+        "mahomes",
+        "walker",
+        "rice",
+    }
 )
 _BOX_KIND_PATTERNS = (
     re.compile(r"\d+\s+first downs\b", re.I),
-    re.compile(r"\d+\s+rush(?:ing)?(?:\s+yards)?\b", re.I),
-    re.compile(r"\d+\s+(?:net\s+)?pass(?:ing)?(?:\s+yards)?\b", re.I),
+    re.compile(r"(?<!:)\d+\s+rush(?:ing)?(?:\s+yards)?\b", re.I),
+    re.compile(r"(?<!:)\d+\s+(?:net\s+)?pass(?:ing)?(?:\s+yards)?\b", re.I),
     re.compile(r"\d+\s+total yards\b", re.I),
     re.compile(rf"(?:{_NUM_TOKEN})\s+drives\b", re.I),
     re.compile(r"\d{1,2}:\d{2}\s+(?:of\s+)?possession\b", re.I),
 )
 _BOX_FD = re.compile(r"\b(\d{1,2})\s+first downs\b", re.I)
-_BOX_RUSH = re.compile(r"\b(\d{2,3})\s+rush(?:ing)?(?:\s+yards)?\b", re.I)
-_BOX_PASS = re.compile(r"\b(\d{2,3})\s+(?:net\s+)?pass(?:ing)?(?:\s+yards)?\b", re.I)
+_BOX_RUSH = re.compile(r"(?<!:)\b(\d{2,3})\s+rush(?:ing)?(?:\s+yards)?\b", re.I)
+_BOX_PASS = re.compile(r"(?<!:)\b(\d{2,3})\s+(?:net\s+)?pass(?:ing)?(?:\s+yards)?\b", re.I)
 _BOX_TOTAL = re.compile(r"\b(\d{2,3})\s+total yards\b", re.I)
 _BOX_DRIVES = re.compile(rf"\b({_NUM_TOKEN})\s+drives\b", re.I)
 _BOX_CLOCK = re.compile(r"\b(\d{1,2}:\d{2})\b(?!\s*(?:AM|PM))", re.I)
 
 
 def _kc_owned_box(sentence: str) -> bool:
-    """True for 'Kansas City's Miami box' / 'KC's box' ownership."""
+    """True for 'Kansas City's Miami box' / 'KC's box', not 'the other box'."""
+    if _LET_THE_BOX.search(sentence or "") or _HAD_STAT_SUBJECT.search(sentence or ""):
+        return False
     return bool(_KC_OWNED_BOX.search(sentence or ""))
+
+
+def _explicit_box_subject(sentence: str, aliases: dict[str, str]) -> str:
+    """'Miami had …' / 'let the Miami box' beat a leading Kansas City's."""
+    let_hit = _LET_THE_BOX.search(sentence or "")
+    if let_hit:
+        named = _alias_team(let_hit.group(1), aliases)
+        if named:
+            return named
+    had_hit = _HAD_STAT_SUBJECT.search(sentence or "")
+    if had_hit:
+        named = _alias_team(had_hit.group(1), aliases)
+        if named:
+            return named
+    return ""
 
 
 def _is_multi_stat_box(sentence: str) -> bool:
@@ -4704,6 +4789,24 @@ def _is_multi_stat_box(sentence: str) -> bool:
     return sum(1 for pat in _BOX_KIND_PATTERNS if pat.search(sentence or "")) >= 2
 
 
+def _ingest_opponent_name_parts(names: set[str], raw: str) -> None:
+    text = (raw or "").strip()
+    if not text:
+        return
+    names.add(text.lower())
+    tokens = [
+        token
+        for token in re.findall(r"[A-Za-z]+", text)
+        if token.lower() not in {"the", "at"}
+    ]
+    for token in tokens:
+        if len(token) >= 3:
+            names.add(token.lower())
+    if len(tokens) >= 2:
+        names.add(" ".join(tokens[:-1]).lower())
+        names.add(tokens[-1].lower())
+
+
 def _schedule_opponent_names(
     last_game: dict | None,
     recap: dict | None,
@@ -4711,35 +4814,118 @@ def _schedule_opponent_names(
 ) -> list[str]:
     """Opponent tokens from the slate / recap, longest first."""
     names: set[str] = set()
-    aliases = _team_aliases(last_game, recap)
+    aliases = _team_aliases(last_game, recap, schedule)
     for alias, team in aliases.items():
         if team and team != "KC" and len(alias) >= 3:
             names.add(alias)
     for game in schedule or []:
         if not isinstance(game, dict):
             continue
-        raw = (game.get("opponent") or "").strip()
-        if raw:
-            names.add(raw.lower())
-            for token in re.findall(r"[A-Za-z]+", raw):
-                if token.lower() not in {"the", "at"} and len(token) >= 3:
-                    names.add(token.lower())
+        _ingest_opponent_name_parts(names, game.get("opponent") or "")
+        _ingest_opponent_name_parts(names, game.get("opponentShort") or "")
         abbr = (game.get("opponentAbbr") or "").strip()
         if len(abbr) >= 2:
             names.add(abbr.lower())
     prior = (recap or {}).get("prior") or {}
     for raw in (
         (last_game or {}).get("opponent"),
+        (last_game or {}).get("opponentShort"),
         prior.get("opponent"),
         (recap or {}).get("opponent"),
     ):
-        if not raw:
-            continue
-        names.add(str(raw).lower())
-        for token in re.findall(r"[A-Za-z]+", str(raw)):
-            if token.lower() not in {"the", "at"} and len(token) >= 3:
-                names.add(token.lower())
+        _ingest_opponent_name_parts(names, raw or "")
     return sorted(names, key=len, reverse=True)
+
+
+def _against_team_phrase(
+    named: str,
+    last_game: dict | None,
+    recap: dict | None,
+    schedule=None,
+) -> str:
+    """'the Chargers' for a nickname, 'Los Angeles' / 'Indianapolis' for a city."""
+    token = (named or "").strip()
+    if not token:
+        return token
+    if token.lower().startswith("the "):
+        return token
+    nicknames: set[str] = set()
+    cities: set[str] = set()
+    fulls: set[str] = set()
+
+    def _ingest(name: str, short: str = "") -> None:
+        raw = (name or "").strip()
+        if raw:
+            fulls.add(raw.lower())
+        if short:
+            nicknames.add(short.lower())
+        tokens = [
+            part
+            for part in re.findall(r"[A-Za-z]+", raw)
+            if part.lower() not in {"the", "at"}
+        ]
+        if tokens:
+            nicknames.add(tokens[-1].lower())
+            if len(tokens) >= 2:
+                cities.add(" ".join(tokens[:-1]).lower())
+            for part in tokens[:-1]:
+                if part.lower() not in {"los", "las", "new", "green", "tampa", "kansas"}:
+                    cities.add(part.lower())
+
+    _ingest((last_game or {}).get("opponent") or "", (last_game or {}).get("opponentShort") or "")
+    prior = (recap or {}).get("prior") or {}
+    _ingest(prior.get("opponent") or "")
+    for game in schedule or []:
+        if isinstance(game, dict):
+            _ingest(game.get("opponent") or "", game.get("opponentShort") or "")
+    low = " ".join(token.lower().split())
+    if low in cities and low not in nicknames:
+        return token
+    if low in nicknames or low in fulls:
+        return f"the {token}"
+    return token
+
+
+def _unknown_was_opponent(
+    sentence: str,
+    last_game: dict | None,
+    recap: dict | None,
+    schedule=None,
+) -> str:
+    """Lead of '{Opp} was <box>' when that opponent is not on the slate/recap."""
+    match = _WAS_BOX_LEAD.match((sentence or "").strip())
+    if not match:
+        return ""
+    named = match.group("team").strip()
+    if not named or named.lower() in _WAS_LEAD_STOP:
+        return ""
+    if not _claimed_box_stats(sentence) and not re.search(
+        r"\bfirst downs\b", sentence or "", re.I
+    ):
+        return ""
+    aliases = _team_aliases(last_game, recap, schedule)
+    if _alias_team(named, aliases):
+        return ""
+    known = {name.lower() for name in _schedule_opponent_names(last_game, recap, schedule)}
+    if named.lower() in known:
+        return ""
+    return named
+
+
+def _check_unknown_was_box(
+    text: str,
+    last_game: dict | None,
+    recap: dict | None,
+    schedule=None,
+) -> list[str]:
+    issues = []
+    for sentence in _split_sentences(text):
+        named = _unknown_was_opponent(sentence, last_game, recap, schedule)
+        if named:
+            issues.append(
+                f"opponent {named} is not on the slate or recap ({sentence!r})"
+            )
+    return issues
 
 
 def _opponent_was_box_match(
@@ -4760,7 +4946,7 @@ def _opponent_was_box_match(
     match = re.match(pattern, (sentence or "").strip(), re.IGNORECASE)
     if not match:
         return None
-    aliases = _team_aliases(last_game, recap)
+    aliases = _team_aliases(last_game, recap, schedule)
     named = match.group("team")
     team = _alias_team(named, aliases)
     if not team or team == "KC":
@@ -4785,7 +4971,9 @@ def _claimed_box_stats(sentence: str) -> list[tuple[str, object]]:
         if count is not None:
             stats.append(("totalDrives", count))
     for match in _BOX_CLOCK.finditer(text):
-        stats.append(("possessionTime", match.group(1)))
+        window = text[max(0, match.start() - 24) : match.end() + 24]
+        if re.search(r"possession|held the ball|clock", window, re.I):
+            stats.append(("possessionTime", match.group(1)))
     return stats
 
 
@@ -4839,7 +5027,8 @@ def _reword_misattributed_box(
         return None
     if not _box_stats_match_kc(sentence, recap, game):
         return None
-    return f"Against {display}, Kansas City had {rest}."
+    phrase = _against_team_phrase(display, last_game, recap, schedule)
+    return f"Against {phrase}, Kansas City had {rest}."
 
 
 def _flagged_sentence(
@@ -4951,6 +5140,8 @@ def _correct_sentence(
             return None
         if _is_multi_stat_box(sentence):
             return None
+        if _HAD_STAT_SUBJECT.search(sentence) or _LET_THE_BOX.search(sentence):
+            return None
         return _swap_count_in_sentence(sentence, claimed, official)
     name = _ILLEGAL_USE_NOT_SNEED.search(violation or "")
     if name:
@@ -4996,6 +5187,10 @@ def apply_fact_corrections(
         if sentence is None:
             snippet = _quoted_violation(item)
             logs.append(f"ambiguous snippet {snippet!r}; holding")
+            continue
+        unknown = _unknown_was_opponent(sentence, last_game, recap, schedule)
+        if unknown:
+            logs.append(f"unknown opponent {unknown}; holding")
             continue
         rewritten = _reword_misattributed_box(
             sentence, recap, last_game, schedule
