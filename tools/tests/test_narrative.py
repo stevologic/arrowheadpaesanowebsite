@@ -1271,6 +1271,69 @@ class SeasonClock(unittest.TestCase):
             self.assertTrue(phase.is_upcoming(ph["nextGame"], stamp))
             self.assertFalse(phase.is_upcoming(ph["lastGame"], stamp))
 
+    def test_review_edition_holds_even_when_checker_is_clean(self):
+        """Oct 5 Review never automerges; Oct 4 Preview still can."""
+        fat = " ".join(["Chiefs tape review word"] * 800)
+
+        def fat_edition(ph):
+            return {
+                "headline": fat,
+                "dek": fat,
+                "theEdge": fat,
+                "storyline": fat,
+                "currentState": fat,
+                "gamePlan": fat,
+                "edition": ph["edition"],
+                "phase": {
+                    "type": ph["type"],
+                    "mode": ph["mode"],
+                    "edition": ph["edition"],
+                    "week": ph["week"],
+                    "lastGame": ph.get("lastGame"),
+                    "nextGame": ph.get("nextGame"),
+                },
+                "lastGameReview": {"lede": fat, "analysis": [fat]},
+            }
+
+        preview_slate = copy.deepcopy(collect.load_cached_schedule())
+        preview_ph = phase.detect(
+            preview_slate,
+            now=datetime(2026, 10, 4, 9, 37, tzinfo=timezone.utc),
+        )
+        self.assertEqual(preview_ph["mode"], "preview")
+        self.assertEqual(preview_ph["edition"], "2026 Week 4 · Preview")
+        preview = fat_edition(preview_ph)
+        self.assertGreaterEqual(
+            facts.edition_word_count(preview), facts.PUBLISH_WORD_FLOOR
+        )
+        self.assertFalse(facts.is_review_edition(preview))
+        self.assertFalse(facts.review_requires_human(preview))
+        self.assertFalse(facts.should_hold_automerge([], preview))
+
+        review_slate = copy.deepcopy(preview_slate)
+        for game in review_slate:
+            if game.get("id") == "401872976":
+                game["completed"] = True
+                game["kcScore"] = 27
+                game["oppScore"] = 17
+        review_ph = phase.detect(
+            review_slate,
+            now=datetime(2026, 10, 5, 9, 37, tzinfo=timezone.utc),
+        )
+        self.assertEqual(review_ph["mode"], "review")
+        self.assertEqual(review_ph["edition"], "2026 Week 6 · Week 4 Review")
+        review = fat_edition(review_ph)
+        self.assertGreaterEqual(
+            facts.edition_word_count(review), facts.PUBLISH_WORD_FLOOR
+        )
+        self.assertTrue(facts.REVIEW_REQUIRES_HUMAN)
+        self.assertTrue(facts.is_review_edition(review))
+        self.assertTrue(facts.review_requires_human(review))
+        self.assertTrue(facts.should_hold_automerge([], review))
+        with patch.object(facts, "REVIEW_REQUIRES_HUMAN", False):
+            self.assertFalse(facts.review_requires_human(review))
+            self.assertFalse(facts.should_hold_automerge([], review))
+
     def test_sep_1_to_5_is_week1_preview(self):
         """Sep 1–5 is after camp and before GAME_WEEK_DAYS of the opener."""
         pre = dict(self.RAMS)
@@ -4848,6 +4911,7 @@ class FactCheck(unittest.TestCase):
         self.assertNotIn("\nimport json, sys\n", workflow)
         self.assertIn("HOLD_MERGE", workflow)
         self.assertIn("holdAutomerge", workflow)
+        self.assertIn("review_requires_human", workflow)
         self.assertIn("Holding automerge", workflow)
         self.assertIn(
             "--check-edition || check_rc=$?",
