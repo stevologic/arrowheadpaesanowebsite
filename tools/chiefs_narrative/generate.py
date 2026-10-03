@@ -664,7 +664,10 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         check_copy_gates=False,
     ):
         corrected, logs = facts.apply_fact_corrections(
-            payload, problems, recap=check_recap
+            payload,
+            problems,
+            recap=check_recap,
+            last_game=check_last,
         )
         for line in logs:
             print(f"  [writer] corrected: {line}")
@@ -676,7 +679,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             copy_gates=check_copy_gates,
         )
         if not leftover:
-            return corrected, leftover, []
+            return corrected, leftover, [], logs
         repaired = facts.repair_offending_copy(
             corrected, leftover, check_last, check_recap
         )
@@ -690,7 +693,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             schedule=check_schedule,
             copy_gates=check_copy_gates,
         )
-        return repaired, leftover, gone
+        return repaired, leftover, gone, logs
 
     def _salvage_until_clean(
         payload,
@@ -702,7 +705,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         check_copy_gates=False,
         before=None,
     ):
-        repaired, leftover, gone = _salvage(
+        repaired, leftover, gone, logs = _salvage(
             payload,
             problems,
             check_last,
@@ -711,12 +714,13 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             check_copy_gates=check_copy_gates,
         )
         gone_all = list(gone)
+        logs_all = list(logs)
         # A snippet drop can expose a newly bound leftover (run 36741379345
         # gave Miami's 34:21 to KC) or an orphan opener (run 36751657899).
         passes = 0
         while leftover and passes < 6:
             passes += 1
-            repaired, leftover, gone = _salvage(
+            repaired, leftover, gone, logs = _salvage(
                 repaired,
                 leftover,
                 check_last,
@@ -725,6 +729,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
                 check_copy_gates=check_copy_gates,
             )
             gone_all.extend(gone)
+            logs_all.extend(logs)
             if not gone:
                 break
         start = before if before is not None else payload
@@ -739,16 +744,17 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
                 "  [writer] unfixable leftover after salvage; "
                 "holding automerge instead of failing the run"
             )
-        return repaired, gone_all, leftover
+        return repaired, gone_all, leftover, logs_all
 
     leftover_issues: list[str] = []
+    corrections: list[str] = []
     if violations:
         print(
             "  [writer] fact-check still failing after retries; "
             "correcting ESPN disagreements, then dropping what cannot be fixed"
         )
         before_salvage = narrative
-        narrative, gone, leftover_issues = _salvage_until_clean(
+        narrative, gone, leftover_issues, logs = _salvage_until_clean(
             narrative,
             violations,
             last,
@@ -756,6 +762,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             check_schedule=schedule,
             check_copy_gates=True,
         )
+        corrections.extend(logs)
         started_ok = (
             facts.edition_word_count(before_salvage) >= facts.PUBLISH_WORD_FLOOR
         )
@@ -828,13 +835,14 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             "correcting or dropping so generate matches --check-edition"
         )
         gate_before = narrative
-        narrative, gone, leftover_issues = _salvage_until_clean(
+        narrative, gone, leftover_issues, logs = _salvage_until_clean(
             narrative,
             gate_issues,
             gate_last,
             gate_recap,
             before=narrative,
         )
+        corrections.extend(logs)
         if (
             len(gone) > facts.HOLD_REPAIR_DROPS
             or facts.missing_required_copy(narrative)
@@ -873,6 +881,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         "schedule": schedule,
         "news": signals.get("news") or [],
         "droppedSentences": dropped,
+        "correctedSentences": corrections,
         "leftoverIssues": leftover_issues,
     }
 
@@ -1035,13 +1044,18 @@ def main(argv=None) -> int:
     config.ensure_dirs()
     drops = result.get("droppedSentences") or []
     leftover = result.get("leftoverIssues") or []
+    corrections = result.get("correctedSentences") or []
     config.REPAIR_JSON.write_text(
         json.dumps(
             {
                 "droppedSentences": drops,
+                "correctedSentences": corrections,
                 "leftoverIssues": leftover,
                 "holdAutomerge": facts.should_hold_automerge(
-                    drops, narrative, leftover=leftover
+                    drops,
+                    narrative,
+                    leftover=leftover,
+                    corrections=corrections,
                 ),
             },
             indent=2,

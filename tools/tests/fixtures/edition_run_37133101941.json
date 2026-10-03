@@ -1,0 +1,11 @@
+{
+  "_note": "Scheduled preview run 37133101941 after #152. apply_fact_corrections rewrote the first '29 first downs' / '18 first downs' hit instead of the flagged opponent-was-box lines, then dropped its own damaged Colts comparison.",
+  "keep": [
+    "A week earlier against Indianapolis, Kansas City had posted 29 first downs, 152 rushing yards, 371 net passing yards, and 37:00 of possession in a 33-30 win.",
+    "The Miami box is a different animal: 18 first downs, 334 total yards, nine drives, and 25:39."
+  ],
+  "reword": [
+    "Indianapolis was 29 first downs, 152 rush, 371 net pass, 37:00.",
+    "Miami was 18 first downs, 88 rush, 246 net pass, 25:39."
+  ]
+}

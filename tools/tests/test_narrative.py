@@ -4728,6 +4728,17 @@ class FactCheck(unittest.TestCase):
         )
         self.assertIn("Fact-check salvage removed these lines.", quiet)
         self.assertNotIn("Automerge is held.", quiet)
+        rewritten = drop_body.drop_body(
+            {
+                "holdAutomerge": True,
+                "correctedSentences": [
+                    "Indianapolis was 29 first downs → Against Indianapolis, Kansas City had 29 first downs"
+                ],
+            }
+        )
+        self.assertIn("## Corrected sentences", rewritten)
+        self.assertIn("29 first downs", rewritten)
+        self.assertIn("Automerge is held.", rewritten)
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "narrative_repair.json"
             path.write_text(
@@ -5332,6 +5343,81 @@ class FactCheck(unittest.TestCase):
         leftover = facts.check_review(repaired, last, recap, schedule=slate)
         self.assertEqual(leftover, [], leftover)
 
+    def test_run_37133101941_targets_flagged_sentence_and_rewords_box(self):
+        """Run 37133101941: do not retarget 29/18, reword opponent-was-box."""
+        catalog = _load_fixture("edition_run_37133101941.json")
+        recap = _load_fixture("espn_401872952_recap.json")
+        recap["prior"]["kc"]["netPassingYards"] = "371"
+        recap["prior"]["kc"]["totalYards"] = "523"
+        recap["prior"]["opp"]["firstDowns"] = "24"
+        recap["prior"]["opp"]["rushingYards"] = "119"
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        last["id"] = "401872952"
+        keep_colts, keep_miami = catalog["keep"]
+        was_ind, was_mia = catalog["reword"]
+        narrative = {
+            "phase": {"type": "regular"},
+            "headline": "Week 4",
+            "dek": "Preview",
+            "theEdge": "Allegiant",
+            "storyline": {"body": [keep_miami]},
+            "lastGameReview": {
+                "opponent": "Miami Dolphins",
+                "result": "W",
+                "score": "KC 24–10",
+                "lede": f"{keep_colts} {was_ind} {was_mia}",
+            },
+        }
+        issues = facts.check_review(narrative, last, recap)
+        self.assertTrue(any("29" in item and "IND" in item for item in issues), issues)
+        self.assertTrue(any("18" in item and "MIA" in item for item in issues), issues)
+        self.assertFalse(any("371" in item and "246" in item for item in issues), issues)
+
+        flagged_ind = facts._flagged_sentence(facts.edition_text(narrative), issues[0], last, recap)
+        self.assertEqual(flagged_ind, was_ind)
+        self.assertNotEqual(flagged_ind, keep_colts)
+
+        fixed, logs = facts.apply_fact_corrections(
+            narrative, issues, recap=recap, last_game=last
+        )
+        blob = facts.edition_text(fixed)
+        self.assertIn(keep_colts, blob)
+        self.assertIn("posted 29 first downs", blob)
+        self.assertNotIn("posted 24 first downs", blob)
+        self.assertIn(keep_miami, blob)
+        self.assertIn("18 first downs, 334", blob)
+        self.assertNotIn("19 first downs, 334", blob)
+        self.assertIn("Against Indianapolis, Kansas City had 29 first downs", blob)
+        self.assertIn("Against Miami, Kansas City had 18 first downs", blob)
+        self.assertNotIn(was_ind, blob)
+        self.assertNotIn(was_mia, blob)
+        self.assertEqual(len(logs), 2, logs)
+        self.assertEqual(facts.check_review(fixed, last, recap), [])
+        self.assertTrue(facts.should_hold_automerge([], fixed, corrections=logs))
+
+        poison = [
+            "first downs 29 disagrees with ESPN 24 for prior IND "
+            "('29 first downs')"
+        ]
+        untouched, poison_logs = facts.apply_fact_corrections(
+            {
+                "lastGameReview": {
+                    "lede": keep_colts + " " + was_ind,
+                }
+            },
+            poison,
+            recap=recap,
+            last_game=last,
+        )
+        poison_blob = facts.edition_text(untouched)
+        self.assertIn(keep_colts, poison_blob)
+        self.assertNotIn("posted 24 first downs", poison_blob)
+        self.assertTrue(
+            any("Against Indianapolis" in line for line in poison_logs)
+            or keep_colts in poison_blob
+        )
+
     def test_write_archive_survives_missing_headline(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "archive.json"
@@ -5647,14 +5733,19 @@ class FactCheck(unittest.TestCase):
         self.assertGreaterEqual(
             facts.edition_word_count(fat_edition), facts.PUBLISH_WORD_FLOOR
         )
-        self.assertFalse(
+        self.assertTrue(
             facts.should_hold_automerge(["one drop"], fat_edition)
         )
-        self.assertFalse(
+        self.assertTrue(
             facts.should_hold_automerge(["a", "b", "c"], fat_edition)
         )
         self.assertTrue(
             facts.should_hold_automerge(["a", "b", "c", "d"], fat_edition)
+        )
+        self.assertTrue(
+            facts.should_hold_automerge(
+                [], fat_edition, corrections=["29 → 24"]
+            )
         )
         thin = {"headline": "Short", "lastGameReview": {"lede": "Kansas City won."}}
         self.assertTrue(facts.should_hold_automerge([], thin))
