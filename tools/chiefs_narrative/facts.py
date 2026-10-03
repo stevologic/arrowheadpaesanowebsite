@@ -281,10 +281,15 @@ _FIRST_DOWNS_AND_CLOCK = re.compile(
     re.IGNORECASE,
 )
 _RATE_OR_OTHER_GAME = re.compile(
-    r"per[-\s]?game|\ba game\b|averaged?|season(?:al)?|"
-    r"coming in|through\s+\w+\s+weeks?|"
-    r"\bweek\s+\d+",
+    r"per[-\s]?game|"
+    r"(?:first downs?|averaged?)\s+a game|"
+    r"\baveraged?\b|"
+    r"through\s+\w+\s+weeks?",
     re.IGNORECASE,
+)
+_COMPARISON_TAIL = re.compile(
+    r"\b(?:the\s+)?([A-Za-z][A-Za-z .’-]+?)['’]s?\s+"
+    r"(\d{1,2})\s+and\s+(\d{1,2}:\d{2})\b"
 )
 _AGAINST_OTHER_TEAM = re.compile(
     r"\bagainst\s+(?:the\s+)?[A-Z][A-Za-z][A-Za-z'’.-]*"
@@ -1024,11 +1029,24 @@ def _scope_label_map(
 
     def _add(label: str, scope: str) -> None:
         token = " ".join((label or "").lower().split())
-        if len(token) < 3 or token in known or token in _WEAK_ALIAS_TOKENS:
+        if len(token) < 3 or token in _WEAK_ALIAS_TOKENS:
+            return
+        prev = assigned.get(token)
+        if prev in {"last", "prior"}:
+            return
+        if prev and scope == "other":
             return
         assigned[token] = scope
         known.add(token)
 
+    last_week = (last_game or {}).get("week")
+    if last_week not in (None, ""):
+        assigned[f"week {last_week}"] = "last"
+        known.add(f"week {last_week}")
+    prior_week = ((recap or {}).get("prior") or {}).get("week")
+    if prior_week not in (None, ""):
+        assigned.setdefault(f"week {prior_week}", "prior")
+        known.add(f"week {prior_week}")
     last_id = str((last_game or {}).get("id") or (recap or {}).get("eventId") or "")
     prior_id = str(((recap or {}).get("prior") or {}).get("eventId") or "")
     for game in schedule or []:
@@ -2975,6 +2993,18 @@ def _clock_tied_to_subject(text: str, match: re.Match) -> bool:
     prefix = text[max(0, match.start() - 48) : match.start()]
     if _FIRST_DOWNS_AND_CLOCK.search(prefix):
         return True
+    if re.search(
+        r"(?:rush(?:ing)?(?:\s+yards)?|pass(?:ing)?(?:\s+yards)?|"
+        r"total yards)\s+and\s*$",
+        prefix,
+        re.I,
+    ):
+        return True
+    clause = _box_clause_at(text, match.start())
+    if _HAD_BOX_LEAD.match(clause.strip()) and (
+        _FIRST_DOWNS.search(clause) or _BOX_RUSH.search(clause)
+    ):
+        return True
     return _possession_held_by_named_team(text, match)
 
 
@@ -2998,14 +3028,42 @@ def _stat_phrase_window(text: str, match: re.Match) -> str:
     return text[left:right]
 
 
-def _stat_is_rate_or_other_game(text: str, match: re.Match) -> bool:
-    """True for per-game / season / average / week-N claims.
+def _against_non_recap_team(
+    text: str,
+    recap: dict | None,
+    last_game: dict | None,
+    schedule=None,
+) -> bool:
+    """True for 'against Denver' when that club is not last or prior."""
+    hit = _AGAINST_OTHER_TEAM.search(text or "")
+    if not hit:
+        return False
+    named = _alias_leading_phrase(
+        re.sub(r"(?i)^against\s+(?:the\s+)?", "", hit.group(0)),
+        _team_aliases(last_game, recap, schedule),
+    )
+    if not named or named == "KC":
+        return False
+    return named not in _recap_box_teams(last_game, recap)
 
-    'Against Indianapolis' is a prior-box label, not a rate — leave
-    that to ``_claim_game_scope``. Preview 'against Denver' holds are
-    exempted in ``_unknown_was_opponent``.
+
+def _stat_is_rate_or_other_game(
+    text: str,
+    match: re.Match,
+    recap: dict | None = None,
+    last_game: dict | None = None,
+    schedule=None,
+) -> bool:
+    """True for per-game / average rates, or a box from some other club.
+
+    Week N and 'season low' stay checkable when we have that game's box.
+    'Against Indianapolis' is a prior-box label, not a skip.
     """
-    return bool(_RATE_OR_OTHER_GAME.search(_stat_phrase_window(text, match)))
+    if _RATE_OR_OTHER_GAME.search(_stat_phrase_window(text, match)):
+        return True
+    return _against_non_recap_team(
+        _sentence_at(text, match.start()), recap, last_game, schedule
+    )
 
 
 def _possession_owner_after_clock(
@@ -3060,8 +3118,10 @@ def _check_box_clocks(
                 continue
             if re.search(r"possession of the\b", prefix, re.I):
                 continue
-            if re.search(r"possession|clock", match.group(0), re.I) or re.search(
-                r"(?:of\s+)?possession\b(?!\s+of\b)", prefix, re.I
+            if (
+                re.search(r"possession|clock", match.group(0), re.I)
+                or re.search(r"(?:of\s+)?possession\b(?!\s+of\b)", prefix, re.I)
+                or _clock_tied_to_subject(text, match)
             ):
                 issues.append(
                     f"possession {clock} is not on the ESPN box "
@@ -3156,7 +3216,9 @@ def _check_box_clocks(
         except (TypeError, ValueError):
             continue
         sentence = _sentence_at(text, match.start())
-        if _stat_is_rate_or_other_game(text, match):
+        if _stat_is_rate_or_other_game(
+            text, match, recap, last_game, schedule
+        ):
             continue
         clause = _box_clause_at(text, match.start())
         team = _bound_box_team(text, match.start(), aliases)
@@ -3213,6 +3275,51 @@ def _check_box_clocks(
             f"first downs {claimed} disagrees with ESPN {official} for "
             f"{label} ({_claim_quote(text, match)!r})"
         )
+
+    for hit in _COMPARISON_TAIL.finditer(text):
+        if not _FIRST_DOWNS.search(_sentence_at(text, hit.start())):
+            continue
+        if _claim_game_scope(
+            text, hit.start(), recap, last_game, schedule
+        ) == "other":
+            continue
+        team = _alias_team(hit.group(1), aliases)
+        if not team:
+            continue
+        try:
+            claimed_fd = int(hit.group(2))
+        except (TypeError, ValueError):
+            continue
+        clock = hit.group(3)
+        if team == "KC":
+            official_fd, official_clock = kc_fd, clocks.get("KC") or set()
+            fd_label, clock_label = "KC", opp_abbr or "OPP"
+        elif team == opp_abbr:
+            official_fd, official_clock = opp_fd, clocks.get("OPP") or set()
+            fd_label, clock_label = team, "KC"
+        elif team == prior_abbr:
+            official_fd, official_clock = (
+                prior_opp_fd,
+                clocks.get("prior OPP") or set(),
+            )
+            fd_label, clock_label = f"prior {team}", "prior KC"
+        else:
+            continue
+        quoted = _sentence_at(text, hit.start()).strip()
+        if official_fd is not None and claimed_fd != official_fd:
+            issues.append(
+                f"first downs {claimed_fd} disagrees with ESPN {official_fd} "
+                f"for {fd_label} ({quoted!r})"
+            )
+        if (
+            official_clock
+            and clock not in official_clock
+            and clock.replace(":", ".") not in official_clock
+        ):
+            issues.append(
+                f"possession {clock} is {clock_label} clock, not {team} "
+                f"({quoted!r})"
+            )
 
     kc_total = _box_int(kc, "totalYards")
     prior_total = _box_int(prior, "totalYards")
@@ -5323,10 +5430,14 @@ def _unknown_was_opponent(
     if not _is_box_like_lead(text):
         return ""
     fd = _FIRST_DOWNS.search(text)
-    if fd and _stat_is_rate_or_other_game(text, fd):
+    if fd and _stat_is_rate_or_other_game(
+        text, fd, recap, last_game, schedule
+    ):
         return ""
     rest = match.groupdict().get("rest") or ""
-    if _RATE_OR_OTHER_GAME.search(rest) or _AGAINST_OTHER_TEAM.search(rest):
+    if _RATE_OR_OTHER_GAME.search(rest):
+        return ""
+    if _AGAINST_OTHER_TEAM.search(text):
         return ""
     aliases = _team_aliases(last_game, recap, schedule)
     team = _alias_team(named, aliases)
@@ -5562,14 +5673,20 @@ def _correct_sentence(
         hit = re.search(rf"\b{claimed}\b", sentence or "")
         if hit:
             claim_at = hit.start()
-            if _stat_is_rate_or_other_game(sentence, hit):
+            if _stat_is_rate_or_other_game(sentence, hit, recap, last_game):
                 return None
         clause = _box_clause_at(sentence, claim_at)
-        if _explicit_box_subject(clause, _team_aliases(last_game, recap)) not in {
-            "",
-            "KC",
-        }:
-            return None
+        aliases = _team_aliases(last_game, recap)
+        explicit = _explicit_box_subject(clause, aliases)
+        if explicit and explicit not in {"", "KC"}:
+            opp_abbr = ((recap or {}).get("oppAbbr") or "").strip().upper()
+            opp_fd = _box_int((recap or {}).get("opp"), "firstDowns")
+            if not (
+                kind == "first downs"
+                and explicit == opp_abbr
+                and official == opp_fd
+            ):
+                return None
         return _swap_count_in_sentence(sentence, claimed, official)
     name = _ILLEGAL_USE_NOT_SNEED.search(violation or "")
     if name:

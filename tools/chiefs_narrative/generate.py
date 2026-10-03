@@ -441,7 +441,11 @@ def _write_archive(narrative: dict) -> None:
         "slug": narrative.get("slug") or "",
         "edition": narrative.get("edition") or "",
         "phase": phase.get("label") or "",
-        "headline": narrative.get("headline") or narrative.get("edition") or "",
+        "headline": (
+            narrative.get("headline")
+            or narrative.get("edition")
+            or "The Chiefs Narrative"
+        ),
         "theEdge": narrative.get("theEdge") or "",
     }
     # Replace a same-day snapshot rather than duplicating.
@@ -1040,6 +1044,10 @@ def main(argv=None) -> int:
         return 1
 
     narrative = result["narrative"]
+    if not narrative.get("headline"):
+        narrative["headline"] = (
+            narrative.get("edition") or "The Chiefs Narrative"
+        )
 
     if args.dry_run:
         print(json.dumps(narrative, indent=2, ensure_ascii=False))
