@@ -3689,8 +3689,7 @@ class FactCheck(unittest.TestCase):
             )
             written = json.loads(narrative_json.read_text(encoding="utf-8"))
             blob = facts.edition_text(written)
-            self.assertNotIn("40-dropback", blob)
-            self.assertIn("24-dropback", blob)
+            self.assertNotIn("24-dropback", blob)
             self.assertIn(orphan, blob)
             repair = json.loads(repair_json.read_text(encoding="utf-8"))
             self.assertFalse(
@@ -3766,42 +3765,36 @@ class FactCheck(unittest.TestCase):
         self.assertTrue(any("fragment" in item or "dangling" in item for item in issues), issues)
 
     def test_repair_drops_orphan_opener_left_by_40_drop(self):
-        """Run 36751657899: drop-pass removed the 40-drop sentence and left
-        'That is how you finish with 25:39…' as a fatal orphan.
-        """
+        """A negated 40-dropback is not a box claim, so salvage leaves it."""
         recap = _load_fixture("espn_401872952_recap.json")
         last = dict(self.LAST)
         last["date"] = "2026-09-27T17:00:00Z"
-        orphan = (
+        follow = (
             "That is how you finish with 25:39 even after hitting explosives."
+        )
+        lede = (
+            "Kansas City finished 24–10 against Miami. "
+            "Twenty of 24 for 246, two touchdowns, one interception, "
+            "and a 119.8 rating is a control tape, not a 40-dropback "
+            "scramble. "
+            + follow
         )
         narrative = {
             "headline": "Keep this title",
-            "lastGameReview": {
-                "lede": (
-                    "Kansas City finished 24–10 against Miami. "
-                    "Twenty of 24 for 246, two touchdowns, one interception, "
-                    "and a 119.8 rating is a control tape, not a 40-dropback "
-                    "scramble. "
-                    + orphan
-                ),
-            },
+            "lastGameReview": {"lede": lede},
         }
         issues = facts.check_review(narrative, last, recap)
-        self.assertTrue(
+        self.assertFalse(
             any("40-drop" in item or "pass attempts" in item for item in issues),
             issues,
         )
         repaired = facts.repair_offending_copy(narrative, issues, last)
         blob = facts.edition_text(repaired)
-        self.assertNotIn("40-dropback", blob)
-        self.assertNotIn(orphan, blob)
-        self.assertIn("24", repaired["lastGameReview"]["lede"])
-        dropped = facts.dropped_sentences(narrative, repaired)
-        self.assertTrue(any("40-dropback" in item for item in dropped), dropped)
-        self.assertTrue(any(orphan in item for item in dropped), dropped)
+        self.assertIn("40-dropback", blob)
+        self.assertIn(follow, blob)
+        self.assertEqual(facts.dropped_sentences(narrative, repaired), [])
         self.assertEqual(facts.check_review(repaired, last, recap), [])
-        self.assertEqual(facts.check_repair_orphans(repaired, dropped), [])
+        self.assertEqual(facts.check_repair_orphans(repaired, []), [])
         self.assertEqual(facts.repair_publish_blockers([], repaired, []), [])
 
     def test_kc_possession_of_miami_clock_still_fails_and_is_dropped(self):
@@ -7107,24 +7100,68 @@ class FactCheck(unittest.TestCase):
         return last, recap, slate
 
     def test_karen_166_archive_replay_and_r6_r10_corpus(self):
-        """r10: every archive against its cached box; r6–r10 strings stay pinned."""
-        from tools.tests.archive_replay import replay_all_editions
+        """r11: post-salvage archive text plus the full r6–r11 matrices."""
+        from tools.tests import karen_matrices
+        from tools.tests.archive_replay import quoted_snippets, salvage_all_editions
 
         known = _load_fixture("archive_replay_known_bad.json")
-        rows = replay_all_editions()
+        rows = salvage_all_editions()
         self.assertEqual(len(rows), 75)
         unexpected = []
         missing = []
-        for slug, issues in rows:
+        rewritten = []
+        for slug, row in rows:
             allowed = list(known["issues"].get(slug) or [])
-            for item in issues:
+            for item in row["issues"]:
                 if item not in allowed:
                     unexpected.append(f"{slug}: {item}")
             for item in allowed:
-                if item not in issues:
+                if item not in row["issues"]:
                     missing.append(f"{slug}: {item}")
+            allowed_snips = quoted_snippets(allowed)
+            if not allowed:
+                if row["before"] != row["after"]:
+                    rewritten.append(f"{slug}: clean edition text changed")
+            for log in row["logs"]:
+                if " → " in log:
+                    old, new = log.split(" → ", 1)
+                    if any(snip and snip in old for snip in allowed_snips):
+                        continue
+                    rewritten.append(f"{slug}: {log}")
+            for sentence in row["after_sents"]:
+                if sentence in row["before_sents"]:
+                    continue
+                if sentence == facts.safe_score_lede(
+                    None
+                ) or sentence.startswith("Kansas City finished"):
+                    continue
+                rewritten.append(f"{slug}: invented {sentence[:160]!r}")
         self.assertEqual(unexpected, [], unexpected[:8])
         self.assertEqual(missing, [], missing[:8])
+        self.assertEqual(rewritten, [], rewritten[:8])
+
+        matrices = (
+            ("mw7", karen_matrices.mw7_cases),
+            ("mx8", karen_matrices.mx8_cases),
+            ("t32", karen_matrices.t32_cases),
+            ("probes", karen_matrices.probe_cases),
+            ("overreach7", karen_matrices.overreach_cases),
+            ("ov2_7", karen_matrices.ov2_cases),
+            ("pv10", karen_matrices.pv10_cases),
+            ("pv11a", karen_matrices.pv11a_cases),
+            ("pv11b", karen_matrices.pv11b_cases),
+        )
+        for name, builder in matrices:
+            misses = []
+            cases = builder()
+            for case in cases:
+                result = karen_matrices.evaluate(case)
+                if not result["ok"]:
+                    misses.append(
+                        f"{name} {case.get('ctx')} exp={case['expect_flag']} "
+                        f"got={result['flagged']} {case['sentence'][:120]}"
+                    )
+            self.assertEqual(misses, [], f"{name}: {len(misses)}/{len(cases)} {misses[:6]}")
 
         fixtures = {
             "157": _load_fixture("edition_run_karen_157_gaps.json"),
