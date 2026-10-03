@@ -718,6 +718,9 @@ _MAX_REPAIR_DROPS = MAX_REPAIR_DROPS
 # or the edition is shorter than the in-season desk norm.
 HOLD_REPAIR_DROPS = 3
 PUBLISH_WORD_FLOOR = 3900
+# Safety net: a Review edition never automerges. Flip to False after a
+# human has cleared Monday post-game QA and the checker is trusted again.
+REVIEW_REQUIRES_HUMAN = True
 
 # Qualified counts are not whole-game totals. Compare against the window
 # when quarter data can compute it; otherwise skip.
@@ -6893,6 +6896,29 @@ def restore_required_copy(
     return payload
 
 
+_REVIEW_EDITION = re.compile(
+    r"Week\s+\d+\s+·\s+Week\s+\d+\s+Review",
+    re.IGNORECASE,
+)
+
+
+def is_review_edition(narrative: dict | None) -> bool:
+    """True for phase.mode=review or a 'Week N · Week M Review' edition."""
+    payload = narrative or {}
+    phase = payload.get("phase") if isinstance(payload.get("phase"), dict) else {}
+    if str((phase or {}).get("mode") or "").strip().lower() == "review":
+        return True
+    edition = str(
+        payload.get("edition") or (phase or {}).get("edition") or ""
+    )
+    return bool(_REVIEW_EDITION.search(edition))
+
+
+def review_requires_human(narrative: dict | None) -> bool:
+    """True when the Review safety net is on and this edition is a Review."""
+    return bool(REVIEW_REQUIRES_HUMAN) and is_review_edition(narrative)
+
+
 def should_hold_automerge(
     drops: list[str],
     narrative: dict | None,
@@ -6904,8 +6930,11 @@ def should_hold_automerge(
     """Hold whenever salvage rewrote or dropped copy, leftover, or thin.
 
     A missing headline with no recorded drop must hold. Never automerge
-    the edition label as the published title.
+    the edition label as the published title. Review editions hold while
+    REVIEW_REQUIRES_HUMAN is on, even with a clean checker.
     """
+    if review_requires_human(narrative):
+        return True
     if leftover:
         return True
     if drops:

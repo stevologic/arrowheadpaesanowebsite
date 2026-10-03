@@ -225,6 +225,12 @@ jobs:
             HOLD_MERGE="$(python -c "import json;print('true' if json.load(open('data/narrative_repair.json')).get('holdAutomerge') else 'false')")"
             DROP_BODY="$(python -m tools.chiefs_narrative.drop_body)"
           fi
+          if [ "$DESK_MODE" = "full" ] && [ -f data/narrative.json ]; then
+            REVIEW_HOLD="$(python -c "import json;from tools.chiefs_narrative import facts;print('true' if facts.review_requires_human(json.load(open('data/narrative.json'))) else 'false')")"
+            if [ "$REVIEW_HOLD" = "true" ]; then
+              HOLD_MERGE="true"
+            fi
+          fi
 
           if [ "$DESK_MODE" = "full" ] && [ -f data/narrative.json ]; then
             EDITION="$(python -c "import json;print(json.load(open('data/narrative.json'))['edition'])")"
@@ -263,7 +269,7 @@ jobs:
           echo "Opened $PR_URL"
 
           if [ "$HOLD_MERGE" = "true" ]; then
-            echo "Holding automerge: fact-check leftover or noisy salvage (listed in the PR body)."
+            echo "Holding automerge: review requires human QA, leftover issues, or noisy salvage (listed in the PR body)."
             gh pr edit "$PR_URL" --add-label hold || true
             echo "publish=false" >> "$GITHUB_OUTPUT"
             gh workflow run ci.yml --ref "$BRANCH" || true
