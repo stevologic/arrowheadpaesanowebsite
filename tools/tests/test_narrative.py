@@ -3478,9 +3478,13 @@ class FactCheck(unittest.TestCase):
             written = json.loads(narrative_json.read_text(encoding="utf-8"))
             blob = facts.edition_text(written)
             self.assertNotIn("40-dropback", blob)
-            self.assertNotIn(orphan, blob)
+            self.assertIn("24-dropback", blob)
+            self.assertIn(orphan, blob)
             repair = json.loads(repair_json.read_text(encoding="utf-8"))
-            self.assertTrue(any(orphan in item for item in repair["droppedSentences"]))
+            self.assertFalse(
+                any(orphan in item for item in repair["droppedSentences"]),
+                repair["droppedSentences"],
+            )
 
     def test_int_credit_ignores_common_words_and_passers(self):
         recap = _load_fixture("espn_401872952_recap.json")
@@ -4638,6 +4642,10 @@ class FactCheck(unittest.TestCase):
         self.assertIn("HOLD_MERGE", workflow)
         self.assertIn("holdAutomerge", workflow)
         self.assertIn("Holding automerge", workflow)
+        self.assertIn(
+            "if ! python -m tools.chiefs_narrative.generate --check-edition",
+            workflow,
+        )
         self.assertIn("needs.update.outputs.publish", workflow)
         self.assertLess(workflow.index("HOLD_MERGE"), workflow.index("gh pr merge"))
         self.assertLess(workflow.index("HOLD_MERGE"), workflow.index('echo "publish=true"'))
@@ -5047,12 +5055,11 @@ class FactCheck(unittest.TestCase):
         self.assertNotIn("Where 3-0 actually stands", headings)
 
     def test_run_37099023312_penalty_list_and_two_touches(self):
-        """Run 37099023312: list binding and Walker-only 'two touches'.
+        """Run 37099023312: list binding, Walker-only FP, correct-in-place.
 
-        Generate was clean on the live ESPN recap. --check-edition uses
-        the Walker-only / Karlaftis-only fixture and flagged a correct
-        penalty list plus Kelce/Worthy two-touch counts. Real Walker
-        game-total 'two touches' and a Sneed illegal-use still drop.
+        Tonight's two gate flags were false positives. Real Walker
+        game-total 'two touches' and a Sneed illegal-use are rewritten
+        to the ESPN value; leftover that cannot be swapped is dropped.
         """
         catalog = _load_fixture("edition_run_37099023312.json")
         recap = _load_fixture("espn_401872952_recap.json")
@@ -5128,21 +5135,37 @@ class FactCheck(unittest.TestCase):
             any("illegal-use" in item for item in gate_issues),
             gate_issues,
         )
-        repaired = facts.repair_offending_copy(
-            narrative, gate_issues, gate_last, gate_recap
-        )
-        blob = facts.edition_text(repaired)
+        corrected, logs = facts.apply_fact_corrections(narrative, gate_issues)
+        self.assertTrue(any("twenty touches" in line for line in logs), logs)
+        blob = facts.edition_text(corrected)
+        self.assertIn("Kenneth Walker III handled twenty touches", blob)
         self.assertNotIn("Kenneth Walker III handled two touches", blob)
         self.assertIn("defensive holding on L. Sneed", blob)
         self.assertIn("Kelce at two touches", blob)
-        leftover = facts.check_review(repaired, gate_last, gate_recap)
+        leftover = facts.check_review(corrected, gate_last, gate_recap)
         self.assertEqual(leftover, [], leftover)
-        dropped = facts.dropped_sentences(narrative, repaired)
-        self.assertTrue(
-            any("Kenneth Walker III handled two touches" in item for item in dropped),
-            dropped,
+
+        sneed_flag = "Sneed drew the illegal-use flag at Q4 0:47."
+        sneed_nar = self._review(lede=sneed_flag)
+        sneed_issues = facts.check_review(sneed_nar, last, recap)
+        self.assertTrue(any("illegal-use" in item for item in sneed_issues), sneed_issues)
+        sneed_fixed, sneed_logs = facts.apply_fact_corrections(
+            sneed_nar, sneed_issues
         )
-        self.assertLessEqual(len(dropped), facts.HOLD_REPAIR_DROPS)
+        self.assertTrue(any("Karlaftis drew" in line for line in sneed_logs), sneed_logs)
+        self.assertEqual(facts.check_review(sneed_fixed, last, recap), [])
+
+        unfixable = catalog["reject"][1]
+        messy = self._review(lede=unfixable)
+        messy_issues = facts.check_review(messy, last, recap)
+        messy_fixed, _logs = facts.apply_fact_corrections(messy, messy_issues)
+        messy_left = facts.check_review(messy_fixed, last, recap)
+        self.assertTrue(messy_left, messy_left)
+        cleaned = facts.repair_offending_copy(
+            messy_fixed, messy_left, last, recap
+        )
+        self.assertEqual(facts.check_review(cleaned, last, recap), [])
+        self.assertTrue(facts.should_hold_automerge([], cleaned, leftover=messy_left))
 
     def test_salvage_cleans_every_section_and_empty_cards(self):
         recap = _load_fixture("espn_401872952_recap.json")

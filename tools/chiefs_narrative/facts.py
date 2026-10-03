@@ -3959,8 +3959,11 @@ def violation_snippets(violations: list[str]) -> list[str]:
         # Miami's clock ('34:21') → leftover 's clock, not KC ('
         if token.startswith("s ") or token.endswith("("):
             return
+        token = token.replace("\\n", "\n")
         seen.add(token)
         out.append(token)
+        if "\n" in token:
+            _add(token.split("\n")[-1])
         # left.strip()+after used to emit 'nobodyafter' (run 37030574826).
         unglued = re.sub(
             r"(?<=[A-Za-z])(?=(?:after|following)\b)",
@@ -4480,6 +4483,141 @@ def safe_score_lede(last_game: dict | None) -> str:
     return f"Kansas City finished {pair[0]}–{pair[1]} against {opp}."
 
 
+_STAT_DISAGREE = re.compile(
+    r"(?:touches|sacks|pass attempts|rush attempts|team rushing|"
+    r"total drives|QB hits|first downs)\s+"
+    r"(\d+)\s+disagrees with ESPN\s+(\d+)",
+    re.IGNORECASE,
+)
+_ILLEGAL_USE_NOT_SNEED = re.compile(
+    r"illegal-use flag was on ([^,]+), not sneed",
+    re.IGNORECASE,
+)
+
+
+def _format_count(n: int, like: str) -> str:
+    """Keep digit vs word style when swapping a verified ESPN count."""
+    raw = (like or "").strip()
+    if raw.isdigit():
+        return str(n)
+    word = {v: k for k, v in _NUMBER_WORDS.items()}.get(n)
+    if not word:
+        return str(n)
+    if raw[:1].isupper():
+        return word[:1].upper() + word[1:]
+    return word
+
+
+def _swap_count_in_sentence(sentence: str, claimed: int, official: int) -> str | None:
+    hits = [
+        match
+        for match in re.finditer(rf"\b({_NUM_TOKEN})\b", sentence or "", re.I)
+        if _parse_count(match.group(1)) == claimed
+    ]
+    if len(hits) != 1:
+        return None
+    hit = hits[0]
+    return (
+        sentence[: hit.start()]
+        + _format_count(official, hit.group(1))
+        + sentence[hit.end() :]
+    )
+
+
+def _swap_sneed_for(sentence: str, official: str) -> str | None:
+    name = (official or "").split(",")[0].strip()
+    if not name or not re.search(r"\bsneed\b", sentence or "", re.I):
+        return None
+    display = name[:1].upper() + name[1:]
+
+    def _repl(match: re.Match) -> str:
+        tail = match.group(0)[5:]
+        return display + tail
+
+    return re.sub(r"\b[Ss]need(?=['’]s\b|\b)", _repl, sentence, count=1)
+
+
+def _quoted_violation(item: str) -> str:
+    snippets = violation_snippets([item])
+    if not snippets:
+        return ""
+    # check_review quotes with !r, so newlines show up as the two
+    # characters backslash-n instead of a real line break.
+    return max(snippets, key=len).replace("\\n", "\n")
+
+
+def _correct_sentence(sentence: str, violation: str) -> str | None:
+    """Rewrite one ESPN disagreement, or None when the swap is not clean."""
+    if not sentence:
+        return None
+    num = _STAT_DISAGREE.search(violation or "")
+    if num:
+        return _swap_count_in_sentence(
+            sentence, int(num.group(1)), int(num.group(2))
+        )
+    name = _ILLEGAL_USE_NOT_SNEED.search(violation or "")
+    if name:
+        return _swap_sneed_for(sentence, name.group(1))
+    return None
+
+
+def _replace_sentence_value(value, old: str, new: str):
+    if isinstance(value, str):
+        if old and old in value:
+            return value.replace(old, new, 1)
+        return value
+    if isinstance(value, list):
+        return [_replace_sentence_value(item, old, new) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: _replace_sentence_value(item, old, new)
+            for key, item in value.items()
+        }
+    return value
+
+
+def apply_fact_corrections(
+    narrative: dict | None, violations: list[str]
+) -> tuple[dict, list[str]]:
+    """Rewrite number/name mismatches to the ESPN value. Log each swap.
+
+    Sentences that cannot be rewritten cleanly are left for the drop pass.
+    """
+    payload = copy.deepcopy(narrative or {})
+    logs: list[str] = []
+    blob = edition_text(payload)
+    for item in violations or []:
+        snippet = _quoted_violation(item)
+        tails = [snippet] if snippet else []
+        if snippet and "\n" in snippet:
+            tails.append(snippet.split("\n")[-1].strip())
+        sentence = ""
+        for needle in tails:
+            for part in _split_sentences(blob):
+                if needle and needle in part:
+                    sentence = part
+                    break
+            if sentence:
+                break
+        if not sentence:
+            sentence = tails[-1] if tails else ""
+        rewritten = _correct_sentence(sentence, item)
+        if not rewritten or rewritten == sentence:
+            continue
+        next_payload = copy.deepcopy(payload)
+        for key in _EDITION_KEYS:
+            if key in next_payload:
+                next_payload[key] = _replace_sentence_value(
+                    next_payload[key], sentence, rewritten
+                )
+        if edition_text(next_payload) == blob:
+            continue
+        payload = next_payload
+        blob = edition_text(payload)
+        logs.append(f"{sentence} → {rewritten}")
+    return payload, logs
+
+
 def repair_offending_copy(
     narrative: dict | None,
     violations: list[str],
@@ -4511,8 +4649,14 @@ def repair_offending_copy(
     return payload
 
 
-def should_hold_automerge(drops: list[str], narrative: dict | None) -> bool:
-    """Hold publish when salvage is noisy or the desk is under the word floor."""
+def should_hold_automerge(
+    drops: list[str],
+    narrative: dict | None,
+    leftover: list[str] | None = None,
+) -> bool:
+    """Hold publish when salvage is noisy, leftover, or under the word floor."""
+    if leftover:
+        return True
     if len(drops or []) > HOLD_REPAIR_DROPS:
         return True
     return edition_word_count(narrative) < PUBLISH_WORD_FLOOR
