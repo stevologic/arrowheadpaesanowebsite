@@ -19,7 +19,88 @@
     "possessionTime": "28:48",
     "totalDrives": "9"
   },
-  "scoringPlays": [],
+  "scoringPlays": [
+    {
+      "quarter": 1,
+      "clock": "8:11",
+      "type": "TD",
+      "yards": 6,
+      "team": "KC",
+      "scoreAfter": "KC 7–0",
+      "kcScore": 7,
+      "oppScore": 0
+    },
+    {
+      "quarter": 1,
+      "clock": "3:48",
+      "type": "TD",
+      "yards": 12,
+      "team": "LV",
+      "scoreAfter": "KC 7–7",
+      "kcScore": 7,
+      "oppScore": 7
+    },
+    {
+      "quarter": 2,
+      "clock": "10:22",
+      "type": "TD",
+      "yards": 4,
+      "team": "KC",
+      "scoreAfter": "KC 14–7",
+      "kcScore": 14,
+      "oppScore": 7
+    },
+    {
+      "quarter": 2,
+      "clock": "0:18",
+      "type": "FG",
+      "yards": 31,
+      "team": "KC",
+      "scoreAfter": "KC 17–7",
+      "kcScore": 17,
+      "oppScore": 7
+    },
+    {
+      "quarter": 3,
+      "clock": "9:40",
+      "type": "TD",
+      "yards": 8,
+      "team": "LV",
+      "scoreAfter": "KC 17–14",
+      "kcScore": 17,
+      "oppScore": 14
+    },
+    {
+      "quarter": 3,
+      "clock": "2:11",
+      "type": "TD",
+      "yards": 1,
+      "team": "KC",
+      "scoreAfter": "KC 24–14",
+      "kcScore": 24,
+      "oppScore": 14
+    },
+    {
+      "quarter": 4,
+      "clock": "8:05",
+      "type": "FG",
+      "yards": 38,
+      "team": "KC",
+      "scoreAfter": "KC 27–14",
+      "kcScore": 27,
+      "oppScore": 14
+    },
+    {
+      "quarter": 4,
+      "clock": "1:47",
+      "type": "FG",
+      "yards": 41,
+      "team": "LV",
+      "scoreAfter": "KC 27–17",
+      "kcScore": 27,
+      "oppScore": 17
+    }
+  ],
   "leaders": [
     {
       "player": "Kenneth Walker III",
