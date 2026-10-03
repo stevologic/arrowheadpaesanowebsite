@@ -291,7 +291,7 @@ _FINAL_SCORE_CLAIMS = (
     ),
     re.compile(
         r"\bwon\s+(\d{1,2})\s*[–-]\s*(\d{1,2})"
-        r"(?:\s+(?:in|against)\b)?",
+        r"(?=\s+(?:in|against)\b|\s*[.]|\s*$)",
         re.IGNORECASE,
     ),
     re.compile(
@@ -1361,17 +1361,18 @@ def _claim_game_scope(
     sentence = text[sent_start:sent_end]
     against = re.search(
         r"\blast week against\s+"
-        r"((?:the\s+)?[A-Za-z][A-Za-z .’-]+)",
+        r"((?:the\s+)?[A-Za-z][A-Za-z .’-]+)"
+        r"|\bagainst\s+((?:the\s+)?[A-Za-z][A-Za-z .’-]+)\s+last week\b",
         sentence,
         re.I,
     )
     if against:
-        named = " ".join(against.group(1).lower().split())
+        named = " ".join((against.group(1) or against.group(2) or "").lower().split())
         for lab, scope in _scope_label_map(recap, last_game, schedule):
             if named == lab or named.endswith(lab) or lab.endswith(named):
-                return scope
-            if re.search(_alias_pattern(lab), against.group(1), re.I):
-                return scope
+                return scope if scope in {"last", "prior"} else "other"
+            if re.search(_alias_pattern(lab), named, re.I):
+                return scope if scope in {"last", "prior"} else "other"
     left_origin = sent_start
     left = text[left_origin:claim_at]
     after = text[claim_at : min(sent_end, claim_at + 56)]
@@ -1426,7 +1427,8 @@ def _claim_game_scope(
     tail = text[claim_at : min(len(text), claim_at + 56)]
     right_ok = bool(
         re.search(
-            r"(?:against|versus|over the|\bin\s+week\s+\d+|\bopener\b)\b",
+            r"(?:against|versus|over the|\bin\s+week\s+\d+|\bopener\b|"
+            r"\bin the\s+\w+\s+game\b)\b",
             tail,
             re.I,
         )
@@ -2233,11 +2235,30 @@ def _slate_final_pair(game: dict | None) -> tuple[int, int] | None:
     return _int_pair(game.get("kcScore"), game.get("oppScore"))
 
 
+def _recap_final_pair(block: dict | None) -> tuple[int, int] | None:
+    """Official final from a recap block when the slate row is missing."""
+    if not block:
+        return None
+    pair = _int_pair(block.get("kcScore"), block.get("oppScore"))
+    if pair:
+        return pair
+    plays = [
+        play
+        for play in (block.get("scoringPlays") or [])
+        if isinstance(play, dict)
+    ]
+    if not plays:
+        return None
+    last = plays[-1]
+    return _int_pair(last.get("kcScore"), last.get("oppScore"))
+
+
 def _named_official_final(
     sentence: str,
     last_game: dict | None,
     recap: dict | None,
     schedule=None,
+    claimed: tuple[int, int] | None = None,
 ) -> tuple[int, int] | None:
     """Official final for the game this sentence names, else the last game."""
     last_pair = _slate_final_pair(last_game)
@@ -2275,6 +2296,8 @@ def _named_official_final(
                     pair = _slate_final_pair(game)
                     if pair:
                         break
+        if pair is None:
+            pair = _recap_final_pair(block)
         labs = _city_and_nick_labels(
             block.get("opponent") or "",
             block.get("oppAbbr") or "",
@@ -2308,6 +2331,14 @@ def _named_official_final(
                 pair = _slate_final_pair(game)
                 if pair:
                     labeled.append((6, pair))
+    if claimed:
+        for _length, pair in labeled:
+            if pair == claimed or (pair[1], pair[0]) == claimed:
+                return pair
+        if last_pair and (
+            last_pair == claimed or (last_pair[1], last_pair[0]) == claimed
+        ):
+            return last_pair
     if labeled:
         return max(labeled, key=lambda row: row[0])[1]
     return last_pair
@@ -2332,18 +2363,58 @@ def _check_scores(
         key = (pair[0], pair[1], kind)
         if key in seen:
             return
+        after = masked[match.end() : match.end() + 28]
+        if re.search(
+            r"^\s+on\s+(?:first|second|third|fourth)\s+downs?\b",
+            after,
+            re.I,
+        ):
+            return
+        if re.search(r"^\s+at\s+[A-Z]", after):
+            return
         if final:
+            if 0 in pair and max(pair) <= 16:
+                return
             official = _named_official_final(
-                sentence, last_game, recap, schedule
+                sentence, last_game, recap, schedule, claimed=pair
             )
             if official and (
                 pair == official or (pair[1], pair[0]) == official
             ):
                 seen.add(key)
                 return
-            if not official and _pair_allowed(pair, pairs):
-                seen.add(key)
-                return
+            prior_labels = _prior_game_labels(recap) | _older_game_labels(recap)
+            names_other = any(
+                re.search(rf"\b{re.escape(lab)}\b", sentence, re.I)
+                for lab in prior_labels
+                if len(lab) >= 3
+            )
+            if names_other and official and (
+                pair != official and (pair[1], pair[0]) != official
+            ):
+                other = _recap_final_pair(
+                    (recap or {}).get("prior")
+                ) or _recap_final_pair((recap or {}).get("older"))
+                if other and (pair == other or (pair[1], pair[0]) == other):
+                    seen.add(key)
+                    return
+                if other is None:
+                    seen.add(key)
+                    return
+            if not official:
+                prior_labels = _prior_game_labels(recap) | _older_game_labels(
+                    recap
+                )
+                if any(
+                    re.search(rf"\b{re.escape(lab)}\b", sentence, re.I)
+                    for lab in prior_labels
+                    if len(lab) >= 3
+                ):
+                    seen.add(key)
+                    return
+                if _pair_allowed(pair, pairs):
+                    seen.add(key)
+                    return
             seen.add(key)
             issues.append(
                 f"score {pair[0]}-{pair[1]} is not the official final "
@@ -2605,9 +2676,19 @@ def _check_fg_claims(
             )
         ):
             team = "KC"
-        all_fg = set().union(*by_team.values()) if by_team else set()
+        made = set().union(*by_team.values()) if by_team else set()
         missed = official_missed_fg_yards(recap)
-        all_fg |= missed
+        all_fg = set(made) | missed
+        if re.search(r"\blet\b.{0,28}\bstand", sentence, re.I):
+            opp_abbr = ((recap or {}).get("oppAbbr") or "").strip().upper()
+            if yards in missed and yards not in made:
+                issues.append(
+                    f"field-goal yardage {yards} was a miss, not a make "
+                    f"({match.group(0)!r})"
+                )
+                continue
+            if yards in by_team.get(opp_abbr, set()) or yards in made:
+                continue
         made_for_team = by_team.get(team, set()) if team else all_fg - missed
         if yards in missed and yards not in made_for_team:
             if _FG_MAKE_CLAIM.search(sentence) and not _FG_MISS_CLAIM.search(
@@ -2638,8 +2719,11 @@ def _check_fg_claims(
         except (TypeError, ValueError):
             continue
         sentence = _sentence_at(text, match.start())
-        team = "KC" if re.search(r"\bbutker\b", sentence, re.I) else None
-        if re.search(r"\bmyers\b", sentence, re.I):
+        token = match.group(0)
+        if _FG_MISS_CLAIM.search(sentence) or _FG_MISS_CLAIM.search(token):
+            continue
+        team = "KC" if re.search(r"\bbutker\b", token, re.I) else None
+        if re.search(r"\bmyers\b", token, re.I):
             team = ((recap or {}).get("oppAbbr") or "").strip().upper() or team
         all_fg = set().union(*by_team.values()) if by_team else set()
         if team:
@@ -3769,9 +3853,11 @@ def _check_team_yards(
             )
         ):
             continue
+        near = text[max(0, match.start() - 20) : match.end() + 16]
         if re.search(
-            r"\b(?:squeezed|limited|allowed|kept|gave up|yielded|ate)\b",
-            sentence,
+            rf"\b(?:allowed|gave up|yielded)\b.{{0,20}}{yards}\b|"
+            rf"\b{yards}\s+allowed\b",
+            near,
             re.I,
         ) and re.search(r"rush|ground", match.group(0), re.I):
             opp_abbr = ((recap or {}).get("oppAbbr") or "").strip().upper()
@@ -4589,6 +4675,8 @@ def _check_box_clocks(
                     f"ESPN box ({_claim_quote(text, match)!r})"
                 )
             continue
+        if scope == "older":
+            continue
         if scope == "prior":
             if team and prior_abbr and team == prior_abbr:
                 official, label = prior_opp_fd, f"prior {team}"
@@ -4736,6 +4824,14 @@ def _check_box_clocks(
         )
         if scope == "other":
             continue
+        sentence = _sentence_at(text, match.start())
+        if re.search(
+            r"\b(?:first half|second half|opening drive|third drive|"
+            r"in the\s+(?:first|second|third|fourth)\s+quarter)\b",
+            sentence,
+            re.I,
+        ):
+            continue
         team = (
             _explicit_box_subject(_box_clause_at(text, match.start()), aliases)
             or "KC"
@@ -4750,6 +4846,28 @@ def _check_box_clocks(
             official = last_total.get(team)
             label = team
         if official is None or yards == official:
+            continue
+        opp_map = {
+            "": last_total,
+            "last": last_total,
+            "prior": prior_total_map,
+            "older": older_total_map,
+        }.get(scope or "last", last_total)
+        opp_hits = [
+            abbr
+            for abbr, value in (opp_map or {}).items()
+            if abbr != "KC" and value == yards
+        ]
+        if opp_hits and any(
+            re.search(rf"\b{re.escape(abbr.lower())}\b", sentence, re.I)
+            or re.search(
+                rf"\b{re.escape((recap or {}).get('opponent') or '')}\b",
+                sentence,
+                re.I,
+            )
+            or re.search(r"\b(?:seattle|denver|broncos|seahawks)\b", sentence, re.I)
+            for abbr in opp_hits
+        ):
             continue
         issues.append(
             f"total yards {yards} disagrees with ESPN {official} for "
