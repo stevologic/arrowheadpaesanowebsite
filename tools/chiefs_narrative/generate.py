@@ -952,7 +952,8 @@ def check_published_edition() -> list[str]:
     narrative = json.loads(config.NARRATIVE_JSON.read_text(encoding="utf-8"))
     last = _last_game_from_edition(narrative)
     recap = _recap_for_edition(narrative)
-    issues = facts.check_review(narrative, last, recap)
+    schedule = collect.load_cached_schedule()
+    issues = facts.check_review(narrative, last, recap, schedule=schedule)
     issues.extend(facts.check_diagram_captions(narrative))
     return issues
 
