@@ -20,6 +20,7 @@ Environment (all optional):
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import re
 import sys
@@ -432,13 +433,14 @@ def _write_archive(narrative: dict) -> None:
     except Exception:  # noqa: BLE001
         archive = []
 
+    phase = narrative.get("phase") if isinstance(narrative.get("phase"), dict) else {}
     snapshot = {
-        "generatedAt": narrative["generatedAt"],
-        "slug": narrative.get("slug", ""),
-        "edition": narrative["edition"],
-        "phase": narrative["phase"]["label"],
-        "headline": narrative["headline"],
-        "theEdge": narrative.get("theEdge", ""),
+        "generatedAt": narrative.get("generatedAt") or "",
+        "slug": narrative.get("slug") or "",
+        "edition": narrative.get("edition") or "",
+        "phase": phase.get("label") or "",
+        "headline": narrative.get("headline") or narrative.get("edition") or "",
+        "theEdge": narrative.get("theEdge") or "",
     }
     # Replace a same-day snapshot rather than duplicating.
     today = _edition_calendar_day(narrative)
@@ -587,9 +589,36 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
     # 5b. ESPN fact-check on every generated section. Feed the exact
     # violations back for up to FACT_CHECK_RETRIES rewrites, then fail loud.
     recap = signals.get("lastGameRecap") or {}
+    attempts: list[dict] = []
+
+    def _remember(draft, problems) -> None:
+        attempts.append(
+            {
+                "narrative": copy.deepcopy(draft),
+                "violations": list(problems or []),
+                "words": facts.edition_word_count(draft),
+            }
+        )
+
+    def _best_attempt() -> dict | None:
+        ranked = [
+            row
+            for row in attempts
+            if not facts.missing_required_copy(row["narrative"])
+        ]
+        if not ranked:
+            ranked = list(attempts)
+        if not ranked:
+            return None
+        ranked.sort(
+            key=lambda row: (len(row["violations"]), -row["words"])
+        )
+        return ranked[0]["narrative"]
+
     violations = facts.check_review(
         narrative, last, recap, schedule=schedule, copy_gates=True
     )
+    _remember(narrative, violations)
     attempt = 0
     while violations and attempt < FACT_CHECK_RETRIES:
         attempt += 1
@@ -622,6 +651,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         violations = facts.check_review(
             narrative, last, recap, schedule=schedule, copy_gates=True
         )
+        _remember(narrative, violations)
     dropped: list[str] = []
 
     def _salvage(
@@ -633,7 +663,9 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         check_schedule=None,
         check_copy_gates=False,
     ):
-        corrected, logs = facts.apply_fact_corrections(payload, problems)
+        corrected, logs = facts.apply_fact_corrections(
+            payload, problems, recap=check_recap
+        )
         for line in logs:
             print(f"  [writer] corrected: {line}")
         leftover = facts.check_review(
@@ -715,6 +747,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             "  [writer] fact-check still failing after retries; "
             "correcting ESPN disagreements, then dropping what cannot be fixed"
         )
+        before_salvage = narrative
         narrative, gone, leftover_issues = _salvage_until_clean(
             narrative,
             violations,
@@ -723,7 +756,62 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             check_schedule=schedule,
             check_copy_gates=True,
         )
+        started_ok = (
+            facts.edition_word_count(before_salvage) >= facts.PUBLISH_WORD_FLOOR
+        )
+        too_noisy = (
+            len(gone) > facts.HOLD_REPAIR_DROPS
+            or facts.missing_required_copy(narrative)
+            or (
+                started_ok
+                and facts.edition_word_count(narrative)
+                < facts.PUBLISH_WORD_FLOOR
+            )
+        )
+        if too_noisy:
+            best = _best_attempt()
+            if best:
+                print(
+                    "  [writer] salvage too noisy; keeping the best complete "
+                    "retry and holding automerge"
+                )
+                narrative = facts.restore_required_copy(
+                    best,
+                    narrative,
+                    last_game=last,
+                    recap=recap,
+                    schedule=schedule,
+                )
+                leftover_issues = facts.check_review(
+                    narrative, last, recap, schedule=schedule, copy_gates=True
+                ) or [
+                    "salvage would have dropped too much; holding for human QA"
+                ]
+                gone = []
+            else:
+                offline_raw = offline.write(signals, ph, upcoming)
+                fallback = _assemble_narrative(
+                    offline_raw, ph, meta, signals, upcoming
+                )
+                narrative = facts.restore_required_copy(
+                    narrative,
+                    fallback,
+                    best or {},
+                    last_game=last,
+                    recap=recap,
+                    schedule=schedule,
+                )
+                leftover_issues = leftover_issues or [
+                    "salvage emptied required copy; holding for human QA"
+                ]
         dropped.extend(gone)
+        narrative = facts.restore_required_copy(
+            narrative,
+            *reversed([row["narrative"] for row in attempts]),
+            last_game=last,
+            recap=recap,
+            schedule=schedule,
+        )
         narrative["updatedAt"] = config.iso_now()
         print("  [writer] fact-check: corrections and drops logged")
 
@@ -739,6 +827,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             "  [writer] published-edition gate still failing; "
             "correcting or dropping so generate matches --check-edition"
         )
+        gate_before = narrative
         narrative, gone, leftover_issues = _salvage_until_clean(
             narrative,
             gate_issues,
@@ -746,7 +835,27 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             gate_recap,
             before=narrative,
         )
+        if (
+            len(gone) > facts.HOLD_REPAIR_DROPS
+            or facts.missing_required_copy(narrative)
+            or (
+                facts.edition_word_count(gate_before) >= facts.PUBLISH_WORD_FLOOR
+                and facts.edition_word_count(narrative) < facts.PUBLISH_WORD_FLOOR
+            )
+        ):
+            narrative = copy.deepcopy(gate_before)
+            leftover_issues = leftover_issues or [
+                "salvage would have dropped too much; holding for human QA"
+            ]
+            gone = []
         dropped.extend(gone)
+        narrative = facts.restore_required_copy(
+            narrative,
+            gate_before,
+            *reversed([row["narrative"] for row in attempts]),
+            last_game=gate_last,
+            recap=gate_recap,
+        )
         narrative["updatedAt"] = config.iso_now()
         print("  [writer] published-edition gate: corrections and drops logged")
 

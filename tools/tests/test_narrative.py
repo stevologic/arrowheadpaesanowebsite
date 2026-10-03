@@ -5223,6 +5223,245 @@ class FactCheck(unittest.TestCase):
         self.assertEqual(facts.check_review(cleaned, last, recap), [])
         self.assertTrue(facts.should_hold_automerge([], cleaned, leftover=messy_left))
 
+    def test_run_37129473980_keeps_correct_copy_and_ind_rush(self):
+        """Run 37129473980: no mass-drop, no 152→119, no 40-drop vacuum swap."""
+        catalog = _load_fixture("edition_run_37129473980.json")
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        last["id"] = "401872952"
+        slate = self._week3_slate()
+        keep = catalog["keep"]
+        rush = catalog["rushing_sentence"]
+        vacuum = catalog["vacuum_sentence"]
+        poison = "Mahomes sat through 8:42 of possession on the opening series."
+        narrative = {
+            "phase": {"type": "regular", "label": "Week 4", "mode": "preview"},
+            "record": "3-0",
+            "headline": catalog["headline"],
+            "dek": keep[1],
+            "theEdge": keep[2],
+            "lastGameReview": {
+                "opponent": "Miami Dolphins",
+                "result": "W",
+                "score": "KC 24–10",
+                "lede": rush + " " + poison,
+                "analysis": [{"title": keep[13], "body": sent} for sent in keep[3:13]],
+            },
+            "currentState": {"lede": keep[14], "body": keep[15:20]},
+            "gamePlan": {
+                "script": keep[20:24],
+                "matchups": [{"unit": "QB", "note": keep[24]}],
+            },
+            "nextGame": {"lede": keep[25], "body": keep[26:]},
+            "storyline": {"lede": vacuum, "body": []},
+        }
+        for sentence in keep + [rush, vacuum]:
+            issues = facts.check_review(
+                {"phase": {"type": "regular"}, "lastGameReview": {
+                    "opponent": "Miami Dolphins",
+                    "result": "W",
+                    "score": "KC 24–10",
+                    "lede": sentence,
+                }},
+                last,
+                recap,
+                schedule=slate,
+            )
+            self.assertEqual(issues, [], f"should accept {sentence!r}: {issues}")
+
+        clock_note = (
+            "possession 8:42 is not on the ESPN box "
+            "('8:42 of possession'; official ['25:39', '33:00', '34:21', '37:00'])"
+        )
+        snippets = facts.violation_snippets([clock_note])
+        self.assertTrue(any("8:42" in item for item in snippets), snippets)
+        self.assertFalse(any(item == "25:39" for item in snippets), snippets)
+        self.assertFalse(any(item == "34:21" for item in snippets), snippets)
+
+        fake_152 = [
+            "game yards 152 disagrees with ESPN 523 for prior KC ('152 yards')"
+        ]
+        rush_fixed, rush_logs = facts.apply_fact_corrections(
+            {"lastGameReview": {"lede": rush}}, fake_152, recap
+        )
+        self.assertEqual(rush_logs, [])
+        self.assertIn("152 rushing yards", facts.edition_text(rush_fixed))
+        self.assertNotIn("119 rushing yards", facts.edition_text(rush_fixed))
+
+        team_rush_wrong = [
+            "team rushing 152 disagrees with ESPN 119 for MIA "
+            "('152 rushing yards')"
+        ]
+        rush_fixed, rush_logs = facts.apply_fact_corrections(
+            {"lastGameReview": {"lede": rush}}, team_rush_wrong, recap
+        )
+        self.assertEqual(rush_logs, [])
+        self.assertIn("152 rushing yards", facts.edition_text(rush_fixed))
+
+        vac_issues = [
+            "pass attempts 40 disagrees with ESPN 24 for Patrick Mahomes "
+            "('40-drop')"
+        ]
+        vac_fixed, vac_logs = facts.apply_fact_corrections(
+            {"lastGameReview": {"lede": vacuum}}, vac_issues, recap
+        )
+        self.assertEqual(vac_logs, [])
+        self.assertIn("40-drop vacuum", facts.edition_text(vac_fixed))
+
+        issues = facts.check_review(
+            narrative, last, recap, schedule=slate, copy_gates=True
+        )
+        self.assertTrue(any("8:42" in item for item in issues), issues)
+        repaired = facts.repair_offending_copy(
+            narrative, issues, last, recap
+        )
+        blob = facts.edition_text(repaired)
+        self.assertEqual(repaired.get("headline"), catalog["headline"])
+        self.assertEqual(repaired.get("dek"), keep[1])
+        self.assertEqual(repaired.get("theEdge"), keep[2])
+        self.assertEqual(
+            ((repaired.get("gamePlan") or {}).get("matchups") or [{}])[0].get("unit"),
+            "QB",
+        )
+        for sentence in keep:
+            self.assertIn(sentence, blob, sentence)
+        self.assertIn("152 rushing yards", blob)
+        self.assertIn("40-drop vacuum", blob)
+        self.assertNotIn("8:42", blob)
+        leftover = facts.check_review(repaired, last, recap, schedule=slate)
+        self.assertEqual(leftover, [], leftover)
+
+    def test_write_archive_survives_missing_headline(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "archive.json"
+            path.write_text("[]\n", encoding="utf-8")
+            with patch.object(generate.config, "ARCHIVE_JSON", path):
+                generate._write_archive(
+                    {
+                        "generatedAt": "2026-10-03T14:40:00Z",
+                        "edition": "2026 Week 4 · Preview",
+                        "phase": {"label": "Week 4"},
+                    }
+                )
+            rows = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(rows[0]["headline"], "2026 Week 4 · Preview")
+        self.assertEqual(rows[0]["edition"], "2026 Week 4 · Preview")
+
+    def test_generate_keeps_headline_and_ind_rush_from_37129473980(self):
+        catalog = _load_fixture("edition_run_37129473980.json")
+        recap = _load_fixture("espn_401872952_recap.json")
+        draft = {
+            "headline": catalog["headline"],
+            "dek": catalog["keep"][1],
+            "theEdge": catalog["keep"][2],
+            "lastGameReview": {
+                "lede": (
+                    catalog["rushing_sentence"]
+                    + " Mahomes sat through 8:42 of possession."
+                ),
+                "analysis": [catalog["keep"][8], catalog["keep"][9]],
+            },
+            "storyline": {"lede": catalog["vacuum_sentence"], "body": []},
+        }
+        last = dict(self.LAST)
+        last["id"] = "401872952"
+        last["date"] = "2026-09-27T17:00:00Z"
+        last["kickoff"] = "Sun, Sep 27 · 12:00 PM CT"
+        indy = {
+            "id": "401872945",
+            "week": 2,
+            "seasonType": "reg",
+            "date": "2026-09-20T17:00:00Z",
+            "opponent": "Indianapolis Colts",
+            "opponentAbbr": "IND",
+            "completed": True,
+            "kcScore": 33,
+            "oppScore": 30,
+        }
+        week4 = {
+            "id": "w4",
+            "week": 4,
+            "seasonType": "reg",
+            "date": "2026-10-04T20:25:00Z",
+            "opponent": "Las Vegas Raiders",
+            "completed": False,
+            "inProgress": False,
+            "kcScore": None,
+            "oppScore": None,
+            "kickoff": "Sun, Oct 4 · 3:25 PM CT",
+        }
+        ph = {
+            "type": "regular",
+            "label": "Week 4",
+            "week": 4,
+            "mode": "preview",
+            "edition": "2026 Week 4 · Preview",
+            "lastGame": last,
+            "nextGame": week4,
+            "liveGame": None,
+        }
+        llm = Mock(side_effect=[(draft, "grok"), (draft, "grok"), (draft, "grok")])
+
+        def _recap_for(event_id):
+            if str(event_id) == "401872945":
+                return recap.get("prior") or {}
+            return recap
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            narrative_json = root / "narrative.json"
+            repair_json = root / "repair.json"
+            wire_json = root / "wire.json"
+            editions = root / "editions"
+            editions.mkdir()
+            archive = root / "archive.json"
+            archive.write_text("[]\n", encoding="utf-8")
+            with patch.object(
+                collect,
+                "collect_all",
+                return_value={"schedule": [indy, last, week4], "news": [], "markets": {}},
+            ), patch.object(
+                collect, "fetch_game_recap", side_effect=_recap_for
+            ), patch.object(
+                phase, "detect", return_value=ph
+            ), patch.object(
+                phase, "next_games", return_value=[week4]
+            ), patch.object(
+                phase, "any_live", return_value=False
+            ), patch.object(
+                odds, "collect_markets", return_value={}
+            ), patch.object(
+                providers, "generate_via_llm", llm
+            ), patch.object(
+                generate, "_render_diagrams"
+            ), patch.object(
+                generate, "_write_schedule"
+            ), patch.object(
+                generate.config, "NARRATIVE_JSON", narrative_json
+            ), patch.object(
+                generate.config, "WIRE_JSON", wire_json
+            ), patch.object(
+                generate.config, "EDITIONS_DIR", editions
+            ), patch.object(
+                generate.config, "ARCHIVE_JSON", archive
+            ), patch.object(
+                generate.config, "REPAIR_JSON", repair_json
+            ):
+                rc = generate.main(["--provider", "grok"])
+            self.assertEqual(
+                rc, 0, repair_json.read_text() if repair_json.exists() else "no repair"
+            )
+            written = json.loads(narrative_json.read_text(encoding="utf-8"))
+            blob = facts.edition_text(written)
+            self.assertEqual(written["headline"], catalog["headline"])
+            self.assertIn("152 rushing yards", blob)
+            self.assertNotIn("119 rushing yards", blob)
+            self.assertIn("40-drop vacuum", blob)
+            self.assertNotIn("8:42", blob)
+            archive_rows = json.loads(archive.read_text(encoding="utf-8"))
+            self.assertEqual(archive_rows[0]["headline"], catalog["headline"])
+
     def test_salvage_cleans_every_section_and_empty_cards(self):
         recap = _load_fixture("espn_401872952_recap.json")
         last = dict(self.LAST)
@@ -5264,8 +5503,14 @@ class FactCheck(unittest.TestCase):
         issues = facts.check_review(narrative, last, recap)
         repaired = facts.repair_offending_copy(narrative, issues, last)
         blob = facts.edition_text(repaired)
-        self.assertNotIn("produce the Willis interception", blob)
         self.assertNotIn("That is leftover after the cut", blob)
+        self.assertTrue(
+            any(
+                isinstance(card, dict)
+                and "produce the Willis interception" in str(card.get("title") or "")
+                for card in (repaired.get("xsandos") or [])
+            )
+        )
         script = ((repaired.get("gamePlan") or {}).get("script") or [])
         self.assertTrue(
             all("Steal the down" not in str(item) for item in script), script
@@ -5290,7 +5535,7 @@ class FactCheck(unittest.TestCase):
             {"title": drop, "why": "Keep the rest of this card."},
             facts.violation_snippets(issues),
         )
-        self.assertNotIn("title", emptied)
+        self.assertEqual(emptied.get("title"), drop)
         self.assertIn("why", emptied)
 
     def test_salvage_drops_walker_q1_after_q2_play_order_splice(self):
@@ -6152,6 +6397,18 @@ class Week3MiamiWeek4Raiders(unittest.TestCase):
         self.assertTrue(any("August" in item for item in stale), stale)
         self.assertTrue(any("preseason" in item for item in stale), stale)
         self.assertTrue(any("floor" in item for item in stale), stale)
+        compare = {
+            "generator": "grok",
+            "phase": {"type": "regular", "label": "Week 4"},
+            "record": "3-0",
+            "headline": "Road week",
+            "dek": "Cousins has been better than the preseason script.",
+            "storyline": {
+                "lede": "Las Vegas is playing ahead of the preseason forecast.",
+                "body": ["Cousins is the problem the preseason did not advertise."],
+            },
+        }
+        self.assertEqual(facts.check_copy_gates(compare, self._schedule()), [])
 
         season = dict(thin)
         season["dek"] = "The 2025 Chiefs are still rolling."

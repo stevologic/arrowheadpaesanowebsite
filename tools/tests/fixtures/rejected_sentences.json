@@ -223,10 +223,10 @@
     {
       "id": "36444997578-40-drop",
       "run": "36444997578",
-      "label": "real-error",
+      "label": "false-positive",
       "snippet": "40-drop",
       "sentence": "Do not ask the tackles to win a 40-drop game after Miami.",
-      "reason": "Mahomes threw 24 passes and was sacked 0 times."
+      "reason": "Bare N-drop is metaphor, not Mahomes' 24 dropbacks."
     },
     {
       "id": "36444997578-same-jumbo",
