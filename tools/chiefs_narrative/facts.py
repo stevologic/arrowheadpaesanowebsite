@@ -956,6 +956,13 @@ def _is_decimal_dot(text: str, pos: int) -> bool:
     return text[pos - 1].isdigit() and text[pos + 1].isdigit()
 
 
+def _is_clock_colon(text: str, pos: int) -> bool:
+    """True for the colon in '34:21', not a clause break."""
+    if pos <= 0 or pos >= len(text) - 1 or text[pos] != ":":
+        return False
+    return text[pos - 1].isdigit() and text[pos + 1].isdigit()
+
+
 def _stat_clause_span(text: str, index: int) -> tuple[int, int]:
     """Clause holding this index, split on sentence/comparison pivots only."""
     start, end = 0, len(text or "")
@@ -964,6 +971,8 @@ def _stat_clause_span(text: str, index: int) -> tuple[int, int]:
         if token == "." and (
             _is_initial_dot(text, hit.start()) or _is_decimal_dot(text, hit.start())
         ):
+            continue
+        if token == ":" and _is_clock_colon(text, hit.start()):
             continue
         if hit.end() <= index:
             start = hit.end()
@@ -1086,6 +1095,123 @@ def _bound_box_team(text: str, claim_at: int, aliases: dict[str, str]) -> str:
         if named:
             return named
     return _last_name_in(prefix, aliases)
+
+
+def _scrub_box_labels(span: str) -> str:
+    return _LOCATION_TEAM.sub(
+        " ",
+        _GAME_LABEL_TEAM.sub(" ", _YARD_LINE_TEAM.sub(" ", span or "")),
+    )
+
+
+def _possession_local_span(text: str, match: re.Match) -> tuple[int, int]:
+    """Clause holding this clock, split on 'to' when it separates two TOPs.
+
+    '25:39 to Miami's 34:21' is two claims. 'squeezed that offense to 88
+    and 25:39' is one claim — only one side has a clock, so do not split.
+    """
+    start, end = _stat_clause_span(text, match.start())
+    for hit in re.finditer(r"\bto\b", text[start:end], re.I):
+        abs_at = start + hit.start()
+        left = text[start:abs_at]
+        right = text[start + hit.end() : end]
+        if not (_POSSESSION_CLOCK.search(left) and _POSSESSION_CLOCK.search(right)):
+            continue
+        if match.start() < abs_at:
+            return start, abs_at
+        return start + hit.end(), end
+    return start, end
+
+
+def _first_alias_in(span: str, aliases: dict[str, str]) -> str:
+    """Leftmost team mention in span — nearest after a clock."""
+    best = ""
+    best_pos = None
+    for name in sorted(aliases, key=len, reverse=True):
+        if len(name) < 2:
+            continue
+        for hit in re.finditer(rf"\b{re.escape(name)}\b", span or "", re.I):
+            if best_pos is None or hit.start() < best_pos:
+                best_pos = hit.start()
+                best = aliases[name]
+    return best
+
+
+def _alias_leading_phrase(phrase: str, aliases: dict[str, str]) -> str:
+    words = re.findall(r"[A-Za-z][A-Za-z'’-]*", phrase or "")
+    for n in range(min(3, len(words)), 0, -1):
+        named = _alias_team(" ".join(words[:n]), aliases)
+        if named:
+            return named
+    return ""
+
+
+def _bound_possession_team(
+    text: str, match: re.Match, aliases: dict[str, str]
+) -> str:
+    """Nearest team mention on this clock's own clause.
+
+    Possessive 'Miami's 34:21' and '34:21 for Miami' beat an earlier
+    Chiefs subject so a split line keeps each TOP with its club. Do not
+    look across another possession clock or a 'to' that separates two
+    clocks — that is how #144's both-ways bind was supposed to work.
+    """
+    start, end = _possession_local_span(text, match)
+    prefix = _scrub_box_labels(text[start:match.start()])
+    suffix = _scrub_box_labels(text[match.end() : end])
+    poss = re.search(
+        r"([A-Za-z][A-Za-z '’-]+?)['’]s\s*$",
+        prefix,
+    )
+    if poss:
+        named = _alias_team(poss.group(1), aliases)
+        if named:
+            return named
+    attached = re.match(
+        r"^\s+for\s+(?:the\s+)?([A-Za-z][A-Za-z '’-]+)",
+        suffix,
+        re.I,
+    )
+    if attached:
+        named = _alias_leading_phrase(attached.group(1), aliases)
+        if named:
+            return named
+    left_pos, left_team = _last_name_pos(prefix, aliases)
+    right_team = _first_alias_in(suffix, aliases)
+    if left_team and right_team:
+        left_dist = len(prefix) - left_pos if left_pos >= 0 else 10**9
+        right_hit = None
+        for name, abbr in aliases.items():
+            if abbr != right_team:
+                continue
+            hit = re.search(rf"\b{re.escape(name)}\b", suffix, re.I)
+            if hit and (right_hit is None or hit.start() < right_hit):
+                right_hit = hit.start()
+        right_dist = 10**9 if right_hit is None else right_hit
+        return right_team if right_dist <= left_dist else left_team
+    return right_team or left_team
+
+
+def _claim_quote(text: str, match: re.Match) -> str:
+    """Sentence (or match token) so salvage drops only this claim.
+
+    ``_sentence_at`` does not stop on newlines, so a previous field
+    without a period used to become part of the quote and miss the
+    lede on drop. A short token like '70 rushing yards' used to drop
+    Walker's own 70 as well.
+    """
+    start, end = _sentence_span(text, match.start())
+    nl = text.rfind("\n", start, match.start())
+    if nl >= 0:
+        start = nl + 1
+    sentence = text[start:end].strip()
+    if sentence and match.group(0) in sentence:
+        return sentence
+    return match.group(0)
+
+
+def _clock_quote(text: str, match: re.Match) -> str:
+    return _claim_quote(text, match)
 
 
 def _attempt_kind(text: str, match: re.Match) -> str:
@@ -2493,7 +2619,7 @@ def _check_team_yards(
             continue
         issues.append(
             f"team rushing {yards} disagrees with ESPN {official} for "
-            f"{label} ({match.group(0)!r})"
+            f"{label} ({_claim_quote(text, match)!r})"
         )
 
     for match in _TEAM_PASS_YARDS.finditer(text):
@@ -2625,7 +2751,7 @@ def _check_box_clocks(
                 )
             continue
         if scope == "prior":
-            team = _bound_box_team(text, match.start(), aliases) or (
+            team = _bound_possession_team(text, match, aliases) or (
                 _possession_owner_after_clock(text, match, aliases)
             )
             prior_opp_abbr = (
@@ -2641,7 +2767,7 @@ def _check_box_clocks(
                     issues.append(
                         f"possession {clock} is prior "
                         f"{prior_opp_abbr or 'OPP'} clock, not KC "
-                        f"({match.group(0)!r})"
+                        f"({_clock_quote(text, match)!r})"
                     )
                 elif (
                     team
@@ -2653,7 +2779,7 @@ def _check_box_clocks(
                 ):
                     issues.append(
                         f"possession {clock} is prior KC clock, not "
-                        f"{prior_opp_abbr} ({match.group(0)!r})"
+                        f"{prior_opp_abbr} ({_clock_quote(text, match)!r})"
                     )
                 continue
             if prior_allowed and re.search(
@@ -2665,7 +2791,7 @@ def _check_box_clocks(
                     f"{sorted(prior_allowed)})"
                 )
             continue
-        team = _bound_box_team(text, match.start(), aliases)
+        team = _bound_possession_team(text, match, aliases)
         owners = [side for side, bag in clocks.items() if clock in bag]
         # A clock that only appears on the opponent box binds to them
         # unless the local subject is explicitly KC.
@@ -2674,10 +2800,11 @@ def _check_box_clocks(
         opp_label = (
             ((recap or {}).get("oppAbbr") or "OPP").strip() or "OPP"
         )
+        quoted = _clock_quote(text, match)
         if team == "KC" and clock not in clocks["KC"] and clock in clocks["OPP"]:
             issues.append(
                 f"possession {clock} is {opp_label} clock, not KC "
-                f"({match.group(0)!r})"
+                f"({quoted!r})"
             )
             continue
         if (
@@ -2689,7 +2816,7 @@ def _check_box_clocks(
         ):
             issues.append(
                 f"possession {clock} is KC clock, not {opp_label} "
-                f"({match.group(0)!r})"
+                f"({quoted!r})"
             )
 
     kc_fd = _box_int(kc, "firstDowns")
@@ -3780,9 +3907,16 @@ def violation_snippets(violations: list[str]) -> list[str]:
             _add(hit)
         for hit in re.findall(r"'([^']+)'", item):
             _add(hit)
+        for hit in re.findall(r'"([^"]+)"', item):
+            _add(hit)
         claimed = re.match(r"possession (\d{1,2}:\d{2})\b", item, re.I)
         if claimed:
-            _add(claimed.group(1))
+            clock = claimed.group(1)
+            # A sentence-length quote already identifies the offending
+            # line. Do not also add the bare clock — that used to drop
+            # every correct 34:21 attribution in the edition.
+            if not any(clock in token and token != clock for token in out):
+                _add(clock)
     return out
 
 
@@ -3838,6 +3972,21 @@ def _is_repair_orphan(sentence: str) -> bool:
     return _orphan_issue(sentence) is not None
 
 
+def _live_heading_sentences(value) -> set[str]:
+    """Headings that still have body copy — not salvage fragments."""
+    out: set[str] = set()
+    if isinstance(value, dict):
+        head = _card_heading(value)
+        if head and _card_body_sentences(value):
+            out.add(head)
+        for item in value.values():
+            out.update(_live_heading_sentences(item))
+    elif isinstance(value, list):
+        for item in value:
+            out.update(_live_heading_sentences(item))
+    return out
+
+
 def check_repair_orphans(
     narrative: dict | None,
     dropped: list[str],
@@ -3857,12 +4006,15 @@ def check_repair_orphans(
     for key in _EDITION_KEYS:
         old_sents = _prose_sentences(before.get(key))
         new_sents = {s.strip() for s in _prose_sentences((narrative or {}).get(key))}
+        live_heads = _live_heading_sentences((narrative or {}).get(key))
         for i, sent in enumerate(old_sents):
             if sent.strip() not in dropped_set:
                 continue
             for nxt in old_sents[i + 1 :]:
                 if nxt.strip() not in new_sents:
                     continue
+                if nxt.strip() in live_heads:
+                    break
                 note = _orphan_issue(nxt)
                 if note:
                     issues.append(note)
@@ -3917,7 +4069,13 @@ def _drop_orphan_text_aware(before: str, after: str) -> str:
             -1,
         )
         prev_dropped = orig_i > 0 and old[orig_i - 1].strip() in dropped
-        if prev_dropped:
+        next_dropped = (
+            orig_i >= 0
+            and orig_i + 1 < len(old)
+            and old[orig_i + 1].strip() in dropped
+        )
+        heading_left = next_dropped and _is_heading_leftover(sent)
+        if prev_dropped or heading_left:
             continue
         kept.append(sent)
     if len(kept) == len(new):
@@ -3936,11 +4094,35 @@ def _drop_script_leftover(before: str, after: str) -> str:
     return after
 
 
+def _is_heading_leftover(sentence: str) -> bool:
+    """True for a short title/heading that cannot stand as leftover copy."""
+    words = (sentence or "").split()
+    if not words:
+        return True
+    return len(words) <= 4 and not _ORPHAN_VERB.search(sentence)
+
+
+def _card_body_sentences(card: dict) -> list[str]:
+    """Prose left on a card after headings (title/topic/unit/segment)."""
+    if not isinstance(card, dict):
+        return []
+    out: list[str] = []
+    for key, val in card.items():
+        if key in _CARD_HEADING_KEYS:
+            continue
+        out.extend(_prose_sentences(val))
+    return out
+
+
 def _should_drop_thinned_card(before, after) -> bool:
+    """Drop a card only when salvage emptied it to a heading (or no heading).
+
+    A card that still has one correct sentence must stay. Run 37042175518
+    dropped ~25 good lines because after_n <= 1 treated the leftover
+    body as a thinned card.
+    """
     if not isinstance(after, dict):
         return False
-    after_n = len(_prose_sentences(after))
-    before_n = len(_prose_sentences(before)) if isinstance(before, dict) else after_n
     if isinstance(before, dict):
         for key in _CARD_HEADING_KEYS:
             if (
@@ -3949,7 +4131,10 @@ def _should_drop_thinned_card(before, after) -> bool:
                 and not str(after.get(key) or "").strip()
             ):
                 return True
-    return before_n >= 2 and after_n <= 1
+    heading = _card_heading(after)
+    if heading and not _card_body_sentences(after):
+        return True
+    return False
 
 
 def _prune_salvage_value(before, after):
@@ -3969,10 +4154,10 @@ def _prune_salvage_value(before, after):
                             prev = cand
                             used.add(j)
                             break
-                if _should_drop_thinned_card(prev, item):
-                    continue
                 if prev is not None:
                     item = _prune_salvage_value(prev, item)
+                if _should_drop_thinned_card(prev, item):
+                    continue
             elif isinstance(item, str):
                 if isinstance(prev, str):
                     item = _drop_orphan_text_aware(prev, item)
@@ -3995,31 +4180,33 @@ def _prune_salvage_value(before, after):
     return after
 
 
-def _strip_review_orphans(review: dict) -> dict:
-    """Drop dependent openers/fragments from lastGameReview only."""
-    lede = review.get("lede")
-    if isinstance(lede, str) and lede.strip():
-        review["lede"] = _drop_orphan_text(lede)
+def _strip_empty_review_cards(review: dict) -> dict:
+    """Drop lastGameReview cards whose body was emptied, leaving a heading.
+
+    Do not strip standalone fragments or 'That…' sentences that still
+    have no flagged snippet — run 37042175518 dropped 'No invented
+    window.' and 'That split is the film…' that way.
+    """
     analysis = []
     for para in review.get("analysis") or []:
         if isinstance(para, dict):
-            body = _drop_orphan_text(str(para.get("body") or ""))
-            item = dict(para)
-            item["body"] = body
-            if body or item.get("title"):
-                analysis.append(item)
-        else:
-            kept = _drop_orphan_text(str(para or ""))
-            if kept:
-                analysis.append(kept)
+            body = str(para.get("body") or "").strip()
+            if not body:
+                continue
+            analysis.append(para)
+        elif str(para or "").strip():
+            analysis.append(para)
     review["analysis"] = analysis
-    for key in ("whatWorked", "whatDidnt"):
-        items = []
-        for item in review.get(key) or []:
-            kept = _drop_orphan_text(str(item or ""))
-            if kept:
-                items.append(kept)
-        review[key] = items
+    takeaways = []
+    for item in review.get("takeaways") or []:
+        if isinstance(item, dict):
+            if not str(item.get("body") or "").strip():
+                continue
+            takeaways.append(item)
+        elif str(item or "").strip():
+            takeaways.append(item)
+    if "takeaways" in review:
+        review["takeaways"] = takeaways
     return review
 
 
@@ -4028,7 +4215,7 @@ def drop_repair_orphans(narrative: dict | None) -> dict:
     payload = copy.deepcopy(narrative or {})
     review = payload.get("lastGameReview")
     if isinstance(review, dict):
-        payload["lastGameReview"] = _strip_review_orphans(review)
+        payload["lastGameReview"] = _strip_empty_review_cards(review)
     return payload
 
 
@@ -4119,18 +4306,23 @@ def _sentence_has_snippet(sentence: str, snip: str) -> bool:
 
 
 def _drop_text(text: str, snippets: list[str]) -> str:
+    """Drop only sentences that contain a flagged snippet.
+
+    A one-sentence field used to return '' whenever any snippet was a
+    substring of the whole block, which swept in neighbors that did
+    not contain the hit (run 37042175518).
+    """
     needles = [s for s in snippets if s]
-    lowered = [s.lower() for s in needles]
-    if not text or not lowered or not any(s in text.lower() for s in lowered):
+    if not text or not needles:
         return text
     sentences = _split_sentences(text)
-    if len(sentences) <= 1:
-        return ""
     kept = [
         s
         for s in sentences
         if not any(_sentence_has_snippet(s, snip) for snip in needles)
     ]
+    if len(kept) == len(sentences):
+        return text
     return " ".join(kept).strip()
 
 
@@ -4242,7 +4434,7 @@ def repair_offending_copy(
         payload = _prune_salvage_value(narrative or {}, payload)
         review = payload.get("lastGameReview")
         if isinstance(review, dict):
-            payload["lastGameReview"] = _strip_review_orphans(review)
+            payload["lastGameReview"] = _strip_empty_review_cards(review)
     review = payload.get("lastGameReview")
     if isinstance(review, dict) and not (review.get("lede") or "").strip():
         review["lede"] = safe_score_lede(last_game)

@@ -3606,8 +3606,14 @@ class FactCheck(unittest.TestCase):
             "possession 34:21 is Miami's clock, not KC "
             "('34:21 of possession')"
         )
-        self.assertIn("34:21", facts.violation_snippets([poisoned]))
-        self.assertIn("34:21", facts.violation_snippets(issues))
+        self.assertTrue(
+            any("34:21" in s for s in facts.violation_snippets([poisoned])),
+            facts.violation_snippets([poisoned]),
+        )
+        self.assertTrue(
+            any("34:21" in s for s in facts.violation_snippets(issues)),
+            facts.violation_snippets(issues),
+        )
         repaired = facts.repair_offending_copy(wrong, issues, last)
         self.assertNotIn("34:21", facts.edition_text(repaired))
         self.assertEqual(facts.check_review(repaired, last, recap), [])
@@ -4867,6 +4873,178 @@ class FactCheck(unittest.TestCase):
         self.assertEqual(
             facts.check_review(squeezed, last, recap, schedule=slate), []
         )
+
+    def test_run_37042175518_possession_binding_and_salvage(self):
+        """Run 37042175518: 34:21 bound to KC on correct Miami copy, then
+        salvage dropped ~25 good sentences and left heading fragments.
+        """
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        last["id"] = "401872952"
+        slate = self._week3_slate()
+        accept = [
+            "Miami held the ball 34:21.",
+            "Possession is 25:39 for Kansas City, 34:21 for Miami.",
+            "The Chiefs still lost the possession fight, 25:39 to Miami's 34:21.",
+            "Miami held 19 first downs and 34:21",
+            "The Chiefs answered with 18 first downs, 3-of-7 on third down, "
+            "88 rushing yards, and 25:39.",
+            "The Dolphins held 19 first downs, converted 8-of-16 on third "
+            "down, ran it 31 times for 119 yards, and sat on the football "
+            "for 34:21.",
+            "That is how you post 246 net passing yards on 20-of-24.",
+            "Walker’s own 70 rushing yards were the feature.",
+            "No invented window.",
+            "Look ahead only to Sun Oct 4, 3:25 PM CT.",
+            "That split is the film Las Vegas will put on the projector.",
+        ]
+        more_clocks = [
+            "The tape says Miami just held the ball 34:21 and posted 19 first downs.",
+            "Walker and Benson got the month; the Miami tape gave the opponent "
+            "19 first downs and 34:21.",
+        ]
+        reject = [
+            "Kansas City finished with 18 team rushing yards.",
+            "Mahomes was not a 40 dropbacks scramble.",
+            "There were four sacks.",
+            "Kansas City had 70 rushing yards.",
+            (
+                "Walk through the Hard Rock tape: Walker’s 10-yard score "
+                "2:06 in with J. Moore eligible, Kelce’s 48-yarder, "
+                "Rice’s 7-for-88, the stuff at the 12 with Nourzad eligible, "
+                "the Rodriguez interception, Sneed’s forced-and-recovered "
+                "fumble, Karlaftis’ pick, Bolton’s 11 tackles, 0 sacks, "
+                "1 Chiefs QB hit, 5 hits on Mahomes"
+            ),
+        ]
+        for sentence in accept + more_clocks:
+            issues = facts.check_review(
+                self._review(lede=sentence), last, recap, schedule=slate
+            )
+            self.assertEqual(issues, [], f"should accept {sentence!r}: {issues}")
+        reject_needles = (
+            ("18 team rushing", "18"),
+            ("pass attempts", "40"),
+            ("sacks 4", "four sacks"),
+            ("team rushing 70", "70 rushing yards"),
+            ("eligible", "Nourzad"),
+        )
+        for sentence, (needle, _token) in zip(reject, reject_needles):
+            issues = facts.check_review(
+                self._review(lede=sentence), last, recap, schedule=slate
+            )
+            self.assertTrue(
+                any(needle in item for item in issues),
+                f"should reject {sentence!r}: {issues}",
+            )
+
+        narrative = {
+            "headline": "Keep this title",
+            "lastGameReview": {
+                "lede": (
+                    "Kansas City finished 24–10 against Miami. "
+                    + " ".join(accept[:4])
+                ),
+                "analysis": [
+                    {
+                        "title": "3-0",
+                        "body": (
+                            accept[4] + " "
+                            + reject[0] + " "
+                            + accept[5] + " "
+                            + accept[6]
+                        ),
+                    },
+                    {
+                        "title": "Hard Rock film",
+                        "body": reject[4].rstrip(".") + ".",
+                    },
+                ],
+                "takeaways": [
+                    {
+                        "title": "Hard Rock film",
+                        "body": reject[3],
+                    },
+                ],
+                "whatWorked": [accept[7]],
+                "whatDidnt": [accept[8]],
+            },
+            "currentState": {
+                "lede": accept[9],
+            },
+            "storyline": {
+                "body": [accept[10] + " " + reject[1]],
+            },
+            "runOfShow": [
+                {
+                    "segment": "Where 3-0 actually stands",
+                    "talkTrack": reject[2],
+                },
+                {
+                    "segment": "Look-ahead",
+                    "talkTrack": accept[9],
+                },
+            ],
+        }
+        issues = facts.check_review(narrative, last, recap, schedule=slate)
+        self.assertTrue(
+            any("18 team rushing" in item for item in issues), issues
+        )
+        self.assertTrue(
+            any("34:21" in item and "not KC" in item for item in issues) is False,
+            issues,
+        )
+        repaired = facts.repair_offending_copy(narrative, issues, last, recap)
+        blob = facts.edition_text(repaired)
+        for sentence in accept:
+            self.assertIn(
+                sentence.rstrip("."),
+                blob,
+                f"salvage dropped good copy {sentence!r}",
+            )
+        self.assertNotIn("18 team rushing yards", blob)
+        self.assertNotIn("40 dropbacks", blob)
+        self.assertNotIn("four sacks", blob)
+        self.assertNotIn("Kansas City had 70 rushing yards", blob)
+        self.assertNotIn("Nourzad eligible", blob)
+        headings = " ".join(
+            [
+                str((card or {}).get("title") or "")
+                for card in (repaired.get("lastGameReview") or {}).get("analysis")
+                or []
+            ]
+            + [
+                str((card or {}).get("title") or "")
+                for card in (repaired.get("lastGameReview") or {}).get("takeaways")
+                or []
+            ]
+            + [
+                str((card or {}).get("segment") or "")
+                for card in repaired.get("runOfShow") or []
+            ]
+        )
+        # Emptied heading-only cards are gone. Cards that still have
+        # correct body keep their title.
+        self.assertNotIn("Where 3-0 actually stands", blob)
+        leftover = facts.check_review(repaired, last, recap, schedule=slate)
+        self.assertEqual(leftover, [], leftover)
+        dropped = facts.dropped_sentences(narrative, repaired)
+        orphans = facts.check_repair_orphans(
+            repaired, dropped, before=narrative
+        )
+        self.assertFalse(
+            any("3-0" in item or "Hard Rock film" in item for item in orphans),
+            orphans,
+        )
+        self.assertEqual(
+            facts.repair_publish_blockers(leftover, repaired, orphans, before=narrative),
+            [],
+        )
+        # Titles that still have a body (3-0 / Hard Rock film over
+        # correct remaining sentences) may stay. The emptied run-of-show
+        # heading must not.
+        self.assertNotIn("Where 3-0 actually stands", headings)
 
     def test_salvage_cleans_every_section_and_empty_cards(self):
         recap = _load_fixture("espn_401872952_recap.json")
