@@ -2999,11 +2999,13 @@ def _stat_phrase_window(text: str, match: re.Match) -> str:
 
 
 def _stat_is_rate_or_other_game(text: str, match: re.Match) -> bool:
-    """True for per-game / season / average / against-another-team claims."""
-    window = _stat_phrase_window(text, match)
-    return bool(
-        _RATE_OR_OTHER_GAME.search(window) or _AGAINST_OTHER_TEAM.search(window)
-    )
+    """True for per-game / season / average / week-N claims.
+
+    'Against Indianapolis' is a prior-box label, not a rate — leave
+    that to ``_claim_game_scope``. Preview 'against Denver' holds are
+    exempted in ``_unknown_was_opponent``.
+    """
+    return bool(_RATE_OR_OTHER_GAME.search(_stat_phrase_window(text, match)))
 
 
 def _possession_owner_after_clock(
@@ -3067,9 +3069,8 @@ def _check_box_clocks(
                 )
             continue
         sentence = _sentence_at(text, match.start())
-        local_left, local_right = _possession_local_span(text, match)
-        local = text[local_left:local_right]
-        explicit = _explicit_box_subject(local, aliases)
+        clause = _box_clause_at(text, match.start())
+        explicit = _explicit_box_subject(clause, aliases)
         if scope == "prior":
             team = explicit or _bound_possession_in_clause(
                 text, match, aliases
