@@ -792,6 +792,16 @@ _WEAK_ALIAS_TOKENS = frozenset(
         "at",
     }
 )
+# Shared cities stay empty unless the recap opponent is one of the two clubs.
+_AMBIGUOUS_CITY_SHORT = {
+    "la": ("LAC", "LAR"),
+    "ny": ("NYJ", "NYG"),
+}
+_UNIQUE_SHORT_ALIASES = {
+    "tampa": "TB",
+    "bucs": "TB",
+    "fins": "MIA",
+}
 
 
 def _put_alias(
@@ -848,6 +858,14 @@ def _add_opponent_aliases(
             _put_alias(aliases, tokens[0], team, protected=hold, mode=mode)
     if team == "LV":
         _put_alias(aliases, "vegas", team, protected=hold, mode=mode)
+    if team == "TB":
+        aliases["bucs"] = team
+        aliases["tampa"] = team
+        hold.add("bucs")
+        hold.add("tampa")
+    if team == "MIA":
+        aliases["fins"] = team
+        hold.add("fins")
 
 
 def _team_aliases(
@@ -899,7 +917,23 @@ def _team_aliases(
         nick = (game.get("opponentShort") or "").strip()
         if nick:
             _put_alias(aliases, nick, abbr, protected=protected, mode="schedule")
+    _add_short_aliases(aliases, last_game, recap)
     return aliases
+
+
+def _add_short_aliases(
+    aliases: dict[str, str],
+    last_game: dict | None,
+    recap: dict | None,
+) -> None:
+    """LA/NY are recap-only; Tampa/Bucs/Fins are unique nicknames."""
+    recap_teams = _recap_box_teams(last_game, recap)
+    for key, options in _AMBIGUOUS_CITY_SHORT.items():
+        hits = [abbr for abbr in options if abbr in recap_teams]
+        aliases[key] = hits[0] if len(hits) == 1 else ""
+    for key, team in _UNIQUE_SHORT_ALIASES.items():
+        if aliases.get(key) in {"", None}:
+            aliases[key] = team
 
 
 def _city_and_nick_labels(name: str, abbr: str = "", short: str = "") -> set[str]:
@@ -926,6 +960,16 @@ def _city_and_nick_labels(name: str, abbr: str = "", short: str = "") -> set[str
             labels.add(low)
     if (abbr or "").strip().upper() == "LV" or "vegas" in " ".join(words).lower():
         labels.add("vegas")
+    token = (abbr or "").strip().upper()
+    if token in {"LAC", "LAR"}:
+        labels.add("la")
+    if token in {"NYJ", "NYG"}:
+        labels.add("ny")
+    if token == "TB":
+        labels.add("tampa")
+        labels.add("bucs")
+    if token == "MIA":
+        labels.add("fins")
     return labels
 
 
@@ -1025,7 +1069,7 @@ def _claim_game_scope(
     right = text[claim_at:min(sent_end, claim_at + 56)]
     hits: list[tuple[int, int, int, str, int]] = []
     for lab, scope in _scope_label_map(recap, last_game, schedule):
-        for hit in re.finditer(rf"\b{re.escape(lab)}\b", left, re.IGNORECASE):
+        for hit in re.finditer(_alias_pattern(lab), left, re.IGNORECASE):
             abs_start = left_origin + hit.start()
             hits.append(
                 (
@@ -1036,7 +1080,7 @@ def _claim_game_scope(
                     len(lab),
                 )
             )
-        for hit in re.finditer(rf"\b{re.escape(lab)}\b", right, re.IGNORECASE):
+        for hit in re.finditer(_alias_pattern(lab), right, re.IGNORECASE):
             if hit.start() == 0:
                 continue
             hits.append(
@@ -1159,6 +1203,15 @@ def _subject_clause(text: str, start: int) -> str:
     return _YARD_LINE_TEAM.sub(" ", text[clause_start:start])
 
 
+def _alias_pattern(name: str) -> str:
+    """Word pattern. LA/NY also match L.A. / N.Y."""
+    compact = re.sub(r"[.\s]", "", (name or "").lower())
+    if compact in _AMBIGUOUS_CITY_SHORT:
+        first, last = compact
+        return rf"(?<![A-Za-z]){first}\.?\s*{last}\.?(?![A-Za-z])"
+    return rf"\b{re.escape(name)}\b"
+
+
 def _alias_hits(span: str, names: dict[str, str]) -> list[tuple[int, int, str]]:
     """Mentions in span. A multi-word city wins over a weak last-word suffix."""
     hits: list[tuple[int, int, str]] = []
@@ -1166,7 +1219,7 @@ def _alias_hits(span: str, names: dict[str, str]) -> list[tuple[int, int, str]]:
         team = names.get(name) or ""
         if len(name) < 2 or not team:
             continue
-        for hit in re.finditer(rf"\b{re.escape(name)}\b", span or "", re.IGNORECASE):
+        for hit in re.finditer(_alias_pattern(name), span or "", re.IGNORECASE):
             if any(
                 start <= hit.start() and hit.end() <= end
                 for start, end, _team in hits
@@ -1464,16 +1517,25 @@ def _parse_count_word(raw: str):
         return None
 
 
-def _alias_team(phrase: str, aliases: dict[str, str]) -> str:
+def _norm_team_phrase(phrase: str) -> str:
     token = " ".join((phrase or "").lower().split())
+    token = re.sub(r"^the\s+", "", token)
+    return token.strip(" .")
+
+
+def _alias_team(phrase: str, aliases: dict[str, str]) -> str:
+    token = _norm_team_phrase(phrase)
     if not token:
         return ""
-    if token in aliases:
-        return aliases[token]
+    compact = token.replace(".", "").replace(" ", "")
+    for key in (token, compact):
+        team = aliases.get(key) or ""
+        if team:
+            return team
     for alias in sorted(aliases, key=len, reverse=True):
-        if len(alias) < 3 or not aliases.get(alias):
+        if not aliases.get(alias):
             continue
-        if re.search(rf"\b{re.escape(alias)}\b", token, re.IGNORECASE):
+        if re.search(_alias_pattern(alias), token, re.IGNORECASE):
             return aliases[alias]
     return ""
 
@@ -4854,8 +4916,17 @@ _HAD_STAT_SUBJECT = re.compile(
     r"\b([A-Za-z][A-Za-z '’-]+?)\s+had\s+\d+\s+first downs\b",
     re.IGNORECASE,
 )
+_TEAM_LEAD = r"(?:the\s+)?(?P<team>[A-Za-z][A-Za-z .''’-]{0,32}?)"
 _WAS_BOX_LEAD = re.compile(
-    r"^(?P<team>[A-Za-z][A-Za-z '’-]+?)\s+was\s+(?P<rest>.+)$",
+    rf"^{_TEAM_LEAD}\s+(?:was|were)\s+(?P<rest>.+)$",
+    re.IGNORECASE,
+)
+_HAD_BOX_LEAD = re.compile(
+    rf"^{_TEAM_LEAD}\s+had\s+(?P<rest>.+)$",
+    re.IGNORECASE,
+)
+_HELD_BOX_LEAD = re.compile(
+    rf"^{_TEAM_LEAD}\s+held the ball\s+(?P<clock>\d{{1,2}}:\d{{2}})\b",
     re.IGNORECASE,
 )
 _BOX_CLAUSE_SPLIT = re.compile(
@@ -5098,23 +5169,40 @@ def _recap_box_teams(last_game: dict | None, recap: dict | None) -> set[str]:
     return teams
 
 
+def _is_box_like_lead(sentence: str) -> bool:
+    """Was/were/had/held lines that claim a team box, not a one-off note."""
+    if _is_multi_stat_box(sentence):
+        return True
+    if _FIRST_DOWNS.search(sentence or "") and _BOX_CLOCK.search(sentence or ""):
+        return True
+    if _HAD_BOX_LEAD.match((sentence or "").strip()) and _FIRST_DOWNS.search(
+        sentence or ""
+    ):
+        return True
+    return bool(_HELD_BOX_LEAD.match((sentence or "").strip()))
+
+
 def _unknown_was_opponent(
     sentence: str,
     last_game: dict | None,
     recap: dict | None,
     schedule=None,
 ) -> str:
-    """'{Opp} was <multi-stat box>' when Opp is not the last or prior recap team."""
-    del schedule
-    match = _WAS_BOX_LEAD.match((sentence or "").strip())
+    """'{Opp} was/were/had/held <box>' when Opp is not the last or prior team."""
+    text = (sentence or "").strip()
+    match = (
+        _WAS_BOX_LEAD.match(text)
+        or _HAD_BOX_LEAD.match(text)
+        or _HELD_BOX_LEAD.match(text)
+    )
     if not match:
         return ""
-    named = match.group("team").strip()
+    named = (match.group("team") or "").strip()
     if not named or named.lower() in _WAS_LEAD_STOP:
         return ""
-    if not _is_multi_stat_box(sentence):
+    if not _is_box_like_lead(text):
         return ""
-    aliases = _team_aliases(last_game, recap, schedule=None)
+    aliases = _team_aliases(last_game, recap, schedule)
     team = _alias_team(named, aliases)
     if team in _recap_box_teams(last_game, recap):
         return ""
@@ -5143,20 +5231,12 @@ def _opponent_was_box_match(
     recap: dict | None,
     schedule=None,
 ):
-    """('IND', 'Indianapolis', '29 first downs…') for 'Indianapolis was …'."""
-    names = _schedule_opponent_names(last_game, recap, schedule)
-    if not names:
-        return None
-    pattern = (
-        r"^(?P<team>"
-        + "|".join(re.escape(name) for name in names)
-        + r")\s+was\s+(?P<rest>.+)$"
-    )
-    match = re.match(pattern, (sentence or "").strip(), re.IGNORECASE)
+    """('IND', 'Indianapolis', '29 first downs…') for 'Indianapolis was/were …'."""
+    match = _WAS_BOX_LEAD.match((sentence or "").strip())
     if not match:
         return None
     aliases = _team_aliases(last_game, recap, schedule)
-    named = match.group("team")
+    named = (match.group("team") or "").strip()
     team = _alias_team(named, aliases)
     if not team or team == "KC":
         return None
