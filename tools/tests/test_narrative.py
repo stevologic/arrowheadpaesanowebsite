@@ -64,6 +64,49 @@ def _hugo_bin() -> str | None:
     return None
 
 
+def _workflow_run_scripts(parsed) -> list[tuple[str, str, str]]:
+    """(job, step, run script) for every run step in every job."""
+    scripts: list[tuple[str, str, str]] = []
+    jobs = parsed.get("jobs") if isinstance(parsed, dict) else None
+    if not isinstance(jobs, dict):
+        return scripts
+    for job_name, job in jobs.items():
+        if not isinstance(job, dict):
+            continue
+        for index, step in enumerate(job.get("steps") or []):
+            if not isinstance(step, dict):
+                continue
+            script = step.get("run")
+            if isinstance(script, str):
+                label = step.get("name") or f"step-{index}"
+                scripts.append((str(job_name), str(label), script))
+    return scripts
+
+
+def _quoted_py_heredoc_bodies(script: str) -> list[str]:
+    """Bodies of <<'PY' ... PY heredocs. Terminator must be column 0."""
+    bodies: list[str] = []
+    lines = script.splitlines(keepends=True)
+    i = 0
+    while i < len(lines):
+        if "<<'PY'" in lines[i]:
+            chunk: list[str] = []
+            i += 1
+            closed = False
+            while i < len(lines):
+                raw = lines[i]
+                if raw == "PY\n" or raw == "PY":
+                    closed = True
+                    break
+                chunk.append(raw)
+                i += 1
+            if not closed:
+                raise ValueError("unterminated <<'PY' heredoc")
+            bodies.append("".join(chunk))
+        i += 1
+    return bodies
+
+
 # Canned inputs: the writers only use .get() lookups, so minimal dicts work.
 CAMP_PHASE = {"type": "training-camp", "label": "Training Camp",
               "mode": "camp", "edition": "Test Camp Edition"}
@@ -4643,9 +4686,22 @@ class FactCheck(unittest.TestCase):
         self.assertIn("holdAutomerge", workflow)
         self.assertIn("Holding automerge", workflow)
         self.assertIn(
-            "if ! python -m tools.chiefs_narrative.generate --check-edition",
+            "--check-edition || check_rc=$?",
             workflow,
         )
+        self.assertIn(
+            'if [ "$check_rc" -ne 0 ]; then',
+            workflow,
+        )
+        for job_name, step_name, script in _workflow_run_scripts(parsed):
+            checked = subprocess.run(["bash", "-n"], input=script, capture_output=True, text=True)
+            self.assertEqual(
+                checked.returncode,
+                0,
+                f"{job_name}/{step_name}: {checked.stderr}",
+            )
+            for body in _quoted_py_heredoc_bodies(script):
+                compile(body, f"{job_name}/{step_name}", "exec")
         self.assertIn("needs.update.outputs.publish", workflow)
         self.assertLess(workflow.index("HOLD_MERGE"), workflow.index("gh pr merge"))
         self.assertLess(workflow.index("HOLD_MERGE"), workflow.index('echo "publish=true"'))
