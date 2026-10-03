@@ -5175,23 +5175,27 @@ class FactCheck(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            editions = root / "data" / "narrative_editions"
+            slug = "narrative"
+            editions_name = slug + "_editions"
+            live_name = slug + ".json"
+            review_rel = "data/" + editions_name + "/2026-10-05-0937.json"
+            editions = root / "data" / editions_name
             editions.mkdir(parents=True)
             (editions / "2026-10-05-0937.json").write_text(
                 json.dumps(review) + "\n", encoding="utf-8"
             )
-            (root / "data" / "narrative.json").write_text(
+            (root / "data" / live_name).write_text(
                 json.dumps(preview) + "\n", encoding="utf-8"
             )
             self.assertTrue(
                 review_gate.automerge_blocked(
-                    ["data/narrative_editions/2026-10-05-0937.json"],
+                    [review_rel],
                     root=root,
                 )
             )
             self.assertFalse(
                 review_gate.automerge_blocked(
-                    ["data/narrative_editions/2026-10-05-0937.json"],
+                    [review_rel],
                     labels=["qa-pass"],
                     root=root,
                 )
@@ -5207,7 +5211,7 @@ class FactCheck(unittest.TestCase):
                         "--automerge",
                         "--root",
                         str(root),
-                        "data/narrative_editions/2026-10-05-0937.json",
+                        review_rel,
                     ]
                 ),
                 1,
@@ -5220,7 +5224,7 @@ class FactCheck(unittest.TestCase):
                         "qa-pass",
                         "--root",
                         str(root),
-                        "data/narrative_editions/2026-10-05-0937.json",
+                        review_rel,
                     ]
                 ),
                 0,
@@ -5235,7 +5239,7 @@ class FactCheck(unittest.TestCase):
             unsigned = root / "unsigned"
             unsigned.mkdir()
             (unsigned / "data").mkdir()
-            (unsigned / "data" / "narrative.json").write_text(
+            (unsigned / "data" / live_name).write_text(
                 json.dumps(review) + "\n", encoding="utf-8"
             )
             self.assertTrue(review_gate.pages_blocked(root=unsigned))
