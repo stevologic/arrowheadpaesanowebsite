@@ -6164,6 +6164,196 @@ class FactCheck(unittest.TestCase):
         self.assertNotIn("averaged 19", blob)
         self.assertFalse(any("averaged 22" in line and "→" in line for line in avg_logs), avg_logs)
 
+    def test_karen_164_week_and_season_lows_still_flag(self):
+        """#164 r8: Week N / season-low boxes flag; rate and against-other skip."""
+        catalog = _load_fixture("edition_run_karen_164_rate_week.json")
+        recap_src = _load_fixture("espn_401872952_recap.json")
+        slate = self._prod_slate()
+
+        def _lede(sentence, opponent):
+            return {
+                "phase": {"type": "regular"},
+                "lastGameReview": {
+                    "opponent": opponent,
+                    "result": "W",
+                    "score": "KC 24–10",
+                    "lede": sentence,
+                },
+            }
+
+        def _city_last(opponent, abbr, short, week):
+            payload = dict(recap_src)
+            payload["oppAbbr"] = abbr
+            last = dict(self.LAST)
+            last["date"] = "2026-09-27T17:00:00Z"
+            last["id"] = "401872952"
+            last["week"] = week
+            last["opponent"] = opponent
+            last["opponentAbbr"] = abbr
+            last["opponentShort"] = short
+            return last, payload
+
+        last_lv, recap_lv = _city_last("Las Vegas Raiders", "LV", "Raiders", 4)
+        last_mia, recap_mia = _city_last("Miami Dolphins", "MIA", "Dolphins", 3)
+
+        def _issues(sentence, last, recap, opponent):
+            return facts.check_review(
+                _lede(sentence, opponent), last, recap, schedule=slate
+            )
+
+        for key in ("lv_week4_lead", "lv_week4_tail", "lv_fewest"):
+            self.assertEqual(
+                catalog[key],
+                {
+                    "lv_week4_lead": "In Week 4, Las Vegas had 18 first downs.",
+                    "lv_week4_tail": "Las Vegas had 18 first downs in Week 4.",
+                    "lv_fewest": "The Raiders had 18 first downs, their fewest of the season.",
+                }[key],
+            )
+            issues = _issues(catalog[key], last_lv, recap_lv, "Las Vegas Raiders")
+            self.assertTrue(
+                any("first downs 18" in item and "19" in item for item in issues),
+                (key, issues),
+            )
+
+        self.assertEqual(
+            catalog["kc_season_low"],
+            "Kansas City’s 19 first downs were a season low.",
+        )
+        kc_low = _issues(
+            catalog["kc_season_low"], last_lv, recap_lv, "Las Vegas Raiders"
+        )
+        self.assertTrue(
+            any("first downs 19" in item and "18" in item for item in kc_low),
+            kc_low,
+        )
+
+        self.assertEqual(
+            catalog["mia_week3"],
+            "In Week 3 at Miami, the Dolphins had 18 first downs.",
+        )
+        mia_week = _issues(
+            catalog["mia_week3"], last_mia, recap_mia, "Miami Dolphins"
+        )
+        self.assertTrue(
+            any("first downs 18" in item and "19" in item for item in mia_week),
+            mia_week,
+        )
+
+        self.assertEqual(
+            catalog["ind_week2"],
+            "Indianapolis had 29 first downs against Kansas City in Week 2.",
+        )
+        ind = _issues(catalog["ind_week2"], last_mia, recap_mia, "Miami Dolphins")
+        self.assertTrue(
+            any("first downs 29" in item and "24" in item for item in ind),
+            ind,
+        )
+        self.assertEqual(
+            catalog["kc_week2"],
+            "In Week 2, Kansas City had 24 first downs against Indianapolis.",
+        )
+        kc_w2 = _issues(catalog["kc_week2"], last_mia, recap_mia, "Miami Dolphins")
+        self.assertTrue(
+            any("first downs 24" in item and "29" in item for item in kc_w2),
+            kc_w2,
+        )
+
+        comma = _issues(
+            catalog["comma_clock"], last_mia, recap_mia, "Miami Dolphins"
+        )
+        self.assertTrue(
+            any("25:39" in item and "MIA" in item for item in comma),
+            comma,
+        )
+        chiefs_tail = _issues(
+            catalog["tail_chiefs_fd"], last_lv, recap_lv, "Las Vegas Raiders"
+        )
+        self.assertTrue(
+            any("first downs 19" in item and "18" in item for item in chiefs_tail),
+            chiefs_tail,
+        )
+        miami_tail = _issues(
+            catalog["tail_miami_fd"], last_mia, recap_mia, "Miami Dolphins"
+        )
+        self.assertTrue(
+            any("first downs 18" in item and "19" in item for item in miami_tail),
+            miami_tail,
+        )
+        neither = _issues(
+            catalog["neither_clock"], last_lv, recap_lv, "Las Vegas Raiders"
+        )
+        self.assertTrue(any("31:05" in item for item in neither), neither)
+
+        against = _issues(
+            catalog["lv_against_denver"], last_lv, recap_lv, "Las Vegas Raiders"
+        )
+        self.assertFalse(
+            any("first downs" in item and "disagrees" in item for item in against),
+            against,
+        )
+        self.assertFalse(any("unverifiable" in item for item in against), against)
+
+        finished = catalog["miami_finished_18"]
+        self.assertEqual(finished, "Miami finished with 18 first downs")
+        fin_issues = _issues(finished, last_mia, recap_mia, "Miami Dolphins")
+        self.assertTrue(
+            any("first downs 18" in item and "19" in item for item in fin_issues),
+            fin_issues,
+        )
+        fin_fixed, fin_logs = facts.apply_fact_corrections(
+            _lede(finished, "Miami Dolphins"),
+            fin_issues,
+            recap=recap_mia,
+            last_game=last_mia,
+            schedule=slate,
+        )
+        self.assertIn("Miami finished with 19 first downs", facts.edition_text(fin_fixed))
+        self.assertTrue(any("→" in line for line in fin_logs), fin_logs)
+
+        r7 = _load_fixture("edition_run_karen_162_clock_phase.json")
+        for key in (
+            "raiders_compound",
+            "las_vegas_had_kc_clock",
+            "miami_finished_kc_clock",
+        ):
+            last, recap, opp = (
+                (last_lv, recap_lv, "Las Vegas Raiders")
+                if "miami" not in key
+                else (last_mia, recap_mia, "Miami Dolphins")
+            )
+            issues = _issues(r7[key], last, recap, opp)
+            self.assertTrue(
+                any("25:39" in item or "34:21" in item for item in issues),
+                (key, issues),
+            )
+        for key in (
+            "preview_per_game",
+            "preview_against_denver",
+            "preview_denver_week1",
+        ):
+            issues = _issues(r7[key], last_mia, recap_mia, "Miami Dolphins")
+            self.assertFalse(
+                any("unverifiable" in item for item in issues),
+                (key, issues),
+            )
+        avg_fixed, avg_logs = facts.apply_fact_corrections(
+            _lede(r7["averaged_coming_in"], "Las Vegas Raiders"),
+            [
+                "first downs 22 disagrees with ESPN 19 for LV "
+                f"({r7['averaged_coming_in']!r})"
+            ],
+            recap=recap_lv,
+            last_game=last_lv,
+            schedule=slate,
+        )
+        self.assertIn("averaged 22", facts.edition_text(avg_fixed))
+        self.assertNotIn("averaged 19", facts.edition_text(avg_fixed))
+        self.assertFalse(
+            any("averaged 22" in line and "→" in line for line in avg_logs),
+            avg_logs,
+        )
+
     def test_write_archive_survives_missing_headline(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "archive.json"
@@ -6179,6 +6369,32 @@ class FactCheck(unittest.TestCase):
             rows = json.loads(path.read_text(encoding="utf-8"))
         self.assertEqual(rows[0]["headline"], "2026 Week 4 · Preview")
         self.assertEqual(rows[0]["edition"], "2026 Week 4 · Preview")
+
+    def test_generate_survives_headline_keyerror_from_37129473980(self):
+        """Oct 3 37 9 crashed in _write_archive after salvage dropped the title."""
+        result = {
+            "narrative": {
+                "edition": "2026 Week 4 · Preview",
+                "slug": "2026-10-03-1538",
+                "generatedAt": "2026-10-03T14:40:00Z",
+            },
+            "schedule": [],
+            "news": [],
+            "droppedSentences": ["88 yards, 25:39, and a 3-0 Raiders problem"],
+            "correctedSentences": [],
+            "leftoverIssues": ["possession leftover"],
+        }
+        with patch.object(generate, "build", return_value=result):
+            rc = generate.main(["--dry-run"])
+        self.assertEqual(rc, 0)
+        self.assertEqual(result["narrative"]["headline"], "2026 Week 4 · Preview")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "archive.json"
+            path.write_text("[]\n", encoding="utf-8")
+            with patch.object(generate.config, "ARCHIVE_JSON", path):
+                generate._write_archive(dict(result["narrative"]))
+            rows = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(rows[0]["headline"], "2026 Week 4 · Preview")
 
     def test_generate_keeps_headline_and_ind_rush_from_37129473980(self):
         catalog = _load_fixture("edition_run_37129473980.json")
