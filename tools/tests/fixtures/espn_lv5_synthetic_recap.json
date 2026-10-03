@@ -1,0 +1,44 @@
+{
+  "_note": "Karen r10 LV5: synthetic LV final KC 27–17. Prior is the real Miami box.",
+  "eventId": "401872976",
+  "oppAbbr": "LV",
+  "opponent": "Las Vegas Raiders",
+  "kc": {
+    "firstDowns": "22",
+    "rushingYards": "140",
+    "netPassingYards": "246",
+    "totalYards": "386",
+    "possessionTime": "31:12",
+    "totalDrives": "9"
+  },
+  "opp": {
+    "firstDowns": "15",
+    "rushingYards": "95",
+    "netPassingYards": "210",
+    "totalYards": "305",
+    "possessionTime": "28:48",
+    "totalDrives": "9"
+  },
+  "scoringPlays": [],
+  "prior": {
+    "eventId": "401872952",
+    "oppAbbr": "MIA",
+    "opponent": "Miami Dolphins",
+    "kc": {
+      "firstDowns": "18",
+      "rushingYards": "88",
+      "netPassingYards": "246",
+      "totalYards": "334",
+      "possessionTime": "25:39",
+      "totalDrives": "9"
+    },
+    "opp": {
+      "firstDowns": "19",
+      "rushingYards": "119",
+      "netPassingYards": "210",
+      "totalYards": "329",
+      "possessionTime": "34:21",
+      "totalDrives": "9"
+    }
+  }
+}

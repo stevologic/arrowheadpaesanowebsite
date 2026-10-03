@@ -1,0 +1,138 @@
+{
+  "_note": "Known-bad archive lines: real Grok errors plus offseason-vs-open-slate when replaying old editions against the current cached schedule. True box claims are not listed.",
+  "editions": 75,
+  "clean": 48,
+  "flagged": 27,
+  "issues": {
+    "2026-08-07-1157.json": [
+      "offseason phase while the slate still has upcoming regular/postseason games"
+    ],
+    "2026-08-08-1142.json": [
+      "offseason phase while the slate still has upcoming regular/postseason games"
+    ],
+    "2026-08-09-1144.json": [
+      "offseason phase while the slate still has upcoming regular/postseason games"
+    ],
+    "2026-08-10-1159.json": [
+      "offseason phase while the slate still has upcoming regular/postseason games"
+    ],
+    "2026-08-11-1156.json": [
+      "offseason phase while the slate still has upcoming regular/postseason games"
+    ],
+    "2026-08-12-1159.json": [
+      "offseason phase while the slate still has upcoming regular/postseason games"
+    ],
+    "2026-08-30-2329.json": [
+      "scoring yardage 7 is not on the ESPN scoring-play list ('from the 7'; official yards [4, 19, 24, 28, 46])",
+      "scoring yardage 3 is not on the ESPN scoring-play list ('from the 3'; official yards [4, 19, 24, 28, 46])"
+    ],
+    "2026-08-31-1803.json": [
+      "absolute never-claim cannot be verified against the play-by-play ('Seattle Seahawks\\nPre Week 4 · Sat Aug 29\\nT\\nKC 9–9\\nKansas City and Seattle played a preseason finale that never found the end zone for the home side: Jason Myers opened with a 46-yarder, Butker answered from 28 and 24, Jalen Milroe hit Nick Vannett from four yards (Myers missed the extra point), and Butker drilled a 19-yarder in the fourth to freeze it at 9–9')",
+      "pass attempts 40 disagrees with ESPN 34 for Garrett Nussmeier ('40 attempts')"
+    ],
+    "2026-09-01-1532.json": [
+      "offseason phase while the slate still has upcoming regular/postseason games"
+    ],
+    "2026-09-02-1513.json": [
+      "total drives 2 disagrees with ESPN 10 for KC ('two drives')",
+      "offseason phase while the slate still has upcoming regular/postseason games"
+    ],
+    "2026-09-03-1503.json": [
+      "offseason phase while the slate still has upcoming regular/postseason games"
+    ],
+    "2026-09-06-1417.json": [
+      "scoring yardage 12 is not on the ESPN scoring-play list ('from the 12'; official yards [4, 19, 24, 28, 46])"
+    ],
+    "2026-09-08-1513.json": [
+      "scoring yardage 9 is not on the ESPN scoring-play list ('from the 9'; official yards [4, 19, 24, 28, 46])",
+      "absolute first-claim cannot be verified against the play-by-play ('Monday is the first night the reunion is judged on touchdowns instead of first downs')",
+      "absolute never-claim cannot be verified against the play-by-play ('Kansas City’s preseason finale was a 353-yard control game that never found the paint; now Mahomes and a rebuilt staff open the real season against Sean Payton at Arrowhead')"
+    ],
+    "2026-09-11-1503.json": [
+      "field-goal yardage 46 is not a KC ESPN kick ('46-yard field goal')",
+      "field-goal yardage 19 is not a SEA ESPN kick ('19-yard field goal')",
+      "absolute claim cannot be verified against the play-by-play ('The only Seattle touchdown was a 4-yard throw after a missed extra point')",
+      "absolute first-claim cannot be verified against the play-by-play ('Seattle got a 46-yard Jason Myers field goal in the first, a 4-yard Jalen Milroe touchdown to Nick Vannett in the third (Myers missed the PAT), and just enough resistance in the paint to keep Kansas City off the board')",
+      "absolute first-claim cannot be verified against the play-by-play ('Get the first completion of Mahomes’ 2026 on the move, away from the rookie')"
+    ],
+    "2026-09-12-1410.json": [
+      "field-goal yardage 19 is not a SEA ESPN kick ('19-yard field goal')"
+    ],
+    "2026-09-13-1458.json": [
+      "pass attempts 40 disagrees with ESPN 34 for Garrett Nussmeier ('40-dropback')",
+      "pass attempts 40 disagrees with ESPN 34 for Garrett Nussmeier ('40 dropbacks')"
+    ],
+    "2026-09-16-1533.json": [
+      "absolute never-claim cannot be verified against the play-by-play ('The Seahawks dress rehearsal never found the end zone; this one produced four touchdowns, jumbo personnel that actually moved people, and a left tackle in Kahlil Benson who did not get Mahomes killed')",
+      "absolute never-claim cannot be verified against the play-by-play ('Kelce’s 71 yards on three catches were the chain-moving exception; Rice’s 13-yard touchdown was the red-zone answer the preseason never found')",
+      "team rushing 220 disagrees with ESPN 155 for prior KC (\"Kansas City bludgeoned the Broncos for 220 rush yards and a 31-10 opener; the 1-0 tape now meets Indianapolis on NBC, with Bieniemy's ground identity as the feature and Mahomes' modest box score as the open question\")",
+      "team rushing 173 disagrees with ESPN 220 for KC ('That is why he ended up with 173 rushing yards and nearly half of Kansas City’s 392-yard night')",
+      "team rushing 220 disagrees with ESPN 155 for prior KC ('None of that undoes 220 rush yards')",
+      "team rushing 173 disagrees with ESPN 220 for KC ('The film review of the opener is a Walker tape: 173 rushing yards, a 60-yard touchdown, and a two-yard score as a receiver')",
+      "team passing 184 disagrees with ESPN 172 for KC ('184 passing yards')"
+    ],
+    "2026-09-17-1536.json": [
+      "turnover credit: He is not who ESPN lists as the interceptor ('He intercepted')",
+      "team rushing 220 disagrees with ESPN 155 for prior KC ('Kansas City’s 31-10 opener was 220 rush yards, 33:42 of clock, and an AFC Player of the Week debut; Indianapolis on NBC is the first test of whether Bieniemy’s downhill identity can buy Mahomes a cleaner night than 15-of-27')",
+      "team rushing 220 disagrees with ESPN 155 for prior KC ('Mahomes was 15-of-27 for 184 with one interception — enough to win, not enough to scare a defense that just watched 220 rush yards')",
+      "team passing 184 disagrees with ESPN 172 for KC ('184 passing yards')"
+    ],
+    "2026-09-24-2329.json": [
+      "team rushing 117 disagrees with ESPN 152 for KC ('This is how 117 rushing yards become 382 passing yards again')",
+      "team passing 382 disagrees with ESPN 371 for KC ('382 passing yards')",
+      "pass attempts 2 disagrees with ESPN 47 for Patrick Mahomes ('two dropbacks')"
+    ],
+    "2026-09-24-2337.json": [
+      "team passing 382 disagrees with ESPN 371 for KC ('382 passing yards')",
+      "first downs 24 disagrees with ESPN 29 for KC (\"Miami's path is chaos and cheap points; Kansas City's path is 37-minute football, early-down runs, and a Spagnuolo plan that takes away the deep shot instead of chasing 24 first downs\")",
+      "game yards 117 disagrees with ESPN 392 for prior KC ('117 yards')",
+      "opponent Thursday report box is unverifiable ('Thursday report had him easing back into the Week 3 plan; his return is timed for a road secondary that just spent Sunday night chasing 24 first downs.')",
+      "touches 12 disagrees with ESPN 2 for Patrick Mahomes ('Miami is not the week you cut him over to 12 touches because Mahomes just threw for 382')"
+    ],
+    "2026-09-25-1552.json": [
+      "team passing 382 disagrees with ESPN 210 for IND ('382 passing yards')",
+      "team passing 382 disagrees with ESPN 371 for KC ('382 passing yards')"
+    ],
+    "2026-09-26-1355.json": [
+      "absolute first-claim cannot be verified against the play-by-play ('Daniel Jones hit Tyler Warren from a yard out to open the scoring, Harrison Butker answered from 46, and Mahomes found Kelce from 13 to take the first lead; the Colts then stacked field goals from Spencer Shrader (42 and 49) before Mahomes snuck Xavier Worthy in from a yard')",
+      "sacks 4 disagrees with ESPN 2 ('four sacks')",
+      "sacks 4 disagrees with ESPN 2 ('Four sacks')"
+    ],
+    "2026-09-27-2020.json": [
+      "kickoff is midday; do not write 'night' about the game",
+      "scoring yardage 12 is not a KC ESPN touchdown ('from the 12'; KC TD yards [5, 10, 11])"
+    ],
+    "2026-09-27-2304.json": [
+      "kickoff is midday; do not write 'night' about the game",
+      "scoring yardage 15 is not on the ESPN scoring-play list ('from the 15'; official yards [3, 5, 10, 11, 34, 37])",
+      "scoring yardage 15 is not a KC ESPN touchdown ('from the 15'; KC TD yards [5, 10, 11])",
+      "field-goal yardage [37, 34] mixes teams or is not on the ESPN FG list ('field goals (37 and 34)')",
+      "MIA field-goal count 2 disagrees with ESPN 1 ('Two Miami field goals')",
+      "MIA field-goal count 2 disagrees with ESPN 1 ('two Miami field goals')",
+      "pass attempts 18 disagrees with ESPN 24 for Patrick Mahomes ('18 attempts')"
+    ],
+    "2026-09-28-0010.json": [
+      "kickoff is midday; do not write 'night' about the game",
+      "echoed writer instruction ('Do not call')",
+      "garbled record/ordinal phrasing ('First AFC West road game of 3-0')",
+      "play order: Travis Kelce 11yd td Q4 2:55 is not after G.Karlaftis intercepted M.Willis int Q4 2:03 ('A 34-yard field goal made it 17-10, an 11-yard touchdown made it 24-10 after the Karlaftis interception')",
+      "turnover credit: Tranquill is not who ESPN lists as forcing/recovering the fumble ('fumble (Tranquill)')",
+      "turnover credit: Tranquill is not who ESPN lists as forcing/recovering the fumble ('Tranquill blew up a Willis keeper that became a fumble')",
+      "absolute claim: ESPN has 3 KC deep/vertical completions, not a unique one ('That is the only time Kansas City asked the vertical shot to carry a drive, and Miami took it')",
+      "absolute claim: ESPN has 2 KC deep-middle misses, not a unique one ('The Rodriguez INT was the only deep-middle miss')",
+      "team rushing 88 disagrees with ESPN 119 for MIA ('Tie every card to Miami’s 88 rush yards and 3-of-7')",
+      "pass attempts 35 disagrees with ESPN 24 for Patrick Mahomes ('35 dropbacks')",
+      "pass attempts 35 disagrees with ESPN 24 for Patrick Mahomes ('35 attempts')"
+    ],
+    "2026-09-28-0142.json": [
+      "garbled player initial ('L’Sneed'; use L. Sneed or the full first name)",
+      "Walker also had end runs; do not write that the 70 were between the tackles ('between the tackles')",
+      "play-by-play does not back a zone blitz producing the interception ('Zone blitz Jones/Karlaftis with a dropping end on second-and-long — the look that helped produce the Willis interception')",
+      "play-by-play does not back a zone blitz producing the interception ('Zone-blitz Jones and Karlaftis on second-and-long to recreate the throwing lane Karlaftis undercut for the interception')",
+      "snap-count later-claim cannot be verified against the play-by-play ('two snaps of game clock later')"
+    ],
+    "2026-09-30-1806.json": [
+      "team rushing 88 disagrees with ESPN 152 for prior KC ('The Miami box is the warning label: 18 first downs, 3-of-7, 25:39, 88 rush yards')"
+    ]
+  }
+}
