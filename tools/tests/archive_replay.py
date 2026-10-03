@@ -1,6 +1,7 @@
 """Offline archive replay: each edition against its own cached ESPN box."""
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 
@@ -96,3 +97,49 @@ def replay_all_editions() -> list[tuple[str, list[str]]]:
         edition = json.loads(path.read_text(encoding="utf-8"))
         rows.append((path.name, replay_edition(edition, schedule, recaps)))
     return rows
+
+
+def salvage_edition(edition: dict, schedule: list, recaps: dict) -> dict:
+    last = last_game_for_edition(edition, schedule)
+    recap = recaps.get(str((last or {}).get("id") or "")) if last else None
+    recap = recap or {}
+    issues = facts.check_review(edition, last, recap, schedule=schedule)
+    fixed, logs = facts.apply_fact_corrections(
+        copy.deepcopy(edition), issues, recap, last, schedule
+    )
+    leftover = facts.check_review(fixed, last, recap, schedule=schedule)
+    repaired = (
+        facts.repair_offending_copy(fixed, leftover, last, recap)
+        if leftover
+        else fixed
+    )
+    before = facts.edition_text(edition)
+    after = facts.edition_text(repaired)
+    return {
+        "issues": issues,
+        "logs": logs,
+        "leftover": leftover,
+        "before": before,
+        "after": after,
+        "before_sents": facts._split_sentences(before),
+        "after_sents": facts._split_sentences(after),
+    }
+
+
+def salvage_all_editions() -> list[tuple[str, dict]]:
+    schedule = collect.load_cached_schedule()
+    recaps = recaps_by_event()
+    rows = []
+    for path in sorted(EDITIONS.glob("*.json")):
+        edition = json.loads(path.read_text(encoding="utf-8"))
+        rows.append((path.name, salvage_edition(edition, schedule, recaps)))
+    return rows
+
+
+def quoted_snippets(issues: list[str]) -> list[str]:
+    out = []
+    for item in issues or []:
+        hit = facts._quoted_violation(item)
+        if hit:
+            out.append(hit)
+    return out
