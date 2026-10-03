@@ -1,8 +1,8 @@
 {
-  "_note": "Legit archive exceptions only: offseason-vs-open-slate on the camp/Week-1-upcoming editions, Sep 28 0142, and the genuinely wrong lines listed below. True box claims are not listed. Salvage must leave every other line byte-identical.",
+  "_note": "Legit archive exceptions only. 1552 is no longer clean: 117 on the ground is Walker, not team. Night idioms are not midday flags. Entire-24 claims are pinned. Salvage must leave every other line byte-identical.",
   "editions": 75,
-  "clean": 61,
-  "flagged": 14,
+  "clean": 60,
+  "flagged": 15,
   "issues": {
     "2026-08-07-1157.json": [
       "offseason phase while the slate still has upcoming regular/postseason games"
@@ -34,24 +34,27 @@
     "2026-09-11-1503.json": [
       "absolute claim cannot be verified against the play-by-play ('The only Seattle touchdown was a 4-yard throw after a missed extra point')"
     ],
+    "2026-09-25-1552.json": [
+      "team rushing 117 disagrees with ESPN 152 for KC ('A 33-30 overtime win over Indianapolis put Kansas City at 2-0 with 382 passing yards and 117 on the ground; Sunday noon in Miami is where Steve Spagnuolo’s front has to prove the Colts tape was an outlier, not a trend')"
+    ],
     "2026-09-27-2020.json": [
-      "kickoff is midday; do not write 'night' about the game"
+      "those 2 scores were not the entire KC scoring (ESPN has 4 KC scoring plays) ('Those two scores were the entire 24 in Miami')",
+      "those 2 scores were not the entire KC scoring (ESPN has 4 KC scoring plays) ('Red-zone pairing is Walker from the 10 in and Kelce from the 12 in; those two scores were the entire Miami night')"
     ],
     "2026-09-27-2304.json": [
-      "kickoff is midday; do not write 'night' about the game",
       "field-goal yardage [37, 34] mixes teams or is not on the ESPN FG list ('field goals (37 and 34)')",
       "MIA field-goal count 2 disagrees with ESPN 1 ('Two Miami field goals')",
       "MIA field-goal count 2 disagrees with ESPN 1 ('two Miami field goals')"
     ],
     "2026-09-28-0010.json": [
-      "kickoff is midday; do not write 'night' about the game",
       "echoed writer instruction ('Do not call')",
       "garbled record/ordinal phrasing ('First AFC West road game of 3-0')",
       "play order: Travis Kelce 11yd td Q4 2:55 is not after G.Karlaftis intercepted M.Willis int Q4 2:03 ('A 34-yard field goal made it 17-10, an 11-yard touchdown made it 24-10 after the Karlaftis interception')",
       "turnover credit: Tranquill is not who ESPN lists as forcing/recovering the fumble ('fumble (Tranquill)')",
       "turnover credit: Tranquill is not who ESPN lists as forcing/recovering the fumble ('Tranquill blew up a Willis keeper that became a fumble')",
       "absolute claim: ESPN has 3 KC deep/vertical completions, not a unique one ('That is the only time Kansas City asked the vertical shot to carry a drive, and Miami took it')",
-      "absolute claim: ESPN has 2 KC deep-middle misses, not a unique one ('The Rodriguez INT was the only deep-middle miss')"
+      "absolute claim: ESPN has 2 KC deep-middle misses, not a unique one ('The Rodriguez INT was the only deep-middle miss')",
+      "team rushing 117 disagrees with ESPN 152 for prior KC ('Indianapolis was 117 on the ground; Miami was 88 and a stuff at the 12')"
     ],
     "2026-09-28-0142.json": [
       "garbled player initial ('L’Sneed'; use L. Sneed or the full first name)",
@@ -60,5 +63,68 @@
       "play-by-play does not back a zone blitz producing the interception ('Zone-blitz Jones and Karlaftis on second-and-long to recreate the throwing lane Karlaftis undercut for the interception')",
       "snap-count later-claim cannot be verified against the play-by-play ('two snaps of game clock later')"
     ]
+  },
+  "drops": {
+    "2026-08-07-1157.json": [],
+    "2026-08-08-1142.json": [],
+    "2026-08-09-1144.json": [],
+    "2026-08-10-1159.json": [],
+    "2026-08-11-1156.json": [],
+    "2026-08-12-1159.json": [],
+    "2026-09-01-1532.json": [],
+    "2026-09-02-1513.json": [],
+    "2026-09-03-1503.json": [],
+    "2026-09-11-1503.json": [
+      "The only Seattle touchdown was a 4-yard throw after a missed extra point."
+    ],
+    "2026-09-25-1552.json": [
+      "A 33-30 overtime win over Indianapolis put Kansas City at 2-0 with 382 passing yards and 117 on the ground; Sunday noon in Miami is where Steve Spagnuolo’s front has to prove the Colts tape was an outlier, not a trend."
+    ],
+    "2026-09-27-2020.json": [
+      "Those two scores were the entire 24 in Miami.",
+      "Red-zone pairing is Walker from the 10 in and Kelce from the 12 in; those two scores were the entire Miami night."
+    ],
+    "2026-09-27-2304.json": [
+      "Two field goals (37 and 34) were the tax for drives that got close and stalled.",
+      "Two field goals (37 and 34) in a game you otherwise controlled on the scoreboard is how 14-point wins start feeling like 4-point wins.",
+      "Two Miami field goals kept the Dolphins in earshot until Kelce ended it.",
+      "Talent edge is real; two Miami field goals are the warning.",
+      "Use mesh in the red zone; two Miami field goals are not an acceptable West-road finish."
+    ],
+    "2026-09-28-0010.json": [
+      "That is the only time Kansas City asked the vertical shot to carry a drive, and Miami took it.",
+      "The Dolphins posted 19 first downs, 8-of-16 on third down, and 119 rushing yards, and they still scored 10 because Drue Tranquill blew up a Willis keeper that became a fumble Kansas City challenged, because Miami turned it over on downs in the second quarter and again in the fourth, and because Karlaftis intercepted Willis with Chris Jones in the picture.",
+      "A 34-yard field goal made it 17-10, an 11-yard touchdown made it 24-10 after the Karlaftis interception, and Harrison Butker then missed a 50-yarder wide left.",
+      "Two Miami turnovers — Willis fumble (Tranquill) and Karlaftis interception (Jones in the play) — plus two Dolphins failures on downs",
+      "First AFC West road game of 3-0, favored -5.5 on a 45.5 total — occupancy is the entire assignment.",
+      "The Rodriguez INT was the only deep-middle miss.",
+      "Indianapolis was 117 on the ground; Miami was 88 and a stuff at the 12.",
+      "Do not call it a night game — it was Sun Sep 27, 12:00 PM CT, midday, and the clock still looked like 2025."
+    ],
+    "2026-09-28-0142.json": [
+      "Karlaftis picked Willis two snaps of game clock later.",
+      "Zone blitz Jones/Karlaftis with a dropping end on second-and-long — the look that helped produce the Willis interception.",
+      "A Walker spacing screen turns the Raiders’ aggressiveness into the missing explosive run (team rush was 88; Walker had 70 of it between the tackles).",
+      "It also protects a young group Mahomes already told not to relax.",
+      "Corners have to funnel, not gamble — L’Sneed already made his splash by forcing and recovering the Willis fumble, not by jumping a double move.",
+      "Zone-blitz Jones and Karlaftis on second-and-long to recreate the throwing lane Karlaftis undercut for the interception."
+    ]
+  },
+  "changed": {
+    "2026-08-07-1157.json": [],
+    "2026-08-08-1142.json": [],
+    "2026-08-09-1144.json": [],
+    "2026-08-10-1159.json": [],
+    "2026-08-11-1156.json": [],
+    "2026-08-12-1159.json": [],
+    "2026-09-01-1532.json": [],
+    "2026-09-02-1513.json": [],
+    "2026-09-03-1503.json": [],
+    "2026-09-11-1503.json": [],
+    "2026-09-25-1552.json": [],
+    "2026-09-27-2020.json": [],
+    "2026-09-27-2304.json": [],
+    "2026-09-28-0010.json": [],
+    "2026-09-28-0142.json": []
   }
 }
