@@ -4790,6 +4790,9 @@ class FactCheck(unittest.TestCase):
             },
         ]
 
+    def _prod_slate(self):
+        return collect.load_cached_schedule()
+
     def test_zone_blitz_int_needs_word_boundary(self):
         recap = _load_fixture("espn_401872952_recap.json")
         last = dict(self.LAST)
@@ -5426,20 +5429,7 @@ class FactCheck(unittest.TestCase):
         last = dict(self.LAST)
         last["date"] = "2026-09-27T17:00:00Z"
         last["id"] = "401872952"
-        slate = [
-            {
-                "id": "401872945",
-                "opponent": "Indianapolis Colts",
-                "opponentAbbr": "IND",
-                "completed": True,
-            },
-            {
-                "id": "401872952",
-                "opponent": "Miami Dolphins",
-                "opponentAbbr": "MIA",
-                "completed": True,
-            },
-        ]
+        slate = self._prod_slate()
 
         def _lede(sentence):
             return {
@@ -5519,24 +5509,7 @@ class FactCheck(unittest.TestCase):
         last["opponent"] = "Miami Dolphins"
         last["opponentAbbr"] = "MIA"
         last["opponentShort"] = "Dolphins"
-        slate = self._week3_slate() + [
-            {
-                "id": "401872976",
-                "week": 4,
-                "opponent": "Las Vegas Raiders",
-                "opponentAbbr": "LV",
-                "opponentShort": "Raiders",
-                "completed": False,
-            },
-            {
-                "id": "401873120",
-                "week": 6,
-                "opponent": "Los Angeles Chargers",
-                "opponentAbbr": "LAC",
-                "opponentShort": "Chargers",
-                "completed": False,
-            },
-        ]
+        slate = self._prod_slate()
 
         def _lede(sentence):
             return {
@@ -5625,8 +5598,37 @@ class FactCheck(unittest.TestCase):
             _lede(sea), sea_issues, recap=recap, last_game=last, schedule=slate
         )
         self.assertIn(sea, facts.edition_text(sea_fixed))
-        self.assertTrue(any("unknown opponent Seattle" in line for line in sea_logs), sea_logs)
+        self.assertTrue(
+            any("unverifiable opponent Seattle" in line for line in sea_logs),
+            sea_logs,
+        )
         self.assertTrue(facts.should_hold_automerge([], sea_fixed, corrections=sea_logs))
+        for key in ("las_vegas_was", "new_york_was", "green_bay_was"):
+            issues = facts.check_review(
+                _lede(catalog[key]), last, recap, schedule=slate
+            )
+            self.assertTrue(issues, key)
+            self.assertTrue(any("unverifiable" in item for item in issues), issues)
+
+        self.assertEqual(
+            facts.check_review(
+                _lede(catalog["two_team_semi"]), last, recap, schedule=slate
+            ),
+            [],
+        )
+        self.assertEqual(
+            facts.check_review(
+                _lede(catalog["two_team_and"]), last, recap, schedule=slate
+            ),
+            [],
+        )
+        clock_issues = facts.check_review(
+            _lede(catalog["kc_clock_even_though"]), last, recap, schedule=slate
+        )
+        self.assertTrue(
+            any("34:21" in item and "KC" in item for item in clock_issues),
+            clock_issues,
+        )
 
         lac_recap = _load_fixture("espn_401872952_recap.json")
         lac_recap["oppAbbr"] = "LAC"
@@ -5652,6 +5654,9 @@ class FactCheck(unittest.TestCase):
         )
 
         edition = _load_fixture("edition_2026-10-03-1538.json")
+        blob = facts.edition_text(edition)
+        self.assertIn("Walker scored again", blob)
+        self.assertNotIn("Walker scored twice", blob)
         self.assertEqual(
             facts.check_review(edition, last, recap, schedule=slate), []
         )
