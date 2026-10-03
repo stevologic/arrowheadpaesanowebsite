@@ -5848,6 +5848,95 @@ class FactCheck(unittest.TestCase):
             clock_issues,
         )
 
+    def test_karen_161_short_name_aliases_and_were_box(self):
+        """#161 r6: LA/L.A./NY/N.Y./Tampa/Bucs/Fins bind; were-box; compound clock."""
+        catalog = _load_fixture("edition_run_karen_161_short_aliases.json")
+        recap_src = _load_fixture("espn_401872952_recap.json")
+        slate = self._prod_slate()
+
+        def _lede(sentence, opponent):
+            return {
+                "phase": {"type": "regular"},
+                "lastGameReview": {
+                    "opponent": opponent,
+                    "result": "W",
+                    "score": "KC 24–10",
+                    "lede": sentence,
+                },
+            }
+
+        def _city_last(opponent, abbr, short):
+            payload = dict(recap_src)
+            payload["oppAbbr"] = abbr
+            last = dict(self.LAST)
+            last["date"] = "2026-09-27T17:00:00Z"
+            last["id"] = "401872952"
+            last["opponent"] = opponent
+            last["opponentAbbr"] = abbr
+            last["opponentShort"] = short
+            return last, payload
+
+        def _issues(sentence, last, recap, opponent):
+            return facts.check_review(
+                _lede(sentence, opponent), last, recap, schedule=slate
+            )
+
+        def _kc_box_flagged(issues, abbr):
+            return any(
+                ("18" in item and "19" in item)
+                or ("25:39" in item and abbr in item)
+                for item in issues
+            )
+
+        recaps = (
+            ("Los Angeles Chargers", "LAC", "Chargers",
+             ("la_had_kc", "la_held_kc", "la_was_kc", "l_a_had_kc", "l_a_held_kc", "l_a_was_kc"),
+             ("la_was_opp", "la_had_opp", "la_held_opp", "l_a_was_opp")),
+            ("New York Jets", "NYJ", "Jets",
+             ("ny_had_kc", "ny_held_kc", "ny_was_kc", "n_y_had_kc", "n_y_was_kc"),
+             ("ny_was_opp", "n_y_was_opp")),
+            ("Tampa Bay Buccaneers", "TB", "Buccaneers",
+             ("tampa_had_kc", "tampa_held_kc", "tampa_was_kc", "bucs_had_kc", "bucs_held_kc", "bucs_was_kc"),
+             ("tampa_was_opp", "bucs_was_opp")),
+            ("Miami Dolphins", "MIA", "Dolphins",
+             ("fins_had_kc", "fins_held_kc", "fins_was_kc"),
+             ("fins_was_opp",)),
+        )
+        for opponent, abbr, short, kc_keys, opp_keys in recaps:
+            last, recap = _city_last(opponent, abbr, short)
+            for key in kc_keys:
+                issues = _issues(catalog[key], last, recap, opponent)
+                self.assertTrue(_kc_box_flagged(issues, abbr), (key, issues))
+            for key in opp_keys:
+                self.assertEqual(
+                    _issues(catalog[key], last, recap, opponent),
+                    [],
+                    (key, _issues(catalog[key], last, recap, opponent)),
+                )
+
+        last_lv, recap_lv = _city_last("Las Vegas Raiders", "LV", "Raiders")
+        were_kc = _issues(catalog["the_raiders_were_kc"], last_lv, recap_lv, "Las Vegas Raiders")
+        self.assertTrue(_kc_box_flagged(were_kc, "LV"), were_kc)
+        self.assertEqual(
+            _issues(catalog["the_raiders_were_opp"], last_lv, recap_lv, "Las Vegas Raiders"),
+            [],
+        )
+        swap = _issues(catalog["compound_clock_swap"], last_lv, recap_lv, "Las Vegas Raiders")
+        self.assertTrue(
+            any("34:21" in item or "25:39" in item for item in swap),
+            swap,
+        )
+
+        last_mia, recap_mia = _city_last("Miami Dolphins", "MIA", "Dolphins")
+        sea = _issues(catalog["seattle_had_kc"], last_mia, recap_mia, "Miami Dolphins")
+        self.assertTrue(any("unverifiable" in item for item in sea), sea)
+        for key in ("la_had_kc", "ny_had_kc"):
+            issues = _issues(catalog[key], last_mia, recap_mia, "Miami Dolphins")
+            self.assertTrue(
+                any("unverifiable" in item for item in issues),
+                (key, issues),
+            )
+
     def test_write_archive_survives_missing_headline(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "archive.json"
