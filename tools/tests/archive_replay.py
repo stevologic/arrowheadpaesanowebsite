@@ -119,6 +119,8 @@ def salvage_edition(edition: dict, schedule: list, recaps: dict) -> dict:
         "issues": issues,
         "logs": logs,
         "leftover": leftover,
+        "drops": facts.dropped_sentences(edition, repaired),
+        "changed": [log for log in logs if " → " in log],
         "before": before,
         "after": after,
         "before_sents": facts._split_sentences(before),

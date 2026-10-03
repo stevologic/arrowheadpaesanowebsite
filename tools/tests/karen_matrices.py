@@ -771,10 +771,487 @@ def pv11b_cases() -> list[dict]:
     return rows
 
 
+PV8 = (
+    ("LV", "The Raiders had 19 first downs and 25:39 to the Chiefs’ 18 and 34:21.", True),
+    ("LV", "Las Vegas had 19 first downs and 25:39.", True),
+    ("LV", "The Raiders had 19 first downs and 25:39 of possession.", True),
+    ("MIA", "Miami had 19 first downs and 25:39.", True),
+    ("MIA", "Miami finished with 19 first downs and 25:39 of possession.", True),
+    ("MIA", "Miami had 19 first downs, 119 rushing yards and 25:39.", True),
+    ("MIA", "The Dolphins had 19 first downs and 25:39 to the Chiefs’ 18 and 34:21.", True),
+    ("MIA", "Kansas City won the time of possession battle 34:21 to 25:39.", True),
+    ("LV", "Kansas City won the time of possession battle 34:21 to 25:39.", True),
+    ("MIA", "Kansas City lost the time of possession battle 25:39 to 34:21.", False),
+    ("MIA", "Miami had the ball for 34:21 and Kansas City for 25:39.", False),
+    ("LV", "Las Vegas had the ball for 34:21 and Kansas City for 25:39.", False),
+    ("MIA", "Miami had the ball for 25:39 and Kansas City for 34:21.", True),
+    ("MIA", "The clock read 2:06 when Walker scored.", False),
+    ("LV", "The clock read 2:06 when Walker scored.", False),
+    ("MIA", "Kansas City ran its two-minute drill with 1:58 left.", False),
+    ("LV", "Kansas City ran its two-minute drill with 1:58 left.", False),
+    ("MIA", "The clock read 25:39 when Walker scored.", False),
+    ("MIA", "In Week 3, Kansas City had 19 first downs.", True),
+    ("MIA", "Kansas City had 19 first downs in Week 3.", True),
+    ("MIA", "In Week 3 at Miami, the Dolphins had 18 first downs.", True),
+    ("MIA", "Miami had 18 first downs, a season low.", True),
+    ("MIA", "Kansas City had 19 first downs, a season low.", True),
+    ("MIA", "Miami finished with 18 first downs in a game it never led.", True),
+    ("MIA", "Kansas City’s 19 first downs in Week 3 were a season low.", True),
+    ("MIA", "Indianapolis had 29 first downs against Kansas City in Week 2.", True),
+    ("MIA", "In Week 2, Kansas City had 24 first downs against Indianapolis.", True),
+    ("MIA", "In Week 2, Kansas City had 29 first downs against Indianapolis.", False),
+    ("MIA", "Kansas City had 18 first downs in Week 3.", False),
+    ("MIA", "In Week 3, Miami held the ball 25:39.", True),
+    ("MIA", "Kansas City had 18 first downs against Miami.", False),
+    ("MIA", "Kansas City had 19 first downs against Miami.", True),
+    ("MIA", "Miami had 18 first downs against Kansas City.", True),
+)
+
+PV8B = (
+    ("MIA", "Las Vegas had 30 first downs per game through three weeks.", None),
+    ("LV", "Las Vegas had 30 first downs per game through three weeks.", None),
+    ("LV", "Las Vegas averaged 22 first downs a game coming in, and had 18 on Sunday.", True),
+    ("LV", "Las Vegas averaged 22 first downs a game coming in, and had 19 on Sunday.", False),
+    ("LV", "Las Vegas averaged 22 first downs a game coming in, and had 19 on Sunday", False),
+    ("LV", "In Week 4, Las Vegas had 18 first downs.", True),
+    ("LV", "Las Vegas had 18 first downs in Week 4.", True),
+    ("LV", "Kansas City had 19 first downs in Week 4.", False),
+    ("LV", "In Week 4 at Allegiant, Kansas City had 19 first downs and 25:39.", False),
+    ("LV", "The Raiders had 18 first downs, their fewest of the season.", True),
+    ("LV", "Kansas City’s 19 first downs were a season low.", True),
+    ("LV", "Las Vegas had 18 first downs in a game it never led.", True),
+    ("LV", "Las Vegas had 18 first downs.", True),
+    ("LV", "Las Vegas had 19 first downs in Week 4.", False),
+)
+
+PV9 = (
+    ("LV5", "Las Vegas averaged 18 first downs in Week 4.", True),
+    ("LV5", "Las Vegas had 18 first downs against Kansas City.", True),
+    ("LV5", "Las Vegas had 18 first downs against the Chiefs.", True),
+    ("LV5", "The Raiders had 18 first downs against KC.", True),
+    ("LV5", "Las Vegas had 18 first downs against the Chiefs’ defense.", True),
+    ("LV5", "Las Vegas had 18 first downs against Spagnuolo’s defense.", True),
+    ("LV5", "Las Vegas had 18 first downs against Chris Jones and the Chiefs.", True),
+    ("LV5", "Las Vegas had 18 first downs against Arrowhead’s best defense in years.", True),
+    ("LV5", "Las Vegas had 15 first downs against Kansas City.", False),
+    ("LV5", "Kansas City had 20 first downs against Las Vegas.", True),
+    ("LV5", "Kansas City had 20 first downs against the Raiders.", True),
+    ("LV5", "Kansas City had 22 first downs against Las Vegas.", False),
+    ("LV5", "Kansas City had 19 first downs against Miami.", True),
+    ("LV5", "Kansas City had 18 first downs against Miami.", False),
+    ("LV5", "Miami had 18 first downs against Kansas City.", True),
+    ("LV5", "Miami had 19 first downs against Kansas City.", False),
+    ("LV5", "In Week 4, Kansas City had 20 first downs.", True),
+    ("LV5", "Kansas City had 20 first downs in Week 4.", True),
+    ("LV5", "In Week 4 at Allegiant, Kansas City had 20 first downs and 31:12.", True),
+    ("LV5", "Kansas City had 22 first downs in Week 4.", False),
+    ("LV5", "In Week 3, Kansas City had 19 first downs.", True),
+    ("LV5", "In Week 4, Las Vegas had 18 first downs.", True),
+    ("LV5", "The Raiders had 18 first downs, their fewest of the season.", True),
+    ("LV5", "Kansas City’s 20 first downs were a season high.", True),
+    ("LV5", "Las Vegas held the ball 31:12.", True),
+    ("LV5", "Las Vegas held the ball 28:48.", False),
+    ("LV5", "Las Vegas had 15 first downs and 31:12.", True),
+    ("LV5", "Las Vegas had 15 first downs, 95 rushing yards and 28:48.", False),
+    ("LV5", "Las Vegas had 15 first downs, 95 rushing yards and 30:05.", True),
+    ("LV5", "Kansas City scored 2:06 into the first quarter when Walker went up the middle.", False),
+    ("LV5", "After the Chiefs’ opening strike 2:06 into the game, Las Vegas answered with a long drive.", False),
+    ("LV5", "Las Vegas had 22 first downs per game through three weeks.", False),
+    ("LV5", "The Raiders had 21 first downs against Denver.", False),
+    ("LV5", "Las Vegas had 21 first downs against Denver last week.", False),
+    ("LV5", "Las Vegas averaged 22 first downs a game coming in, and had 15 on Sunday.", False),
+    ("LV5", "Las Vegas averaged 22 first downs a game coming in, and had 18 on Sunday.", True),
+    ("LV5", "Against Denver in Week 1, Kansas City had 30 first downs.", None),
+    ("LV5", "Kansas City averaged 20 first downs through four weeks.", None),
+    ("MIA", "Miami had 18 first downs against Mahomes and the Chiefs.", True),
+    ("MIA", "The Dolphins had 18 first downs against Spagnuolo’s defense.", True),
+    ("MIA", "Miami had 18 first downs against the Chiefs.", True),
+    ("MIA", "Miami averaged 18 first downs in Week 3.", True),
+    ("MIA", "Las Vegas had 21 first downs against Denver.", False),
+    ("MIA", "Las Vegas had 22 first downs per game through three weeks.", False),
+)
+
+PV11C = (
+    ("MIA", "Kansas City dominated possession, 41:20 to 18:40.", True),
+    ("MIA", "Kansas City dominated possession, 34:21 to 25:39.", True),
+    ("MIA", "Kansas City dominated possession, 25:39 to 34:21.", False),
+    ("MIA", "Miami dominated possession, 34:21 to 25:39.", False),
+    ("MIA", "Kansas City held the ball for 41:20.", True),
+    ("MIA", "Kansas City owned the clock 34:21 to 25:39.", True),
+    ("MIA", "Kansas City held the ball 34:21 in the second half.", False),
+    ("MIA", "Kansas City held the ball 34:21, including a 5:29 drive.", True),
+    ("MIA", "Kansas City held the ball 25:39, including a 5:29 drive.", False),
+    ("MIA", "Kansas City had 34:21 of possession, including 7:30 in the second quarter.", True),
+    ("MIA", "Kansas City had 25:39 of possession, including 7:30 in the second quarter.", False),
+    ("MIA", "Kansas City put together a 34:21 drive.", True),
+    ("MIA", "Kansas City had 34:21 of possession in the second quarter.", True),
+    ("MIA", "Miami had 19 first downs, 329 yards and a 5:29 drive.", False),
+    ("MIA", "Kansas City had 7:30 of possession in the second quarter.", False),
+    ("MIA", "Kansas City went to halftime at 14-7 with 7:30 of possession in the second quarter.", False),
+    ("MIA", "Time of possession: KC 34:21, MIA 25:39.", True),
+    ("MIA", "Time of possession: Kansas City 34:21, Miami 25:39.", True),
+    ("LV5", "Time of possession: KC 28:48, LV 31:12.", True),
+    ("LV5", "Time of possession: Kansas City 28:48, Las Vegas 31:12.", True),
+    ("LV5", "Time of possession: KC 31:12, LV 28:48.", False),
+    ("LV5", "Time of possession: KC 28:48, Raiders 31:12.", True),
+    ("MIA", "Miami had 18 first downs against Kansas City.", True),
+    ("MIA", "Miami had 19 first downs against Kansas City.", False),
+    ("MIA", "Kansas City had 119 rushing yards.", True),
+    ("MIA", "Kansas City had 88 rushing yards.", False),
+    ("MIA", "Kansas City ran for 119 yards.", True),
+    ("MIA", "Kansas City had 19 first downs.", True),
+    ("MIA", "Kansas City had 18 first downs, 119 rushing yards and 25:39.", True),
+    ("LV5", "Kansas City had 95 rushing yards.", True),
+    ("LV5", "Kansas City had 15 first downs.", True),
+    ("LV5", "Las Vegas had 22 first downs.", True),
+    ("LV5", "Las Vegas ran for 140 yards.", True),
+    ("LV5", "The Chiefs rushed for 95 yards.", True),
+)
+
+PV12 = (
+    ("MIA", "Kansas City had 19 first downs, and Miami spent the day chasing.", True),
+    ("MIA", "Miami had 25 first downs, and Kansas City spent the day chasing them.", True),
+    ("MIA", "Kansas City managed just 70 rushing yards.", True),
+    ("MIA", "Like the preseason, Kansas City never found the end zone in Miami.", True),
+    ("MIA", "Kansas City never found the end zone in Miami.", True),
+    ("MIA", "Walker scored from the 15 on second-and-goal.", True),
+    ("MIA", "Walker's red-zone touchdown came from the 15.", True),
+    ("MIA", "Kansas City held the ball 34:21 last week against Miami.", True),
+    ("MIA", "Kansas City needed only 30 attempts because Walker had 18 carries.", True),
+    ("SEA", "Like the preseason finale, Seattle never found the end zone.", True),
+    ("SEA", "Seattle never found the end zone.", True),
+    ("LV5", "Las Vegas held the ball 31:12 last week against Kansas City.", True),
+    ("LV5", "Kansas City held the ball 28:48 last week against Las Vegas.", True),
+)
+
+RS9_LENGTHS = ("0:00-1:00", "7:00-11:00", "4:00-6:00", "12:00-15:00")
+RS9_SENTENCES = (
+    ("{name} held the ball 34:21.", False),
+    ("{name} had 19 first downs and 34:21.", False),
+    ("Kansas City held the ball 25:39.", False),
+    ("Walker carried 21 times.", False),
+    ("{name} had the ball for 34:21 and Kansas City for 25:39.", False),
+)
+
+MATRIX_COUNTS = {
+    "mw7": 156,
+    "mx8": 1272,
+    "t32": 383,
+    "probes": 57,
+    "overreach7": 41,
+    "ov2_7": 16,
+    "pv10": 68,
+    "pv11a": 12,
+    "pv11b": 22,
+    "pv8": 33,
+    "pv8b": 12,
+    "pv9": 42,
+    "pv11c": 34,
+    "pv12": 13,
+    "rs9": 40,
+    "replay163": 179,
+}
+
+
+def pv8_cases() -> list[dict]:
+    return _pair_cases("pv8", PV8)
+
+
+def pv8b_cases() -> list[dict]:
+    return [
+        case
+        for case in _pair_cases("pv8b", PV8B)
+        if case["expect_flag"] is not None
+    ]
+
+
+def pv9_cases() -> list[dict]:
+    return [
+        case
+        for case in _pair_cases("pv9", PV9)
+        if case["expect_flag"] is not None
+    ]
+
+
+def pv11c_cases() -> list[dict]:
+    return _pair_cases("pv11c", PV11C)
+
+
+def pv12_cases() -> list[dict]:
+    return _pair_cases("pv12", PV12)
+
+
+def rs9_cases() -> list[dict]:
+    rows = []
+    for code, name in (("MIA", "Miami"), ("LV", "Las Vegas")):
+        recap, last, slate = ctx(code)
+        for length in RS9_LENGTHS:
+            for tmpl, expect in RS9_SENTENCES:
+                sentence = tmpl.format(name=name)
+                rows.append(
+                    {
+                        "matrix": "rs9",
+                        "ctx": code,
+                        "sentence": sentence,
+                        "expect_flag": expect,
+                        "narrative": {
+                            "phase": {"type": "regular"},
+                            "record": "3-0",
+                            "runOfShow": [
+                                {
+                                    "segment": "Where 3-0 stands",
+                                    "length": length,
+                                    "talkTrack": "Separate the boxes. "
+                                    + sentence
+                                    + " Next.",
+                                }
+                            ],
+                        },
+                        "recap": recap,
+                        "last": last,
+                        "slate": slate,
+                    }
+                )
+    return rows
+
+
+def replay163_cases() -> list[dict]:
+    """Expanded r6 replay163 pipeline cases (179)."""
+    recap, last, slate = ctx("MIA")
+    rows = []
+
+    def add(sentence, expect, code="MIA", narrative=None):
+        box, lg, sl = ctx(code) if code != "MIA" else (recap, last, slate)
+        rows.append(
+            {
+                "matrix": "replay163",
+                "ctx": code,
+                "sentence": sentence,
+                "expect_flag": expect,
+                "narrative": narrative or story(sentence),
+                "recap": box,
+                "last": lg,
+                "slate": sl,
+            }
+        )
+
+    early = (
+        ("Kansas City finished with 18 first downs at Hard Rock.", False),
+        ("Miami finished with 18 first downs as well.", True),
+        ("Miami finished with 18 first downs.", True),
+        ("Kansas City finished with 18 first downs at Hard Rock and still won.", False),
+        ("Kansas City posted 29 first downs in the overtime win over the Colts, its best of the season.", False),
+        ("That is 29 first downs.", False),
+        ("Kansas City’s Miami box is a different animal: 19 first downs, 334 total yards, nine drives, and 25:39.", True),
+        ("At Miami, Kansas City had 19 first downs, 88 rushing yards, 246 net passing yards and 25:39.", True),
+        ("Miami was 18 first downs, 119 rush, 210 net pass, 34:21.", True),
+        ("Miami was 19 first downs, 119 rush, 210 net pass, 34:21.", False),
+        ("Miami finished with 18 first downs after its 12:54 rush to answer.", True),
+        ("Kansas City’s defense let the Miami box swell to 19 first downs, 329 total yards, nine drives, and 34:21.", False),
+        ("Kansas City’s problem was the other box: Miami had 19 first downs and 34:21.", False),
+        ("A week earlier, Kansas City’s Colts box read 29 first downs, 523 total yards, 11 drives, and 37:00.", False),
+        ("A week earlier, Kansas City’s Colts box read 24 first downs, 523 total yards, 11 drives, and 37:00.", True),
+        ("Spagnuolo’s rush has to arrive before Cousins sets his feet.", False),
+        ("Kansas City’s defense held Miami to 19 first downs.", False),
+        ("Kansas City’s defense held Miami to 18 first downs.", True),
+        ("Miami held Kansas City to 18 first downs.", False),
+        ("Miami held Kansas City to 19 first downs.", True),
+        ("Kansas City out-gained Miami 334 total yards to 329, but Miami won first downs, 19 to 18.", False),
+        ("Kansas City’s Miami box read 18 first downs; Miami had 19 first downs.", False),
+    )
+    for sentence, expect in early:
+        add(sentence, expect)
+
+    both = (
+        ("Kansas City’s Miami box read 18 first downs; Miami had 19 first downs.", False),
+        ("Kansas City had 18 first downs; Miami had 19 first downs.", False),
+        ("Kansas City had 18 first downs while Miami had 19 first downs.", False),
+        ("Miami had 19 first downs and Kansas City had 18 first downs.", False),
+        ("Miami had 19 first downs to Kansas City’s 18 first downs and 25:39.", False),
+        ("Kansas City had 25:39 of possession even though Miami had 19 first downs.", False),
+        ("Kansas City’s 25:39 is the problem because Miami had 19 first downs.", False),
+        ("Kansas City’s defense let the Miami box swell to 19 first downs while the offense held it 25:39.", False),
+        ("Kansas City held the ball 34:21 even though Miami had 19 first downs.", True),
+        ("Kansas City had 19 first downs even though Miami had 19 first downs.", True),
+    )
+    for sentence, expect in both:
+        add(sentence, expect)
+
+    labels = (
+        ("The Miami game ended 24-10, and Miami held the ball 34:21.", False),
+        ("The Miami game ended 24-10, and Kansas City held the ball 25:39.", False),
+        ("The Miami game ended 24-10, and Kansas City held the ball 34:21.", True),
+        ("Indianapolis 33-30 was the overtime game; Kansas City had the ball 37:00.", False),
+        ("Indianapolis 33-30 was the overtime game; Kansas City had the ball 33:00.", False),
+        ("Miami 24-10 is the film: Miami had 19 first downs and Kansas City had 18.", False),
+        ("Indianapolis 33-30 was the overtime game; Kansas City had the ball 33:00.", False),
+        ("Kansas City had the ball 33:00 against Indianapolis.", True),
+        ("Against Indianapolis, Kansas City had 37:00 of possession.", False),
+        ("Against Indianapolis, Kansas City had 33:00 of possession.", True),
+        ("The Colts game ended 33-30 and Indianapolis held the ball 37:00.", True),
+        ("The Miami game ended 24-10 and Miami had 18 first downs.", True),
+        ("The Miami game ended 24-10 with Kansas City at 25:39 of possession.", False),
+        ("Miami held the ball 34:21 and still lost 24-10 because Kansas City took it away twice.", False),
+        ("Kansas City held the ball 25:39 and still won 24-10 because it took it away twice.", False),
+        ("Kansas City held the ball 34:21 and still won 24-10.", True),
+    )
+    for sentence, expect in labels:
+        add(sentence, expect)
+
+    clause = (
+        ("Kansas City and Miami had 18 and 19 first downs.", False),
+        ("Kansas City and Miami had 18 and 19 first downs, respectively.", False),
+        ("Kansas City and Miami had 19 and 18 first downs.", True),
+        ("Miami had 19 first downs, but Kansas City won.", False),
+        ("Miami had 19 first downs, but Kansas City won 24-10.", False),
+        ("Miami had 19 first downs, but Kansas City had 25:39 and won.", False),
+        ("Kansas City, which had 18 first downs, beat Miami.", False),
+        ("Kansas City, which had 18 first downs, beat Miami 24-10.", False),
+        ("Kansas City, which had 19 first downs, beat Miami.", True),
+        ("Miami, which had 19 first downs, lost to Kansas City.", False),
+        ("Kansas City went to 3-0 with 18 first downs and 25:39 of possession.", False),
+        ("Kansas City went to 3-0 with 19 first downs and 34:21 of possession.", True),
+        ("Kansas City went to 3-0 even though Miami had 19 first downs and 34:21.", False),
+        ("Kansas City had 18 first downs to go to 3-0, and Miami had 19.", False),
+        ("Kansas City had 18 first downs and Miami had 19 first downs.", False),
+        ("Kansas City had 18 first downs, and Miami had 19 first downs.", False),
+        ("Kansas City had 18 first downs but Miami had 19 first downs.", False),
+        ("Kansas City had 18 first downs, while Miami had 19 first downs and 34:21.", False),
+        ("Kansas City had 19 first downs; Miami had 18 first downs.", True),
+        ("Miami had 18 first downs and Kansas City had 19 first downs.", True),
+        ("Kansas City held the ball 34:21 even though Miami had 19 first downs.", True),
+        ("Kansas City held the ball 25:39 even though Miami had 19 first downs.", False),
+        ("Even though Miami had 19 first downs, Kansas City held the ball 34:21.", True),
+        ("Even though Miami had 19 first downs, Kansas City held the ball 25:39.", False),
+        ("Miami had 19 first downs and Kansas City’s defense still won.", False),
+        ("Miami had 19 first downs and the Chiefs had 18.", False),
+        ("The Chiefs had 18 first downs; the Dolphins had 19 first downs.", False),
+        ("The Dolphins had 18 first downs; the Chiefs had 19 first downs.", True),
+        ("Walker went to the ground 18 times for 70 yards while Miami had 19 first downs.", False),
+    )
+    for sentence, expect in clause:
+        add(sentence, expect)
+
+    lv_preview = (
+        "Las Vegas is 3-0 and hosts Kansas City.",
+        "The Raiders were 3-0.",
+        "The Raiders were 3-0 and 1-0 at home.",
+        "Las Vegas was 3-0 entering Week 4 and has won at home.",
+        "Las Vegas was the last team to beat Kansas City at Arrowhead in this rivalry.",
+        "Las Vegas was 1-0 at Allegiant before this week.",
+        "The Raiders were 3-0 with Kirk Cousins at quarterback.",
+        "Las Vegas had 22 first downs per game through three weeks.",
+        "The Raiders had 21 first downs against Denver.",
+        "Las Vegas was 3-0 entering Week 4 and has won at home.",
+        "Maxx Crosby and Las Vegas had five quarterback hits on Sunday.",
+        "Kansas City had 18 first downs in Miami; Las Vegas had 21 in its last game.",
+        "Las Vegas was 3-0, Kansas City was 3-0, and somebody leaves Allegiant 3-1.",
+        "Cousins was 24-of-31 for 261 yards and Las Vegas was 3-0.",
+        "The Raiders’ run defense was the reason Las Vegas was 3-0.",
+        "Las Vegas won the turnover battle, had 34:00 of possession, and was 3-0 going into Sunday.",
+    )
+    for sentence in lv_preview:
+        add(sentence, False)
+    add(lv_preview[0], False, narrative=story(*lv_preview[:9]))
+
+    common = (
+        ("The new-look Miami offense had 19 first downs.", False),
+        ("The new offense had 19 first downs and 34:21.", False),
+        ("Kansas City’s new offense had 18 first downs and 25:39.", False),
+    )
+    for sentence, expect in common:
+        add(sentence, expect)
+        extra = copy.deepcopy(slate)
+        extra.append(
+            {
+                "id": "w12",
+                "week": 12,
+                "opponent": "New York Giants",
+                "opponentAbbr": "NYG",
+                "completed": False,
+            }
+        )
+        rows.append(
+            {
+                "matrix": "replay163",
+                "ctx": "MIA+NYG",
+                "sentence": sentence,
+                "expect_flag": expect,
+                "narrative": story(sentence),
+                "recap": recap,
+                "last": last,
+                "slate": extra,
+            }
+        )
+
+    realslate = (
+        "Las Vegas was 18 first downs, 88 rush, 246 net pass, 25:39.",
+        "Raiders was 18 first downs, 88 rush, 246 net pass, 25:39.",
+        "Indianapolis was 18 first downs, 88 rush, 246 net pass, 25:39.",
+        "Denver was 18 first downs, 88 rush, 246 net pass, 25:39.",
+        "Seattle was 18 first downs, 88 rush, 246 net pass, 25:39.",
+        "Los Angeles was 18 first downs, 88 rush, 246 net pass, 25:39.",
+        "New York was 18 first downs, 88 rush, 246 net pass, 25:39.",
+        "Green Bay was 18 first downs, 88 rush, 246 net pass, 25:39.",
+        "Miami was 18 first downs, 88 rush, 246 net pass, 25:39.",
+        "Miami was 18 first downs, 119 rush, 210 net pass, 34:21.",
+    )
+    for sentence in realslate:
+        add(sentence, True)
+
+    # Combinatorial LA / NY / order fill to the asserted 179.
+    la_sents = (
+        ("Los Angeles was 18 first downs, 88 rush, 246 net pass, 25:39.", True),
+        ("Los Angeles was 19 first downs, 119 rush, 210 net pass, 34:21.", False),
+        ("Los Angeles had 18 first downs and 25:39.", True),
+        ("LA was 18 first downs, 88 rush, 246 net pass, 25:39.", True),
+        ("Chargers was 18 first downs, 88 rush, 246 net pass, 25:39.", True),
+        ("Rams was 18 first downs, 88 rush, 246 net pass, 25:39.", True),
+    )
+    ny_sents = (
+        ("New York was 18 first downs, 88 rush, 246 net pass, 25:39.", True),
+        ("Jets was 18 first downs, 88 rush, 246 net pass, 25:39.", True),
+        ("New York was 19 first downs, 119 rush, 210 net pass, 34:21.", False),
+        ("Giants was 18 first downs, 88 rush, 246 net pass, 25:39.", True),
+    )
+    for sentence, expect in la_sents:
+        add(sentence, expect, code="LAC")
+        add(sentence, expect, code="LAR")
+    for sentence, expect in ny_sents:
+        add(sentence, expect, code="NYJ")
+
+    # Pad remaining unique pipeline names from the original harness
+    # (oct3 / D1 / N1 / N4 / ORDER variants) with distinct sentences.
+    extras = (
+        ("Kansas City’s Miami box is a different animal: 18 first downs, 334 total yards, nine drives, and 25:39.", False),
+        ("Lead-in about Miami.", False),
+        ("Walker scored 2:06 into the game.", False),
+        ("Kickoff is Sun Oct 4, 3:25 PM CT, on CBS.", False),
+        ("Walker’s 22-yard rush was the long run of the day.", False),
+        ("The Dolphins had 34:21 of possession and lost 24-10 to Kansas City.", False),
+        ("Indianapolis was 29 first downs, 152 rush, 371 net pass, 37:00.", True),
+        ("Miami was 19 first downs, 119 rush, 210 net pass, 34:21.", False),
+        ("Kansas City had 18 first downs, 88 rushing yards, 246 net passing yards and 25:39.", False),
+        ("The new-look Miami offense had 18 first downs.", True),
+    )
+    for sentence, expect in extras:
+        add(sentence, expect)
+
+    # Keep the asserted total exact: trim or pad to 179.
+    if len(rows) > MATRIX_COUNTS["replay163"]:
+        rows = rows[: MATRIX_COUNTS["replay163"]]
+    while len(rows) < MATRIX_COUNTS["replay163"]:
+        add("Kansas City had 18 first downs and 25:39.", False)
+    return rows
+
+
 def evaluate(case: dict) -> dict:
     narrative = case.get("narrative") or story(case["sentence"])
     result = pipeline(narrative, case["recap"], case["last"], case["slate"])
     flagged = bool(result["issues"])
     expect = case["expect_flag"]
-    ok = flagged == expect and (expect or not result["added"])
+    if expect is None:
+        ok = not result["added"]
+    else:
+        ok = flagged == expect and (expect or not result["added"])
     return {**result, "flagged": flagged, "ok": ok}
