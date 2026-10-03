@@ -106,6 +106,27 @@ jobs:
           github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Refuse unsigned Review editions
+        env:
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          python -m tools.chiefs_narrative.review_gate --automerge \
+            --base "origin/${{ github.base_ref }}" \
+            --labels "$PR_LABELS"
+
       - name: Squash-merge the pull request
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
