@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-10-03T15:38:21+00:00",
-  "updatedAt": "2026-10-03T15:38:22+00:00",
+  "updatedAt": "2026-10-03T16:05:00+00:00",
   "generator": "grok:grok-4.6",
   "phase": {
     "type": "regular",
@@ -19,7 +19,7 @@
     "lede": "The Chiefs left Hard Rock Stadium 3-0 with a 24-10 win that was cleaner on the scoreboard than it was on the clock. Patrick Mahomes went 20-of-24 for 246 yards, two touchdowns, and one interception, Rashee Rice caught seven balls for 88 yards, and Kenneth Walker III carried 18 times for 70 yards and the 10-yard score 2:06 into the game. Miami still won the possession fight at 34:21 to 25:39, edged first downs 19-18, and converted 8-of-16 third downs against Kansas City’s 3-of-7. That is the film that actually travels to Las Vegas.",
     "body": [
       "Steve Spagnuolo’s defense did not sack Malik Willis, and it recorded one quarterback hit, but it took the ball twice: L. Sneed forced and recovered a Willis fumble, and Karlaftis intercepted a short throw intended for Ryan Miller. Those takeaways, plus Mahomes’ efficiency, covered a run game that finished at 88 yards on 25 carries and an offense that needed a 34-yard Butker field goal and an 11-yard touchdown in the fourth quarter to put the game away. Miami’s 119 rushing yards and 31 carries were a warning, not a trivia line.",
-      "The Miami box is a different animal: 19 first downs, 334 total yards, nine drives, and 25:39. Eric Bieniemy’s room cannot treat 20-of-24 as a substitute for early-down juice, not with Maxx Crosby across the line and another 3-0 AFC West team waiting.",
+      "A week earlier against Indianapolis, Kansas City had posted 29 first downs, 152 rushing yards, 371 net passing yards, and 37:00 of possession in a 33-30 overtime win. Kansas City’s Miami box is a different animal: 18 first downs, 334 total yards, nine drives, and 25:39. Eric Bieniemy’s room cannot treat 20-of-24 as a substitute for early-down juice, not with Maxx Crosby across the line and another 3-0 AFC West team waiting.",
       "The next Sunday is the first true West measuring stick of 2026. Kirk Cousins has the Raiders offense playing above the old script, Tyler Linderbaum has changed the interior, and Las Vegas’ tight ends are the coverage test Spagnuolo has not seen yet. ESPN FPI at 69.6 percent and Chiefs -4.5 on 47.5 is a road-favorite number, not a bye. Sole possession of first place in the division is on the table at Allegiant on Sun Oct 4, 3:25 PM CT."
     ]
   },
@@ -88,7 +88,7 @@
       },
       {
         "title": "Possession without blending last week’s clock",
-        "body": "The Colts game was 37:00 of Kansas City football. Miami was 25:39. Those are not the same offense. If the Chiefs let Las Vegas do what Miami did — 30-plus rushes and a long clock — Cousins will find the tight ends and the favorite number will look thin."
+        "body": "The Colts game was 37:00 of Kansas City football. The Miami game was 25:39. Those are not the same offense. If the Chiefs let Las Vegas do what Miami did — 30-plus rushes and a long clock — Cousins will find the tight ends and the favorite number will look thin."
       },
       {
         "title": "Tackle and chip rules vs. Crosby",
@@ -332,7 +332,7 @@
       "situation": "2nd-and-7, Raiders 12 personnel, Cousins looking for the tight end in the hole",
       "concept": "cover_two",
       "why": "This is the tight-end test the last two tapes did not give Spagnuolo. Two deep, five under, Bolton rallies. Take away the shot and make Cousins dink into tackling, not 19-first-down tracking.",
-      "coaching": "Safeties split the posts. Corners squat and pass off. Bolton and Tranquill drive on the in-breaker. Spagnuolo: no free access to the deep middle Kelce just took from you.",
+      "coaching": "Safeties split the posts. Corners squat and pass off. Bolton and Tranquill drive on the in-breaker. Spagnuolo: no free access to the window Kelce just hit for 48 in Miami.",
       "labels": {
         "x": "deep half",
         "z": "deep half",
@@ -376,8 +376,14 @@
   ],
   "injuries": [
     {
-      "player": "Raiders starting guard",
-      "status": "Out",
+      "player": "Josh Simmons (LT)",
+      "status": "Out (back)",
+      "note": "Benson starts at left tackle.",
+      "source": "Chiefs.com / ESPN"
+    },
+    {
+      "player": "Jackson Powers-Johnson (G/C)",
+      "status": "Out (groin)",
       "note": "Friday report: Las Vegas’ starting guard is out for the Week 4 meeting, a live interior tell for how Spagnuolo attacks Cousins.",
       "source": "Arrowhead Pride"
     }
@@ -430,7 +436,7 @@
     {
       "segment": "Where 3-0 actually stands",
       "length": "7:00-11:00",
-      "talkTrack": "Separate the Colts box from the Miami box. Walker’s Player of the Month and Benson’s Rookie of the Month are real. So is a possession fight that just got a division grade."
+      "talkTrack": "Separate the Colts box from the Miami box. Against Indianapolis, Kansas City had 29 first downs, 152 rushing yards, 371 net passing yards and 37:00 of possession. At Miami, Kansas City had 18 first downs, 88 rushing yards, 246 net passing yards and 25:39. Walker’s Player of the Month and Benson’s Rookie of the Month are real. So is a possession fight that just got a division grade."
     },
     {
       "segment": "Raiders matchup and markets",

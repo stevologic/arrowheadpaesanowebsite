@@ -1,9 +1,5 @@
 {
-  "droppedSentences": [
-    "A week earlier against Indianapolis, Kansas City had posted 24 first downs, 152 rushing yards, 371 net passing yards, and 37:00 of possession in a 33-30 win.",
-    "Indianapolis was 29 first downs, 152 rush, 371 net pass, 37:00.",
-    "Miami was 18 first downs, 88 rush, 246 net pass, 25:39."
-  ],
+  "droppedSentences": [],
   "leftoverIssues": [],
-  "holdAutomerge": false
+  "holdAutomerge": true
 }
