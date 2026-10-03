@@ -2261,14 +2261,21 @@ def _match_count(match) -> int | None:
 
 
 def _is_initial_dot(text: str, pos: int) -> bool:
-    """True for the period in 'H. Nourzad' / 'J. Moore', not a sentence end."""
+    """True for the period in 'H. Nourzad' / 'Tr. Smith', not a sentence end."""
     if pos <= 0 or pos >= len(text) or text[pos] != ".":
         return False
-    if not text[pos - 1].isupper():
-        return False
-    if pos >= 2 and text[pos - 2].isalpha():
-        return False
-    return True
+    if text[pos - 1].isupper() and (pos < 2 or not text[pos - 2].isalpha()):
+        return True
+    # NFL two-letter initials: Tr.Smith / Tr. Smith. "later." stays a stop.
+    if (
+        pos >= 2
+        and text[pos - 1].islower()
+        and text[pos - 2].isupper()
+        and (pos < 3 or not text[pos - 3].isalpha())
+    ):
+        nxt = text[pos + 1] if pos + 1 < len(text) else ""
+        return nxt == "" or nxt.isspace() or nxt.isupper()
+    return False
 
 
 def _sentence_span(text: str, index: int) -> tuple[int, int]:
@@ -2996,6 +3003,8 @@ def _bound_touch_row(text: str, claim_at: int, rows: list[dict]) -> dict | None:
     Walker's 20 touches as Johnson's 6 or Willis's 9.
     Prefer the rightmost ESPN last name before the claim. If none, take
     a name in the same clause after it ("20 touches for Walker").
+    A closer non-usage name (Kelce's two touches next to Walker's 20)
+    is not Walker's game total — do not skip over it to the fixture back.
     """
     aliases: dict[str, str] = {}
     by_last: dict[str, dict] = {}
@@ -3007,9 +3016,18 @@ def _bound_touch_row(text: str, claim_at: int, rows: list[dict]) -> dict | None:
     if not aliases:
         return rows[0] if len(rows) == 1 else None
     start, end = _stat_clause_span(text, claim_at)
-    last = _last_name_in(text[start:claim_at], aliases)
-    if not last:
-        last = _last_name_in(text[claim_at:end], aliases)
+    before = text[start:claim_at]
+    after = text[claim_at:end]
+    usage_pos, last = _last_name_pos(before, aliases)
+    other_pos, _ = _rightmost_other_person(before, aliases)
+    if other_pos > usage_pos:
+        return None
+    if last:
+        return by_last.get(last)
+    after_pos, last = _last_name_pos(after, aliases)
+    first_other, _ = _first_other_person(after, aliases)
+    if last and first_other >= 0 and (after_pos < 0 or first_other < after_pos):
+        return None
     if last:
         return by_last.get(last)
     # A named person who is not in the usage table is not the lone listed back.
@@ -3022,33 +3040,55 @@ def _bound_touch_row(text: str, claim_at: int, rows: list[dict]) -> dict | None:
     return None
 
 
-def _clause_names_other_person(clause: str, aliases: dict[str, str]) -> bool:
-    """True when the clause names someone who is not a usage last name."""
-    skip = _KC_SCOPE | {
-        "miami",
-        "dolphins",
-        "las",
-        "vegas",
-        "raiders",
-        "indianapolis",
-        "colts",
-        "denver",
-        "broncos",
-        "sunday",
-        "monday",
-        "week",
-        "espn",
-        "arrowhead",
-        "hard",
-        "rock",
-        "stadium",
-    }
+_OTHER_PERSON_SKIP = _KC_SCOPE | {
+    "miami",
+    "dolphins",
+    "las",
+    "vegas",
+    "raiders",
+    "indianapolis",
+    "colts",
+    "denver",
+    "broncos",
+    "sunday",
+    "monday",
+    "week",
+    "espn",
+    "arrowhead",
+    "hard",
+    "rock",
+    "stadium",
+}
+
+
+def _other_person_hits(clause: str, aliases: dict[str, str]):
+    """Yield (start, last) for proper names that are not usage last names."""
     for hit in re.finditer(r"\b([A-Z][a-z]{2,})\b", clause or ""):
         token = hit.group(1).lower()
-        if token in aliases or token in skip:
+        if token in aliases or token in _OTHER_PERSON_SKIP:
             continue
-        return True
-    return False
+        yield hit.start(), token
+
+
+def _rightmost_other_person(clause: str, aliases: dict[str, str]) -> tuple[int, str]:
+    best_pos = -1
+    best = ""
+    for pos, token in _other_person_hits(clause, aliases):
+        if pos >= best_pos:
+            best_pos = pos
+            best = token
+    return best_pos, best
+
+
+def _first_other_person(clause: str, aliases: dict[str, str]) -> tuple[int, str]:
+    for pos, token in _other_person_hits(clause, aliases):
+        return pos, token
+    return -1, ""
+
+
+def _clause_names_other_person(clause: str, aliases: dict[str, str]) -> bool:
+    """True when the clause names someone who is not a usage last name."""
+    return _first_other_person(clause, aliases)[0] >= 0
 
 
 def _touch_claim_is_windowed(text: str, match: re.Match) -> bool:
@@ -3085,7 +3125,7 @@ def _check_touch_counts(text: str, recap: dict | None) -> list[str]:
         if claimed != official:
             issues.append(
                 f"touches {claimed} disagrees with ESPN {official} for "
-                f"{label} ({match.group(0)!r})"
+                f"{label} ({_claim_quote(text, match)!r})"
             )
     return issues
 
@@ -3165,6 +3205,34 @@ def _check_attempt_counts(
     return issues
 
 
+# A comma starts the next flag only when the next item is a penalty type.
+# "Karlaftis, not Sneed" stays one clause.
+_PENALTY_LIST_BREAK = re.compile(
+    r"[,;]\s*(?=(?:and\s+)?(?:"
+    r"defensive|offensive|illegal|holding|offside|ineligible|"
+    r"roughing|unnecessary|face\s+mask|neutral\s+zone|"
+    r"pass\s+interference|illegal\s+contact|illegal\s+block"
+    r"))",
+    re.IGNORECASE,
+)
+
+
+def _penalty_item_span(text: str, index: int) -> tuple[int, int]:
+    """List-item span so 'holding on Sneed' does not own a nearby illegal-use."""
+    sent_start, sent_end = _sentence_span(text, index)
+    local = text[sent_start:sent_end]
+    rel = index - sent_start
+    item_start = 0
+    item_end = len(local)
+    for hit in _PENALTY_LIST_BREAK.finditer(local):
+        if hit.end() <= rel:
+            item_start = hit.end()
+        elif hit.start() >= rel:
+            item_end = hit.start()
+            break
+    return sent_start + item_start, sent_start + item_end
+
+
 def _check_penalty_attribution(text: str, recap: dict | None) -> list[str]:
     penalties = [
         row
@@ -3175,8 +3243,9 @@ def _check_penalty_attribution(text: str, recap: dict | None) -> list[str]:
         return []
     issues = []
     for match in _ILLEGAL_USE.finditer(text):
+        item_start, item_end = _penalty_item_span(text, match.start())
+        low = text[item_start:item_end].lower()
         sentence = _sentence_at(text, match.start())
-        low = sentence.lower()
         official = [
             row
             for row in penalties
@@ -3890,8 +3959,11 @@ def violation_snippets(violations: list[str]) -> list[str]:
         # Miami's clock ('34:21') → leftover 's clock, not KC ('
         if token.startswith("s ") or token.endswith("("):
             return
+        token = token.replace("\\n", "\n")
         seen.add(token)
         out.append(token)
+        if "\n" in token:
+            _add(token.split("\n")[-1])
         # left.strip()+after used to emit 'nobodyafter' (run 37030574826).
         unglued = re.sub(
             r"(?<=[A-Za-z])(?=(?:after|following)\b)",
@@ -4411,6 +4483,141 @@ def safe_score_lede(last_game: dict | None) -> str:
     return f"Kansas City finished {pair[0]}–{pair[1]} against {opp}."
 
 
+_STAT_DISAGREE = re.compile(
+    r"(?:touches|sacks|pass attempts|rush attempts|team rushing|"
+    r"total drives|QB hits|first downs)\s+"
+    r"(\d+)\s+disagrees with ESPN\s+(\d+)",
+    re.IGNORECASE,
+)
+_ILLEGAL_USE_NOT_SNEED = re.compile(
+    r"illegal-use flag was on ([^,]+), not sneed",
+    re.IGNORECASE,
+)
+
+
+def _format_count(n: int, like: str) -> str:
+    """Keep digit vs word style when swapping a verified ESPN count."""
+    raw = (like or "").strip()
+    if raw.isdigit():
+        return str(n)
+    word = {v: k for k, v in _NUMBER_WORDS.items()}.get(n)
+    if not word:
+        return str(n)
+    if raw[:1].isupper():
+        return word[:1].upper() + word[1:]
+    return word
+
+
+def _swap_count_in_sentence(sentence: str, claimed: int, official: int) -> str | None:
+    hits = [
+        match
+        for match in re.finditer(rf"\b({_NUM_TOKEN})\b", sentence or "", re.I)
+        if _parse_count(match.group(1)) == claimed
+    ]
+    if len(hits) != 1:
+        return None
+    hit = hits[0]
+    return (
+        sentence[: hit.start()]
+        + _format_count(official, hit.group(1))
+        + sentence[hit.end() :]
+    )
+
+
+def _swap_sneed_for(sentence: str, official: str) -> str | None:
+    name = (official or "").split(",")[0].strip()
+    if not name or not re.search(r"\bsneed\b", sentence or "", re.I):
+        return None
+    display = name[:1].upper() + name[1:]
+
+    def _repl(match: re.Match) -> str:
+        tail = match.group(0)[5:]
+        return display + tail
+
+    return re.sub(r"\b[Ss]need(?=['’]s\b|\b)", _repl, sentence, count=1)
+
+
+def _quoted_violation(item: str) -> str:
+    snippets = violation_snippets([item])
+    if not snippets:
+        return ""
+    # check_review quotes with !r, so newlines show up as the two
+    # characters backslash-n instead of a real line break.
+    return max(snippets, key=len).replace("\\n", "\n")
+
+
+def _correct_sentence(sentence: str, violation: str) -> str | None:
+    """Rewrite one ESPN disagreement, or None when the swap is not clean."""
+    if not sentence:
+        return None
+    num = _STAT_DISAGREE.search(violation or "")
+    if num:
+        return _swap_count_in_sentence(
+            sentence, int(num.group(1)), int(num.group(2))
+        )
+    name = _ILLEGAL_USE_NOT_SNEED.search(violation or "")
+    if name:
+        return _swap_sneed_for(sentence, name.group(1))
+    return None
+
+
+def _replace_sentence_value(value, old: str, new: str):
+    if isinstance(value, str):
+        if old and old in value:
+            return value.replace(old, new, 1)
+        return value
+    if isinstance(value, list):
+        return [_replace_sentence_value(item, old, new) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: _replace_sentence_value(item, old, new)
+            for key, item in value.items()
+        }
+    return value
+
+
+def apply_fact_corrections(
+    narrative: dict | None, violations: list[str]
+) -> tuple[dict, list[str]]:
+    """Rewrite number/name mismatches to the ESPN value. Log each swap.
+
+    Sentences that cannot be rewritten cleanly are left for the drop pass.
+    """
+    payload = copy.deepcopy(narrative or {})
+    logs: list[str] = []
+    blob = edition_text(payload)
+    for item in violations or []:
+        snippet = _quoted_violation(item)
+        tails = [snippet] if snippet else []
+        if snippet and "\n" in snippet:
+            tails.append(snippet.split("\n")[-1].strip())
+        sentence = ""
+        for needle in tails:
+            for part in _split_sentences(blob):
+                if needle and needle in part:
+                    sentence = part
+                    break
+            if sentence:
+                break
+        if not sentence:
+            sentence = tails[-1] if tails else ""
+        rewritten = _correct_sentence(sentence, item)
+        if not rewritten or rewritten == sentence:
+            continue
+        next_payload = copy.deepcopy(payload)
+        for key in _EDITION_KEYS:
+            if key in next_payload:
+                next_payload[key] = _replace_sentence_value(
+                    next_payload[key], sentence, rewritten
+                )
+        if edition_text(next_payload) == blob:
+            continue
+        payload = next_payload
+        blob = edition_text(payload)
+        logs.append(f"{sentence} → {rewritten}")
+    return payload, logs
+
+
 def repair_offending_copy(
     narrative: dict | None,
     violations: list[str],
@@ -4442,8 +4649,14 @@ def repair_offending_copy(
     return payload
 
 
-def should_hold_automerge(drops: list[str], narrative: dict | None) -> bool:
-    """Hold publish when salvage is noisy or the desk is under the word floor."""
+def should_hold_automerge(
+    drops: list[str],
+    narrative: dict | None,
+    leftover: list[str] | None = None,
+) -> bool:
+    """Hold publish when salvage is noisy, leftover, or under the word floor."""
+    if leftover:
+        return True
     if len(drops or []) > HOLD_REPAIR_DROPS:
         return True
     return edition_word_count(narrative) < PUBLISH_WORD_FLOOR

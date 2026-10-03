@@ -178,7 +178,24 @@ jobs:
         run: |
           set -euo pipefail
           python -m unittest discover -s tools/tests -v
-          python -m tools.chiefs_narrative.generate --check-edition
+          if ! python -m tools.chiefs_narrative.generate --check-edition; then
+            echo "check-edition still has unfixable issues; holding automerge"
+            python - <<'PY'
+            import json
+            from pathlib import Path
+            path = Path("data/narrative_repair.json")
+            payload = {}
+            if path.is_file():
+                try:
+                    loaded = json.loads(path.read_text(encoding="utf-8"))
+                except json.JSONDecodeError:
+                    loaded = {}
+                if isinstance(loaded, dict):
+                    payload = loaded
+            payload["holdAutomerge"] = True
+            path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+            PY
+          fi
           python -m tools.chiefs_narrative.generate --diagrams-only
           git diff --exit-code -- public/images/narrative
           hugo --gc --minify
@@ -243,6 +260,14 @@ jobs:
 
           echo "Opened $PR_URL"
 
+          if [ "$HOLD_MERGE" = "true" ]; then
+            echo "Holding automerge: fact-check leftover or noisy salvage (listed in the PR body)."
+            gh pr edit "$PR_URL" --add-label hold || true
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            gh workflow run ci.yml --ref "$BRANCH" || true
+            exit 0
+          fi
+
           # GITHUB_TOKEN-created PRs do not trigger pull_request workflows, so
           # a one-shot PR-check listing exits 1 with "no checks reported"
           # (run 36360998269). Dispatch CI against this edition branch —
@@ -287,13 +312,6 @@ jobs:
           if [ "$CONCLUSION" != "completed success" ]; then
             echo "ERROR: CI gates timed out ($CONCLUSION)" >&2
             exit 1
-          fi
-
-          if [ "$HOLD_MERGE" = "true" ]; then
-            echo "Holding automerge: fact-check dropped sentences (listed in the PR body)."
-            gh pr edit "$PR_URL" --add-label hold || true
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-            exit 0
           fi
 
           gh pr merge "$PR_URL" --squash --delete-branch

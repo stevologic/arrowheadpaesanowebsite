@@ -623,47 +623,132 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             narrative, last, recap, schedule=schedule, copy_gates=True
         )
     dropped: list[str] = []
-    if violations:
-        print(
-            "  [writer] fact-check still failing after retries; "
-            "dropping offending sentences and re-checking the full edition"
+
+    def _salvage(
+        payload,
+        problems,
+        check_last,
+        check_recap,
+        *,
+        check_schedule=None,
+        check_copy_gates=False,
+    ):
+        corrected, logs = facts.apply_fact_corrections(payload, problems)
+        for line in logs:
+            print(f"  [writer] corrected: {line}")
+        leftover = facts.check_review(
+            corrected,
+            check_last,
+            check_recap,
+            schedule=check_schedule,
+            copy_gates=check_copy_gates,
         )
+        if not leftover:
+            return corrected, leftover, []
+        repaired = facts.repair_offending_copy(
+            corrected, leftover, check_last, check_recap
+        )
+        gone = facts.dropped_sentences(corrected, repaired)
+        for sentence in gone:
+            print(f"  [writer] dropped sentence: {sentence}")
+        leftover = facts.check_review(
+            repaired,
+            check_last,
+            check_recap,
+            schedule=check_schedule,
+            copy_gates=check_copy_gates,
+        )
+        return repaired, leftover, gone
 
-        def _drop_and_log(payload, problems):
-            repaired = facts.repair_offending_copy(
-                payload, problems, last, recap
-            )
-            gone = facts.dropped_sentences(payload, repaired)
-            for sentence in gone:
-                print(f"  [writer] dropped sentence: {sentence}")
-            leftover = facts.check_review(
-                repaired, last, recap, schedule=schedule, copy_gates=True
-            )
-            return repaired, leftover, gone
-
-        repaired, leftover, gone = _drop_and_log(narrative, violations)
-        dropped.extend(gone)
+    def _salvage_until_clean(
+        payload,
+        problems,
+        check_last,
+        check_recap,
+        *,
+        check_schedule=None,
+        check_copy_gates=False,
+        before=None,
+    ):
+        repaired, leftover, gone = _salvage(
+            payload,
+            problems,
+            check_last,
+            check_recap,
+            check_schedule=check_schedule,
+            check_copy_gates=check_copy_gates,
+        )
+        gone_all = list(gone)
         # A snippet drop can expose a newly bound leftover (run 36741379345
         # gave Miami's 34:21 to KC) or an orphan opener (run 36751657899).
-        # Keep salvaging while a pass still removes copy.
         passes = 0
         while leftover and passes < 6:
             passes += 1
-            repaired, leftover, gone = _drop_and_log(repaired, leftover)
-            dropped.extend(gone)
+            repaired, leftover, gone = _salvage(
+                repaired,
+                leftover,
+                check_last,
+                check_recap,
+                check_schedule=check_schedule,
+                check_copy_gates=check_copy_gates,
+            )
+            gone_all.extend(gone)
             if not gone:
                 break
+        start = before if before is not None else payload
         orphans = facts.check_repair_orphans(
-            repaired, dropped, before=narrative
+            repaired, gone_all, before=start
         )
         blockers = facts.repair_publish_blockers(
-            leftover, repaired, orphans, before=narrative
+            leftover, repaired, orphans, before=start
         )
-        if blockers:
-            raise FactCheckError(blockers[0])
-        narrative = repaired
+        if leftover or blockers:
+            print(
+                "  [writer] unfixable leftover after salvage; "
+                "holding automerge instead of failing the run"
+            )
+        return repaired, gone_all, leftover
+
+    leftover_issues: list[str] = []
+    if violations:
+        print(
+            "  [writer] fact-check still failing after retries; "
+            "correcting ESPN disagreements, then dropping what cannot be fixed"
+        )
+        narrative, gone, leftover_issues = _salvage_until_clean(
+            narrative,
+            violations,
+            last,
+            recap,
+            check_schedule=schedule,
+            check_copy_gates=True,
+        )
+        dropped.extend(gone)
         narrative["updatedAt"] = config.iso_now()
-        print("  [writer] fact-check: dropped sentences logged; edition is clean")
+        print("  [writer] fact-check: corrections and drops logged")
+
+    # --check-edition uses the checkout fixture recap, not the live ESPN
+    # payload. Run 37099023312 wrote a live-clean edition that the gate
+    # still rejected. Correct or drop whatever that published-edition check
+    # would flag so generate and the gate agree.
+    gate_last = _last_game_from_edition(narrative)
+    gate_recap = _recap_for_edition(narrative)
+    gate_issues = facts.check_review(narrative, gate_last, gate_recap)
+    if gate_issues:
+        print(
+            "  [writer] published-edition gate still failing; "
+            "correcting or dropping so generate matches --check-edition"
+        )
+        narrative, gone, leftover_issues = _salvage_until_clean(
+            narrative,
+            gate_issues,
+            gate_last,
+            gate_recap,
+            before=narrative,
+        )
+        dropped.extend(gone)
+        narrative["updatedAt"] = config.iso_now()
+        print("  [writer] published-edition gate: corrections and drops logged")
 
     # 6. Render diagrams only after uniqueness and fact-check have passed.
     _render_diagrams(narrative)
@@ -679,6 +764,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         "schedule": schedule,
         "news": signals.get("news") or [],
         "droppedSentences": dropped,
+        "leftoverIssues": leftover_issues,
     }
 
 
@@ -799,6 +885,22 @@ def main(argv=None) -> int:
             print("ERROR: published edition failed gates:", file=sys.stderr)
             for item in issues:
                 print(f"  - {item}", file=sys.stderr)
+            repair = {}
+            if config.REPAIR_JSON.is_file():
+                try:
+                    loaded = json.loads(
+                        config.REPAIR_JSON.read_text(encoding="utf-8")
+                    )
+                except (OSError, json.JSONDecodeError):
+                    loaded = {}
+                if isinstance(loaded, dict):
+                    repair = loaded
+            if repair.get("holdAutomerge"):
+                print(
+                    "  edition gates: held for human QA (not failing the run)",
+                    file=sys.stderr,
+                )
+                return 0
             return 1
         print("  edition gates: ok")
         return 0
@@ -823,11 +925,15 @@ def main(argv=None) -> int:
 
     config.ensure_dirs()
     drops = result.get("droppedSentences") or []
+    leftover = result.get("leftoverIssues") or []
     config.REPAIR_JSON.write_text(
         json.dumps(
             {
                 "droppedSentences": drops,
-                "holdAutomerge": facts.should_hold_automerge(drops, narrative),
+                "leftoverIssues": leftover,
+                "holdAutomerge": facts.should_hold_automerge(
+                    drops, narrative, leftover=leftover
+                ),
             },
             indent=2,
         )
