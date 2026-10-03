@@ -178,23 +178,25 @@ jobs:
         run: |
           set -euo pipefail
           python -m unittest discover -s tools/tests -v
-          if ! python -m tools.chiefs_narrative.generate --check-edition; then
+          check_rc=0
+          python -m tools.chiefs_narrative.generate --check-edition || check_rc=$?
+          if [ "$check_rc" -ne 0 ]; then
             echo "check-edition still has unfixable issues; holding automerge"
             python - <<'PY'
-            import json
-            from pathlib import Path
-            path = Path("data/narrative_repair.json")
-            payload = {}
-            if path.is_file():
-                try:
-                    loaded = json.loads(path.read_text(encoding="utf-8"))
-                except json.JSONDecodeError:
-                    loaded = {}
-                if isinstance(loaded, dict):
-                    payload = loaded
-            payload["holdAutomerge"] = True
-            path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-            PY
+          import json
+          from pathlib import Path
+          path = Path("data/narrative_repair.json")
+          payload = {}
+          if path.is_file():
+              try:
+                  loaded = json.loads(path.read_text(encoding="utf-8"))
+              except json.JSONDecodeError:
+                  loaded = {}
+              if isinstance(loaded, dict):
+                  payload = loaded
+          payload["holdAutomerge"] = True
+          path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+          PY
           fi
           python -m tools.chiefs_narrative.generate --diagrams-only
           git diff --exit-code -- public/images/narrative
