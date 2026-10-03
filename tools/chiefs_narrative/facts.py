@@ -278,7 +278,8 @@ _POSSESSION_HELD = re.compile(
 )
 _GAME_LABEL_TEAM = re.compile(
     r"\b(?:the\s+)?[A-Za-z][A-Za-z '’-]{1,24}?\s+"
-    r"(?:tape|film|box)\b",
+    r"(?:tape|film|box)\b|"
+    r"\b[A-Za-z][A-Za-z '’-]{1,24}?\s+\d{1,2}[-–]\d{1,2}\b",
     re.IGNORECASE,
 )
 _SCRIPT_OPENER = re.compile(
@@ -2881,6 +2882,21 @@ def _check_box_clocks(
         )
         official = None
         label = team or "KC"
+        if _kc_owned_box(sentence):
+            if scope == "prior" or any(
+                re.search(rf"\b{re.escape(lab)}\b", sentence.lower())
+                for lab in prior_labels
+            ):
+                official, label = prior_fd, "prior KC"
+            else:
+                official, label = kc_fd, "KC"
+            if official is None or claimed == official:
+                continue
+            issues.append(
+                f"first downs {claimed} disagrees with ESPN {official} for "
+                f"{label} ({_claim_quote(text, match)!r})"
+            )
+            continue
         if scope == "other":
             continue
         if scope == "prior":
@@ -2936,7 +2952,7 @@ def _check_box_clocks(
             official = prior_total
             label = "prior KC"
             prior_rush = _box_int(prior, "rushingYards")
-            # 382 is Indy passing; 152 is Indy rushing — not the game total.
+            # 371 is Indy team net passing; 152 is Indy rushing — not the game total.
             if official and yards != official and yards == prior_pass:
                 issues.append(
                     f"game yards {yards} is prior passing, not the "
@@ -4655,70 +4671,175 @@ def _quoted_violation(item: str) -> str:
     return max(snippets, key=len).replace("\\n", "\n")
 
 
-_OPP_WAS_BOX = re.compile(
-    r"^(?P<team>Indianapolis|Colts|Miami|Dolphins|Las Vegas|Raiders)"
-    r"\s+was\s+(?P<rest>.+)$",
+_KC_OWNED_BOX = re.compile(
+    r"\b(?:kansas\s+city|kc)['’]s\b[^.!?]{0,120}\bbox\b",
     re.IGNORECASE,
 )
 _BOX_KIND_PATTERNS = (
-    re.compile(r"\bfirst downs\b", re.I),
-    re.compile(r"\brush(?:ing)?(?:\s+yards)?\b", re.I),
-    re.compile(r"\b(?:net\s+)?pass(?:ing)?(?:\s+yards)?\b", re.I),
-    re.compile(r"\btotal yards\b", re.I),
-    re.compile(r"\b\d{1,2}:\d{2}\b(?!\s*(?:AM|PM))", re.I),
+    re.compile(r"\d+\s+first downs\b", re.I),
+    re.compile(r"\d+\s+rush(?:ing)?(?:\s+yards)?\b", re.I),
+    re.compile(r"\d+\s+(?:net\s+)?pass(?:ing)?(?:\s+yards)?\b", re.I),
+    re.compile(r"\d+\s+total yards\b", re.I),
+    re.compile(rf"(?:{_NUM_TOKEN})\s+drives\b", re.I),
+    re.compile(r"\d{1,2}:\d{2}\s+(?:of\s+)?possession\b", re.I),
 )
+_BOX_FD = re.compile(r"\b(\d{1,2})\s+first downs\b", re.I)
+_BOX_RUSH = re.compile(r"\b(\d{2,3})\s+rush(?:ing)?(?:\s+yards)?\b", re.I)
+_BOX_PASS = re.compile(r"\b(\d{2,3})\s+(?:net\s+)?pass(?:ing)?(?:\s+yards)?\b", re.I)
+_BOX_TOTAL = re.compile(r"\b(\d{2,3})\s+total yards\b", re.I)
+_BOX_DRIVES = re.compile(rf"\b({_NUM_TOKEN})\s+drives\b", re.I)
+_BOX_CLOCK = re.compile(r"\b(\d{1,2}:\d{2})\b(?!\s*(?:AM|PM))", re.I)
+
+
+def _kc_owned_box(sentence: str) -> bool:
+    """True for 'Kansas City's Miami box' / 'KC's box' ownership."""
+    return bool(_KC_OWNED_BOX.search(sentence or ""))
 
 
 def _is_multi_stat_box(sentence: str) -> bool:
-    """True when one line stacks two or more box-score stats."""
+    """True when one line stacks two or more numbered box-score stats.
+
+    Bare 'rush' or a kickoff clock is not a box line.
+    """
     return sum(1 for pat in _BOX_KIND_PATTERNS if pat.search(sentence or "")) >= 2
+
+
+def _schedule_opponent_names(
+    last_game: dict | None,
+    recap: dict | None,
+    schedule=None,
+) -> list[str]:
+    """Opponent tokens from the slate / recap, longest first."""
+    names: set[str] = set()
+    aliases = _team_aliases(last_game, recap)
+    for alias, team in aliases.items():
+        if team and team != "KC" and len(alias) >= 3:
+            names.add(alias)
+    for game in schedule or []:
+        if not isinstance(game, dict):
+            continue
+        raw = (game.get("opponent") or "").strip()
+        if raw:
+            names.add(raw.lower())
+            for token in re.findall(r"[A-Za-z]+", raw):
+                if token.lower() not in {"the", "at"} and len(token) >= 3:
+                    names.add(token.lower())
+        abbr = (game.get("opponentAbbr") or "").strip()
+        if len(abbr) >= 2:
+            names.add(abbr.lower())
+    prior = (recap or {}).get("prior") or {}
+    for raw in (
+        (last_game or {}).get("opponent"),
+        prior.get("opponent"),
+        (recap or {}).get("opponent"),
+    ):
+        if not raw:
+            continue
+        names.add(str(raw).lower())
+        for token in re.findall(r"[A-Za-z]+", str(raw)):
+            if token.lower() not in {"the", "at"} and len(token) >= 3:
+                names.add(token.lower())
+    return sorted(names, key=len, reverse=True)
+
+
+def _opponent_was_box_match(
+    sentence: str,
+    last_game: dict | None,
+    recap: dict | None,
+    schedule=None,
+):
+    """('IND', 'Indianapolis', '29 first downs…') for 'Indianapolis was …'."""
+    names = _schedule_opponent_names(last_game, recap, schedule)
+    if not names:
+        return None
+    pattern = (
+        r"^(?P<team>"
+        + "|".join(re.escape(name) for name in names)
+        + r")\s+was\s+(?P<rest>.+)$"
+    )
+    match = re.match(pattern, (sentence or "").strip(), re.IGNORECASE)
+    if not match:
+        return None
+    aliases = _team_aliases(last_game, recap)
+    named = match.group("team")
+    team = _alias_team(named, aliases)
+    if not team or team == "KC":
+        return None
+    return team, named, match.group("rest").strip().rstrip(".")
+
+
+def _claimed_box_stats(sentence: str) -> list[tuple[str, object]]:
+    """Typed numbers in a box line: first downs, rush, pass, total, drives, clock."""
+    text = sentence or ""
+    stats: list[tuple[str, object]] = []
+    for match in _BOX_FD.finditer(text):
+        stats.append(("firstDowns", int(match.group(1))))
+    for match in _BOX_RUSH.finditer(text):
+        stats.append(("rushingYards", int(match.group(1))))
+    for match in _BOX_PASS.finditer(text):
+        stats.append(("netPassingYards", int(match.group(1))))
+    for match in _BOX_TOTAL.finditer(text):
+        stats.append(("totalYards", int(match.group(1))))
+    for match in _BOX_DRIVES.finditer(text):
+        count = _parse_count(match.group(1))
+        if count is not None:
+            stats.append(("totalDrives", count))
+    for match in _BOX_CLOCK.finditer(text):
+        stats.append(("possessionTime", match.group(1)))
+    return stats
+
+
+def _kc_box_value(recap: dict | None, game: str, key: str):
+    if game == "prior":
+        block = ((recap or {}).get("prior") or {}).get("kc") or {}
+    else:
+        block = (recap or {}).get("kc") or {}
+    if key == "possessionTime":
+        raw = str(block.get("possessionTime") or "").strip()
+        return raw or None
+    return _box_int(block, key)
+
+
+def _box_stats_match_kc(
+    sentence: str,
+    recap: dict | None,
+    game: str,
+) -> bool:
+    """True only when every typed number matches KC's box for that game."""
+    claimed = _claimed_box_stats(sentence)
+    if not claimed:
+        return False
+    for key, value in claimed:
+        official = _kc_box_value(recap, game, key)
+        if official is None or value != official:
+            return False
+    return True
 
 
 def _reword_misattributed_box(
     sentence: str,
     recap: dict | None,
     last_game: dict | None = None,
+    schedule=None,
 ) -> str | None:
-    """KC's own box written as 'Indianapolis/Miami was …' → attribute to KC."""
-    match = _OPP_WAS_BOX.match((sentence or "").strip())
-    if not match:
+    """KC's own box written as '{Opp} was …' → attribute to Kansas City."""
+    parsed = _opponent_was_box_match(sentence, last_game, recap, schedule)
+    if not parsed:
         return None
-    aliases = _team_aliases(last_game, recap)
-    named = match.group("team")
-    team = _alias_team(named, aliases)
-    if not team:
-        fallback = {
-            "indianapolis": "IND",
-            "colts": "IND",
-            "miami": "MIA",
-            "dolphins": "MIA",
-            "raiders": "LV",
-        }
-        team = fallback.get(named.lower(), "")
-    if not team:
-        return None
-    fd_hit = re.search(r"\b(\d{1,2})\s+first downs\b", sentence, re.I)
-    if not fd_hit:
-        return None
-    claimed = int(fd_hit.group(1))
-    prior = (recap or {}).get("prior") or {}
-    prior_abbr = (prior.get("oppAbbr") or "").strip().upper()
+    team, display, rest = parsed
+    prior_abbr = (
+        ((recap or {}).get("prior") or {}).get("oppAbbr") or ""
+    ).strip().upper()
     last_abbr = ((recap or {}).get("oppAbbr") or "").strip().upper()
-    prior_kc_fd = _box_int(prior.get("kc"), "firstDowns")
-    last_kc_fd = _box_int((recap or {}).get("kc"), "firstDowns")
-    prior_opp_fd = _box_int(prior.get("opp"), "firstDowns")
-    last_opp_fd = _box_int((recap or {}).get("opp"), "firstDowns")
-    display = match.group("team")
-    rest = match.group("rest").strip().rstrip(".")
     if prior_abbr and team == prior_abbr:
-        if claimed != prior_kc_fd or claimed == prior_opp_fd:
-            return None
-        return f"Against {display}, Kansas City had {rest}."
-    if last_abbr and team == last_abbr:
-        if claimed != last_kc_fd or claimed == last_opp_fd:
-            return None
-        return f"Against {display}, Kansas City had {rest}."
-    return None
+        game = "prior"
+    elif last_abbr and team == last_abbr:
+        game = "last"
+    else:
+        return None
+    if not _box_stats_match_kc(sentence, recap, game):
+        return None
+    return f"Against {display}, Kansas City had {rest}."
 
 
 def _flagged_sentence(
@@ -4726,11 +4847,11 @@ def _flagged_sentence(
     violation: str,
     last_game: dict | None = None,
     recap: dict | None = None,
-) -> str:
-    """The sentence that raised this violation, not the first snippet hit.
+    schedule=None,
+) -> str | None:
+    """The sentence that raised this violation, or None when the target is a tie.
 
-    Run 37133101941 rewrote a correct 29-FD Colts line because D2's
-    '29 first downs' snippet appeared earlier in the edition.
+    A short snippet in two clean sentences must not pick the longest.
     """
     snippet = _quoted_violation(violation)
     sentences = _split_sentences(blob)
@@ -4749,14 +4870,21 @@ def _flagged_sentence(
         return snippet
     if len(hits) == 1:
         return hits[0]
-
-    def _score(part: str) -> tuple[int, int]:
-        fails = 1 if sentence_fails_review(part, last_game, recap) else 0
-        misattr = 1 if _OPP_WAS_BOX.match(part.strip()) else 0
-        return (fails + misattr, len(part))
-
-    hits.sort(key=_score, reverse=True)
-    return hits[0]
+    failing = [
+        part
+        for part in hits
+        if sentence_fails_review(part, last_game, recap, schedule)
+    ]
+    if len(failing) == 1:
+        return failing[0]
+    misattr = [
+        part
+        for part in failing
+        if _opponent_was_box_match(part, last_game, recap, schedule)
+    ]
+    if len(misattr) == 1:
+        return misattr[0]
+    return None
 
 
 def _sentence_stat_kind(sentence: str, claimed: int) -> str:
@@ -4850,18 +4978,28 @@ def apply_fact_corrections(
     violations: list[str],
     recap: dict | None = None,
     last_game: dict | None = None,
+    schedule=None,
 ) -> tuple[dict, list[str]]:
     """Rewrite only the flagged sentence. Log each swap.
 
     A snippet like '29 first downs' must not retarget an earlier correct
     line. Multi-stat box lines are reworded as a whole or left for HOLD.
+    An ambiguous snippet that hits two clean sentences is skipped + held.
     """
     payload = copy.deepcopy(narrative or {})
     logs: list[str] = []
     blob = edition_text(payload)
     for item in violations or []:
-        sentence = _flagged_sentence(blob, item, last_game, recap)
-        rewritten = _reword_misattributed_box(sentence, recap, last_game)
+        sentence = _flagged_sentence(
+            blob, item, last_game, recap, schedule
+        )
+        if sentence is None:
+            snippet = _quoted_violation(item)
+            logs.append(f"ambiguous snippet {snippet!r}; holding")
+            continue
+        rewritten = _reword_misattributed_box(
+            sentence, recap, last_game, schedule
+        )
         if not rewritten:
             rewritten = _correct_sentence(sentence, item, recap)
         if not rewritten or rewritten == sentence:

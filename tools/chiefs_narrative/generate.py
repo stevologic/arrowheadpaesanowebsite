@@ -668,6 +668,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             problems,
             recap=check_recap,
             last_game=check_last,
+            schedule=check_schedule,
         )
         for line in logs:
             print(f"  [writer] corrected: {line}")

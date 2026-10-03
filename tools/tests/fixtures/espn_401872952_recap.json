@@ -284,15 +284,17 @@
     "opponent": "Indianapolis Colts",
     "kc": {
       "rushingYards": "152",
-      "netPassingYards": "382",
-      "totalYards": "534",
+      "netPassingYards": "371",
+      "totalYards": "523",
       "firstDowns": "29",
       "possessionTime": "37:00",
       "totalDrives": "11"
     },
     "opp": {
-      "rushingYards": "95",
-      "netPassingYards": "240",
+      "rushingYards": "119",
+      "netPassingYards": "210",
+      "totalYards": "329",
+      "firstDowns": "24",
       "possessionTime": "33:00",
       "totalDrives": "10"
     },
