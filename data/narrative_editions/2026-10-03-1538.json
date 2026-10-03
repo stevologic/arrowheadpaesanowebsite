@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-10-03T15:38:21+00:00",
-  "updatedAt": "2026-10-03T16:05:00+00:00",
+  "updatedAt": "2026-10-03T16:20:00+00:00",
   "generator": "grok:grok-4.6",
   "phase": {
     "type": "regular",
@@ -19,7 +19,7 @@
     "lede": "The Chiefs left Hard Rock Stadium 3-0 with a 24-10 win that was cleaner on the scoreboard than it was on the clock. Patrick Mahomes went 20-of-24 for 246 yards, two touchdowns, and one interception, Rashee Rice caught seven balls for 88 yards, and Kenneth Walker III carried 18 times for 70 yards and the 10-yard score 2:06 into the game. Miami still won the possession fight at 34:21 to 25:39, edged first downs 19-18, and converted 8-of-16 third downs against Kansas City’s 3-of-7. That is the film that actually travels to Las Vegas.",
     "body": [
       "Steve Spagnuolo’s defense did not sack Malik Willis, and it recorded one quarterback hit, but it took the ball twice: L. Sneed forced and recovered a Willis fumble, and Karlaftis intercepted a short throw intended for Ryan Miller. Those takeaways, plus Mahomes’ efficiency, covered a run game that finished at 88 yards on 25 carries and an offense that needed a 34-yard Butker field goal and an 11-yard touchdown in the fourth quarter to put the game away. Miami’s 119 rushing yards and 31 carries were a warning, not a trivia line.",
-      "A week earlier against Indianapolis, Kansas City had posted 29 first downs, 152 rushing yards, 371 net passing yards, and 37:00 of possession in a 33-30 overtime win. Kansas City’s Miami box is a different animal: 18 first downs, 334 total yards, nine drives, and 25:39. Eric Bieniemy’s room cannot treat 20-of-24 as a substitute for early-down juice, not with Maxx Crosby across the line and another 3-0 AFC West team waiting.",
+      "A week earlier against Indianapolis, Kansas City had posted 29 first downs, 523 total yards, 11 drives, and 37:00 of possession in a 33-30 overtime win. Kansas City’s Miami box is a different animal: 18 first downs, 334 total yards, nine drives, and 25:39. Eric Bieniemy’s room cannot treat 20-of-24 as a substitute for early-down juice, not with Maxx Crosby across the line and another 3-0 AFC West team waiting.",
       "The next Sunday is the first true West measuring stick of 2026. Kirk Cousins has the Raiders offense playing above the old script, Tyler Linderbaum has changed the interior, and Las Vegas’ tight ends are the coverage test Spagnuolo has not seen yet. ESPN FPI at 69.6 percent and Chiefs -4.5 on 47.5 is a road-favorite number, not a bye. Sole possession of first place in the division is on the table at Allegiant on Sun Oct 4, 3:25 PM CT."
     ]
   },
@@ -31,7 +31,7 @@
     "lede": "Kansas City led 7-0 on Walker’s 10-yard run 2:06 into the game, answered Miami’s 3-yard touchdown with a 5-yard score for 14-7, then closed a 14-10 game with a 34-yard Butker field goal and an 11-yard touchdown for 24-10. Mahomes was 20-of-24 for 246, Walker had 18 carries for 70 and the opening score, Rice led all receivers at 7-for-88, and Nick Bolton posted 11 tackles while Miami held the ball 34:21.",
     "analysis": [
       {
-        "body": "The opening drive was the version of this offense that still scares people. Mahomes hit Travis Kelce deep middle for 48 yards to the Miami 19, J. Moore reported in as eligible, and Walker went up the middle for the 10-yard touchdown. That is Andy Reid’s identity in two snaps: a chunk over the top, then a downhill finish. The rest of the afternoon was more strained. Kansas City stalled on third down (3-of-7), turned it over on downs at the Miami 12 when H. Nourzad reported eligible and Walker was stuffed for no gain, and Mahomes’ deep-middle ball intended for Rice was intercepted by J. Rodriguez."
+        "body": "The opening drive was the version of this offense that still scares people. Mahomes hit Travis Kelce deep middle for 48 yards to the Miami 19, J. Moore reported in as eligible, and Walker went up the middle for the 10-yard touchdown. Walker scored twice: the 10-yard run on the opening drive and a 5-yard touchdown catch from Mahomes early in the second quarter that made it 14-7. That is Andy Reid’s identity in two snaps: a chunk over the top, then a downhill finish. The rest of the afternoon was more strained. Kansas City stalled on third down (3-of-7), turned it over on downs at the Miami 12 when H. Nourzad reported eligible and Walker was stuffed for no gain, and Mahomes’ deep-middle ball intended for Rice was intercepted by J. Rodriguez."
       },
       {
         "body": "What traveled anyway was the deep-ball file Arrowhead Pride has been tracking. After Kelce’s 48, Mahomes added a 17-yard shot to Tyquan Thornton, a 17-yarder to Xavier Worthy, a 24-yarder to Noah Gray, and a 34-yarder to Rice that set up the 11-yard touchdown and a 24-10 lead. Twenty completions on 24 attempts with a 119.8 rating is not a scramble-drill tape. It is a quarterback who had answers when the run game topped out at 88 team rushing yards."
@@ -378,7 +378,7 @@
     {
       "player": "Josh Simmons (LT)",
       "status": "Out (back)",
-      "note": "Benson starts at left tackle.",
+      "note": "",
       "source": "Chiefs.com / ESPN"
     },
     {
