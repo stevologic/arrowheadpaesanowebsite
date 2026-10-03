@@ -5,7 +5,9 @@ merge gate. Run with:  python -m unittest discover -s tools/tests -v
 """
 from __future__ import annotations
 
+import base64
 import copy
+import hashlib
 import io
 import json
 import os
@@ -108,6 +110,55 @@ def _quoted_py_heredoc_bodies(script: str) -> list[str]:
             bodies.append("".join(chunk))
         i += 1
     return bodies
+
+
+def _ed25519_keypair(tmp: Path) -> tuple[Path, Path]:
+    """Throwaway test keypair. Never committed."""
+    priv = Path(tmp) / "test_ed25519_priv.pem"
+    pub = Path(tmp) / "test_ed25519_pub.pem"
+    subprocess.check_call(
+        ["openssl", "genpkey", "-algorithm", "ED25519", "-out", str(priv)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    subprocess.check_call(
+        ["openssl", "pkey", "-in", str(priv), "-pubout", "-out", str(pub)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return priv, pub
+
+
+def _sign_review_edition(priv: Path, slug: str, edition_bytes: bytes, signoff_dir: Path) -> None:
+    sha = hashlib.sha256(edition_bytes).hexdigest()
+    payload = f'{{"slug":"{slug}","verdict":"PASS","sha":"{sha}"}}'
+    signoff_dir.mkdir(parents=True, exist_ok=True)
+    msg = signoff_dir / f"{slug}.msg"
+    sigbin = signoff_dir / f"{slug}.sigbin"
+    msg.write_bytes(payload.encode("ascii"))
+    subprocess.check_call(
+        [
+            "openssl",
+            "pkeyutl",
+            "-sign",
+            "-inkey",
+            str(priv),
+            "-rawin",
+            "-in",
+            str(msg),
+            "-out",
+            str(sigbin),
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    (signoff_dir / f"{slug}.json").write_bytes(payload.encode("ascii"))
+    (signoff_dir / f"{slug}.sig").write_text(
+        base64.b64encode(sigbin.read_bytes()).decode("ascii"),
+        encoding="ascii",
+    )
+    msg.unlink()
+    sigbin.unlink()
 
 
 def _job_step_script(parsed, job: str, *, name=None, step_id=None) -> str:
@@ -2504,9 +2555,14 @@ class LiveGamePhase(unittest.TestCase):
         self.assertTrue(phase.completed_without_score(lv))
         self.assertTrue(phase.is_live(lv, now=now))
         self.assertTrue(phase.any_live(slate, now=now))
+        self.assertFalse(phase.is_final(lv))
         ph = phase.detect(slate, now=now)
         self.assertNotEqual(ph["mode"], "review")
         self.assertNotIn("Review", ph.get("edition") or "")
+        # G20: detect must use is_final, not the completed flag. A
+        # completed-without-score game is liveGame, never lastGame.
+        self.assertEqual(str((ph.get("liveGame") or {}).get("id")), "401872976")
+        self.assertNotEqual(str((ph.get("lastGame") or {}).get("id")), "401872976")
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             narrative_json = root / "narrative.json"
@@ -2929,6 +2985,112 @@ class FactCheck(unittest.TestCase):
     def test_accepts_official_td_yardage(self):
         narrative = self._review(analysis=["Kelce's 11-yard catch made it 21-7."])
         self.assertEqual(facts.check_review(narrative, self.LAST, self.RECAP), [])
+
+    def _lv5_review(self, lede):
+        return {
+            "lastGameReview": {
+                "opponent": "Las Vegas Raiders",
+                "result": "W",
+                "score": "KC 27–17",
+                "lede": lede,
+                "analysis": ["The Chiefs won the line of scrimmage."],
+                "whatWorked": ["The run game."],
+                "whatDidnt": ["Third down was 3-of-7."],
+            }
+        }
+
+    def test_total_yards_resolve_lv_with_empty_opponent(self):
+        """Production recaps leave opponent empty; still bind Raiders / LV / KC."""
+        from tools.tests import karen_matrices
+
+        recap, last, slate = karen_matrices.ctx("LV5")
+        recap = copy.deepcopy(recap)
+        recap["opponent"] = ""
+        last = dict(last)
+        last["opponent"] = "Las Vegas Raiders"
+
+        def issues(lede):
+            return facts.check_review(
+                self._lv5_review(lede),
+                last,
+                recap,
+                schedule=slate,
+            )
+
+        raiders_275 = issues("The Raiders gained 275 total yards.")
+        self.assertTrue(
+            any("total yards 275" in item and "LV" in item for item in raiders_275),
+            raiders_275,
+        )
+        self.assertFalse(any("for KC" in item for item in raiders_275), raiders_275)
+        self.assertEqual(issues("Las Vegas gained 305 total yards."), [])
+        self.assertEqual(issues("The Raiders finished with 305 total yards."), [])
+        kc_swap = issues("Kansas City gained 305 total yards.")
+        self.assertTrue(
+            any("total yards 305" in item and "KC" in item for item in kc_swap),
+            kc_swap,
+        )
+
+    def test_p2_final_and_in_game_marks_and_td_verbs(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        slate = collect.load_cached_schedule()
+
+        def issues(lede, analysis=None):
+            return facts.check_review(
+                self._review(
+                    lede=lede,
+                    analysis=analysis or ["Kelce scored on an 11-yard catch."],
+                ),
+                last,
+                recap,
+                schedule=slate,
+            )
+
+        self.assertTrue(issues("Kansas City edged Miami 17-10."))
+        self.assertTrue(issues("Kansas City held off Miami 17-10."))
+        self.assertTrue(issues("Kansas City outscored Miami 17-10."))
+        self.assertTrue(issues("Miami fell 17-10."))
+        self.assertEqual(issues("Kansas City edged Miami 24-10."), [])
+        self.assertTrue(issues("A week after the 30-27 win over Indy, Kansas City hosted Miami."))
+        self.assertTrue(issues("Kansas City won the opener 28-10."))
+        self.assertEqual(issues("Kansas City won the opener 31-10."), [])
+        self.assertTrue(issues("Kelce made it 21-7."))
+        self.assertEqual(issues("Kansas City led 17-10 at the half."), [])
+        self.assertTrue(issues("Walker bulled in from the 15."))
+        self.assertTrue(issues("Walker dove in from the 15."))
+        self.assertTrue(issues("Walker scampered in from the 15."))
+        self.assertTrue(issues("Walker scored on a 15-yard run."))
+        self.assertEqual(issues("Walker scored on a 10-yard run."), [])
+
+    def test_walker_carried_line_binds_last_game(self):
+        from tools.tests import karen_matrices
+
+        recap, last, slate = karen_matrices.ctx("LV5")
+        recap = copy.deepcopy(recap)
+        recap["opponent"] = ""
+        wrong = facts.check_review(
+            self._lv5_review("Walker carried 18 times for 70 yards."),
+            last,
+            recap,
+            schedule=slate,
+        )
+        self.assertTrue(
+            any("carries" in item or "rushing" in item for item in wrong),
+            wrong,
+        )
+        mia = _load_fixture("espn_401872952_recap.json")
+        mia_last = dict(self.LAST)
+        ok = facts.check_review(
+            self._review(
+                lede="Walker carried 18 times for 70 yards.",
+                analysis=["Kelce scored on an 11-yard catch."],
+            ),
+            mia_last,
+            mia,
+        )
+        self.assertEqual(ok, [])
 
     def test_ignores_records_and_completions_as_scores(self):
         narrative = self._review(
@@ -5116,10 +5278,14 @@ class FactCheck(unittest.TestCase):
         self.assertNotEqual(mutated["hold_merge_equals"], "true")
 
     def test_automerge_and_pages_refuse_unsigned_reviews(self):
+        """G1–G3 / G6–G8: YAML-parsed wiring. Named mutations in the PR body."""
         root = Path(__file__).resolve().parents[2] / ".github" / "workflows"
         ci = yaml.safe_load((root / "ci.yml").read_text(encoding="utf-8"))
         qa = yaml.safe_load((root / "edition-qa.yml").read_text(encoding="utf-8"))
         pages = yaml.safe_load((root / "pages.yml").read_text(encoding="utf-8"))
+        narrative = yaml.safe_load((root / "narrative.yml").read_text(encoding="utf-8"))
+        # G1: drop the ci automerge gate step.
+        # G2: drop the edition-qa automerge gate step.
         for parsed, job in ((ci, "automerge"), (qa, "automerge")):
             scripts = "\n".join(
                 str(step.get("run") or "")
@@ -5127,8 +5293,10 @@ class FactCheck(unittest.TestCase):
                 or []
                 if isinstance(step, dict)
             )
+            self.assertIn("GATE_BASE", scripts, job)
+            self.assertIn("git worktree add", scripts, job)
             self.assertIn(
-                "python -m tools.chiefs_narrative.review_gate --automerge",
+                'PYTHONPATH="$GATE_BASE" python -m tools.chiefs_narrative.review_gate --automerge',
                 scripts,
                 job,
             )
@@ -5136,6 +5304,13 @@ class FactCheck(unittest.TestCase):
                 scripts.index("review_gate --automerge"),
                 scripts.index("gh pr merge"),
             )
+            # G8: `review_gate --automerge || true`
+            self.assertIsNone(
+                re.search(r"review_gate --automerge[^\n]*\|\|\s*true", scripts),
+                job,
+            )
+            self.assertNotIn("--labels", scripts)
+            self.assertNotIn("qa-pass", scripts)
         pages_scripts = "\n".join(
             str(step.get("run") or "")
             for step in ((pages.get("jobs") or {}).get("build-deploy") or {}).get(
@@ -5147,6 +5322,18 @@ class FactCheck(unittest.TestCase):
         self.assertIn(
             "python -m tools.chiefs_narrative.review_gate --pages", pages_scripts
         )
+        # G7: `review_gate --pages || true`
+        self.assertIsNone(
+            re.search(r"review_gate --pages[^\n]*\|\|\s*true", pages_scripts)
+        )
+        pages_gate = _job_step_script(
+            pages, "build-deploy", name="Skip unsigned Review editions"
+        ) or _job_step_script(pages, "build-deploy", step_id="review")
+        self.assertIn("review_gate --pages", pages_gate)
+        blocked = pages_gate[pages_gate.find("else") :]
+        # G6: the pages blocked branch writes skip=false.
+        self.assertIn('echo "skip=true"', blocked)
+        self.assertNotIn("skip=false", blocked)
         publish = next(
             step
             for step in ((pages.get("jobs") or {}).get("build-deploy") or {}).get(
@@ -5155,7 +5342,29 @@ class FactCheck(unittest.TestCase):
             or []
             if isinstance(step, dict) and step.get("name") == "Publish to gh-pages"
         )
+        # G3: remove the pages Publish `if`.
         self.assertEqual(publish.get("if"), "steps.review.outputs.skip != 'true'")
+        narr_gate = _job_step_script(
+            narrative, "deploy", name="Skip unsigned Review editions"
+        ) or _job_step_script(narrative, "deploy", step_id="review")
+        self.assertIn("review_gate --pages", narr_gate)
+        self.assertIsNone(
+            re.search(r"review_gate --pages[^\n]*\|\|\s*true", narr_gate)
+        )
+        narr_blocked = narr_gate[narr_gate.find("else") :]
+        self.assertIn('echo "skip=true"', narr_blocked)
+        self.assertNotIn("skip=false", narr_blocked)
+        narr_publish = next(
+            step
+            for step in ((narrative.get("jobs") or {}).get("deploy") or {}).get(
+                "steps"
+            )
+            or []
+            if isinstance(step, dict) and step.get("name") == "Publish to gh-pages"
+        )
+        self.assertEqual(
+            narr_publish.get("if"), "steps.review.outputs.skip != 'true'"
+        )
 
     def test_review_gate_blocks_unsigned_review_json(self):
         gate_src = (
@@ -5166,6 +5375,10 @@ class FactCheck(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertNotIn("import facts", gate_src)
         self.assertNotIn("from tools.chiefs_narrative import config, facts", gate_src)
+        self.assertNotIn("qa-pass", gate_src)
+        self.assertNotIn("QA_PASS", gate_src)
+        self.assertNotIn('"pass" in', gate_src)
+        self.assertNotIn("'pass' in", gate_src)
         preview = {
             "slug": "2026-10-03-1538",
             "edition": "2026 Week 4 · Preview",
@@ -5176,86 +5389,174 @@ class FactCheck(unittest.TestCase):
             "edition": "2026 Week 6 · Week 4 Review",
             "phase": {"mode": "review"},
         }
+        mode_only = {
+            "slug": "2026-10-05-0937",
+            "edition": "2026 Week 6 · Preview",
+            "phase": {"mode": "review"},
+        }
+        title_only = {
+            "slug": "2026-10-05-0937",
+            "edition": "2026 Week 6 · Week 4 Review",
+            "phase": {"mode": "preview"},
+        }
         self.assertFalse(review_gate.should_block_review(preview))
         self.assertTrue(review_gate.should_block_review(review))
-        self.assertFalse(
-            review_gate.should_block_review(review, labels=["qa-pass"])
-        )
+        # G18: drop the phase.mode check.
+        self.assertTrue(review_gate.should_block_review(mode_only))
+        self.assertTrue(review_gate.should_block_review(title_only))
+        # G17: any label counts as qa-pass. Labels are gone.
+        self.assertTrue(review_gate.should_block_review(review))
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
+            tmp_path = Path(tmp)
+            priv, pub = _ed25519_keypair(tmp_path)
+            env = {"REVIEW_SIGNOFF_PUBKEY": str(pub)}
+            root = tmp_path / "signed"
+            unsigned = tmp_path / "unsigned"
             slug = "narrative"
             editions_name = slug + "_editions"
             live_name = slug + ".json"
             review_rel = "data/" + editions_name + "/2026-10-05-0937.json"
-            editions = root / "data" / editions_name
-            editions.mkdir(parents=True)
-            (editions / "2026-10-05-0937.json").write_text(
-                json.dumps(review) + "\n", encoding="utf-8"
+            for tree in (root, unsigned):
+                editions = tree / "data" / editions_name
+                editions.mkdir(parents=True)
+            review_bytes = (json.dumps(review) + "\n").encode("utf-8")
+            preview_bytes = (json.dumps(preview) + "\n").encode("utf-8")
+            (root / "data" / editions_name / "2026-10-05-0937.json").write_bytes(
+                review_bytes
             )
-            (root / "data" / live_name).write_text(
-                json.dumps(preview) + "\n", encoding="utf-8"
+            (root / "data" / live_name).write_bytes(preview_bytes)
+            (unsigned / "data" / live_name).write_bytes(review_bytes)
+            (unsigned / "data" / editions_name / "2026-10-05-0937.json").write_bytes(
+                review_bytes
             )
-            self.assertTrue(
-                review_gate.automerge_blocked(
-                    [review_rel],
-                    root=root,
+            with patch.dict(os.environ, env, clear=False):
+                self.assertTrue(
+                    review_gate.automerge_blocked([review_rel], root=root)
                 )
-            )
-            self.assertFalse(
-                review_gate.automerge_blocked(
-                    [review_rel],
-                    labels=["qa-pass"],
-                    root=root,
+                self.assertFalse(
+                    review_gate.automerge_blocked(
+                        ["tools/chiefs_narrative/facts.py"], root=root
+                    )
                 )
-            )
-            self.assertFalse(
-                review_gate.automerge_blocked(
-                    ["tools/chiefs_narrative/facts.py"], root=root
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["tools/chiefs_narrative/review_gate.py"]
+                    )
                 )
-            )
-            self.assertEqual(
-                review_gate.main(
-                    [
-                        "--automerge",
-                        "--root",
-                        str(root),
-                        review_rel,
-                    ]
-                ),
-                1,
-            )
-            self.assertEqual(
-                review_gate.main(
-                    [
-                        "--automerge",
-                        "--labels",
-                        "qa-pass",
-                        "--root",
-                        str(root),
-                        review_rel,
-                    ]
-                ),
-                0,
-            )
-            sign = root / "data" / "review_signoff"
-            sign.mkdir(parents=True)
-            (sign / "2026-10-05-0937.json").write_text(
-                json.dumps({"result": "PASS", "by": "Karen"}) + "\n",
-                encoding="utf-8",
-            )
-            self.assertFalse(review_gate.should_block_review(review, root=root))
-            unsigned = root / "unsigned"
-            unsigned.mkdir()
-            (unsigned / "data").mkdir()
-            (unsigned / "data" / live_name).write_text(
-                json.dumps(review) + "\n", encoding="utf-8"
-            )
-            self.assertTrue(review_gate.pages_blocked(root=unsigned))
-            self.assertFalse(review_gate.pages_blocked(root=root))
-            self.assertEqual(
-                review_gate.main(["--pages", "--root", str(unsigned)]), 2
-            )
-            self.assertEqual(review_gate.main(["--pages", "--root", str(root)]), 0)
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["scripts/review_signoff_pubkey.pem"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["data/review_signoff/2026-10-05-0937.json"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge([".github/workflows/ci.yml"])
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(["CODEOWNERS"])
+                )
+                self.assertTrue(
+                    review_gate.automerge_blocked(
+                        ["tools/chiefs_narrative/review_gate.py"], root=root
+                    )
+                )
+                self.assertEqual(
+                    review_gate.main(
+                        ["--automerge", "--root", str(root), review_rel]
+                    ),
+                    1,
+                )
+                # G14: any sign-off file counting.
+                fake = root / "data" / "review_signoff"
+                fake.mkdir(parents=True)
+                (fake / "2026-10-05-0937.json").write_text(
+                    json.dumps({"result": "PASS", "by": "Karen"}) + "\n",
+                    encoding="utf-8",
+                )
+                self.assertTrue(
+                    review_gate.should_block_review(
+                        review, root=root, edition_file=root / review_rel
+                    )
+                )
+                (fake / "2026-10-05-0937.json").write_bytes(
+                    review_gate.signoff_canonical_bytes(
+                        "2026-10-05-0937",
+                        hashlib.sha256(review_bytes).hexdigest(),
+                    )
+                )
+                (fake / "2026-10-05-0937.sig").write_text(
+                    "not-a-signature\n", encoding="ascii"
+                )
+                self.assertTrue(
+                    review_gate.should_block_review(
+                        review, root=root, edition_file=root / review_rel
+                    )
+                )
+                _sign_review_edition(
+                    priv, "2026-10-05-0937", review_bytes, fake
+                )
+                self.assertFalse(
+                    review_gate.should_block_review(
+                        review, root=root, edition_file=root / review_rel
+                    )
+                )
+                other = review_gate.signoff_canonical_bytes(
+                    "2026-10-03-1538",
+                    hashlib.sha256(preview_bytes).hexdigest(),
+                )
+                (fake / "2026-10-05-0937.json").write_bytes(other)
+                self.assertTrue(
+                    review_gate.should_block_review(
+                        review, root=root, edition_file=root / review_rel
+                    )
+                )
+                _sign_review_edition(
+                    priv, "2026-10-05-0937", review_bytes, fake
+                )
+                # G13: pages_blocked returns False when files changed.
+                self.assertTrue(
+                    review_gate.pages_blocked(["README.md"], root=unsigned)
+                )
+                self.assertTrue(
+                    review_gate.pages_blocked(
+                        ["data/schedule_2026.json"], root=unsigned
+                    )
+                )
+                self.assertTrue(review_gate.pages_blocked(root=unsigned))
+                self.assertFalse(
+                    review_gate.pages_blocked(["README.md"], root=root)
+                )
+                self.assertFalse(review_gate.pages_blocked(root=root))
+                self.assertEqual(
+                    review_gate.main(
+                        ["--pages", "--root", str(unsigned), "README.md"]
+                    ),
+                    2,
+                )
+                self.assertEqual(
+                    review_gate.main(
+                        ["--pages", "--root", str(root), "README.md"]
+                    ),
+                    0,
+                )
+                self.assertEqual(
+                    review_gate.main(
+                        ["--automerge", "--root", str(root), review_rel]
+                    ),
+                    0,
+                )
+                self.assertEqual(
+                    review_gate.main(["--automerge", "--root", str(tmp_path)]),
+                    1,
+                )
+                self.assertEqual(
+                    review_gate.main(["--pages", "--root", str(tmp_path)]),
+                    1,
+                )
 
     def _week3_slate(self):
         return [

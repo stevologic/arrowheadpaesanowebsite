@@ -59,7 +59,9 @@ _GAME_AS_SCORE = re.compile(
 # Scoring-play yardage only when the claim is a TD/FG. An "88-yard run"
 # or "11-yard catch" is not a scoring claim.
 _TD_YARDS = re.compile(
-    r"(?:from the (\d+)\b|(\d+)[-\s]yard(?:s)?\s+(?:TD|touchdown)\b)",
+    r"(?:from the (\d+)\b|"
+    r"(\d+)[-\s]yard(?:s)?\s+(?:TD|touchdown)\b|"
+    r"scored on a (\d+)[-\s]yard(?:s)?\s+run\b)",
     re.IGNORECASE,
 )
 _CLAUSE_BREAK = re.compile(
@@ -290,6 +292,19 @@ _FINAL_SCORE_CLAIMS = (
         re.IGNORECASE,
     ),
     re.compile(
+        r"\b(?:edged|held off|outscored)(?:\s+the)?\s+"
+        r"(?:[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,2})\s+"
+        r"(\d{1,2})\s*[–-]\s*(\d{1,2})\b",
+    ),
+    re.compile(
+        r"\bfell\s+(\d{1,2})\s*[–-]\s*(\d{1,2})\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bwon the opener\s+(\d{1,2})\s*[–-]\s*(\d{1,2})\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
         r"\bwon\s+(\d{1,2})\s*[–-]\s*(\d{1,2})"
         r"(?=\s+(?:in|against)\b|\s*[.]|\s*$)",
         re.IGNORECASE,
@@ -304,9 +319,12 @@ _FINAL_SCORE_CLAIMS = (
         re.IGNORECASE,
     ),
     re.compile(
-        r"\ba\s+(\d{1,2})\s*[–-]\s*(\d{1,2})\s+win\b",
+        r"\b(?:a|the)\s+(\d{1,2})\s*[–-]\s*(\d{1,2})\s+win\b",
         re.IGNORECASE,
     ),
+)
+_IN_GAME_MARKED_SCORES = (
+    re.compile(r"\bmade it\s+(\d{1,2})\s*[–-]\s*(\d{1,2})\b", re.IGNORECASE),
 )
 _IN_GAME_SCORE_WORDS = re.compile(
     r"\b(?:led|lead(?:ing)?|ahead|up|at halftime|tied|"
@@ -319,7 +337,8 @@ _TD_RUN_VERB = re.compile(
     r"\b(?:scored|touchdown|\bTD\b|punched(?:\s+it)?\s+in|"
     r"plunged(?:\s+it)?\s+in|ran it in|went in|walked(?:\s+it)?\s+in|"
     r"took it in|found the end zone|crossed the goal line|"
-    r"capped the drive)\b",
+    r"capped the drive|"
+    r"bulled(?:\s+it)?\s+in|dove(?:\s+in)?|scampered(?:\s+in)?)\b",
     re.IGNORECASE,
 )
 _KICKER_FROM = re.compile(
@@ -365,6 +384,11 @@ _QUARTER_CLOCK = re.compile(
 _PLAYER_RUSH_YARDS = re.compile(
     r"\b([A-Za-z][A-Za-z .’-]+?)\s+(?:ran|rushed)\s+for\s+(\d{2,3})\s+yards\b"
     r"|\b([A-Za-z][A-Za-z .’-]+?)\s+had\s+(\d{2,3})\s+rushing yards\b",
+    re.IGNORECASE,
+)
+_PLAYER_CARRY_LINE = re.compile(
+    r"\b([A-Za-z][A-Za-z .’-]+?)\s+carried\s+(\d{1,2})\s+times"
+    r"\s+for\s+(\d{2,3})\s+yards\b",
     re.IGNORECASE,
 )
 _SCORE_COUNT_WORDS = {
@@ -1045,6 +1069,7 @@ _UNIQUE_SHORT_ALIASES = {
     "tampa": "TB",
     "bucs": "TB",
     "fins": "MIA",
+    "indy": "IND",
 }
 
 
@@ -1104,6 +1129,8 @@ def _add_opponent_aliases(
             _put_alias(aliases, tokens[0], team, protected=hold, mode=mode)
     if team == "LV":
         _put_alias(aliases, "vegas", team, protected=hold, mode=mode)
+        _put_alias(aliases, "raiders", team, protected=hold, mode=mode)
+        _put_alias(aliases, "las vegas", team, protected=hold, mode=mode)
     if team == "TB":
         aliases["bucs"] = team
         aliases["tampa"] = team
@@ -1216,6 +1243,8 @@ def _city_and_nick_labels(name: str, abbr: str = "", short: str = "") -> set[str
         labels.add("bucs")
     if token == "MIA":
         labels.add("fins")
+    if token == "IND":
+        labels.add("indy")
     return labels
 
 
@@ -2339,6 +2368,15 @@ def _named_official_final(
             last_pair == claimed or (last_pair[1], last_pair[0]) == claimed
         ):
             return last_pair
+        others = [
+            row
+            for row in labeled
+            if last_pair
+            and row[1] != last_pair
+            and (row[1][1], row[1][0]) != last_pair
+        ]
+        if others:
+            return max(others, key=lambda row: row[0])[1]
     if labeled:
         return max(labeled, key=lambda row: row[0])[1]
     return last_pair
@@ -2398,7 +2436,8 @@ def _check_scores(
                 if other and (pair == other or (pair[1], pair[0]) == other):
                     seen.add(key)
                     return
-                if other is None:
+                last_pair = _slate_final_pair(last_game)
+                if other is None and official == last_pair:
                     seen.add(key)
                     return
             if not official:
@@ -2449,6 +2488,23 @@ def _check_scores(
     for rx in _FINAL_SCORE_CLAIMS:
         for match in rx.finditer(masked):
             _consider(match, final=True)
+    for rx in _IN_GAME_MARKED_SCORES:
+        for match in rx.finditer(masked):
+            pair = _int_pair(match.group(1), match.group(2))
+            if not pair:
+                continue
+            if 0 in pair and max(pair) <= 16:
+                continue
+            if _pair_allowed(pair, pairs):
+                continue
+            key = (pair[0], pair[1], "in-game")
+            if key in seen:
+                continue
+            seen.add(key)
+            issues.append(
+                f"score {pair[0]}-{pair[1]} is not the official final "
+                f"or an ESPN score-after ({match.group(0)!r})"
+            )
     return issues
 
 
@@ -2496,7 +2552,7 @@ def _check_td_yards(
     issues = []
     seen: set[tuple[str, int]] = set()
     for match in _TD_YARDS.finditer(text):
-        raw = match.group(1) or match.group(2)
+        raw = match.group(1) or match.group(2) or match.group(3)
         try:
             yards = int(raw)
         except (TypeError, ValueError):
@@ -4010,6 +4066,39 @@ def _check_team_yards(
             f"player rushing {yards} disagrees with ESPN {official} for "
             f"{last} ({match.group(0)!r})"
         )
+    player_rushes: dict[str, int] = {}
+    for row in (recap or {}).get("touches") or []:
+        if not isinstance(row, dict):
+            continue
+        last = _player_last(row.get("player") or "")
+        try:
+            rushes = int(row.get("rushes"))
+        except (TypeError, ValueError):
+            continue
+        if last:
+            player_rushes[last] = rushes
+    for match in _PLAYER_CARRY_LINE.finditer(text):
+        last = _player_last(match.group(1) or "")
+        if not last:
+            continue
+        try:
+            carries = int(match.group(2))
+            yards = int(match.group(3))
+        except (TypeError, ValueError):
+            continue
+        official_carries = player_rushes.get(last)
+        official_yards = player_rush.get(last)
+        if official_carries is not None and carries != official_carries:
+            issues.append(
+                f"player carries {carries} disagrees with ESPN {official_carries} "
+                f"for {last} ({match.group(0)!r})"
+            )
+            continue
+        if official_yards is not None and yards != official_yards:
+            issues.append(
+                f"player rushing {yards} disagrees with ESPN {official_yards} "
+                f"for {last} ({match.group(0)!r})"
+            )
     return issues
 
 
@@ -4813,7 +4902,7 @@ def _check_box_clocks(
     last_total = official_box_yards_by_team(recap, "total", "last")
     prior_total_map = official_box_yards_by_team(recap, "total", "prior")
     older_total_map = official_box_yards_by_team(recap, "total", "older")
-    aliases = _team_aliases(last_game, recap)
+    aliases = _team_aliases(last_game, recap, schedule)
     for match in _TOTAL_YARDS_CLAIM.finditer(text):
         try:
             yards = int(match.group(1))
@@ -4824,18 +4913,19 @@ def _check_box_clocks(
         )
         if scope == "other":
             continue
-        sentence = _sentence_at(text, match.start())
+        start, end = _sentence_span(text, match.start())
+        nl = text.rfind("\n", start, match.start())
+        if nl >= 0:
+            start = nl + 1
+        window = text[start:end] or _line_at(text, match.start())
         if re.search(
             r"\b(?:first half|second half|opening drive|third drive|"
             r"in the\s+(?:first|second|third|fourth)\s+quarter)\b",
-            sentence,
+            window,
             re.I,
         ):
             continue
-        team = (
-            _explicit_box_subject(_box_clause_at(text, match.start()), aliases)
-            or "KC"
-        )
+        team = _named_total_yards_team(window, aliases) or "KC"
         if scope == "prior":
             official = prior_total_map.get(team)
             label = f"prior {team}"
@@ -4858,15 +4948,12 @@ def _check_box_clocks(
             for abbr, value in (opp_map or {}).items()
             if abbr != "KC" and value == yards
         ]
+        skip_names = _total_yards_opponent_names(
+            recap, last_game, aliases, opp_hits
+        )
         if opp_hits and any(
-            re.search(rf"\b{re.escape(abbr.lower())}\b", sentence, re.I)
-            or re.search(
-                rf"\b{re.escape((recap or {}).get('opponent') or '')}\b",
-                sentence,
-                re.I,
-            )
-            or re.search(r"\b(?:seattle|denver|broncos|seahawks)\b", sentence, re.I)
-            for abbr in opp_hits
+            re.search(_alias_pattern(name), window, re.I)
+            for name in skip_names
         ):
             continue
         issues.append(
@@ -6833,6 +6920,68 @@ def _bound_possession_in_clause(
             return match.group(group)
 
     return _bound_possession_team(clip, _ClipMatch(), aliases)
+
+
+def _named_total_yards_team(sentence: str, aliases: dict[str, str]) -> str:
+    """Resolve Raiders / Las Vegas / LV / Kansas City on a total-yards line.
+
+    ``_explicit_box_subject`` only sees 'had' / 'finished with' first-down
+    leads, so 'The Raiders gained 275 total yards' used to default to KC.
+    Kansas City's Miami/Colts box is still KC, not the named opponent.
+    """
+    if _kc_owned_box(sentence):
+        return "KC"
+    explicit = _explicit_box_subject(sentence, aliases)
+    if explicit:
+        return explicit
+    cleaned = _LOCATION_TEAM.sub(" ", sentence or "")
+    lead = re.match(
+        r"^\s*((?:the\s+)?[A-Za-z][A-Za-z .''’-]*?)\s+"
+        r"(?:out-?gained|gained|finished with|put up|totaled|"
+        r"amassed|posted)\b",
+        cleaned,
+        re.I,
+    )
+    if lead:
+        named = _alias_team(lead.group(1), aliases)
+        if named:
+            return named
+    return _last_name_in(cleaned, aliases)
+
+
+def _total_yards_opponent_names(
+    recap: dict | None,
+    last_game: dict | None,
+    aliases: dict[str, str],
+    opp_hits: list[str],
+) -> list[str]:
+    """Non-empty opponent tokens. An empty recap['opponent'] must not become \\b\\b."""
+    names: list[str] = []
+    seen: set[str] = set()
+
+    def _add(raw: str) -> None:
+        token = " ".join((raw or "").lower().split())
+        if not token or token in seen:
+            return
+        seen.add(token)
+        names.append(token)
+
+    for raw in (
+        (recap or {}).get("opponent"),
+        (recap or {}).get("oppAbbr"),
+        (last_game or {}).get("opponent"),
+        (last_game or {}).get("opponentAbbr"),
+        (last_game or {}).get("opponentShort"),
+    ):
+        _add(str(raw or ""))
+    for alias, team in aliases.items():
+        if team in opp_hits:
+            _add(alias)
+    _add("seattle")
+    _add("denver")
+    _add("broncos")
+    _add("seahawks")
+    return names
 
 
 def _explicit_box_subject(sentence: str, aliases: dict[str, str]) -> str:
