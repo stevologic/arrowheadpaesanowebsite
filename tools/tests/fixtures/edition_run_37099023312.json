@@ -1,0 +1,19 @@
+{
+  "_note": "Daily full run 37099023312 on e43739c6. --check-edition failed after generate reported clean. The penalty list is real PBP (Williams / Sneed holding / Thomas / Rice / Tr. Smith). 'two touches' next to Walker was Kelce/Worthy/Thornton game totals (2), not Walker's 20.",
+  "accept": [
+    "Miami wiped its own plays with holding, an ineligible downfield, and illegal contact; Kansas City took illegal use of hands on N. Williams, defensive holding on L. Sneed, defensive offside on R. Thomas, offensive holding on Rice, illegal use of hands on Tr. Smith.",
+    "Walker’s 20 touches still left Kelce at two touches.",
+    "Walker had two touches in the first quarter.",
+    "The illegal-use flag at Q4 0:47 was on Karlaftis, not Sneed, and it wiped a Roland-Wallace interception, not a Miami one."
+  ],
+  "reject": [
+    "Kenneth Walker III handled two touches.",
+    "Sneed’s path is the A-gap or the slot seam — do not clip the tackle and pick up the illegal-use flag that wiped a late Miami interception look.",
+    "Kansas City finished with 18 team rushing yards.",
+    "Mahomes was not a 40 dropbacks scramble.",
+    "There were four sacks.",
+    "Kansas City had 70 rushing yards.",
+    "Walker's 10-yard touchdown came with H. Nourzad eligible.",
+    "Kansas City finished with 34:21 of possession."
+  ]
+}

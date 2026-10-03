@@ -2261,14 +2261,21 @@ def _match_count(match) -> int | None:
 
 
 def _is_initial_dot(text: str, pos: int) -> bool:
-    """True for the period in 'H. Nourzad' / 'J. Moore', not a sentence end."""
+    """True for the period in 'H. Nourzad' / 'Tr. Smith', not a sentence end."""
     if pos <= 0 or pos >= len(text) or text[pos] != ".":
         return False
-    if not text[pos - 1].isupper():
-        return False
-    if pos >= 2 and text[pos - 2].isalpha():
-        return False
-    return True
+    if text[pos - 1].isupper() and (pos < 2 or not text[pos - 2].isalpha()):
+        return True
+    # NFL two-letter initials: Tr.Smith / Tr. Smith. "later." stays a stop.
+    if (
+        pos >= 2
+        and text[pos - 1].islower()
+        and text[pos - 2].isupper()
+        and (pos < 3 or not text[pos - 3].isalpha())
+    ):
+        nxt = text[pos + 1] if pos + 1 < len(text) else ""
+        return nxt == "" or nxt.isspace() or nxt.isupper()
+    return False
 
 
 def _sentence_span(text: str, index: int) -> tuple[int, int]:
@@ -2996,6 +3003,8 @@ def _bound_touch_row(text: str, claim_at: int, rows: list[dict]) -> dict | None:
     Walker's 20 touches as Johnson's 6 or Willis's 9.
     Prefer the rightmost ESPN last name before the claim. If none, take
     a name in the same clause after it ("20 touches for Walker").
+    A closer non-usage name (Kelce's two touches next to Walker's 20)
+    is not Walker's game total — do not skip over it to the fixture back.
     """
     aliases: dict[str, str] = {}
     by_last: dict[str, dict] = {}
@@ -3007,9 +3016,18 @@ def _bound_touch_row(text: str, claim_at: int, rows: list[dict]) -> dict | None:
     if not aliases:
         return rows[0] if len(rows) == 1 else None
     start, end = _stat_clause_span(text, claim_at)
-    last = _last_name_in(text[start:claim_at], aliases)
-    if not last:
-        last = _last_name_in(text[claim_at:end], aliases)
+    before = text[start:claim_at]
+    after = text[claim_at:end]
+    usage_pos, last = _last_name_pos(before, aliases)
+    other_pos, _ = _rightmost_other_person(before, aliases)
+    if other_pos > usage_pos:
+        return None
+    if last:
+        return by_last.get(last)
+    after_pos, last = _last_name_pos(after, aliases)
+    first_other, _ = _first_other_person(after, aliases)
+    if last and first_other >= 0 and (after_pos < 0 or first_other < after_pos):
+        return None
     if last:
         return by_last.get(last)
     # A named person who is not in the usage table is not the lone listed back.
@@ -3022,33 +3040,55 @@ def _bound_touch_row(text: str, claim_at: int, rows: list[dict]) -> dict | None:
     return None
 
 
-def _clause_names_other_person(clause: str, aliases: dict[str, str]) -> bool:
-    """True when the clause names someone who is not a usage last name."""
-    skip = _KC_SCOPE | {
-        "miami",
-        "dolphins",
-        "las",
-        "vegas",
-        "raiders",
-        "indianapolis",
-        "colts",
-        "denver",
-        "broncos",
-        "sunday",
-        "monday",
-        "week",
-        "espn",
-        "arrowhead",
-        "hard",
-        "rock",
-        "stadium",
-    }
+_OTHER_PERSON_SKIP = _KC_SCOPE | {
+    "miami",
+    "dolphins",
+    "las",
+    "vegas",
+    "raiders",
+    "indianapolis",
+    "colts",
+    "denver",
+    "broncos",
+    "sunday",
+    "monday",
+    "week",
+    "espn",
+    "arrowhead",
+    "hard",
+    "rock",
+    "stadium",
+}
+
+
+def _other_person_hits(clause: str, aliases: dict[str, str]):
+    """Yield (start, last) for proper names that are not usage last names."""
     for hit in re.finditer(r"\b([A-Z][a-z]{2,})\b", clause or ""):
         token = hit.group(1).lower()
-        if token in aliases or token in skip:
+        if token in aliases or token in _OTHER_PERSON_SKIP:
             continue
-        return True
-    return False
+        yield hit.start(), token
+
+
+def _rightmost_other_person(clause: str, aliases: dict[str, str]) -> tuple[int, str]:
+    best_pos = -1
+    best = ""
+    for pos, token in _other_person_hits(clause, aliases):
+        if pos >= best_pos:
+            best_pos = pos
+            best = token
+    return best_pos, best
+
+
+def _first_other_person(clause: str, aliases: dict[str, str]) -> tuple[int, str]:
+    for pos, token in _other_person_hits(clause, aliases):
+        return pos, token
+    return -1, ""
+
+
+def _clause_names_other_person(clause: str, aliases: dict[str, str]) -> bool:
+    """True when the clause names someone who is not a usage last name."""
+    return _first_other_person(clause, aliases)[0] >= 0
 
 
 def _touch_claim_is_windowed(text: str, match: re.Match) -> bool:
@@ -3085,7 +3125,7 @@ def _check_touch_counts(text: str, recap: dict | None) -> list[str]:
         if claimed != official:
             issues.append(
                 f"touches {claimed} disagrees with ESPN {official} for "
-                f"{label} ({match.group(0)!r})"
+                f"{label} ({_claim_quote(text, match)!r})"
             )
     return issues
 
@@ -3165,6 +3205,34 @@ def _check_attempt_counts(
     return issues
 
 
+# A comma starts the next flag only when the next item is a penalty type.
+# "Karlaftis, not Sneed" stays one clause.
+_PENALTY_LIST_BREAK = re.compile(
+    r"[,;]\s*(?=(?:and\s+)?(?:"
+    r"defensive|offensive|illegal|holding|offside|ineligible|"
+    r"roughing|unnecessary|face\s+mask|neutral\s+zone|"
+    r"pass\s+interference|illegal\s+contact|illegal\s+block"
+    r"))",
+    re.IGNORECASE,
+)
+
+
+def _penalty_item_span(text: str, index: int) -> tuple[int, int]:
+    """List-item span so 'holding on Sneed' does not own a nearby illegal-use."""
+    sent_start, sent_end = _sentence_span(text, index)
+    local = text[sent_start:sent_end]
+    rel = index - sent_start
+    item_start = 0
+    item_end = len(local)
+    for hit in _PENALTY_LIST_BREAK.finditer(local):
+        if hit.end() <= rel:
+            item_start = hit.end()
+        elif hit.start() >= rel:
+            item_end = hit.start()
+            break
+    return sent_start + item_start, sent_start + item_end
+
+
 def _check_penalty_attribution(text: str, recap: dict | None) -> list[str]:
     penalties = [
         row
@@ -3175,8 +3243,9 @@ def _check_penalty_attribution(text: str, recap: dict | None) -> list[str]:
         return []
     issues = []
     for match in _ILLEGAL_USE.finditer(text):
+        item_start, item_end = _penalty_item_span(text, match.start())
+        low = text[item_start:item_end].lower()
         sentence = _sentence_at(text, match.start())
-        low = sentence.lower()
         official = [
             row
             for row in penalties
