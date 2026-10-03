@@ -5359,9 +5359,10 @@ class FactCheck(unittest.TestCase):
     def test_run_37099023312_penalty_list_and_two_touches(self):
         """Run 37099023312: list binding, Walker-only FP, correct-in-place.
 
-        Tonight's two gate flags were false positives. Real Walker
-        game-total 'two touches' and a Sneed illegal-use are rewritten
-        to the ESPN value; leftover that cannot be swapped is dropped.
+        Tonight's two gate flags were false positives. Walker
+        game-total 'two touches' is held, not rewritten. A Sneed
+        illegal-use stays on the penalty list; leftover that cannot
+        be swapped is dropped.
         """
         catalog = _load_fixture("edition_run_37099023312.json")
         recap = _load_fixture("espn_401872952_recap.json")
@@ -5438,14 +5439,17 @@ class FactCheck(unittest.TestCase):
             gate_issues,
         )
         corrected, logs = facts.apply_fact_corrections(narrative, gate_issues)
-        self.assertTrue(any("twenty touches" in line for line in logs), logs)
+        self.assertFalse(any("twenty touches" in line for line in logs), logs)
         blob = facts.edition_text(corrected)
-        self.assertIn("Kenneth Walker III handled twenty touches", blob)
-        self.assertNotIn("Kenneth Walker III handled two touches", blob)
+        self.assertIn("Kenneth Walker III handled two touches", blob)
+        self.assertNotIn("Kenneth Walker III handled twenty touches", blob)
         self.assertIn("defensive holding on L. Sneed", blob)
         self.assertIn("Kelce at two touches", blob)
         leftover = facts.check_review(corrected, gate_last, gate_recap)
-        self.assertEqual(leftover, [], leftover)
+        self.assertTrue(
+            any("touches 2" in item and "Walker" in item for item in leftover),
+            leftover,
+        )
 
         sneed_flag = "Sneed drew the illegal-use flag at Q4 0:47."
         sneed_nar = self._review(lede=sneed_flag)
