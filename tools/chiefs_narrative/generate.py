@@ -623,47 +623,115 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             narrative, last, recap, schedule=schedule, copy_gates=True
         )
     dropped: list[str] = []
+
+    def _salvage(
+        payload,
+        problems,
+        check_last,
+        check_recap,
+        *,
+        check_schedule=None,
+        check_copy_gates=False,
+    ):
+        repaired = facts.repair_offending_copy(
+            payload, problems, check_last, check_recap
+        )
+        gone = facts.dropped_sentences(payload, repaired)
+        for sentence in gone:
+            print(f"  [writer] dropped sentence: {sentence}")
+        leftover = facts.check_review(
+            repaired,
+            check_last,
+            check_recap,
+            schedule=check_schedule,
+            copy_gates=check_copy_gates,
+        )
+        return repaired, leftover, gone
+
+    def _salvage_until_clean(
+        payload,
+        problems,
+        check_last,
+        check_recap,
+        *,
+        check_schedule=None,
+        check_copy_gates=False,
+        before=None,
+    ):
+        repaired, leftover, gone = _salvage(
+            payload,
+            problems,
+            check_last,
+            check_recap,
+            check_schedule=check_schedule,
+            check_copy_gates=check_copy_gates,
+        )
+        gone_all = list(gone)
+        # A snippet drop can expose a newly bound leftover (run 36741379345
+        # gave Miami's 34:21 to KC) or an orphan opener (run 36751657899).
+        passes = 0
+        while leftover and passes < 6:
+            passes += 1
+            repaired, leftover, gone = _salvage(
+                repaired,
+                leftover,
+                check_last,
+                check_recap,
+                check_schedule=check_schedule,
+                check_copy_gates=check_copy_gates,
+            )
+            gone_all.extend(gone)
+            if not gone:
+                break
+        start = before if before is not None else payload
+        orphans = facts.check_repair_orphans(
+            repaired, gone_all, before=start
+        )
+        blockers = facts.repair_publish_blockers(
+            leftover, repaired, orphans, before=start
+        )
+        if blockers:
+            raise FactCheckError(blockers[0])
+        return repaired, gone_all
+
     if violations:
         print(
             "  [writer] fact-check still failing after retries; "
             "dropping offending sentences and re-checking the full edition"
         )
-
-        def _drop_and_log(payload, problems):
-            repaired = facts.repair_offending_copy(
-                payload, problems, last, recap
-            )
-            gone = facts.dropped_sentences(payload, repaired)
-            for sentence in gone:
-                print(f"  [writer] dropped sentence: {sentence}")
-            leftover = facts.check_review(
-                repaired, last, recap, schedule=schedule, copy_gates=True
-            )
-            return repaired, leftover, gone
-
-        repaired, leftover, gone = _drop_and_log(narrative, violations)
+        narrative, gone = _salvage_until_clean(
+            narrative,
+            violations,
+            last,
+            recap,
+            check_schedule=schedule,
+            check_copy_gates=True,
+        )
         dropped.extend(gone)
-        # A snippet drop can expose a newly bound leftover (run 36741379345
-        # gave Miami's 34:21 to KC) or an orphan opener (run 36751657899).
-        # Keep salvaging while a pass still removes copy.
-        passes = 0
-        while leftover and passes < 6:
-            passes += 1
-            repaired, leftover, gone = _drop_and_log(repaired, leftover)
-            dropped.extend(gone)
-            if not gone:
-                break
-        orphans = facts.check_repair_orphans(
-            repaired, dropped, before=narrative
-        )
-        blockers = facts.repair_publish_blockers(
-            leftover, repaired, orphans, before=narrative
-        )
-        if blockers:
-            raise FactCheckError(blockers[0])
-        narrative = repaired
         narrative["updatedAt"] = config.iso_now()
         print("  [writer] fact-check: dropped sentences logged; edition is clean")
+
+    # --check-edition uses the checkout fixture recap, not the live ESPN
+    # payload. Run 37099023312 wrote a live-clean edition that the gate
+    # still rejected. Drop whatever that published-edition check would flag.
+    gate_last = _last_game_from_edition(narrative)
+    gate_recap = _recap_for_edition(narrative)
+    gate_issues = facts.check_review(narrative, gate_last, gate_recap)
+    if gate_issues:
+        print(
+            "  [writer] published-edition gate still failing; "
+            "dropping offending sentences so generate matches --check-edition"
+        )
+        narrative, gone = _salvage_until_clean(
+            narrative,
+            gate_issues,
+            gate_last,
+            gate_recap,
+            before=narrative,
+        )
+        dropped.extend(gone)
+        narrative["updatedAt"] = config.iso_now()
+        print("  [writer] published-edition gate: dropped sentences logged")
 
     # 6. Render diagrams only after uniqueness and fact-check have passed.
     _render_diagrams(narrative)

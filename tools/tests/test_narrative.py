@@ -5046,6 +5046,104 @@ class FactCheck(unittest.TestCase):
         # heading must not.
         self.assertNotIn("Where 3-0 actually stands", headings)
 
+    def test_run_37099023312_penalty_list_and_two_touches(self):
+        """Run 37099023312: list binding and Walker-only 'two touches'.
+
+        Generate was clean on the live ESPN recap. --check-edition uses
+        the Walker-only / Karlaftis-only fixture and flagged a correct
+        penalty list plus Kelce/Worthy two-touch counts. Real Walker
+        game-total 'two touches' and a Sneed illegal-use still drop.
+        """
+        catalog = _load_fixture("edition_run_37099023312.json")
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        last["id"] = "401872952"
+        for sentence in catalog["accept"]:
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertEqual(issues, [], f"should accept {sentence!r}: {issues}")
+        reject_needles = (
+            ("touches 2", "Walker"),
+            ("illegal-use", "sneed"),
+            ("team rushing 18", "18"),
+            ("pass attempts", "40"),
+            ("sacks 4", "four sacks"),
+            ("team rushing 70", "70 rushing yards"),
+            ("eligible", "Nourzad"),
+            ("possession", "34:21"),
+        )
+        for sentence, (needle, token) in zip(catalog["reject"], reject_needles):
+            issues = facts.check_review(self._review(lede=sentence), last, recap)
+            self.assertTrue(
+                any(needle in item and token in item for item in issues),
+                f"should reject {sentence!r}: {issues}",
+            )
+
+        list_sentence = catalog["accept"][0]
+        logged_list = (
+            "Miami wiped its own plays with holding, an ineligible downfield, "
+            "and illegal contact; Kansas City took illegal use of hands on "
+            "N. Williams, defensive holding on L. Sneed, defensive offside "
+            "on R. Thomas, offensive holding on Rice, illegal use of hands "
+            "on Tr"
+        )
+        self.assertEqual(
+            facts.check_review(self._review(lede=logged_list), last, recap),
+            [],
+        )
+        two_next_to_walker = catalog["accept"][1]
+        self.assertEqual(facts._check_touch_counts(two_next_to_walker, recap), [])
+        walker_two = catalog["reject"][0]
+        walker_hits = facts._check_touch_counts(walker_two, recap)
+        self.assertTrue(
+            any("touches 2" in item and "Walker" in item for item in walker_hits),
+            walker_hits,
+        )
+
+        narrative = {
+            "headline": "Keep this title",
+            "lastGameReview": {
+                "opponent": "Miami Dolphins",
+                "result": "W",
+                "score": "KC 24–10",
+                "lede": (
+                    "Kansas City finished 24–10 against Miami. "
+                    + list_sentence
+                    + " "
+                    + walker_two
+                    + " "
+                    + two_next_to_walker
+                ),
+            },
+        }
+        gate_last = generate._last_game_from_edition(narrative)
+        gate_recap = generate._recap_for_edition(narrative)
+        self.assertTrue(gate_recap.get("touches") or gate_recap.get("penalties"))
+        gate_issues = facts.check_review(narrative, gate_last, gate_recap)
+        self.assertTrue(
+            any("touches 2" in item and "Walker" in item for item in gate_issues),
+            gate_issues,
+        )
+        self.assertFalse(
+            any("illegal-use" in item for item in gate_issues),
+            gate_issues,
+        )
+        repaired = facts.repair_offending_copy(
+            narrative, gate_issues, gate_last, gate_recap
+        )
+        blob = facts.edition_text(repaired)
+        self.assertNotIn("Kenneth Walker III handled two touches", blob)
+        self.assertIn("defensive holding on L. Sneed", blob)
+        self.assertIn("Kelce at two touches", blob)
+        leftover = facts.check_review(repaired, gate_last, gate_recap)
+        self.assertEqual(leftover, [], leftover)
+        dropped = facts.dropped_sentences(narrative, repaired)
+        self.assertTrue(
+            any("Kenneth Walker III handled two touches" in item for item in dropped),
+            dropped,
+        )
+        self.assertLessEqual(len(dropped), facts.HOLD_REPAIR_DROPS)
+
     def test_salvage_cleans_every_section_and_empty_cards(self):
         recap = _load_fixture("espn_401872952_recap.json")
         last = dict(self.LAST)
