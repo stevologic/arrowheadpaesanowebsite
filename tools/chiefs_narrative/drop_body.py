@@ -11,18 +11,37 @@ from tools.chiefs_narrative import config
 
 
 def drop_body(repair: dict | None) -> str:
-    """Markdown block listing salvage drops, or empty when there are none."""
+    """Markdown block listing salvage corrections and drops."""
     rows = [str(row) for row in ((repair or {}).get("droppedSentences") or []) if row]
-    if not rows:
+    fixes = [
+        str(row) for row in ((repair or {}).get("correctedSentences") or []) if row
+    ]
+    if not rows and not fixes:
         return ""
     held = bool((repair or {}).get("holdAutomerge"))
-    reason = (
-        "Fact-check salvage removed these lines. Automerge is held."
-        if held
-        else "Fact-check salvage removed these lines."
-    )
-    lines = ["## Dropped sentences", "", reason, ""]
-    lines.extend(f"- {row}" for row in rows)
+    hold_note = " Automerge is held." if held else ""
+    lines: list[str] = []
+    if fixes:
+        lines.extend(
+            [
+                "## Corrected sentences",
+                "",
+                "Fact-check salvage rewrote these lines." + hold_note,
+                "",
+            ]
+        )
+        lines.extend(f"- {row}" for row in fixes)
+        lines.append("")
+    if rows:
+        lines.extend(
+            [
+                "## Dropped sentences",
+                "",
+                "Fact-check salvage removed these lines." + hold_note,
+                "",
+            ]
+        )
+        lines.extend(f"- {row}" for row in rows)
     return "\n".join(lines).rstrip() + "\n"
 
 

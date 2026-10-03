@@ -2909,7 +2909,7 @@ def _check_box_clocks(
             continue
         issues.append(
             f"first downs {claimed} disagrees with ESPN {official} for "
-            f"{label} ({match.group(0)!r})"
+            f"{label} ({_claim_quote(text, match)!r})"
         )
 
     kc_total = _box_int(kc, "totalYards")
@@ -4655,6 +4655,110 @@ def _quoted_violation(item: str) -> str:
     return max(snippets, key=len).replace("\\n", "\n")
 
 
+_OPP_WAS_BOX = re.compile(
+    r"^(?P<team>Indianapolis|Colts|Miami|Dolphins|Las Vegas|Raiders)"
+    r"\s+was\s+(?P<rest>.+)$",
+    re.IGNORECASE,
+)
+_BOX_KIND_PATTERNS = (
+    re.compile(r"\bfirst downs\b", re.I),
+    re.compile(r"\brush(?:ing)?(?:\s+yards)?\b", re.I),
+    re.compile(r"\b(?:net\s+)?pass(?:ing)?(?:\s+yards)?\b", re.I),
+    re.compile(r"\btotal yards\b", re.I),
+    re.compile(r"\b\d{1,2}:\d{2}\b(?!\s*(?:AM|PM))", re.I),
+)
+
+
+def _is_multi_stat_box(sentence: str) -> bool:
+    """True when one line stacks two or more box-score stats."""
+    return sum(1 for pat in _BOX_KIND_PATTERNS if pat.search(sentence or "")) >= 2
+
+
+def _reword_misattributed_box(
+    sentence: str,
+    recap: dict | None,
+    last_game: dict | None = None,
+) -> str | None:
+    """KC's own box written as 'Indianapolis/Miami was …' → attribute to KC."""
+    match = _OPP_WAS_BOX.match((sentence or "").strip())
+    if not match:
+        return None
+    aliases = _team_aliases(last_game, recap)
+    named = match.group("team")
+    team = _alias_team(named, aliases)
+    if not team:
+        fallback = {
+            "indianapolis": "IND",
+            "colts": "IND",
+            "miami": "MIA",
+            "dolphins": "MIA",
+            "raiders": "LV",
+        }
+        team = fallback.get(named.lower(), "")
+    if not team:
+        return None
+    fd_hit = re.search(r"\b(\d{1,2})\s+first downs\b", sentence, re.I)
+    if not fd_hit:
+        return None
+    claimed = int(fd_hit.group(1))
+    prior = (recap or {}).get("prior") or {}
+    prior_abbr = (prior.get("oppAbbr") or "").strip().upper()
+    last_abbr = ((recap or {}).get("oppAbbr") or "").strip().upper()
+    prior_kc_fd = _box_int(prior.get("kc"), "firstDowns")
+    last_kc_fd = _box_int((recap or {}).get("kc"), "firstDowns")
+    prior_opp_fd = _box_int(prior.get("opp"), "firstDowns")
+    last_opp_fd = _box_int((recap or {}).get("opp"), "firstDowns")
+    display = match.group("team")
+    rest = match.group("rest").strip().rstrip(".")
+    if prior_abbr and team == prior_abbr:
+        if claimed != prior_kc_fd or claimed == prior_opp_fd:
+            return None
+        return f"Against {display}, Kansas City had {rest}."
+    if last_abbr and team == last_abbr:
+        if claimed != last_kc_fd or claimed == last_opp_fd:
+            return None
+        return f"Against {display}, Kansas City had {rest}."
+    return None
+
+
+def _flagged_sentence(
+    blob: str,
+    violation: str,
+    last_game: dict | None = None,
+    recap: dict | None = None,
+) -> str:
+    """The sentence that raised this violation, not the first snippet hit.
+
+    Run 37133101941 rewrote a correct 29-FD Colts line because D2's
+    '29 first downs' snippet appeared earlier in the edition.
+    """
+    snippet = _quoted_violation(violation)
+    sentences = _split_sentences(blob)
+    if not sentences:
+        return snippet.split("\n")[-1].strip() if snippet else ""
+    if snippet and snippet not in sentences and "\n" in snippet:
+        snippet = snippet.split("\n")[-1].strip()
+    if snippet:
+        exact = [part for part in sentences if part == snippet]
+        if len(exact) == 1:
+            return exact[0]
+        hits = [part for part in sentences if snippet in part]
+    else:
+        hits = []
+    if not hits:
+        return snippet
+    if len(hits) == 1:
+        return hits[0]
+
+    def _score(part: str) -> tuple[int, int]:
+        fails = 1 if sentence_fails_review(part, last_game, recap) else 0
+        misattr = 1 if _OPP_WAS_BOX.match(part.strip()) else 0
+        return (fails + misattr, len(part))
+
+    hits.sort(key=_score, reverse=True)
+    return hits[0]
+
+
 def _sentence_stat_kind(sentence: str, claimed: int) -> str:
     """Which stat the claimed number is actually naming in this sentence."""
     token = re.escape(str(claimed))
@@ -4717,6 +4821,8 @@ def _correct_sentence(
             rf"\b{claimed}-drop\b", sentence or "", re.I
         ) and "dropback" not in (sentence or "").lower():
             return None
+        if _is_multi_stat_box(sentence):
+            return None
         return _swap_count_in_sentence(sentence, claimed, official)
     name = _ILLEGAL_USE_NOT_SNEED.search(violation or "")
     if name:
@@ -4726,7 +4832,7 @@ def _correct_sentence(
 
 def _replace_sentence_value(value, old: str, new: str):
     if isinstance(value, str):
-        if old and old in value:
+        if old and old in _split_sentences(value):
             return value.replace(old, new, 1)
         return value
     if isinstance(value, list):
@@ -4743,30 +4849,21 @@ def apply_fact_corrections(
     narrative: dict | None,
     violations: list[str],
     recap: dict | None = None,
+    last_game: dict | None = None,
 ) -> tuple[dict, list[str]]:
-    """Rewrite number/name mismatches to the ESPN value. Log each swap.
+    """Rewrite only the flagged sentence. Log each swap.
 
-    Sentences that cannot be rewritten cleanly are left for the drop pass.
+    A snippet like '29 first downs' must not retarget an earlier correct
+    line. Multi-stat box lines are reworded as a whole or left for HOLD.
     """
     payload = copy.deepcopy(narrative or {})
     logs: list[str] = []
     blob = edition_text(payload)
     for item in violations or []:
-        snippet = _quoted_violation(item)
-        tails = [snippet] if snippet else []
-        if snippet and "\n" in snippet:
-            tails.append(snippet.split("\n")[-1].strip())
-        sentence = ""
-        for needle in tails:
-            for part in _split_sentences(blob):
-                if needle and needle in part:
-                    sentence = part
-                    break
-            if sentence:
-                break
-        if not sentence:
-            sentence = tails[-1] if tails else ""
-        rewritten = _correct_sentence(sentence, item, recap)
+        sentence = _flagged_sentence(blob, item, last_game, recap)
+        rewritten = _reword_misattributed_box(sentence, recap, last_game)
+        if not rewritten:
+            rewritten = _correct_sentence(sentence, item, recap)
         if not rewritten or rewritten == sentence:
             continue
         next_payload = copy.deepcopy(payload)
@@ -4888,11 +4985,14 @@ def should_hold_automerge(
     drops: list[str],
     narrative: dict | None,
     leftover: list[str] | None = None,
+    corrections: list[str] | None = None,
 ) -> bool:
-    """Hold publish when salvage is noisy, leftover, or under the word floor."""
+    """Hold whenever salvage rewrote or dropped copy, leftover, or thin."""
     if leftover:
         return True
-    if len(drops or []) > HOLD_REPAIR_DROPS:
+    if drops:
+        return True
+    if corrections:
         return True
     return edition_word_count(narrative) < PUBLISH_WORD_FLOOR
 
