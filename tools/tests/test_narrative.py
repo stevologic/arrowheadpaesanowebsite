@@ -5418,6 +5418,97 @@ class FactCheck(unittest.TestCase):
             or keep_colts in poison_blob
         )
 
+    def test_karen_155_tie_mixed_box_and_kc_owned_box(self):
+        """#155 gaps: skip ties, require a full KC box, bind KC's box to KC."""
+        catalog = _load_fixture("edition_run_karen_155_gaps.json")
+        recap = _load_fixture("espn_401872952_recap.json")
+        recap["prior"]["opp"]["firstDowns"] = "24"
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        last["id"] = "401872952"
+        slate = [
+            {
+                "id": "401872945",
+                "opponent": "Indianapolis Colts",
+                "opponentAbbr": "IND",
+                "completed": True,
+            },
+            {
+                "id": "401872952",
+                "opponent": "Miami Dolphins",
+                "opponentAbbr": "MIA",
+                "completed": True,
+            },
+        ]
+
+        def _lede(sentence):
+            return {
+                "phase": {"type": "regular"},
+                "lastGameReview": {
+                    "opponent": "Miami Dolphins",
+                    "result": "W",
+                    "score": "KC 24–10",
+                    "lede": sentence,
+                },
+            }
+
+        keep_a, keep_b = catalog["tie_keep"]
+        for sentence in (keep_a, keep_b):
+            self.assertEqual(
+                facts.check_review(_lede(sentence), last, recap, schedule=slate),
+                [],
+                sentence,
+            )
+        tied = {
+            "lastGameReview": {"lede": f"{keep_a} {keep_b}"},
+        }
+        fake = [
+            "first downs 29 disagrees with ESPN 24 for prior IND "
+            "('29 first downs')"
+        ]
+        tied_fixed, tied_logs = facts.apply_fact_corrections(
+            tied, fake, recap=recap, last_game=last, schedule=slate
+        )
+        tied_blob = facts.edition_text(tied_fixed)
+        self.assertIn(keep_a, tied_blob)
+        self.assertIn(keep_b, tied_blob)
+        self.assertNotIn("posted 24 first downs", tied_blob)
+        self.assertTrue(any("ambiguous snippet" in line for line in tied_logs), tied_logs)
+        self.assertTrue(facts.should_hold_automerge([], tied_fixed, corrections=tied_logs))
+
+        mixed = catalog["mixed_opp_box"]
+        self.assertIsNone(
+            facts._reword_misattributed_box(mixed, recap, last, slate)
+        )
+        mixed_issues = facts.check_review(_lede(mixed), last, recap, schedule=slate)
+        mixed_fixed, mixed_logs = facts.apply_fact_corrections(
+            _lede(mixed), mixed_issues, recap=recap, last_game=last, schedule=slate
+        )
+        self.assertIn(mixed, facts.edition_text(mixed_fixed))
+        self.assertFalse(
+            any("Against Miami, Kansas City had 18 first downs, 119" in line for line in mixed_logs),
+            mixed_logs,
+        )
+
+        wrong = catalog["kc_box_wrong"]
+        right = catalog["kc_box_right"]
+        plain = catalog["kc_box_plain"]
+        wrong_issues = facts.check_review(_lede(wrong), last, recap, schedule=slate)
+        self.assertTrue(any("19" in item and "18" in item for item in wrong_issues), wrong_issues)
+        self.assertEqual(facts.check_review(_lede(right), last, recap, schedule=slate), [])
+        plain_issues = facts.check_review(_lede(plain), last, recap, schedule=slate)
+        self.assertTrue(any("19" in item and "18" in item for item in plain_issues), plain_issues)
+        self.assertFalse(
+            facts._is_multi_stat_box(
+                "The rush will decide it after the 3:05 kickoff window."
+            )
+        )
+        self.assertFalse(
+            facts._is_multi_stat_box(
+                "Twenty of 24 for 246 is a control tape, not a 40-dropback scramble."
+            )
+        )
+
     def test_write_archive_survives_missing_headline(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "archive.json"

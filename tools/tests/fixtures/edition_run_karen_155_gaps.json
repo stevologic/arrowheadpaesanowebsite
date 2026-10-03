@@ -1,0 +1,11 @@
+{
+  "_note": "Karen re-QA of #155. Three adversarial gaps: ambiguous snippet tie, mixed opponent-was box, and KC-owned box binding.",
+  "tie_keep": [
+    "Kansas City posted 29 first downs against Indianapolis.",
+    "The Colts tape still shows 29 first downs for Kansas City."
+  ],
+  "mixed_opp_box": "Miami was 18 first downs, 119 rush, 210 net pass, 34:21.",
+  "kc_box_wrong": "Kansas City’s Miami box is a different animal: 19 first downs, 334 total yards, nine drives, and 25:39.",
+  "kc_box_right": "Kansas City’s Miami box is a different animal: 18 first downs, 334 total yards, nine drives, and 25:39.",
+  "kc_box_plain": "KC's box is a different animal: 19 first downs, 334 total yards, nine drives, and 25:39."
+}
