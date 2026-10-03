@@ -20,6 +20,22 @@
     "totalDrives": "9"
   },
   "scoringPlays": [],
+  "leaders": [
+    {
+      "player": "Kenneth Walker III",
+      "category": "Rushing Yards",
+      "value": "21/104, 104 YDS"
+    }
+  ],
+  "touches": [
+    {
+      "player": "Kenneth Walker III",
+      "team": "KC",
+      "rushes": 21,
+      "catches": 2,
+      "touches": 23
+    }
+  ],
   "prior": {
     "eventId": "401872952",
     "oppAbbr": "MIA",

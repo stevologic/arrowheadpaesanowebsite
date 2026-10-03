@@ -25,6 +25,7 @@ import yaml
 from tools.chiefs_narrative import (
     check_workflows,
     collect,
+    config,
     diagrams,
     drop_body,
     edition_overlay,
@@ -2672,9 +2673,6 @@ class LiveGamePhase(unittest.TestCase):
         self.assertIn("KICKOFF WINDOW", text)
 
     def test_footer_shows_ct(self):
-        hugo_bin = _hugo_bin()
-        if not hugo_bin:
-            self.skipTest("hugo is not on PATH or ~/.local/hugo/hugo")
         repo = Path(__file__).resolve().parents[2]
         edition = (repo / "layouts" / "partials" / "narrative-edition.html").read_text(
             encoding="utf-8"
@@ -2686,6 +2684,12 @@ class LiveGamePhase(unittest.TestCase):
         self.assertEqual(collect.local_date_label("2026-09-15T00:15:00Z"), "Mon Sep 14")
         self.assertEqual(collect.local_date_label("2026-09-21T00:20:00Z"), "Sun Sep 20")
         self.assertEqual(collect.kickoff_prompt("2026-10-04T20:25:00Z"), "Sun Oct 4, 3:25 PM CT")
+
+    def test_footer_hugo_renders_ct(self):
+        hugo_bin = _hugo_bin()
+        if not hugo_bin:
+            self.skipTest("hugo is not on PATH or ~/.local/hugo/hugo")
+        repo = Path(__file__).resolve().parents[2]
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "hugo.yaml").write_text(
@@ -7356,6 +7360,12 @@ class FactCheck(unittest.TestCase):
         self.assertIn(opening, text)
         self.assertNotIn("18 first downs on the opening drive", text)
 
+        hunt_alone = "Kansas City had 70 rushing yards from Hunt alone."
+        text, issues, logs = salvage(hunt_alone)
+        self.assertIn(hunt_alone, text)
+        self.assertNotIn("Kansas City had 88 rushing yards from Hunt alone.", text)
+        self.assertFalse(any("88 rushing yards from Hunt" in log for log in logs))
+
     def test_karen_phrase_binding_must_flag(self):
         from tools.tests import karen_matrices
 
@@ -7440,6 +7450,133 @@ class FactCheck(unittest.TestCase):
         )
         self.assertIn(complementary, row["after"])
         self.assertNotIn(complementary, row["drops"])
+
+    def test_scope_lookback_stays_inside_sentence(self):
+        from tools.tests import karen_matrices
+
+        lede_1806 = _load_fixture("edition_1806_storyline_lede.json")[
+            "storyline_body_0"
+        ]
+        lv_prefixes = _load_fixture("edition_lv_review_scope_lede.json")
+        injected = (
+            "Kansas City managed just 70 rushing yards.",
+            "Kansas City had 19 first downs.",
+            "Kansas City had 20 first downs on its third drive.",
+            "Kansas City held the ball 34:21.",
+        )
+        cases = (
+            ("MIA", lede_1806),
+            ("MIA", lv_prefixes["las_vegas_circle"]),
+            ("LV5", lv_prefixes["chargers_circle"]),
+            ("LV5", lv_prefixes["los_angeles_watching"]),
+            ("LV5", lv_prefixes["las_vegas_circle"]),
+        )
+        for code, prefix in cases:
+            recap, last, slate = karen_matrices.ctx(code)
+            for line in injected:
+                sentence = f"{prefix} {line}"
+                issues = facts.check_review(
+                    karen_matrices.story(sentence), last, recap, schedule=slate
+                )
+                self.assertTrue(
+                    issues,
+                    f"{code} must flag after {prefix!r}: {line} {issues}",
+                )
+
+    def test_review_binds_last_game_only(self):
+        from tools.tests import karen_matrices
+
+        recap, last, slate = karen_matrices.ctx("LV5")
+        must_flag = (
+            "Kansas City held the ball 25:39.",
+            "Kansas City ran for 88 yards.",
+            "Walker ran for 70 yards.",
+            "Kansas City beat the Raiders 31-3.",
+            "Kansas City won 24-10 in Las Vegas.",
+            "Kansas City ended 24-10.",
+        )
+        for sentence in must_flag:
+            issues = facts.check_review(
+                karen_matrices.story(sentence), last, recap, schedule=slate
+            )
+            self.assertTrue(issues, f"must flag in LV review: {sentence} {issues}")
+
+        colts = "the Colts game's 152 rushing yards and 37:00 still sit on that box."
+        issues = facts.check_review(
+            karen_matrices.story(colts), last, recap, schedule=slate
+        )
+        self.assertFalse(issues, f"named older game must pass: {issues}")
+
+        recap, last, slate = karen_matrices.ctx("MIA")
+        mia_flag = (
+            "The Chiefs managed only 70 yards on the ground.",
+            "Walker punched it in from the 15 on second-and-goal.",
+            "Mahomes needed only 18 attempts because Walker had 18 carries.",
+            "Those two scores were all of Kansas City's 24 in Miami.",
+            "The Chiefs' prime-time night in Miami ended 24-10.",
+            "If you want the tape, Walker scored from the 15.",
+        )
+        for sentence in mia_flag:
+            issues = facts.check_review(
+                karen_matrices.story(sentence), last, recap, schedule=slate
+            )
+            self.assertTrue(issues, f"must flag: {sentence} {issues}")
+
+        true_from_walker = "Kansas City got 70 rushing yards from Walker."
+        issues = facts.check_review(
+            karen_matrices.story(true_from_walker), last, recap, schedule=slate
+        )
+        self.assertFalse(issues, issues)
+
+    def test_scoped_rewrite_is_generic_and_touches_hold(self):
+        from tools.tests import karen_matrices
+
+        recap, last, slate = karen_matrices.ctx("MIA")
+        for sentence in (
+            "Kansas City had 3 first downs on its opening possession.",
+            "Kansas City had 6 first downs before halftime.",
+            "Kansas City had 9 first downs after the break.",
+            "Walker had 25 touches.",
+        ):
+            payload = karen_matrices.story(sentence)
+            issues = facts.check_review(payload, last, recap, schedule=slate)
+            fixed, logs = facts.apply_fact_corrections(
+                payload, issues, recap, last, slate
+            )
+            self.assertEqual(
+                fixed["storyline"]["body"][0],
+                sentence,
+                logs,
+            )
+            leftover = facts.check_review(fixed, last, recap, schedule=slate)
+            self.assertTrue(leftover, f"must hold: {sentence} {leftover}")
+
+    def test_review_mentions_bye_instead_of_this_week(self):
+        from tools.tests import karen_matrices
+
+        slate = copy.deepcopy(collect.load_cached_schedule())
+        for game in slate:
+            if game.get("id") == "401872976":
+                game["completed"] = True
+                game["kcScore"] = 27
+                game["oppScore"] = 17
+        now = datetime(2026, 10, 5, 9, 37, tzinfo=timezone.utc)
+        with patch.object(config, "now_utc", return_value=now):
+            ph = phase.detect(slate, now=now)
+            upcoming = phase.next_games(slate, now=now)
+            raw = offline.write(
+                {
+                    "schedule": slate,
+                    "lastGameRecap": karen_matrices.lv5_box(),
+                    "news": [],
+                    "markets": {},
+                },
+                ph,
+                upcoming,
+            )
+        blob = json.dumps(raw)
+        self.assertIn("Week 5 is a bye", blob)
+        self.assertNotIn("this week", blob.lower())
 
     def test_karen_r6_r10_corpus(self):
         """Pinned r6–r11 must-pass / must-flag sentences."""

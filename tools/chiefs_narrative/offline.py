@@ -12,7 +12,7 @@ points rather than invented events.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from . import collect, config, phase as phase_mod
@@ -27,6 +27,45 @@ _NO_ARTICLE = frozenset(
         "the opener",
     }
 )
+
+
+def _next_game(phase: dict | None, next_games: list | None) -> dict:
+    return (next_games[0] if next_games else None) or (phase or {}).get("nextGame") or {}
+
+
+def _days_until_next(phase: dict | None, next_games: list | None):
+    raw = _next_game(phase, next_games).get("date") or ""
+    if not raw:
+        return None
+    try:
+        when = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    now = config.now_utc()
+    if getattr(now, "tzinfo", None) is None:
+        now = now.replace(tzinfo=timezone.utc)
+    return (when - now).total_seconds() / 86400
+
+
+def _far_horizon(phase: dict | None, next_games: list | None) -> bool:
+    days = _days_until_next(phase, next_games)
+    return days is not None and days > 7
+
+
+def _bye_note(phase: dict | None, next_games: list | None) -> str:
+    """Name the open week when the next kickoff is more than 7 days out."""
+    if not _far_horizon(phase, next_games):
+        return ""
+    nxt = _next_game(phase, next_games)
+    try:
+        bye_week = int(nxt.get("week")) - 1
+    except (TypeError, ValueError):
+        bye_week = 5
+    if bye_week < 1:
+        return "The next kickoff is more than a week out. "
+    return f"Week {bye_week} is a bye. "
 
 
 def _the_team(name: str) -> str:
@@ -610,14 +649,20 @@ def _game_plan(signals: dict, phase: dict, next_games: list[dict]) -> dict:
     elif ptype in ("regular", "postseason"):
         opp_the = _the_team(opp)
         opp_pos = _team_possessive(opp, opp_short)
-        lede = (
-            f"{opp_the} {loc} is the next real one. "
-            + (
-                f"Last week is closed ({_the_team(last.get('opponent'))}); this week is a new call sheet."
-                if last
-                else ""
+        if last and _far_horizon(phase, next_games):
+            bye = _bye_note(phase, next_games).rstrip(". ")
+            closed = (
+                f"Last week is closed ({_the_team(last.get('opponent'))}); "
+                f"{bye}, then a new call sheet."
             )
-        )
+        elif last:
+            closed = (
+                f"Last week is closed ({_the_team(last.get('opponent'))}); "
+                "this week is a new call sheet."
+            )
+        else:
+            closed = _bye_note(phase, next_games)
+        lede = f"{opp_the} {loc} is the next real one. " + closed
         how = (
             f"The matchup is a style question first: can Kansas City stay on schedule "
             f"against what {opp_the} do best, and can {t['defensive_coordinator']} make "
@@ -1282,6 +1327,7 @@ def _generic(signals, phase, next_games) -> dict:
         )
         lede = (
             f"Kansas City turns the page to {_the_team(opp)}. "
+            + _bye_note(phase, next_games)
             + (f"{mkt}. " if mkt else "")
             + "Last game on the tape, the current state of the roster, then the "
             "game plan and matchup for who's next."
@@ -1310,9 +1356,10 @@ def _generic(signals, phase, next_games) -> dict:
         spotlight = _regular_spotlight(last_review, state, plan, opp)
         if last_review.get("score"):
             video_hook = (
-                f"{last_review['score']} is in the book. Kansas City is "
-                f"{state.get('record') or 'on the clock'} and the next assignment is "
-                f"{_the_team(opp)} — the tape, the work list, and the plan. "
+                f"{last_review['score']} is in the book. "
+                + _bye_note(phase, next_games)
+                + f"Kansas City is {state.get('record') or 'on the clock'} and the next "
+                f"assignment is {_the_team(opp)} — the tape, the work list, and the plan. "
                 "Cite the last box once, then turn the page with a real opening script."
             )
         else:
@@ -1326,8 +1373,12 @@ def _generic(signals, phase, next_games) -> dict:
                 "detail": (
                     f"Win early downs against {_the_team(opp)}, stay on schedule, "
                     "and let the play-action menu do the heavy lifting. The last tape "
-                    "already showed whether the run was real; this week has to repeat it "
-                    "on a new call sheet."
+                    "already showed whether the run was real; "
+                    + (
+                        "the next install has to repeat it on a new call sheet after the bye."
+                        if _far_horizon(phase, next_games)
+                        else "this week has to repeat it on a new call sheet."
+                    )
                 ),
             },
             {
@@ -1379,7 +1430,11 @@ def _generic(signals, phase, next_games) -> dict:
         debates = [
             f"What is the single biggest key against {_the_team(opp)}?",
             "Which matchup are you most worried about after the last tape?",
-            "Trust the model, the market, or the early-down film this week?",
+            (
+                "Trust the model, the market, or the early-down film after the bye?"
+                if _far_horizon(phase, next_games)
+                else "Trust the model, the market, or the early-down film this week?"
+            ),
             "Is the live record telling you the identity is real, or just the script?",
             "If the run stalls, do you still like the boot, or is it third-and-forever?",
             "Does the quarterback rating from the last tape travel, or was it a clean pocket?",
@@ -1516,7 +1571,11 @@ def _generic(signals, phase, next_games) -> dict:
         debates = [
             f"What's the single biggest key against {_the_team(opp)}?",
             "Which matchup are you most worried about?",
-            "Trust the model, the market, or your gut this week?",
+            (
+                "Trust the model, the market, or your gut after the bye?"
+                if _far_horizon(phase, next_games)
+                else "Trust the model, the market, or your gut this week?"
+            ),
         ]
 
     return {

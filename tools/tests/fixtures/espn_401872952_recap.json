@@ -118,6 +118,11 @@
       "player": "Patrick Mahomes",
       "category": "Passing Yards",
       "value": "20/24, 246 YDS"
+    },
+    {
+      "player": "Kenneth Walker III",
+      "category": "Rushing Yards",
+      "value": "18/70, 70 YDS"
     }
   ],
   "plays": [
