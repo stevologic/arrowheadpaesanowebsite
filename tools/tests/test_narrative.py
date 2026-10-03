@@ -5,6 +5,7 @@ merge gate. Run with:  python -m unittest discover -s tools/tests -v
 """
 from __future__ import annotations
 
+import copy
 import io
 import json
 import os
@@ -1231,6 +1232,74 @@ class SeasonClock(unittest.TestCase):
         now = datetime(2026, 6, 1, 12, 0, tzinfo=timezone.utc)
         ph = phase.detect([], now=now)
         self.assertEqual(ph["type"], "offseason")
+
+    def test_bye_week_on_prod_slate_after_lv_final(self):
+        """Week 5 bye must stay in-season: LV review, then LAC preview."""
+        slate = copy.deepcopy(collect.load_cached_schedule())
+        lv = None
+        for game in slate:
+            if game.get("id") == "401872976":
+                game["completed"] = True
+                game["kcScore"] = 27
+                game["oppScore"] = 17
+                lv = game
+                break
+        self.assertIsNotNone(lv)
+        for stamp, edition, mode in (
+            (datetime(2026, 10, 5, 3, 43, tzinfo=timezone.utc),
+             "2026 Week 6 · Week 4 Review", "review"),
+            (datetime(2026, 10, 7, 3, 43, tzinfo=timezone.utc),
+             "2026 Week 6 · Week 4 Review", "review"),
+            (datetime(2026, 10, 8, 3, 43, tzinfo=timezone.utc),
+             "2026 Week 6 · Preview", "preview"),
+        ):
+            ph = phase.detect(slate, now=stamp)
+            self.assertEqual(ph["type"], "regular", stamp)
+            self.assertEqual(ph["mode"], mode, stamp)
+            self.assertEqual(ph["edition"], edition, stamp)
+            self.assertEqual(ph["week"], 6, stamp)
+            self.assertEqual(ph["lastGame"]["opponent"], "Las Vegas Raiders")
+            self.assertEqual(ph["nextGame"]["opponent"], "Los Angeles Chargers")
+            self.assertNotIn("Denver", ph["nextGame"]["opponent"])
+            self.assertTrue(phase.is_upcoming(ph["nextGame"], stamp))
+            self.assertFalse(phase.is_upcoming(ph["lastGame"], stamp))
+
+    def test_sunday_pregame_runs_stay_week4_preview(self):
+        slate = collect.load_cached_schedule()
+        for hour, minute in ((3, 43), (7, 20), (9, 37)):
+            now = datetime(2026, 10, 4, hour, minute, tzinfo=timezone.utc)
+            ph = phase.detect(slate, now=now)
+            self.assertEqual(ph["edition"], "2026 Week 4 · Preview", now)
+            self.assertEqual(ph["mode"], "preview", now)
+            self.assertEqual(ph["nextGame"]["opponent"], "Las Vegas Raiders")
+            self.assertTrue(phase.is_upcoming(ph["nextGame"], now))
+
+    def test_offseason_phase_holds_when_slate_still_has_games(self):
+        slate = collect.load_cached_schedule()
+        fat = " ".join(["Chiefs tape review word"] * 800)
+        off = {
+            "headline": fat,
+            "dek": fat,
+            "theEdge": fat,
+            "storyline": fat,
+            "phase": {"type": "offseason", "mode": "offseason"},
+        }
+        issues = facts.check_review(off, None, None, schedule=slate)
+        self.assertTrue(
+            any("offseason phase" in item for item in issues),
+            issues,
+        )
+        self.assertTrue(facts.should_hold_automerge([], off, schedule=slate))
+        closed = [dict(game, completed=True) for game in slate]
+        done = {
+            "headline": fat,
+            "dek": fat,
+            "theEdge": fat,
+            "storyline": fat,
+            "phase": {"type": "offseason", "mode": "offseason"},
+        }
+        self.assertEqual(facts.check_review(done, None, None, schedule=closed), [])
+        self.assertFalse(facts.should_hold_automerge([], done, schedule=closed))
 
     def test_format_next_game_uses_central_kickoff(self):
         game = dict(self.RAMS)
