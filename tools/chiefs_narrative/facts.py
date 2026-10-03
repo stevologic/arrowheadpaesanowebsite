@@ -77,7 +77,7 @@ _STAT_CLAUSE_BREAK = re.compile(
     re.IGNORECASE,
 )
 _LOCATION_TEAM = re.compile(
-    r"\b(?:in|at|into|from|leaves?|leaving|vs\.?|versus)\s+(?:the\s+)?"
+    r"\b(?:in|at|into|from|leaves?|leaving|vs\.?|versus|against)\s+(?:the\s+)?"
     r"[A-Za-z][A-Za-z '’-]{1,24}",
     re.IGNORECASE,
 )
@@ -269,13 +269,67 @@ _POSSESSION_CLOCK = re.compile(
 )
 _FIRST_DOWNS = re.compile(r"\b(\d{1,2})\s+first downs?\b", re.IGNORECASE)
 _POSSESSION_HELD = re.compile(
-    r"\b(?:held the ball|sat on|had the ball for|"
-    r"had the ball\s+\d{1,2}:\d{2}|kept the ball for|"
+    r"\b(?:held the ball|held it|sat on|had the ball for|"
+    r"had the ball\s+\d{1,2}:\d{2}|had it for|"
+    r"kept the ball for|kept it for|"
     r"won the clock|lost the clock|time of possession)\b|"
     r"\bhad\s+\d{1,2}:\d{2}\b|"
     r"\bwas\s+\d{3},\s+\d{1,2},\s+\d{1,2}:\d{2}\b|"
     r"\bstays?\s+on\b",
     re.I,
+)
+_NFL_ABBR = frozenset(
+    {
+        "ARI",
+        "ATL",
+        "BAL",
+        "BUF",
+        "CAR",
+        "CHI",
+        "CIN",
+        "CLE",
+        "DAL",
+        "DEN",
+        "DET",
+        "GB",
+        "HOU",
+        "IND",
+        "JAX",
+        "KC",
+        "LAC",
+        "LAR",
+        "LV",
+        "MIA",
+        "MIN",
+        "NE",
+        "NO",
+        "NYG",
+        "NYJ",
+        "PHI",
+        "PIT",
+        "SEA",
+        "SF",
+        "TB",
+        "TEN",
+        "WSH",
+    }
+)
+_POSSESSION_OBJECT = re.compile(
+    r"\bsat on\s+(?:the\s+)?(?!ball\b|football\b)[A-Za-z][A-Za-z '’-]+|"
+    r"\bkeep(?:s|t|ing)?\s+(?:the\s+)?[A-Za-z][A-Za-z '’-]+?['’]s\s+offense|"
+    r"\bout-?gained\s+(?:the\s+)?[A-Za-z][A-Za-z '’-]+|"
+    r"\bagainst\s+(?:the\s+)?[A-Za-z][A-Za-z '’-]+|"
+    r"\bpunched\s+(?:the\s+)?[A-Za-z][A-Za-z '’-]+|"
+    r"\b(?:the\s+)?[A-Za-z][A-Za-z '’-]+?\s+(?:game|finale|tape|film|box)\b",
+    re.IGNORECASE,
+)
+_KC_VOICED_TOP = re.compile(
+    r"(?:^|\n)\s*time of possession\s*\(\d{1,2}:\d{2}\)",
+    re.IGNORECASE,
+)
+_SAT_ON_BALL = re.compile(
+    r"\bsat on the (?:ball|football)\b",
+    re.IGNORECASE,
 )
 _SEGMENT_CLOCK_RANGE = re.compile(
     r"\d{1,2}:\d{2}\s*[-–]\s*\d{1,2}:\d{2}"
@@ -305,7 +359,8 @@ _RATE_OR_OTHER_GAME = re.compile(
     r"per[-\s]?game|"
     r"(?:first downs?|averaged?)\s+a game|"
     r"\baveraged?\b|"
-    r"through\s+\w+\s+weeks?",
+    r"through\s+\w+\s+weeks?|"
+    r"coming in\b",
     re.IGNORECASE,
 )
 _COMPARISON_TAIL = re.compile(
@@ -318,7 +373,7 @@ _AGAINST_OTHER_TEAM = re.compile(
 )
 _GAME_LABEL_TEAM = re.compile(
     r"\b(?:the\s+)?[A-Za-z][A-Za-z '’-]{1,24}?\s+"
-    r"(?:tape|film|box)\b",
+    r"(?:tape|film|box|finale|game|night)\b",
     re.IGNORECASE,
 )
 # Proper-noun score labels only ("Indianapolis 33-30"). Do not strip
@@ -853,7 +908,9 @@ def _put_alias(
     mode: str,
 ) -> None:
     token = " ".join((key or "").lower().split())
-    if not token or token in _WEAK_ALIAS_TOKENS or len(token) < 3:
+    if not token or token in _WEAK_ALIAS_TOKENS:
+        return
+    if len(token) < 3 and token.upper() not in _NFL_ABBR:
         return
     if mode == "trusted":
         aliases[token] = team
@@ -1362,12 +1419,22 @@ def _player_owns_stat(
 def _bound_box_team(text: str, claim_at: int, aliases: dict[str, str]) -> str:
     """Nearest team subject in this clause, ignoring in/at location names."""
     start, _ = _stat_clause_span(text, claim_at)
-    prefix = _LOCATION_TEAM.sub(
-        " ",
-        _GAME_SCORE_LABEL.sub(
+    raw = text[start:claim_at]
+    if re.search(r"\bagainst\s*$", text[max(0, start - 16) : start], re.I):
+        raw = re.sub(
+            r"^(?:the\s+)?[A-Za-z][A-Za-z'’-]+(?:\s+[A-Za-z][A-Za-z'’-]*){0,2}\s+",
             " ",
-            _GAME_LABEL_TEAM.sub(
-                " ", _YARD_LINE_TEAM.sub(" ", text[start:claim_at])
+            raw,
+        )
+    prefix = _POSSESSION_OBJECT.sub(
+        " ",
+        _LOCATION_TEAM.sub(
+            " ",
+            _GAME_SCORE_LABEL.sub(
+                " ",
+                _GAME_LABEL_TEAM.sub(
+                    " ", _YARD_LINE_TEAM.sub(" ", raw)
+                ),
             ),
         ),
     )
@@ -1383,11 +1450,14 @@ def _bound_box_team(text: str, claim_at: int, aliases: dict[str, str]) -> str:
 
 
 def _scrub_box_labels(span: str) -> str:
-    return _LOCATION_TEAM.sub(
+    return _POSSESSION_OBJECT.sub(
         " ",
-        _GAME_SCORE_LABEL.sub(
+        _LOCATION_TEAM.sub(
             " ",
-            _GAME_LABEL_TEAM.sub(" ", _YARD_LINE_TEAM.sub(" ", span or "")),
+            _GAME_SCORE_LABEL.sub(
+                " ",
+                _GAME_LABEL_TEAM.sub(" ", _YARD_LINE_TEAM.sub(" ", span or "")),
+            ),
         ),
     )
 
@@ -1442,6 +1512,25 @@ def _bound_possession_team(
     clocks — that is how #144's both-ways bind was supposed to work.
     """
     start, end = _possession_local_span(text, match)
+    local = text[start:end]
+    held = re.search(
+        r"((?:the\s+)?[A-Z][A-Za-z'’.-]+(?:\s+[A-Z][A-Za-z'’.-]+){0,2})\s+"
+        r"(?:held|hold(?:s|ing)?)\s+(?:the ball|it)\b",
+        text[start:match.end()],
+    )
+    if held:
+        named = _alias_team(held.group(1), aliases)
+        if named:
+            return named
+    if re.search(r"\b(?:held|hold(?:s|ing)?)\s+(?:the ball|it)\b", local, re.I):
+        lead = re.match(
+            r"\s*(?:the\s+)?([A-Z][A-Za-z'’.-]+(?:\s+[A-Z][A-Za-z'’.-]+){0,2})",
+            local,
+        )
+        if lead:
+            named = _alias_team(lead.group(1), aliases)
+            if named:
+                return named
     prefix = _scrub_box_labels(text[start:match.start()])
     suffix = _scrub_box_labels(text[match.end() : end])
     poss = re.search(
@@ -1574,6 +1663,19 @@ def _norm_team_phrase(phrase: str) -> str:
     token = " ".join((phrase or "").lower().split())
     token = re.sub(r"^the\s+", "", token)
     return token.strip(" .")
+
+
+def _team_code(phrase: str, aliases: dict[str, str] | None = None) -> str:
+    """Resolve a subject to an NFL code. Bare LV/TB/PHI beat the alias table."""
+    token = _norm_team_phrase(phrase)
+    if not token:
+        return ""
+    compact = token.replace(".", "").replace(" ", "")
+    if compact.upper() in _NFL_ABBR and compact.isalpha() and len(compact) <= 3:
+        return compact.upper()
+    if aliases:
+        return _alias_team(token, aliases)
+    return ""
 
 
 def _alias_team(phrase: str, aliases: dict[str, str]) -> str:
@@ -2810,8 +2912,19 @@ def _check_team_yards(
     players = _player_aliases(recap)
     issues = []
 
+    def _bare_code(subject: str) -> str:
+        compact = _norm_team_phrase(subject).replace(".", "").replace(" ", "")
+        if compact.upper() in _NFL_ABBR and compact.isalpha() and len(compact) <= 3:
+            return compact.upper()
+        return ""
+
     def _expected_rush(subject: str) -> tuple[str, int | None]:
         token = " ".join((subject or "").lower().split()).strip(" '")
+        code = _bare_code(subject)
+        if code and code in last_rush:
+            return ("KC" if code == "KC" else code), last_rush.get(code)
+        if code and code in prior_rush:
+            return f"prior {code}", prior_rush.get(code)
         if token in prior_labels or any(
             re.search(rf"\b{re.escape(lab)}\b", token) for lab in prior_labels
         ):
@@ -2819,11 +2932,11 @@ def _check_team_yards(
         if token in last_labels or any(
             re.search(rf"\b{re.escape(lab)}\b", token) for lab in last_labels
         ):
-            named = _alias_team(token, aliases)
+            named = _team_code(token, aliases)
             if named and named != "KC" and named in last_rush:
                 return named, last_rush.get(named)
             return "last KC", last_rush.get("KC")
-        team = _alias_team(token, aliases)
+        team = _team_code(token, aliases)
         if team == "KC":
             return "KC", last_rush.get("KC")
         if team and team in last_rush:
@@ -2834,7 +2947,12 @@ def _check_team_yards(
 
     def _expected_pass(subject: str) -> tuple[str, int | None]:
         token = " ".join((subject or "").lower().split()).strip(" '")
-        team = _alias_team(token, aliases)
+        code = _bare_code(subject)
+        team = code or _team_code(token, aliases)
+        if code and code in last_pass:
+            return ("KC" if code == "KC" else code), last_pass.get(code)
+        if code and code in prior_pass:
+            return f"prior {code}", prior_pass.get(code)
         if token in prior_labels:
             return "prior KC", prior_pass.get("KC")
         if token in last_labels or any(
@@ -2926,19 +3044,28 @@ def _check_team_yards(
             re.search(rf"\b{re.escape(lab)}\b", window, re.I)
             for lab in prior_labels
         )
-        if names_prior:
+        if names_prior and not (
+            explicit and explicit != "KC" and explicit in last_rush
+        ):
             official = prior_rush.get("KC")
             label = "prior KC"
             if official is None:
                 continue
         if yards == official:
             continue
-        # A number that is the other club's official total is theirs unless
-        # this clause already named a subject ("Miami had … 88 rushing yards").
-        if not explicit and (
-            yards in last_rush.values() or yards in prior_rush.values()
-        ):
+        if team and team in last_rush and yards == last_rush[team]:
             continue
+        if team and team in prior_rush and yards == prior_rush[team]:
+            continue
+        # A number that is another club's official total stays theirs when
+        # this clause did not name a resolved opponent subject.
+        if (not explicit or explicit == "KC") and label in {
+            "KC",
+            "last KC",
+            "team",
+        }:
+            if yards in last_rush.values() or yards in prior_rush.values():
+                continue
         issues.append(
             f"team rushing {yards} disagrees with ESPN {official} for "
             f"{label} ({_claim_quote(text, match)!r})"
@@ -3021,6 +3148,15 @@ def _possession_clock_is_game_or_segment(text: str, match: re.Match) -> bool:
     after = text[end : end + 48]
     if _GAME_CLOCK_AFTER.match(after):
         return True
+    if re.match(r"\s*drive\b", after, re.I):
+        return True
+    if re.search(
+        r"(?:of\s+)?possession\s+in\s+the\s+"
+        r"(?:first|second|third|fourth|opening)\s+quarter\b",
+        after,
+        re.I,
+    ):
+        return True
     before = text[max(0, start - 24) : start]
     if re.search(r"\b(?:Q[1-4]|quarter\s+[1-4])\s*$", before, re.I):
         return True
@@ -3032,6 +3168,83 @@ def _possession_clock_is_game_or_segment(text: str, match: re.Match) -> bool:
         r"^\s*(?:to\s+go|left|remaining)\b", after, re.I
     ):
         return True
+    return False
+
+
+def _line_at(text: str, index: int) -> str:
+    start = text.rfind("\n", 0, index) + 1
+    end = text.find("\n", index)
+    if end < 0:
+        end = len(text)
+    return text[start:end]
+
+
+def _kc_owns_possession_verb(
+    text: str, match: re.Match, aliases: dict[str, str]
+) -> bool:
+    """whatWorked TOP lines and 'sat on the football' with a KC subject."""
+    sent = _sentence_at(text, match.start())
+    line = _line_at(text, match.start()).strip()
+    lead = re.match(
+        r"\s*(?:the\s+)?([A-Z][A-Za-z'’.-]+(?:\s+[A-Z][A-Za-z'’.-]+){0,2})",
+        line or sent,
+    )
+    if lead:
+        named = _alias_team(lead.group(1), aliases)
+        if named and named != "KC":
+            return False
+    held_subj = re.search(
+        r"((?:the\s+)?[A-Z][A-Za-z'’.-]+(?:\s+[A-Z][A-Za-z'’.-]+){0,2})\s+"
+        r"(?:held|hold(?:s|ing)?)\s+(?:the ball|it)\b",
+        sent,
+    )
+    if held_subj:
+        named = _alias_team(held_subj.group(1), aliases)
+        if named and named != "KC":
+            return False
+    if re.search(r"\band held the ball\b", sent, re.I):
+        lead = re.match(
+            r"\s*(?:the\s+)?([A-Z][A-Za-z'’.-]+(?:\s+[A-Z][A-Za-z'’.-]+){0,2})",
+            sent,
+        )
+        if lead:
+            named = _alias_team(lead.group(1), aliases)
+            if named and named != "KC":
+                return False
+    line = _line_at(text, match.start()).strip()
+    if _KC_VOICED_TOP.match(line) or _KC_VOICED_TOP.match("\n" + line):
+        return True
+    window = _box_clause_at(text, match.start())
+    blob = (window or line).strip()
+    if re.match(r"against\s+", blob, re.I) and re.search(
+        r"\b(?:sat on the (?:ball|football)|held the ball|"
+        r"of clock|of possession)\b",
+        blob,
+        re.I,
+    ):
+        return True
+    if _SAT_ON_BALL.search(window) or re.search(
+        r"\bheld the ball\b|\bheld it\b|\bhold(?:s|ing)? the ball\b",
+        window,
+        re.I,
+    ):
+        held_subj = re.search(
+            r"((?:the\s+)?[A-Z][A-Za-z'’.-]+(?:\s+[A-Z][A-Za-z'’.-]+){0,2})\s+"
+            r"(?:held|hold(?:s|ing)?)\s+(?:the ball|it)\b",
+            window,
+        )
+        if held_subj:
+            named = _alias_team(held_subj.group(1), aliases)
+            if named and named != "KC":
+                return False
+        if re.search(
+            r"\b(?:kansas city|the chiefs)\b",
+            _scrub_box_labels(window),
+            re.I,
+        ):
+            return True
+        if re.match(r"against\s+", window.strip(), re.I):
+            return True
     return False
 
 
@@ -3077,7 +3290,16 @@ def _clock_tied_to_subject(text: str, match: re.Match) -> bool:
         _FIRST_DOWNS.search(clause) or _BOX_RUSH.search(clause)
     ):
         return True
-    return _possession_held_by_named_team(text, match)
+    if _possession_held_by_named_team(text, match):
+        return True
+    # "Miami held the ball 34:21 and Kansas City 28:55" carries TOP.
+    prev = text[max(sent_start, 0) : max(clause_start, sent_start)]
+    if _POSSESSION_HELD.search(prev) and re.search(
+        r"\b(?:the\s+)?[A-Z][A-Za-z. '’-]+\s*$",
+        clause[: max(0, match.start() - max(clause_start, sent_start))],
+    ):
+        return True
+    return False
 
 
 def _stat_phrase_window(text: str, match: re.Match) -> str:
@@ -3134,12 +3356,15 @@ def _named_week_average_is_box(
     window = _stat_phrase_window(text, match)
     if re.search(
         r"per[-\s]?game|(?:first downs?|averaged?)\s+a game|"
-        r"through\s+\w+\s+weeks?",
+        r"through\s+\w+\s+weeks?|coming in\b",
         window,
         re.I,
     ):
         return False
     if not re.search(r"\baveraged?\b", window, re.I):
+        return False
+    sentence = _sentence_at(text, match.start())
+    if not re.search(r"\bweek\s+\d+\b", sentence, re.I):
         return False
     return _claim_game_scope(
         text, match.start(), recap, last_game, schedule
@@ -3239,6 +3464,8 @@ def _check_box_clocks(
         sentence = _sentence_at(text, match.start())
         clause = _box_clause_at(text, match.start())
         explicit = _explicit_box_subject(clause, aliases)
+        if _kc_owns_possession_verb(text, match, aliases):
+            explicit = "KC"
         if scope == "prior":
             team = explicit or _bound_possession_in_clause(
                 text, match, aliases
@@ -3339,8 +3566,19 @@ def _check_box_clocks(
         clause = _box_clause_at(text, match.start())
         team = _bound_box_team(text, match.start(), aliases)
         explicit = _explicit_box_subject(clause, aliases)
+        if _KC_VOICED_TOP.search(_line_at(text, match.start())):
+            explicit = "KC"
         if explicit:
             team = explicit
+        if (
+            team
+            and opp_abbr
+            and team == opp_abbr
+            and kc_fd is not None
+            and claimed == kc_fd
+            and re.search(r"\bagainst\b", sentence, re.I)
+        ):
+            team = "KC"
         scope = _claim_game_scope(
             text, match.start(), recap, last_game, schedule
         )
@@ -5269,7 +5507,8 @@ _HAD_BOX_LEAD = re.compile(
     re.IGNORECASE,
 )
 _HELD_BOX_LEAD = re.compile(
-    rf"^{_TEAM_LEAD}\s+held the ball\s+(?P<clock>\d{{1,2}}:\d{{2}})\b",
+    rf"^{_TEAM_LEAD}\s+held (?:the ball|it)(?:\s+for)?\s+"
+    rf"(?P<clock>\d{{1,2}}:\d{{2}})\b",
     re.IGNORECASE,
 )
 _BOX_CLAUSE_SPLIT = re.compile(
@@ -5345,6 +5584,13 @@ def _bound_possession_in_clause(
 ) -> str:
     """Possession subject stays inside this clause — not after even though."""
     left, right = _box_clause_span(text, match.start())
+    if re.search(r"\bto\s+$", text[max(0, left - 8) : left], re.I):
+        before = text[max(0, left - 40) : left]
+        after = text[left : left + 40]
+        if not (
+            _POSSESSION_CLOCK.search(before) and _POSSESSION_CLOCK.search(after)
+        ):
+            left, _ = _sentence_span(text, match.start())
     clip = text[left:right]
     rel_start = match.start() - left
     rel_end = match.end() - left
@@ -5365,7 +5611,13 @@ def _bound_possession_in_clause(
 
 
 def _explicit_box_subject(sentence: str, aliases: dict[str, str]) -> str:
-    """'Miami had …' / 'let the Miami box' in this clause only."""
+    """'Miami had …' / 'let the Miami box' in this clause only.
+
+    whatWorked bullets that open with Time of possession (CLOCK) are KC
+    by convention — the opponent is the object being kept off the field.
+    """
+    if _KC_VOICED_TOP.match(sentence or ""):
+        return "KC"
     let_hit = _LET_THE_BOX.search(sentence or "")
     if let_hit:
         named = _alias_team(let_hit.group(1), aliases)

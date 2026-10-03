@@ -7027,6 +7027,201 @@ class FactCheck(unittest.TestCase):
             facts.should_hold_automerge([], fat_edition, missing_headline=True)
         )
 
+    def _karen_ctx(self, name):
+        recap_mia = _load_fixture("espn_401872952_recap.json")
+        recap_lv5 = _load_fixture("espn_lv5_synthetic_recap.json")
+        recap_sea = _load_fixture("espn_401873305_recap.json")
+        recap_ind = _load_fixture("espn_401872945_recap.json")
+        slate = self._prod_slate()
+        last_mia = dict(self.LAST)
+        last_mia.update(
+            {
+                "date": "2026-09-27T17:00:00Z",
+                "id": "401872952",
+                "week": 3,
+                "opponent": "Miami Dolphins",
+                "opponentAbbr": "MIA",
+                "opponentShort": "Dolphins",
+            }
+        )
+        last_lv = dict(last_mia)
+        last_lv.update(
+            {
+                "id": "401872976",
+                "week": 4,
+                "opponent": "Las Vegas Raiders",
+                "opponentAbbr": "LV",
+                "opponentShort": "Raiders",
+                "kcScore": 27,
+                "oppScore": 17,
+            }
+        )
+        last_tb = dict(last_lv)
+        last_tb.update(
+            {
+                "opponent": "Tampa Bay Buccaneers",
+                "opponentAbbr": "TB",
+                "opponentShort": "Buccaneers",
+                "kcScore": 15,
+                "oppScore": 16,
+            }
+        )
+        last_sea = dict(last_mia)
+        last_sea.update(
+            {
+                "id": "401873305",
+                "week": 0,
+                "opponent": "Seattle Seahawks",
+                "opponentAbbr": "SEA",
+                "opponentShort": "Seahawks",
+                "seasonType": "pre",
+                "kcScore": 9,
+                "oppScore": 9,
+            }
+        )
+        last_ind = dict(last_mia)
+        last_ind.update(
+            {
+                "id": "401872945",
+                "week": 2,
+                "opponent": "Indianapolis Colts",
+                "opponentAbbr": "IND",
+                "opponentShort": "Colts",
+                "kcScore": 33,
+                "oppScore": 30,
+            }
+        )
+        recap_tb = dict(recap_lv5)
+        recap_tb["oppAbbr"] = "TB"
+        recap_relabel = dict(recap_mia)
+        recap_relabel["oppAbbr"] = "LV"
+        table = {
+            "mia": (last_mia, recap_mia),
+            "lv5": (last_lv, recap_lv5),
+            "tb5": (last_tb, recap_tb),
+            "lv_relabel": (last_lv, recap_relabel),
+            "sea": (last_sea, recap_sea),
+            "ind": (last_ind, recap_ind),
+        }
+        last, recap = table[name]
+        return last, recap, slate
+
+    def test_karen_166_archive_replay_and_r6_r10_corpus(self):
+        """r10: every archive against its cached box; r6–r10 strings stay pinned."""
+        from tools.tests.archive_replay import replay_all_editions
+
+        known = _load_fixture("archive_replay_known_bad.json")
+        rows = replay_all_editions()
+        self.assertEqual(len(rows), 75)
+        unexpected = []
+        missing = []
+        for slug, issues in rows:
+            allowed = list(known["issues"].get(slug) or [])
+            for item in issues:
+                if item not in allowed:
+                    unexpected.append(f"{slug}: {item}")
+            for item in allowed:
+                if item not in issues:
+                    missing.append(f"{slug}: {item}")
+        self.assertEqual(unexpected, [], unexpected[:8])
+        self.assertEqual(missing, [], missing[:8])
+
+        fixtures = {
+            "157": _load_fixture("edition_run_karen_157_gaps.json"),
+            "161": _load_fixture("edition_run_karen_161_short_aliases.json"),
+            "162": _load_fixture("edition_run_karen_162_clock_phase.json"),
+            "164": _load_fixture("edition_run_karen_164_rate_week.json"),
+            "165": _load_fixture("edition_run_karen_165_possession.json"),
+            "166": _load_fixture("edition_run_karen_166_regression.json"),
+        }
+        corpus = _load_fixture("edition_run_karen_r6_r10_corpus.json")
+
+        def _lede(sentence, last):
+            kc = last.get("kcScore")
+            opp = last.get("oppScore")
+            score = (
+                f"KC {kc}–{opp}"
+                if kc is not None and opp is not None
+                else "KC 24–10"
+            )
+            return {
+                "phase": {"type": "regular"},
+                "lastGameReview": {
+                    "opponent": last.get("opponent") or "Miami Dolphins",
+                    "result": "W",
+                    "score": score,
+                    "lede": "Kansas City won.",
+                    "whatWorked": [sentence],
+                },
+            }
+
+        for case in corpus["must_pass"]:
+            sentence = fixtures[case["src"]][case["key"]]
+            last, recap, slate = self._karen_ctx(case["ctx"])
+            issues = facts.check_review(
+                _lede(sentence, last),
+                last,
+                recap,
+                schedule=slate,
+            )
+            self.assertFalse(
+                issues,
+                f"must-pass {case['src']}:{case['key']} {issues}",
+            )
+            if case["src"] == "166" and case["key"] in {
+                "lv_averaged_coming_in",
+                "lv_averaged_18_coming_in",
+            }:
+                payload = _lede(sentence, last)
+                corrected, logs = facts.apply_fact_corrections(
+                    payload, issues, recap, last, slate
+                )
+                self.assertEqual(
+                    corrected["lastGameReview"]["whatWorked"][0],
+                    sentence,
+                    logs,
+                )
+
+        for case in corpus["must_flag"]:
+            sentence = fixtures[case["src"]][case["key"]]
+            last, recap, slate = self._karen_ctx(case["ctx"])
+            issues = facts.check_review(
+                _lede(sentence, last),
+                last,
+                recap,
+                schedule=slate,
+            )
+            blob = " ".join(issues)
+            self.assertTrue(
+                issues,
+                f"must-flag {case['src']}:{case['key']} was clean",
+            )
+            self.assertIn(
+                case["needle"],
+                blob,
+                f"must-flag {case['src']}:{case['key']} {issues}",
+            )
+
+        r10 = fixtures["166"]
+        last_mia, recap_mia, slate = self._karen_ctx("mia")
+        for sentence in (
+            r10["held_it_compound"],
+            r10["held_elliptical"],
+            r10["held_it_for"],
+            "Miami held the ball 34:21 and Kansas City held it 28:55.",
+            "Kansas City held it for 28:55.",
+        ):
+            issues = facts.check_review(
+                _lede(sentence, last_mia),
+                last_mia,
+                recap_mia,
+                schedule=slate,
+            )
+            self.assertTrue(
+                any("28:55" in item for item in issues),
+                (sentence, issues),
+            )
+
 
 class ArchiveDates(unittest.TestCase):
     """Stored teaser dates must be CT calendar dates, not UTC rollover."""
@@ -7077,7 +7272,12 @@ class ArchiveDates(unittest.TestCase):
             f"DATA_DIR / '{slug}_editions'",
         )
         offenders = []
+        # archive_replay.py is the r10 regression net: it walks the frozen
+        # published editions against cached ESPN boxes, not today's draft.
+        skip = {"archive_replay.py"}
         for path in tests_dir.rglob("*.py"):
+            if path.name in skip:
+                continue
             text = path.read_text(encoding="utf-8")
             for needle in needles:
                 if needle in text:
