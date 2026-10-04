@@ -5316,7 +5316,17 @@ class FactCheck(unittest.TestCase):
         parsed = yaml.safe_load(workflow)
         self.assertEqual(parsed["name"], "Chiefs Narrative (daily)")
         self.assertIn("narrative_repair.json", workflow)
-        self.assertIn("python -m tools.chiefs_narrative.drop_body", workflow)
+        self.assertIn("drop_body.drop_body", workflow)
+        update_scripts = "\n".join(
+            str(step.get("run") or "")
+            for step in ((parsed.get("jobs") or {}).get("update") or {}).get(
+                "steps"
+            )
+            or []
+            if isinstance(step, dict)
+        )
+        self.assertNotIn("python -m tools.chiefs_narrative.drop_body", update_scripts)
+        self.assertNotIn("from tools.chiefs_narrative import", update_scripts)
         self.assertNotIn("\nimport json, sys\n", workflow)
         self.assertIn("HOLD_MERGE", workflow)
         self.assertIn("holdAutomerge", workflow)
@@ -6886,6 +6896,7 @@ class FactCheck(unittest.TestCase):
             ("public/narrative/2026-10-05-0937.html", attack_html),
             ("public/intel/review.html", attack_html),
             ("public/404.html", attack_html),
+            ("public/notes.md", attack_html),
         )
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "site"

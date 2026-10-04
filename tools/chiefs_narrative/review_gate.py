@@ -113,6 +113,7 @@ _ASSET_NAMES = frozenset(
     {".nojekyll", "CNAME", "robots.txt", "favicon.svg", "favicon.ico"}
 )
 _TEXT_SUFFIXES = frozenset({".html", ".htm", ".xml", ".xhtml"})
+_DOC_SUFFIXES = frozenset({".md", ".markdown", ".rst"})
 _SLUG_HREF = re.compile(r"/narrative/(\d{4}-\d{2}-\d{2}-\d{4})/")
 _PROSE_KEYS = (
     "headline",
@@ -949,11 +950,27 @@ def output_blocked(dist: Path, *, root: Path | None = None) -> bool:
         except ValueError:
             return True
         static_hits = _static_page_sources(base, list(surface["static"]), rel)
-        if static_hits and not _is_allowed_asset(rel):
-            return True
+        suffix = Path(rel).suffix.lower()
+        if static_hits:
+            if _is_allowed_asset(rel):
+                continue
+            if suffix in _TEXT_SUFFIXES:
+                return True
+            if suffix not in _DOC_SUFFIXES:
+                return True
+            try:
+                static_text = path.read_text(encoding="utf-8", errors="replace")
+            except OSError as exc:
+                raise GateError(f"cannot read built file {path}: {exc}") from exc
+            if (
+                "PUBLICREVIEW" in static_text
+                or _REVIEW_HTML.search(static_text)
+                or _SLUG_HREF.search(static_text)
+            ):
+                return True
+            continue
         if _is_allowed_asset(rel):
             continue
-        suffix = Path(rel).suffix.lower()
         if suffix not in _TEXT_SUFFIXES:
             return True
         try:
