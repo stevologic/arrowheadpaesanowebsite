@@ -9149,12 +9149,24 @@ class FactCheck(unittest.TestCase):
         self.assertEqual(misses, [], f"{name}: {len(misses)}/{len(cases)} {misses[:8]}")
 
     def test_karen_archive_replay(self):
-        """75-edition salvage: issues, drops, and changed lines are pinned."""
-        from tools.tests.archive_replay import quoted_snippets, salvage_all_editions
+        """Pinned historical salvage plus strict checks on every added edition."""
+        from tools.tests.archive_replay import salvage_all_editions
 
         known = _load_fixture("archive_replay_known_bad.json")
         rows = salvage_all_editions()
-        self.assertEqual(len(rows), known["editions"])
+        self._assert_karen_archive_replay(rows, known)
+
+    def _assert_karen_archive_replay(self, rows, known):
+        from tools.tests.archive_replay import quoted_snippets
+
+        pinned = _load_fixture("archive_replay_editions.json")
+        self.assertEqual(len(pinned), known["editions"])
+        self.assertEqual(len(set(pinned)), len(pinned), "duplicate pinned edition")
+        slugs = [slug for slug, _ in rows]
+        self.assertEqual(len(set(slugs)), len(slugs), "duplicate replay edition")
+        self.assertEqual(set(pinned) - set(slugs), set(), "missing historical edition")
+        for field in ("issues", "drops", "changed"):
+            self.assertTrue(set(known.get(field, {})) <= set(pinned), field)
         unexpected = []
         missing = []
         rewritten = []
@@ -9200,6 +9212,43 @@ class FactCheck(unittest.TestCase):
         self.assertEqual(missing, [], missing[:8])
         self.assertEqual(rewritten, [], rewritten[:8])
         self.assertEqual(drop_miss, [], drop_miss[:8])
+
+    def test_karen_archive_growth(self):
+        from tools.tests.archive_replay import salvage_all_editions
+
+        known = _load_fixture("archive_replay_known_bad.json")
+        rows = salvage_all_editions()
+        clean = next(row for _, row in rows if not row["issues"] and row["before"] == row["after"])
+        added = ("2099-01-01-0000.json", copy.deepcopy(clean))
+        self._assert_karen_archive_replay(rows + [added], known)
+        # Equal count cannot conceal removal/renaming of a clean pinned edition.
+        clean_slug = next(slug for slug, row in rows if row is clean)
+        with self.assertRaisesRegex(AssertionError, "missing historical edition"):
+            self._assert_karen_archive_replay(
+                [(slug, row) for slug, row in rows if slug != clean_slug] + [added], known
+            )
+        with self.assertRaisesRegex(AssertionError, "duplicate replay edition"):
+            self._assert_karen_archive_replay(rows + [rows[0]], known)
+
+    def test_karen_archive_growth_rejects_issues_and_rewrites(self):
+        from tools.tests.archive_replay import salvage_all_editions
+
+        known = _load_fixture("archive_replay_known_bad.json")
+        rows = salvage_all_editions()
+        clean = next(row for _, row in rows if not row["issues"] and row["before"] == row["after"])
+        for mutation in ("issue", "rewrite", "invented"):
+            with self.subTest(mutation=mutation):
+                added = copy.deepcopy(clean)
+                if mutation == "issue":
+                    added["issues"] = ["unallowlisted factual regression"]
+                elif mutation == "rewrite":
+                    added["after"] += " Silent rewrite."
+                else:
+                    added["after_sents"].append("Invented historical claim.")
+                with self.assertRaises(AssertionError):
+                    self._assert_karen_archive_replay(
+                        rows + [("2099-01-01-0000.json", added)], known
+                    )
 
     def test_karen_matrix_mw7(self):
         from tools.tests import karen_matrices
