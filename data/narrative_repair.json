@@ -1,5 +1,12 @@
 {
-  "droppedSentences": [],
+  "droppedSentences": [
+    "The finishing math was Kansas City 334 total yards to Miami\u2019s 329, 9 drives apiece, and a 50-yard Butker try at Q4 0:57 that sailed wide left.",
+    "Reid and Bieniemy bring a Mahomes deep ball that just hit Kelce, Rice, Gray, Thornton, and Worthy, plus a Walker-heavy run game that has not yet cracked 100 team rushing yards in this last tape."
+  ],
+  "correctedSentences": [
+    "unverifiable opponent finishing math; holding",
+    "unverifiable opponent finishing math; holding"
+  ],
   "leftoverIssues": [],
   "holdAutomerge": true
 }
