@@ -199,10 +199,14 @@ def _job_step_script(parsed, job: str, *, name=None, step_id=None) -> str:
 
 
 def _narrative_review_hold_wiring(parsed) -> dict:
-    """Structured review-hold wiring from the parsed narrative.yml publish step."""
+    """Structured review-hold wiring from test metadata + the publish step."""
+    meta = _job_step_script(
+        parsed, "test", name="Record publish metadata"
+    )
     script = _job_step_script(
         parsed, "update", name="Open pull request and wait for CI gates"
     ) or _job_step_script(parsed, "update", step_id="publish")
+    script = meta + "\n" + script
     review_cmp = re.search(r'if \[ "\$REVIEW_HOLD" = "([^"]+)" \]', script)
     hold_assign = re.search(
         r'if \[ "\$REVIEW_HOLD" = "[^"]+" \]; then\s+HOLD_MERGE="([^"]+)"',
@@ -5519,7 +5523,8 @@ class FactCheck(unittest.TestCase):
         narr_gate = _job_step_script(
             narrative, "deploy", name="Skip unsigned Review editions"
         ) or _job_step_script(narrative, "deploy", step_id="review")
-        self.assertIn("review_gate --pages --dist dist", narr_gate)
+        self.assertIn("review_gate --pages", narr_gate)
+        self.assertIn("--dist", narr_gate)
         self.assertIsNone(
             re.search(r"review_gate --pages[^\n]*\|\|\s*true", narr_gate)
         )
@@ -5536,7 +5541,7 @@ class FactCheck(unittest.TestCase):
         )
         self.assertLess(
             narr_scripts.index("hugo --gc --minify"),
-            narr_scripts.index("review_gate --pages --dist dist"),
+            narr_scripts.index("review_gate --pages"),
         )
         narr_publish = next(
             step
@@ -5593,8 +5598,38 @@ class FactCheck(unittest.TestCase):
             )
         pages_job = (pages.get("jobs") or {}).get("build-deploy") or {}
         self.assertEqual(pages_job.get("if"), "github.ref == 'refs/heads/main'")
+        pages_checkouts = [
+            step
+            for step in pages_job.get("steps") or []
+            if isinstance(step, dict)
+            and "actions/checkout" in str(step.get("uses") or "")
+        ]
+        self.assertTrue(pages_checkouts)
+        for step in pages_checkouts:
+            self.assertEqual(
+                (step.get("with") or {}).get("persist-credentials"),
+                False,
+            )
         narr_job = (narrative.get("jobs") or {}).get("deploy") or {}
         self.assertIn("github.ref == 'refs/heads/main'", str(narr_job.get("if")))
+        self.assertEqual(narrative.get("permissions"), {"contents": "read"})
+        for job_name in ("generate", "test", "update", "deploy"):
+            narr_checkouts = [
+                step
+                for step in ((narrative.get("jobs") or {}).get(job_name) or {}).get(
+                    "steps"
+                )
+                or []
+                if isinstance(step, dict)
+                and "actions/checkout" in str(step.get("uses") or "")
+            ]
+            self.assertTrue(narr_checkouts, job_name)
+            for step in narr_checkouts:
+                self.assertEqual(
+                    (step.get("with") or {}).get("persist-credentials"),
+                    False,
+                    job_name,
+                )
 
     def test_review_gate_blocks_unsigned_review_json(self):
         gate_src = (
@@ -5610,7 +5645,9 @@ class FactCheck(unittest.TestCase):
         self.assertNotIn("HUMAN_MERGE_PREFIXES", gate_src)
         self.assertNotIn("HUMAN_MERGE_PATHS", gate_src)
         self.assertIn("AUTOMERGE_ALLOWED_PATHS", gate_src)
-        self.assertIn("AUTOMERGE_ALLOWED_PREFIXES", gate_src)
+        self.assertIn("AUTOMERGE_ALLOWED_PREFIXES = ()", gate_src)
+        self.assertNotIn('"tools/tests/"', gate_src)
+        self.assertNotIn("tools/requirements.txt", gate_src)
         self.assertIn("hugo config", gate_src)
         self.assertIn("staticdir", gate_src)
         self.assertIn("contentdir", gate_src)
@@ -5848,9 +5885,26 @@ class FactCheck(unittest.TestCase):
                 )
                 self.assertFalse(review_gate.requires_human_merge([live_rel]))
                 self.assertFalse(review_gate.requires_human_merge([preview_rel]))
-                self.assertFalse(
+                self.assertTrue(
                     review_gate.requires_human_merge(
                         ["tools/tests/test_narrative.py"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(["tools/requirements.txt"])
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(["tools/run_local.sh"])
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(["tools/run_local.ps1"])
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(["tools/.env.example"])
+                )
+                self.assertTrue(
+                    review_gate.automerge_blocked(
+                        ["tools/tests/test_evil.py"], root=root
                     )
                 )
                 self.assertTrue(
@@ -6709,6 +6763,189 @@ class FactCheck(unittest.TestCase):
             self.assertFalse(
                 review_gate.output_blocked(root / "out", root=root)
             )
+
+    def test_hugo_config_fails_closed_when_hugo_missing(self):
+        """MY4: missing hugo must raise, never fall back to hardcoded dirs."""
+        gate_src = (
+            Path(__file__).resolve().parents[2]
+            / "tools"
+            / "chiefs_narrative"
+            / "review_gate.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("hugo is required to resolve", gate_src)
+        self.assertNotRegex(
+            gate_src, r"if not binary:\s*\n\s*return\s*\{"
+        )
+        self.assertNotRegex(
+            gate_src, r'if not binary:\s*\n\s*cfg\s*='
+        )
+        self.assertNotIn('"staticdir": ["public"]', gate_src)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "dist").mkdir()
+            (root / "dist" / "index.html").write_text("x\n", encoding="utf-8")
+            with patch.object(review_gate, "_hugo_bin", return_value=None):
+                with self.assertRaises(review_gate.GateError) as ctx:
+                    review_gate.load_hugo_config(root)
+                self.assertIn("hugo is required", str(ctx.exception))
+                with self.assertRaises(review_gate.GateError):
+                    review_gate.resolve_hugo_surface(root)
+                with self.assertRaises(review_gate.GateError):
+                    review_gate.output_blocked(root / "dist", root=root)
+            with patch.object(review_gate, "_hugo_bin", return_value="hugo"):
+                with patch.object(
+                    subprocess, "check_output", return_value="not-json"
+                ):
+                    with self.assertRaises(review_gate.GateError) as ctx:
+                        review_gate.load_hugo_config(root)
+                    self.assertIn("not JSON", str(ctx.exception))
+
+    def test_write_token_jobs_refuse_unittest_and_pip(self):
+        """Write-token jobs must not run unittest or pip install -r."""
+        errors = check_workflows.audit_write_jobs()
+        self.assertEqual(errors, [])
+        self.assertEqual(check_workflows.main(), 0)
+        root = Path(__file__).resolve().parents[2] / ".github" / "workflows"
+        narrative = yaml.safe_load((root / "narrative.yml").read_text(encoding="utf-8"))
+        self.assertEqual(narrative.get("permissions"), {"contents": "read"})
+        jobs = narrative.get("jobs") or {}
+        self.assertEqual((jobs.get("generate") or {}).get("permissions"), {"contents": "read"})
+        self.assertEqual((jobs.get("test") or {}).get("permissions"), {"contents": "read"})
+        self.assertEqual(
+            (jobs.get("update") or {}).get("permissions"),
+            {
+                "contents": "write",
+                "pull-requests": "write",
+                "actions": "write",
+            },
+        )
+        self.assertEqual((jobs.get("deploy") or {}).get("permissions"), {"contents": "write"})
+        for job_name in ("generate", "test"):
+            blob = "\n".join(
+                str(step.get("run") or "")
+                for step in (jobs.get(job_name) or {}).get("steps") or []
+                if isinstance(step, dict)
+            )
+            self.assertIn("pip install -r", blob, job_name)
+        for job_name in ("update", "deploy"):
+            blob = "\n".join(
+                str(step.get("run") or "")
+                for step in (jobs.get(job_name) or {}).get("steps") or []
+                if isinstance(step, dict)
+            )
+            self.assertNotIn("unittest", blob, job_name)
+            self.assertNotIn("pip install -r", blob, job_name)
+            self.assertIn("GATE_BASE", blob, job_name)
+            self.assertIn("python -P -m tools.chiefs_narrative.review_gate", blob, job_name)
+        with tempfile.TemporaryDirectory() as tmp:
+            scratch = Path(tmp)
+            wf = scratch / ".github" / "workflows"
+            wf.mkdir(parents=True)
+            (wf / "evil.yml").write_text(
+                "name: Evil\npermissions:\n  contents: write\njobs:\n"
+                "  evil:\n    runs-on: ubuntu-latest\n    steps:\n"
+                "      - uses: actions/checkout@v6\n"
+                "      - run: python -m unittest discover -s tools/tests -v\n"
+                "      - run: python -m pip install -r tools/requirements.txt\n",
+                encoding="utf-8",
+            )
+            found = check_workflows.audit_write_jobs(scratch)
+            self.assertTrue(any("unittest" in item for item in found), found)
+            self.assertTrue(any("pip" in item for item in found), found)
+            self.assertTrue(
+                any("persist-credentials" in item for item in found), found
+            )
+
+    def test_public_staticdir_census_misses_are_must_fail(self):
+        """Karen's leftover dist surfaces must fail a real hugo build."""
+        hugo_bin = _hugo_bin()
+        if not hugo_bin:
+            self.skipTest("hugo is not on PATH or ~/.local/hugo/hugo")
+        preview = {
+            "slug": "2026-10-03-1538",
+            "edition": "2026 Week 4 · Preview",
+            "phase": {"mode": "preview"},
+            "headline": "Preview headline",
+            "dek": "Preview dek",
+            "generatedAt": "2026-10-03T15:38:00+00:00",
+        }
+        attack_html = (
+            "<html><body><h1>Week 5 Review</h1>"
+            "<p>PUBLICREVIEW 27-17 unsigned</p></body></html>\n"
+        )
+        attack_xml = (
+            '<?xml version="1.0"?><rss><channel><title>Week 5 Review'
+            "</title><item>PUBLICREVIEW 27-17 unsigned</item></channel></rss>\n"
+        )
+        rows = (
+            ("public/narrative/index.html", attack_html),
+            ("public/index.xml", attack_xml),
+            ("public/narrative/index.xml", attack_xml),
+            ("public/sitemap.xml", attack_xml),
+            ("public/narrative/2026-10-03-1538/amp.html", attack_html),
+            ("public/narrative/2026-10-05-0937.html", attack_html),
+            ("public/intel/review.html", attack_html),
+            ("public/404.html", attack_html),
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "site"
+            live = "narrative"
+            editions_name = live + "_editions"
+            live_name = live + ".json"
+            (root / "data" / editions_name).mkdir(parents=True)
+            (root / "layouts").mkdir(parents=True)
+            (root / "hugo.yaml").write_text(
+                "baseURL: /\n"
+                "publishDir: dist\n"
+                "staticDir:\n"
+                "  - public\n",
+                encoding="utf-8",
+            )
+            (root / "layouts" / "index.html").write_text(
+                "{{ with .Site.Data.narrative }}{{ .headline }}{{ end }}\n",
+                encoding="utf-8",
+            )
+            (root / "data" / live_name).write_text(
+                json.dumps(preview) + "\n", encoding="utf-8"
+            )
+            (root / "data" / editions_name / "2026-10-03-1538.json").write_text(
+                json.dumps(preview) + "\n", encoding="utf-8"
+            )
+            for rel, body in rows:
+                path = root / rel
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(body, encoding="utf-8")
+                self.assertTrue(
+                    review_gate.requires_human_merge([rel]), rel
+                )
+                self.assertTrue(
+                    review_gate.automerge_blocked([rel], root=root), rel
+                )
+                result = subprocess.run(
+                    [hugo_bin, "--gc", "--minify"],
+                    cwd=root,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(
+                    result.returncode, 0, rel + result.stdout + result.stderr
+                )
+                self.assertTrue(
+                    review_gate.output_blocked(root / "dist", root=root),
+                    rel,
+                )
+                path.unlink()
+                shutil.rmtree(root / "dist", ignore_errors=True)
+            clean = subprocess.run(
+                [hugo_bin, "--gc", "--minify"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(clean.returncode, 0, clean.stdout + clean.stderr)
+            self.assertFalse(review_gate.output_blocked(root / "dist", root=root))
 
     def _week3_slate(self):
         return [

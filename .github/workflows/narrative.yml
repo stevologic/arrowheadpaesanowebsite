@@ -6,6 +6,10 @@ name: Chiefs Narrative (daily)
 # late game windows), opens an automated pull request, auto-merges it, and
 # deploys the refreshed site to GitHub Pages.
 #
+# Install and tests run in a contents:read job with persist-credentials:
+# false. Only the final update/deploy jobs get contents:write; they
+# commit generated data and never run unittest or pip install -r.
+#
 # Schedule freshness does not depend on narrative text changing: a score-only
 # or kickoff/network update still commits data/schedule_2026.json and deploys.
 # Evening / late-window runs are --schedule-only so they do not mint a new
@@ -41,29 +45,28 @@ on:
         default: "full"
 
 permissions:
-  contents: write
-  pull-requests: write
-  # workflow_dispatch of ci.yml against the edition branch. GITHUB_TOKEN
-  # can fire workflow_dispatch (it cannot fire pull_request). No PAT.
-  actions: write
+  contents: read
 
 concurrency:
   group: chiefs-narrative
   cancel-in-progress: false
 
 jobs:
-  update:
+  generate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       HUGO_VERSION: 0.152.2
     outputs:
       changed: ${{ steps.diff.outputs.changed }}
-      publish: ${{ steps.publish.outputs.publish }}
+      mode: ${{ steps.mode.outputs.mode }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -162,10 +165,49 @@ jobs:
             git diff --cached --stat
           fi
 
-      # Same checks as ci.yml's gates job. A failure stops the job before
-      # the PR is opened. The open step then dispatches ci.yml against the
-      # edition branch (GITHUB_TOKEN PRs never start pull_request workflows)
-      # and polls that run before squash-merging.
+      - name: Upload generated data
+        if: steps.diff.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: narrative-data
+          path: |
+            data/narrative.json
+            data/narrative_archive.json
+            data/narrative_repair.json
+            data/narrative_editions
+            data/wire.json
+            data/schedule_2026.json
+            public/images/narrative
+
+  test:
+    needs: generate
+    if: needs.generate.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      HUGO_VERSION: 0.152.2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download generated data
+        uses: actions/download-artifact@v4
+        with:
+          name: narrative-data
+          path: .
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: python -m pip install -r tools/requirements.txt
+
       - name: Install Hugo
         run: |
           curl -fsSL --output "${{ runner.temp }}/hugo.tar.gz" \
@@ -201,13 +243,106 @@ jobs:
           python -m tools.chiefs_narrative.generate --diagrams-only
           git diff --exit-code -- public/images/narrative
           hugo --gc --minify
+          python -m tools.chiefs_narrative.review_gate --pages --dist dist
+
+      - name: Record publish metadata
+        env:
+          DESK_MODE: ${{ needs.generate.outputs.mode }}
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from tools.chiefs_narrative import drop_body, facts
+          repair = {}
+          repair_path = Path("data/narrative_repair.json")
+          if repair_path.is_file():
+              try:
+                  loaded = json.loads(repair_path.read_text(encoding="utf-8"))
+              except json.JSONDecodeError:
+                  loaded = {}
+              if isinstance(loaded, dict):
+                  repair = loaded
+          narrative = {}
+          live = Path("data/narrative.json")
+          if live.is_file():
+              try:
+                  loaded = json.loads(live.read_text(encoding="utf-8"))
+              except json.JSONDecodeError:
+                  loaded = {}
+              if isinstance(loaded, dict):
+                  narrative = loaded
+          hold = bool(repair.get("holdAutomerge"))
+          if facts.review_requires_human(narrative):
+              hold = True
+          meta = {
+              "mode": __import__("os").environ.get("DESK_MODE") or "schedule",
+              "holdMerge": hold,
+              "dropBody": drop_body.drop_body(repair),
+              "edition": str(narrative.get("edition") or ""),
+              "headline": str(narrative.get("headline") or ""),
+          }
+          Path(".narrative-publish.json").write_text(
+              json.dumps(meta, indent=2) + "\n", encoding="utf-8"
+          )
+          PY
+
+      - name: Upload validated data
+        uses: actions/upload-artifact@v4
+        with:
+          name: narrative-publish
+          path: |
+            data/narrative.json
+            data/narrative_archive.json
+            data/narrative_repair.json
+            data/narrative_editions
+            data/wire.json
+            data/schedule_2026.json
+            public/images/narrative
+            .narrative-publish.json
+
+  update:
+    needs: [generate, test]
+    if: needs.generate.outputs.changed == 'true' && needs.test.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    outputs:
+      publish: ${{ steps.publish.outputs.publish }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download validated data
+        uses: actions/download-artifact@v4
+        with:
+          name: narrative-publish
+          path: .
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Refuse unsigned Review editions
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "${GITHUB_REF_NAME}"
+          GATE_BASE="${RUNNER_TEMP}/gate-base"
+          git worktree add --detach "$GATE_BASE" "origin/${GITHUB_REF_NAME}"
+          cd "$GATE_BASE"
+          PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.review_gate --pages \
+            --root "${GITHUB_WORKSPACE}"
 
       - name: Open pull request and wait for CI gates
         id: publish
-        if: steps.diff.outputs.changed == 'true' && steps.live.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DESK_MODE: ${{ steps.mode.outputs.mode }}
+          DESK_MODE: ${{ needs.generate.outputs.mode }}
         run: |
           set -euo pipefail
           echo "publish=false" >> "$GITHUB_OUTPUT"
@@ -217,24 +352,32 @@ jobs:
 
           git config user.name "arrowhead-paesano-bot"
           git config user.email "actions@github.com"
+          git add -- \
+            data/narrative.json \
+            data/narrative_archive.json \
+            data/narrative_repair.json \
+            data/narrative_editions \
+            data/wire.json \
+            data/schedule_2026.json \
+            public/images/narrative
           git checkout -b "$BRANCH"
 
           HOLD_MERGE="false"
           DROP_BODY=""
-          if [ -f data/narrative_repair.json ]; then
-            HOLD_MERGE="$(python -c "import json;print('true' if json.load(open('data/narrative_repair.json')).get('holdAutomerge') else 'false')")"
-            DROP_BODY="$(python -m tools.chiefs_narrative.drop_body)"
+          if [ -f .narrative-publish.json ]; then
+            HOLD_MERGE="$(python -c "import json;print('true' if json.load(open('.narrative-publish.json')).get('holdMerge') else 'false')")"
+            DROP_BODY="$(python -c "import json;print(json.load(open('.narrative-publish.json')).get('dropBody') or '')")"
           fi
-          if [ "$DESK_MODE" = "full" ] && [ -f data/narrative.json ]; then
-            REVIEW_HOLD="$(python -c "import json;from tools.chiefs_narrative import facts;print('true' if facts.review_requires_human(json.load(open('data/narrative.json'))) else 'false')")"
+          if [ "$HOLD_MERGE" != "true" ] && [ "$DESK_MODE" = "full" ] && [ -f data/narrative.json ]; then
+            REVIEW_HOLD="$(python -c "import json;print('true' if json.load(open('.narrative-publish.json')).get('holdMerge') else 'false')")"
             if [ "$REVIEW_HOLD" = "true" ]; then
               HOLD_MERGE="true"
             fi
           fi
 
           if [ "$DESK_MODE" = "full" ] && [ -f data/narrative.json ]; then
-            EDITION="$(python -c "import json;print(json.load(open('data/narrative.json'))['edition'])")"
-            HEADLINE="$(python -c "import json;print(json.load(open('data/narrative.json'))['headline'])")"
+            EDITION="$(python -c "import json;print(json.load(open('.narrative-publish.json')).get('edition') or json.load(open('data/narrative.json'))['edition'])")"
+            HEADLINE="$(python -c "import json;print(json.load(open('.narrative-publish.json')).get('headline') or json.load(open('data/narrative.json'))['headline'])")"
             git commit -m "Chiefs Narrative: ${EDITION}" -m "${HEADLINE}"
             TITLE="Chiefs Narrative — ${EDITION}"
             BODY="$(printf '%s\n' \
@@ -261,7 +404,7 @@ jobs:
               "Generated by the Chiefs Narrative (daily) workflow.")"
           fi
 
-          git push origin "$BRANCH"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BRANCH"
 
           PR_URL="$(gh pr create --base "$BASE" --head "$BRANCH" \
             --title "$TITLE" --body "$BODY")"
@@ -329,6 +472,8 @@ jobs:
     needs: update
     if: needs.update.outputs.publish == 'true' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     concurrency:
       group: pages-publish
       cancel-in-progress: false
@@ -340,6 +485,7 @@ jobs:
         with:
           ref: ${{ github.ref_name }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Install Hugo
         run: |
@@ -359,7 +505,12 @@ jobs:
         id: review
         run: |
           set -euo pipefail
-          if python -m tools.chiefs_narrative.review_gate --pages --dist dist; then
+          git fetch --no-tags origin "${GITHUB_REF_NAME}"
+          GATE_BASE="${RUNNER_TEMP}/gate-base"
+          git worktree add --detach "$GATE_BASE" "origin/${GITHUB_REF_NAME}"
+          cd "$GATE_BASE"
+          if PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.review_gate --pages \
+            --dist "${GITHUB_WORKSPACE}/dist" --root "${GITHUB_WORKSPACE}"; then
             echo "skip=false" >> "$GITHUB_OUTPUT"
           else
             rc=$?

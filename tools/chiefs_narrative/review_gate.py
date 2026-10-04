@@ -14,19 +14,18 @@ that with ``cd "$GATE_BASE" && python -P -m … --root <PR-tree>``: ``-P``
 keeps the PR working directory off ``sys.path``, and ``--root`` is only
 a path argument.
 
-Automerge is an allowlist, not a growing blocklist. Only
-``data/narrative.json``, Preview ``data/narrative_editions/*.json``,
-and known code/test paths (``tools/tests/**`` plus a few tool
-dotfiles) may automerge. Everything else — ``public/``, layouts,
-workflows, the gate itself, README — needs a human merge. A Review
-edition, even a signed one, still needs a human merge.
+Automerge is an allowlist, not a growing blocklist. Only generated
+Preview data may automerge: ``data/narrative.json`` and Preview
+``data/narrative_editions/*.json``. Everything else — tests,
+requirements, scripts, ``public/``, layouts, workflows, the gate
+itself, README — needs a human merge. A Review edition, even a
+signed one, still needs a human merge.
 
 After Hugo writes ``dist/``, ``--pages --dist`` fails closed unless
-every ``dist/narrative/<slug>/`` and ``dist/index.html`` maps to a
-Preview edition, a signed Review, or a legacy-pinned edition. Pages
-that exist only because Hugo copied ``staticDir`` (this repo:
-``public/``) are an unknown source. Dirs and mounts come from the
-resolved ``hugo config``, never hardcoded ``public/`` / ``content/``.
+every file under the publish dir is a known asset or a page Hugo
+generated from a Preview, signed Review, or legacy-pinned edition.
+staticDir copies that are not assets fail closed. Dirs and mounts
+come from the resolved ``hugo config``, never hardcoded paths.
 
 Any non-``.json`` file under ``data/`` (``.yaml``, ``.yml``, ``.toml``,
 ``.JSON``, ``.sig``) and any Hugo config besides ``hugo.yaml`` fail
@@ -85,21 +84,36 @@ _BLOCKED_HUGO_CONFIGS = frozenset(
         "config.json",
     }
 )
-# Automerge allowlist. Anything not listed needs a human merge.
-# tools/chiefs_narrative/** is intentionally absent: rewriting the gate
-# must not automerge after this module lands on main.
+# Automerge allowlist: generated Preview data only. Test files,
+# dependency pins, scripts, and workflows are never listed.
 AUTOMERGE_ALLOWED_PATHS = frozenset(
     {
         "data/narrative.json",
-        "tools/requirements.txt",
-        "tools/run_local.sh",
-        "tools/run_local.ps1",
-        "tools/.env.example",
     }
 )
-AUTOMERGE_ALLOWED_PREFIXES = (
-    "tools/tests/",
+AUTOMERGE_ALLOWED_PREFIXES = ()
+_ASSET_SUFFIXES = frozenset(
+    {
+        ".svg",
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".webp",
+        ".gif",
+        ".ico",
+        ".css",
+        ".js",
+        ".woff",
+        ".woff2",
+        ".map",
+        ".txt",
+    }
 )
+_ASSET_NAMES = frozenset(
+    {".nojekyll", "CNAME", "robots.txt", "favicon.svg", "favicon.ico"}
+)
+_TEXT_SUFFIXES = frozenset({".html", ".htm", ".xml", ".xhtml"})
+_SLUG_HREF = re.compile(r"/narrative/(\d{4}-\d{2}-\d{2}-\d{4})/")
 _PROSE_KEYS = (
     "headline",
     "dek",
@@ -684,11 +698,13 @@ def _editions_json_path(rel: str) -> bool:
 
 
 def automerge_allowlisted(path: str | Path) -> bool:
-    """True only for Preview edition JSON and known code/test paths."""
+    """True only for generated Preview edition JSON. Never for executable paths."""
     rel = _posix_rel(path)
     if rel in AUTOMERGE_ALLOWED_PATHS:
         return True
-    if any(rel.startswith(prefix) for prefix in AUTOMERGE_ALLOWED_PREFIXES):
+    if AUTOMERGE_ALLOWED_PREFIXES and any(
+        rel.startswith(prefix) for prefix in AUTOMERGE_ALLOWED_PREFIXES
+    ):
         return True
     return _editions_json_path(rel)
 
@@ -710,7 +726,7 @@ def automerge_blocked(paths, *, root: Path | None = None) -> bool:
     """True when the PR is off the allowlist or a Review edition changed.
 
     Signed Reviews still need a human merge. Only Preview edition JSON
-    and known code/test paths may automerge.
+    may automerge.
     """
     if requires_human_merge(paths, root=root):
         return True
@@ -810,24 +826,6 @@ def _unexpected_content_pages(root: Path, content_dirs: list[str]) -> list[Path]
     return found
 
 
-def _published_output_pages(dist: Path) -> list[tuple[str, Path, str]]:
-    """(slug_or_empty, html_path, url_rel) for home and each narrative slug."""
-    pages: list[tuple[str, Path, str]] = []
-    home = dist / "index.html"
-    if home.is_file():
-        pages.append(("", home, "index.html"))
-    narr = dist / "narrative"
-    if not narr.is_dir():
-        return pages
-    for child in sorted(narr.iterdir()):
-        if not child.is_dir():
-            continue
-        html = child / "index.html"
-        if html.is_file():
-            pages.append((child.name, html, f"narrative/{child.name}/index.html"))
-    return pages
-
-
 def _html_is_review_shaped(path: Path) -> bool:
     try:
         text = path.read_text(encoding="utf-8", errors="replace")
@@ -836,50 +834,173 @@ def _html_is_review_shaped(path: Path) -> bool:
     return bool(_REVIEW_HTML.search(text))
 
 
-def output_blocked(dist: Path, *, root: Path | None = None) -> bool:
-    """True when a built page is unsigned, unmapped, or from staticDir.
+def _is_allowed_asset(rel: str) -> bool:
+    name = rel.rsplit("/", 1)[-1]
+    if name in _ASSET_NAMES:
+        return True
+    suffix = Path(name).suffix.lower()
+    return suffix in _ASSET_SUFFIXES
 
-    ``staticDir``, ``contentDir``, ``dataDir``, ``layoutDir``, and mounts
-    come from ``hugo config``. A ``public/narrative/<slug>/index.html``
-    drop is an unknown source even when Hugo copies it verbatim.
+
+def _known_generated_page(rel: str, index: dict[str, tuple[Path, dict]]) -> bool:
+    """True for Hugo surfaces that map to the home, section, feeds, or a slug."""
+    if rel in {"index.html", "index.xml", "sitemap.xml"}:
+        return True
+    if rel in {"narrative/index.html", "narrative/index.xml"}:
+        return True
+    parts = rel.split("/")
+    if (
+        len(parts) == 3
+        and parts[0] == "narrative"
+        and parts[2] in {"index.html", "index.xml"}
+        and (parts[1] in index or _safe_signoff_slug(parts[1]))
+    ):
+        return True
+    return False
+
+
+def _allowed_edition_index(
+    root: Path, data_dirs: list[str]
+) -> dict[str, tuple[Path, dict]]:
+    """slug (and '') -> (file, payload) for Preview / signed / legacy editions."""
+    index: dict[str, tuple[Path, dict]] = {}
+    files: list[Path] = []
+    for rel in data_dirs:
+        data = root / rel
+        live = data / "narrative.json"
+        if live.is_file() and live.name.endswith(".json"):
+            files.append(live)
+        editions = data / "narrative_editions"
+        if editions.is_dir():
+            files.extend(
+                sorted(
+                    path
+                    for path in editions.iterdir()
+                    if path.is_file() and path.name.endswith(".json")
+                )
+            )
+    for path in files:
+        payload = load_payload(path)
+        if payload is None:
+            raise GateError(f"cannot load edition {path}")
+        if should_block_review(payload, root=root, edition_file=path):
+            continue
+        slug = str(payload.get("slug") or "").strip()
+        if slug:
+            index[slug] = (path, payload)
+        if path.name == "narrative.json":
+            index[""] = (path, payload)
+    return index
+
+
+def _text_matches_allowed(text: str, index: dict[str, tuple[Path, dict]]) -> bool:
+    """Rendered HTML/XML must cite only allowed editions and their copy."""
+    if "PUBLICREVIEW" in text:
+        return False
+    for slug in _SLUG_HREF.findall(text):
+        if slug not in index:
+            return False
+    if not _REVIEW_HTML.search(text):
+        return True
+    for slug, (_path, payload) in index.items():
+        headline = str(payload.get("headline") or "").strip()
+        if headline and headline in text:
+            return True
+        if slug and slug in text:
+            return True
+        prose = _payload_prose(payload)
+        if prose and prose[:80] and prose[:80] in text:
+            return True
+    return False
+
+
+def _walk_dist_files(dist: Path) -> list[Path]:
+    return sorted(path for path in dist.rglob("*") if path.is_file())
+
+
+def output_blocked(dist: Path, *, root: Path | None = None) -> bool:
+    """True when any built file is unsigned, unmapped, or from staticDir.
+
+    Censuses **every** file under the publish dir — section pages, RSS,
+    sitemap, 404, siblings, and arbitrary HTML/XML — not only
+    ``dist/index.html`` and ``dist/narrative/<slug>/index.html``.
+    Dirs come from ``hugo config``. Hugo missing fails closed.
     """
     base = Path(root) if root is not None else config.REPO_ROOT
     publish = Path(dist)
     if not publish.is_dir():
         raise GateError(f"build output missing: {publish}")
     surface = resolve_hugo_surface(base)
-    # layoutDir is required from hugo config so a hardcoded-dir mutation
-    # cannot skip it; templates alone never authorize a published page.
     if not surface["layouts"]:
         raise GateError("hugo config resolved no layoutDir")
+    if not surface["static"] or not surface["content"] or not surface["data"]:
+        raise GateError("hugo config resolved an empty publish surface")
     if _unexpected_content_pages(base, list(surface["content"])):
         return True
-    pages = _published_output_pages(publish)
-    if not pages:
-        raise GateError(f"no narrative pages under {publish}")
-    home_seen = False
-    for slug, html, rel_url in pages:
-        static_hits = _static_page_sources(base, list(surface["static"]), rel_url)
+    index = _allowed_edition_index(base, list(surface["data"]))
+    if "" not in index:
+        return True
+    home_html = publish / "index.html"
+    if not home_html.is_file():
+        raise GateError(f"no home page under {publish}")
+    for path in _walk_dist_files(publish):
+        try:
+            rel = path.resolve().relative_to(publish.resolve()).as_posix()
+        except ValueError:
+            return True
+        static_hits = _static_page_sources(base, list(surface["static"]), rel)
+        if static_hits and not _is_allowed_asset(rel):
+            return True
+        if _is_allowed_asset(rel):
+            continue
+        suffix = Path(rel).suffix.lower()
+        if suffix not in _TEXT_SUFFIXES:
+            return True
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            raise GateError(f"cannot read built file {path}: {exc}") from exc
         if static_hits:
             return True
-        if slug and not _safe_signoff_slug(slug):
+        if not _text_matches_allowed(text, index):
             return True
-        edition = _edition_file_for_slug(base, slug, list(surface["data"]))
-        if edition is None:
-            if _html_is_review_shaped(html) or slug:
+        if not _known_generated_page(rel, index) and (
+            _REVIEW_HTML.search(text) or "PUBLICREVIEW" in text
+        ):
+            return True
+        name = Path(rel).name
+        parent = Path(rel).parent.as_posix()
+        if parent == "narrative" and name != "index.html" and name != "index.xml":
+            stem = Path(name).stem
+            if _safe_signoff_slug(stem) or _REVIEW_HTML.search(text):
                 return True
-            continue
-        payload = load_payload(edition)
-        if payload is None:
-            raise GateError(f"cannot load edition {edition}")
-        if should_block_review(payload, root=base, edition_file=edition):
-            return True
-        if slug == "":
-            home_seen = True
-        elif str(payload.get("slug") or "").strip() not in {"", slug}:
-            return True
-    if not home_seen:
-        return True
+        if parent.startswith("narrative/") and name not in {
+            "index.html",
+            "index.xml",
+        }:
+            if _REVIEW_HTML.search(text) or "PUBLICREVIEW" in text:
+                return True
+        parts = rel.split("/")
+        if (
+            len(parts) >= 2
+            and parts[0] == "narrative"
+            and _safe_signoff_slug(parts[1])
+            and name == "index.html"
+        ):
+            edition = _edition_file_for_slug(base, parts[1], list(surface["data"]))
+            if edition is None:
+                return True
+            payload = load_payload(edition)
+            if payload is None or should_block_review(
+                payload, root=base, edition_file=edition
+            ):
+                return True
+        if rel == "index.html":
+            live = index.get("")
+            if live is None:
+                return True
+            if should_block_review(live[1], root=base, edition_file=live[0]):
+                return True
     return False
 
 
