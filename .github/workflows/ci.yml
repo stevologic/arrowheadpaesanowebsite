@@ -38,9 +38,7 @@ on:
         default: ""
 
 permissions:
-  contents: write
-  pull-requests: write
-  actions: write
+  contents: read
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
@@ -58,6 +56,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ inputs.checkout_ref || github.ref }}
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -93,8 +92,43 @@ jobs:
       - name: Gate 2 — Hugo build
         run: hugo --gc --minify
 
+      - name: Pages and narrative deploy gates on the real tree
+        run: |
+          set -euo pipefail
+          # Same command as pages.yml / narrative.yml against this checkout.
+          run_gate() {
+            local out="$1"
+            if python -m tools.chiefs_narrative.review_gate --pages --dist dist; then
+              echo "skip=false" >> "$out"
+            else
+              rc=$?
+              if [ "$rc" -eq 2 ]; then
+                echo "skip=true" >> "$out"
+                echo "Unsigned Review edition; skipping gh-pages deploy"
+              else
+                exit "$rc"
+              fi
+            fi
+          }
+          pages_out="${RUNNER_TEMP:-/tmp}/pages.skip"
+          narr_out="${RUNNER_TEMP:-/tmp}/narr.skip"
+          : > "$pages_out"
+          : > "$narr_out"
+          run_gate "$pages_out"
+          run_gate "$narr_out"
+          echo "pages.yml: $(cat "$pages_out")"
+          echo "narrative.yml: $(cat "$narr_out")"
+          grep -qx "skip=false" "$pages_out"
+          grep -qx "skip=false" "$narr_out"
+
   automerge:
     needs: gates
+    # Write token is only on this job. The gates job inherits contents:read
+    # and checks out with persist-credentials: false so PR tests cannot push.
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
     # Only human/PAT pull_request events. workflow_dispatch / workflow_call
     # have no pull_request payload — do not invent a merge.
     # Edition PRs are merged by narrative.yml after this gates job succeeds.
@@ -111,6 +145,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -118,14 +153,18 @@ jobs:
           python-version: "3.11"
 
       - name: Refuse unsigned Review editions
-        env:
-          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
         run: |
           set -euo pipefail
           git fetch --no-tags origin "${{ github.base_ref }}"
-          python -m tools.chiefs_narrative.review_gate --automerge \
+          GATE_BASE="${RUNNER_TEMP}/gate-base"
+          git worktree add --detach "$GATE_BASE" "origin/${{ github.base_ref }}"
+          # cwd + python -m would import PR-head tools/ (sys.path[0]).
+          # -P keeps cwd off sys.path; the module comes from GATE_BASE only.
+          # --root is the PR tree, read as data, never imported.
+          cd "$GATE_BASE"
+          PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.review_gate --automerge \
             --base "origin/${{ github.base_ref }}" \
-            --labels "$PR_LABELS"
+            --root "${GITHUB_WORKSPACE}"
 
       - name: Squash-merge the pull request
         env:

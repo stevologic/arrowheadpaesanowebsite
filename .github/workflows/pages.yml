@@ -24,6 +24,7 @@ defaults:
 
 jobs:
   build-deploy:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       HUGO_VERSION: 0.152.2
@@ -32,6 +33,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Install Hugo
         run: |
@@ -50,8 +52,7 @@ jobs:
         id: review
         run: |
           set -euo pipefail
-          echo "skip=false" >> "$GITHUB_OUTPUT"
-          if python -m tools.chiefs_narrative.review_gate --pages; then
+          if python -m tools.chiefs_narrative.review_gate --pages --dist dist; then
             echo "skip=false" >> "$GITHUB_OUTPUT"
           else
             rc=$?

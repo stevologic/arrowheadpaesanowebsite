@@ -128,6 +128,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -135,14 +136,18 @@ jobs:
           python-version: "3.11"
 
       - name: Refuse unsigned Review editions
-        env:
-          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
         run: |
           set -euo pipefail
           git fetch --no-tags origin "${{ github.base_ref }}"
-          python -m tools.chiefs_narrative.review_gate --automerge \
+          GATE_BASE="${RUNNER_TEMP}/gate-base"
+          git worktree add --detach "$GATE_BASE" "origin/${{ github.base_ref }}"
+          # cwd + python -m would import PR-head tools/ (sys.path[0]).
+          # -P keeps cwd off sys.path; the module comes from GATE_BASE only.
+          # --root is the PR tree, read as data, never imported.
+          cd "$GATE_BASE"
+          PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.review_gate --automerge \
             --base "origin/${{ github.base_ref }}" \
-            --labels "$PR_LABELS"
+            --root "${GITHUB_WORKSPACE}"
 
       - name: Squash-merge the pull request
         env:

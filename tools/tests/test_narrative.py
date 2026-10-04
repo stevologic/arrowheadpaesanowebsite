@@ -5,7 +5,9 @@ merge gate. Run with:  python -m unittest discover -s tools/tests -v
 """
 from __future__ import annotations
 
+import base64
 import copy
+import hashlib
 import io
 import json
 import os
@@ -110,6 +112,80 @@ def _quoted_py_heredoc_bodies(script: str) -> list[str]:
     return bodies
 
 
+def _ed25519_keypair(tmp: Path) -> tuple[Path, Path]:
+    """Throwaway test keypair. Never committed."""
+    priv = Path(tmp) / "test_ed25519_priv.pem"
+    pub = Path(tmp) / "test_ed25519_pub.pem"
+    subprocess.check_call(
+        ["openssl", "genpkey", "-algorithm", "ED25519", "-out", str(priv)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    subprocess.check_call(
+        ["openssl", "pkey", "-in", str(priv), "-pubout", "-out", str(pub)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return priv, pub
+
+
+def _sign_review_edition(priv: Path, slug: str, edition_bytes: bytes, signoff_dir: Path) -> None:
+    sha = hashlib.sha256(edition_bytes).hexdigest()
+    payload = f'{{"slug":"{slug}","verdict":"PASS","sha":"{sha}"}}'
+    signoff_dir.mkdir(parents=True, exist_ok=True)
+    msg = signoff_dir / f"{slug}.msg"
+    sigbin = signoff_dir / f"{slug}.sigbin"
+    msg.write_bytes(payload.encode("ascii"))
+    subprocess.check_call(
+        [
+            "openssl",
+            "pkeyutl",
+            "-sign",
+            "-inkey",
+            str(priv),
+            "-rawin",
+            "-in",
+            str(msg),
+            "-out",
+            str(sigbin),
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    (signoff_dir / f"{slug}.json").write_bytes(payload.encode("ascii"))
+    (signoff_dir / f"{slug}.sig").write_text(
+        base64.b64encode(sigbin.read_bytes()).decode("ascii"),
+        encoding="ascii",
+    )
+    msg.unlink()
+    sigbin.unlink()
+
+
+def _sign_message(priv: Path, message: bytes) -> bytes:
+    """Raw 64-byte ed25519 signature over exact message bytes."""
+    with tempfile.TemporaryDirectory() as tmp:
+        msg = Path(tmp) / "msg"
+        sigbin = Path(tmp) / "sig"
+        msg.write_bytes(message)
+        subprocess.check_call(
+            [
+                "openssl",
+                "pkeyutl",
+                "-sign",
+                "-inkey",
+                str(priv),
+                "-rawin",
+                "-in",
+                str(msg),
+                "-out",
+                str(sigbin),
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return sigbin.read_bytes()
+
+
 def _job_step_script(parsed, job: str, *, name=None, step_id=None) -> str:
     job_doc = ((parsed or {}).get("jobs") or {}).get(job) or {}
     for step in job_doc.get("steps") or []:
@@ -123,10 +199,14 @@ def _job_step_script(parsed, job: str, *, name=None, step_id=None) -> str:
 
 
 def _narrative_review_hold_wiring(parsed) -> dict:
-    """Structured review-hold wiring from the parsed narrative.yml publish step."""
+    """Structured review-hold wiring from test metadata + the publish step."""
+    meta = _job_step_script(
+        parsed, "test", name="Record publish metadata"
+    )
     script = _job_step_script(
         parsed, "update", name="Open pull request and wait for CI gates"
     ) or _job_step_script(parsed, "update", step_id="publish")
+    script = meta + "\n" + script
     review_cmp = re.search(r'if \[ "\$REVIEW_HOLD" = "([^"]+)" \]', script)
     hold_assign = re.search(
         r'if \[ "\$REVIEW_HOLD" = "[^"]+" \]; then\s+HOLD_MERGE="([^"]+)"',
@@ -789,7 +869,7 @@ class GrokModelSelection(unittest.TestCase):
         )
         self.assertNotIn("git diff --exit-code -- public/images/narrative", qa)
         self.assertIn("persist-credentials: false", qa)
-        self.assertGreaterEqual(qa.count("persist-credentials: false"), 2)
+        self.assertGreaterEqual(qa.count("persist-credentials: false"), 3)
         self.assertIn("--match-head-commit", qa)
         self.assertIn("edition_overlay", qa)
         self.assertIn('gh workflow run "Deploy Hugo site to GitHub Pages"', qa)
@@ -2504,9 +2584,14 @@ class LiveGamePhase(unittest.TestCase):
         self.assertTrue(phase.completed_without_score(lv))
         self.assertTrue(phase.is_live(lv, now=now))
         self.assertTrue(phase.any_live(slate, now=now))
+        self.assertFalse(phase.is_final(lv))
         ph = phase.detect(slate, now=now)
         self.assertNotEqual(ph["mode"], "review")
         self.assertNotIn("Review", ph.get("edition") or "")
+        # G20: detect must use is_final, not the completed flag. A
+        # completed-without-score game is liveGame, never lastGame.
+        self.assertEqual(str((ph.get("liveGame") or {}).get("id")), "401872976")
+        self.assertNotEqual(str((ph.get("lastGame") or {}).get("id")), "401872976")
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             narrative_json = root / "narrative.json"
@@ -2929,6 +3014,232 @@ class FactCheck(unittest.TestCase):
     def test_accepts_official_td_yardage(self):
         narrative = self._review(analysis=["Kelce's 11-yard catch made it 21-7."])
         self.assertEqual(facts.check_review(narrative, self.LAST, self.RECAP), [])
+
+    def _lv5_review(self, lede):
+        return {
+            "lastGameReview": {
+                "opponent": "Las Vegas Raiders",
+                "result": "W",
+                "score": "KC 27–17",
+                "lede": lede,
+                "analysis": ["The Chiefs won the line of scrimmage."],
+                "whatWorked": ["The run game."],
+                "whatDidnt": ["Third down was 3-of-7."],
+            }
+        }
+
+    def test_total_yards_resolve_lv_with_empty_opponent(self):
+        """Production recaps leave opponent empty; still bind Raiders / LV / KC."""
+        from tools.tests import karen_matrices
+
+        recap, last, slate = karen_matrices.ctx("LV5")
+        recap = copy.deepcopy(recap)
+        recap["opponent"] = ""
+        last = dict(last)
+        last["opponent"] = "Las Vegas Raiders"
+
+        def issues(lede):
+            return facts.check_review(
+                self._lv5_review(lede),
+                last,
+                recap,
+                schedule=slate,
+            )
+
+        raiders_275 = issues("The Raiders gained 275 total yards.")
+        self.assertTrue(
+            any("total yards 275" in item and "LV" in item for item in raiders_275),
+            raiders_275,
+        )
+        self.assertFalse(any("for KC" in item for item in raiders_275), raiders_275)
+        self.assertEqual(issues("Las Vegas gained 305 total yards."), [])
+        self.assertEqual(issues("The Raiders finished with 305 total yards."), [])
+        kc_swap = issues("Kansas City gained 305 total yards.")
+        self.assertTrue(
+            any("total yards 305" in item and "KC" in item for item in kc_swap),
+            kc_swap,
+        )
+        located = issues("Kansas City had 305 total yards in Las Vegas.")
+        self.assertTrue(
+            any("total yards 305" in item and "KC" in item for item in located),
+            located,
+        )
+
+    def test_p2_final_and_in_game_marks_and_td_verbs(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        slate = collect.load_cached_schedule()
+
+        def issues(lede, analysis=None):
+            return facts.check_review(
+                self._review(
+                    lede=lede,
+                    analysis=analysis or ["Kelce scored on an 11-yard catch."],
+                ),
+                last,
+                recap,
+                schedule=slate,
+            )
+
+        self.assertTrue(issues("Kansas City edged Miami 17-10."))
+        self.assertTrue(issues("Kansas City held off Miami 17-10."))
+        self.assertTrue(issues("Kansas City outscored Miami 17-10."))
+        self.assertTrue(issues("Miami fell 17-10."))
+        self.assertEqual(issues("Kansas City edged Miami 24-10."), [])
+        self.assertTrue(issues("A week after the 30-27 win over Indy, Kansas City hosted Miami."))
+        self.assertTrue(issues("Kansas City won the opener 28-10."))
+        self.assertEqual(issues("Kansas City won the opener 31-10."), [])
+        self.assertTrue(issues("Kelce made it 21-7."))
+        self.assertTrue(issues("Kansas City led 17-10 at the half."))
+        self.assertEqual(issues("Kansas City led 14-7 at the half."), [])
+        self.assertTrue(issues("Kansas City took a 21-3 lead into halftime."))
+        self.assertTrue(issues("Kansas City went up 21-3 before the break."))
+        self.assertTrue(issues("Walker bulled in from the 15."))
+        self.assertTrue(issues("Walker dove in from the 15."))
+        self.assertTrue(issues("Walker scampered in from the 15."))
+        self.assertTrue(issues("Walker scored on a 15-yard run."))
+        self.assertTrue(issues("Walker powered in from the 15."))
+        self.assertTrue(issues("Walker rumbled in from the 15."))
+        self.assertEqual(issues("Walker scored on a 10-yard run."), [])
+        self.assertTrue(issues("Kansas City won by 7."))
+        self.assertEqual(issues("Kansas City won by 14."), [])
+        self.assertTrue(issues("Kansas City beat the Dolphins by 7."))
+        self.assertTrue(issues("Kansas City won in Miami, 17-10."))
+        self.assertEqual(issues("Kansas City won in Miami, 24-10."), [])
+        self.assertTrue(issues("Kansas City topped Miami 17-10."))
+        self.assertTrue(issues("Kansas City dispatched Miami 17-10."))
+        self.assertTrue(issues("Kansas City got past Miami 17-10."))
+        self.assertEqual(issues("Kansas City topped Miami 24-10."), [])
+        self.assertTrue(issues("Kansas City gained 329 total yards in Miami."))
+        self.assertEqual(issues("Kansas City gained 334 total yards in Miami."), [])
+
+    def test_walker_carried_line_binds_last_game(self):
+        from tools.tests import karen_matrices
+
+        recap, last, slate = karen_matrices.ctx("LV5")
+        recap = copy.deepcopy(recap)
+        recap["opponent"] = ""
+        wrong = facts.check_review(
+            self._lv5_review("Walker carried 18 times for 70 yards."),
+            last,
+            recap,
+            schedule=slate,
+        )
+        self.assertTrue(
+            any("carries" in item or "rushing" in item for item in wrong),
+            wrong,
+        )
+        mia = _load_fixture("espn_401872952_recap.json")
+        mia_last = dict(self.LAST)
+        ok = facts.check_review(
+            self._review(
+                lede="Walker carried 18 times for 70 yards.",
+                analysis=["Kelce scored on an 11-yard catch."],
+            ),
+            mia_last,
+            mia,
+        )
+        self.assertEqual(ok, [])
+        for lede in (
+            "Walker finished with 70 yards on 18 carries.",
+            "Walker had 18 carries for 70 yards.",
+            "Walker ran 18 times for 70 yards.",
+        ):
+            wrong_form = facts.check_review(
+                self._lv5_review(lede),
+                last,
+                recap,
+                schedule=slate,
+            )
+            self.assertTrue(
+                any("carries" in item or "rushing" in item for item in wrong_form),
+                (lede, wrong_form),
+            )
+            ok_form = facts.check_review(
+                self._review(
+                    lede=lede,
+                    analysis=["Kelce scored on an 11-yard catch."],
+                ),
+                mia_last,
+                mia,
+            )
+            self.assertEqual(ok_form, [], lede)
+
+    def test_td_yardage_binds_to_scorer_team_not_unique_distance(self):
+        """Production LV 27-17: LV owns 15/4; Walker is KC via touches."""
+        from tools.tests import karen_matrices
+
+        recap, last, slate = karen_matrices.ctx("LV5")
+        recap = copy.deepcopy(recap)
+        recap["opponent"] = ""
+        recap["scoringPlays"] = [
+            {
+                "quarter": 1,
+                "type": "TD",
+                "yards": 6,
+                "team": "KC",
+                "kcScore": 7,
+                "oppScore": 0,
+            },
+            {
+                "quarter": 1,
+                "type": "TD",
+                "yards": 15,
+                "team": "LV",
+                "kcScore": 7,
+                "oppScore": 7,
+            },
+            {
+                "quarter": 2,
+                "type": "TD",
+                "yards": 4,
+                "team": "LV",
+                "kcScore": 7,
+                "oppScore": 14,
+            },
+            {
+                "quarter": 3,
+                "type": "TD",
+                "yards": 1,
+                "team": "KC",
+                "kcScore": 14,
+                "oppScore": 14,
+            },
+        ]
+        for play in recap["scoringPlays"]:
+            play.pop("player", None)
+
+        def issues(lede):
+            return facts.check_review(
+                self._lv5_review(lede),
+                last,
+                recap,
+                schedule=slate,
+            )
+
+        for lede in (
+            "Walker bulled in from the 15.",
+            "Walker scored on a 15-yard run.",
+            "Walker dove in from the 4.",
+            "Walker powered in from the 15.",
+            "Walker rumbled in from the 4.",
+        ):
+            hit = issues(lede)
+            self.assertTrue(
+                any("scoring yardage" in item and "KC" in item for item in hit),
+                (lede, hit),
+            )
+        self.assertTrue(issues("Kansas City won by 7."))
+        self.assertEqual(issues("Kansas City won by 10."), [])
+        self.assertTrue(issues("Kansas City beat the Raiders by 7."))
+        self.assertTrue(issues("Kansas City won in Las Vegas, 24-17."))
+        self.assertEqual(issues("Kansas City won in Las Vegas, 27-17."), [])
+        self.assertTrue(issues("Kansas City topped Las Vegas 24-17."))
+        self.assertTrue(issues("Kansas City dispatched Las Vegas 24-17."))
+        self.assertTrue(issues("Kansas City got past Las Vegas 24-17."))
+        self.assertTrue(issues("Kansas City took a 21-3 lead into halftime."))
+        self.assertEqual(issues("Kansas City led 7-14 at the half."), [])
 
     def test_ignores_records_and_completions_as_scores(self):
         narrative = self._review(
@@ -5005,7 +5316,17 @@ class FactCheck(unittest.TestCase):
         parsed = yaml.safe_load(workflow)
         self.assertEqual(parsed["name"], "Chiefs Narrative (daily)")
         self.assertIn("narrative_repair.json", workflow)
-        self.assertIn("python -m tools.chiefs_narrative.drop_body", workflow)
+        self.assertIn("drop_body.drop_body", workflow)
+        update_scripts = "\n".join(
+            str(step.get("run") or "")
+            for step in ((parsed.get("jobs") or {}).get("update") or {}).get(
+                "steps"
+            )
+            or []
+            if isinstance(step, dict)
+        )
+        self.assertNotIn("python -m tools.chiefs_narrative.drop_body", update_scripts)
+        self.assertNotIn("from tools.chiefs_narrative import", update_scripts)
         self.assertNotIn("\nimport json, sys\n", workflow)
         self.assertIn("HOLD_MERGE", workflow)
         self.assertIn("holdAutomerge", workflow)
@@ -5116,10 +5437,14 @@ class FactCheck(unittest.TestCase):
         self.assertNotEqual(mutated["hold_merge_equals"], "true")
 
     def test_automerge_and_pages_refuse_unsigned_reviews(self):
+        """G1–G3 / G6–G8: YAML-parsed wiring. Named mutations in the PR body."""
         root = Path(__file__).resolve().parents[2] / ".github" / "workflows"
         ci = yaml.safe_load((root / "ci.yml").read_text(encoding="utf-8"))
         qa = yaml.safe_load((root / "edition-qa.yml").read_text(encoding="utf-8"))
         pages = yaml.safe_load((root / "pages.yml").read_text(encoding="utf-8"))
+        narrative = yaml.safe_load((root / "narrative.yml").read_text(encoding="utf-8"))
+        # G1: drop the ci automerge gate step.
+        # G2: drop the edition-qa automerge gate step.
         for parsed, job in ((ci, "automerge"), (qa, "automerge")):
             scripts = "\n".join(
                 str(step.get("run") or "")
@@ -5127,15 +5452,46 @@ class FactCheck(unittest.TestCase):
                 or []
                 if isinstance(step, dict)
             )
+            self.assertIn("GATE_BASE", scripts, job)
+            self.assertIn("git worktree add", scripts, job)
+            self.assertIn('cd "$GATE_BASE"', scripts, job)
             self.assertIn(
-                "python -m tools.chiefs_narrative.review_gate --automerge",
+                "python -P -m tools.chiefs_narrative.review_gate --automerge",
                 scripts,
                 job,
             )
+            self.assertIn('--root "${GITHUB_WORKSPACE}"', scripts, job)
+            self.assertNotRegex(
+                scripts,
+                r'PYTHONPATH="\$GATE_BASE" python -m tools\.chiefs_narrative\.review_gate',
+            )
+            checkouts = [
+                step
+                for step in ((parsed.get("jobs") or {}).get(job) or {}).get(
+                    "steps"
+                )
+                or []
+                if isinstance(step, dict)
+                and "actions/checkout" in str(step.get("uses") or "")
+            ]
+            self.assertTrue(checkouts, job)
+            for step in checkouts:
+                self.assertEqual(
+                    (step.get("with") or {}).get("persist-credentials"),
+                    False,
+                    job,
+                )
             self.assertLess(
                 scripts.index("review_gate --automerge"),
                 scripts.index("gh pr merge"),
             )
+            # G8: `review_gate --automerge || true`
+            self.assertIsNone(
+                re.search(r"review_gate --automerge[^\n]*\|\|\s*true", scripts),
+                job,
+            )
+            self.assertNotIn("--labels", scripts)
+            self.assertNotIn("qa-pass", scripts)
         pages_scripts = "\n".join(
             str(step.get("run") or "")
             for step in ((pages.get("jobs") or {}).get("build-deploy") or {}).get(
@@ -5145,8 +5501,25 @@ class FactCheck(unittest.TestCase):
             if isinstance(step, dict)
         )
         self.assertIn(
-            "python -m tools.chiefs_narrative.review_gate --pages", pages_scripts
+            "python -m tools.chiefs_narrative.review_gate --pages --dist dist",
+            pages_scripts,
         )
+        self.assertLess(
+            pages_scripts.index("hugo --gc --minify"),
+            pages_scripts.index("review_gate --pages --dist dist"),
+        )
+        # G7: `review_gate --pages || true`
+        self.assertIsNone(
+            re.search(r"review_gate --pages[^\n]*\|\|\s*true", pages_scripts)
+        )
+        pages_gate = _job_step_script(
+            pages, "build-deploy", name="Skip unsigned Review editions"
+        ) or _job_step_script(pages, "build-deploy", step_id="review")
+        self.assertIn("review_gate --pages --dist dist", pages_gate)
+        blocked = pages_gate[pages_gate.find("else") :]
+        # G6: the pages blocked branch writes skip=false.
+        self.assertIn('echo "skip=true"', blocked)
+        self.assertNotIn("skip=false", blocked)
         publish = next(
             step
             for step in ((pages.get("jobs") or {}).get("build-deploy") or {}).get(
@@ -5155,7 +5528,118 @@ class FactCheck(unittest.TestCase):
             or []
             if isinstance(step, dict) and step.get("name") == "Publish to gh-pages"
         )
+        # G3: remove the pages Publish `if`.
         self.assertEqual(publish.get("if"), "steps.review.outputs.skip != 'true'")
+        narr_gate = _job_step_script(
+            narrative, "deploy", name="Skip unsigned Review editions"
+        ) or _job_step_script(narrative, "deploy", step_id="review")
+        self.assertIn("review_gate --pages", narr_gate)
+        self.assertIn("--dist", narr_gate)
+        self.assertIsNone(
+            re.search(r"review_gate --pages[^\n]*\|\|\s*true", narr_gate)
+        )
+        narr_blocked = narr_gate[narr_gate.find("else") :]
+        self.assertIn('echo "skip=true"', narr_blocked)
+        self.assertNotIn("skip=false", narr_blocked)
+        narr_scripts = "\n".join(
+            str(step.get("run") or "")
+            for step in ((narrative.get("jobs") or {}).get("deploy") or {}).get(
+                "steps"
+            )
+            or []
+            if isinstance(step, dict)
+        )
+        self.assertLess(
+            narr_scripts.index("hugo --gc --minify"),
+            narr_scripts.index("review_gate --pages"),
+        )
+        narr_publish = next(
+            step
+            for step in ((narrative.get("jobs") or {}).get("deploy") or {}).get(
+                "steps"
+            )
+            or []
+            if isinstance(step, dict) and step.get("name") == "Publish to gh-pages"
+        )
+        self.assertEqual(
+            narr_publish.get("if"), "steps.review.outputs.skip != 'true'"
+        )
+        ci_gates = "\n".join(
+            str(step.get("run") or "")
+            for step in ((ci.get("jobs") or {}).get("gates") or {}).get("steps")
+            or []
+            if isinstance(step, dict)
+        )
+        self.assertIn("pages.yml:", ci_gates)
+        self.assertIn("narrative.yml:", ci_gates)
+        self.assertIn(
+            "python -m tools.chiefs_narrative.review_gate --pages --dist dist",
+            ci_gates,
+        )
+        self.assertLess(
+            ci_gates.index("hugo --gc --minify"),
+            ci_gates.index("review_gate --pages --dist dist"),
+        )
+        self.assertIn('echo "skip=false"', ci_gates)
+        self.assertIn('grep -qx "skip=false"', ci_gates)
+        # B3: workflow is read-only; write lives only on automerge.
+        self.assertEqual(ci.get("permissions"), {"contents": "read"})
+        self.assertNotIn("contents: write", yaml.dump(ci.get("jobs", {}).get("gates") or {}))
+        self.assertEqual(
+            ((ci.get("jobs") or {}).get("automerge") or {}).get("permissions"),
+            {
+                "contents": "write",
+                "pull-requests": "write",
+                "actions": "write",
+            },
+        )
+        gates_checkouts = [
+            step
+            for step in ((ci.get("jobs") or {}).get("gates") or {}).get("steps")
+            or []
+            if isinstance(step, dict)
+            and "actions/checkout" in str(step.get("uses") or "")
+        ]
+        self.assertTrue(gates_checkouts)
+        for step in gates_checkouts:
+            self.assertEqual(
+                (step.get("with") or {}).get("persist-credentials"),
+                False,
+            )
+        pages_job = (pages.get("jobs") or {}).get("build-deploy") or {}
+        self.assertEqual(pages_job.get("if"), "github.ref == 'refs/heads/main'")
+        pages_checkouts = [
+            step
+            for step in pages_job.get("steps") or []
+            if isinstance(step, dict)
+            and "actions/checkout" in str(step.get("uses") or "")
+        ]
+        self.assertTrue(pages_checkouts)
+        for step in pages_checkouts:
+            self.assertEqual(
+                (step.get("with") or {}).get("persist-credentials"),
+                False,
+            )
+        narr_job = (narrative.get("jobs") or {}).get("deploy") or {}
+        self.assertIn("github.ref == 'refs/heads/main'", str(narr_job.get("if")))
+        self.assertEqual(narrative.get("permissions"), {"contents": "read"})
+        for job_name in ("generate", "test", "update", "deploy"):
+            narr_checkouts = [
+                step
+                for step in ((narrative.get("jobs") or {}).get(job_name) or {}).get(
+                    "steps"
+                )
+                or []
+                if isinstance(step, dict)
+                and "actions/checkout" in str(step.get("uses") or "")
+            ]
+            self.assertTrue(narr_checkouts, job_name)
+            for step in narr_checkouts:
+                self.assertEqual(
+                    (step.get("with") or {}).get("persist-credentials"),
+                    False,
+                    job_name,
+                )
 
     def test_review_gate_blocks_unsigned_review_json(self):
         gate_src = (
@@ -5166,6 +5650,25 @@ class FactCheck(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertNotIn("import facts", gate_src)
         self.assertNotIn("from tools.chiefs_narrative import config, facts", gate_src)
+        self.assertEqual(review_gate.SIGNOFF_DIR, "signoff/review")
+        self.assertNotIn('SIGNOFF_DIR = "data/review_signoff"', gate_src)
+        self.assertNotIn("HUMAN_MERGE_PREFIXES", gate_src)
+        self.assertNotIn("HUMAN_MERGE_PATHS", gate_src)
+        self.assertIn("AUTOMERGE_ALLOWED_PATHS", gate_src)
+        self.assertIn("AUTOMERGE_ALLOWED_PREFIXES = ()", gate_src)
+        self.assertNotIn('"tools/tests/"', gate_src)
+        self.assertNotIn("tools/requirements.txt", gate_src)
+        self.assertIn("hugo config", gate_src)
+        self.assertIn("staticdir", gate_src)
+        self.assertIn("contentdir", gate_src)
+        self.assertIn("datadir", gate_src)
+        self.assertIn("layoutdir", gate_src)
+        self.assertIn("mounts", gate_src)
+        self.assertIn("output_blocked", gate_src)
+        self.assertNotIn("qa-pass", gate_src)
+        self.assertNotIn("QA_PASS", gate_src)
+        self.assertNotIn('"pass" in', gate_src)
+        self.assertNotIn("'pass' in", gate_src)
         preview = {
             "slug": "2026-10-03-1538",
             "edition": "2026 Week 4 · Preview",
@@ -5176,86 +5679,1284 @@ class FactCheck(unittest.TestCase):
             "edition": "2026 Week 6 · Week 4 Review",
             "phase": {"mode": "review"},
         }
+        mode_only = {
+            "slug": "2026-10-05-0937",
+            "edition": "2026 Week 6 · Preview",
+            "phase": {"mode": "review"},
+        }
+        title_only = {
+            "slug": "2026-10-05-0937",
+            "edition": "2026 Week 6 · Week 4 Review",
+            "phase": {"mode": "preview"},
+        }
+        recap_label = {
+            "slug": "2026-10-05-0937",
+            "edition": "2026 Week 5 Review",
+            "phase": {"mode": "recap"},
+        }
+        postgame_label = {
+            "slug": "2026-10-05-0937",
+            "edition": "2026 Week 5 · Review",
+            "phase": {"mode": "postgame"},
+        }
+        endash_preview = {
+            "slug": "2026-10-05-0937",
+            "edition": "2026 Week 5 – Week 4 Review",
+            "phase": {"mode": "preview"},
+        }
+        phase_string = {
+            "slug": "2026-10-05-0937",
+            "edition": "",
+            "phase": "Week 5 Review",
+        }
+        middot_label = {
+            "slug": "2026-10-05-0937",
+            "edition": "2026 Week 5 &middot; Review",
+            "phase": {"mode": "preview"},
+        }
+        final_only = {
+            "slug": "2026-10-05-0937",
+            "edition": "desk notes",
+            "phase": {},
+            "lastGame": {
+                "completed": True,
+                "kcScore": 27,
+                "oppScore": 17,
+            },
+        }
+        recap_mode_only = {
+            "slug": "2026-10-05-0937",
+            "edition": "desk notes",
+            "phase": {"mode": "recap"},
+        }
+        postgame_mode_only = {
+            "slug": "2026-10-05-0937",
+            "edition": "desk notes",
+            "phase": {"mode": "postgame"},
+        }
+        body_score_only = {
+            "slug": "2026-10-05-0937",
+            "edition": "desk notes",
+            "phase": {},
+            "lastGameReview": {"lede": "Kansas City finished 27-17."},
+        }
+        preview_with_final = {
+            "slug": "2026-10-03-1538",
+            "edition": "2026 Week 4 · Preview",
+            "phase": {"mode": "preview"},
+            "lastGame": {
+                "completed": True,
+                "kcScore": 24,
+                "oppScore": 10,
+            },
+        }
         self.assertFalse(review_gate.should_block_review(preview))
         self.assertTrue(review_gate.should_block_review(review))
-        self.assertFalse(
-            review_gate.should_block_review(review, labels=["qa-pass"])
+        # G18: drop the phase.mode check.
+        self.assertTrue(review_gate.should_block_review(mode_only))
+        self.assertTrue(review_gate.should_block_review(title_only))
+        # C2 / C3 / C4 / C6 / C10: mode or Review label, not the middot form.
+        self.assertTrue(review_gate.payload_is_review(recap_label))
+        self.assertTrue(review_gate.payload_is_review(postgame_label))
+        self.assertTrue(review_gate.payload_is_review(endash_preview))
+        self.assertTrue(review_gate.payload_is_review(phase_string))
+        self.assertTrue(review_gate.payload_is_review(middot_label))
+        self.assertTrue(review_gate.payload_is_review(final_only))
+        self.assertFalse(review_gate.payload_is_review(preview_with_final))
+        # C_drop_recap_postgame: mode alone, no score and no Review label.
+        self.assertEqual(
+            review_gate._REVIEW_MODES, frozenset({"review", "recap", "postgame"})
         )
+        self.assertEqual(
+            facts._REVIEW_MODES, frozenset({"review", "recap", "postgame"})
+        )
+        self.assertTrue(review_gate.payload_is_review(recap_mode_only))
+        self.assertTrue(review_gate.payload_is_review(postgame_mode_only))
+        self.assertTrue(review_gate.payload_is_review(body_score_only))
+        self.assertTrue(facts.is_review_edition(recap_label))
+        self.assertTrue(facts.is_review_edition(postgame_label))
+        self.assertTrue(facts.is_review_edition(endash_preview))
+        self.assertTrue(facts.is_review_edition(phase_string))
+        self.assertTrue(facts.is_review_edition(middot_label))
+        self.assertTrue(facts.is_review_edition(final_only))
+        self.assertTrue(facts.is_review_edition(recap_mode_only))
+        self.assertTrue(facts.is_review_edition(postgame_mode_only))
+        self.assertTrue(facts.is_review_edition(body_score_only))
+        self.assertFalse(facts.is_review_edition(preview_with_final))
+        # G17: any label counts as qa-pass. Labels are gone.
+        self.assertTrue(review_gate.should_block_review(review))
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
+            tmp_path = Path(tmp)
+            priv, pub = _ed25519_keypair(tmp_path)
+            env = {"REVIEW_SIGNOFF_PUBKEY": str(pub)}
+            root = tmp_path / "signed"
+            unsigned = tmp_path / "unsigned"
             slug = "narrative"
             editions_name = slug + "_editions"
             live_name = slug + ".json"
             review_rel = "data/" + editions_name + "/2026-10-05-0937.json"
+            for tree in (root, unsigned):
+                editions = tree / "data" / editions_name
+                editions.mkdir(parents=True)
+            review_bytes = (json.dumps(review) + "\n").encode("utf-8")
+            preview_bytes = (json.dumps(preview) + "\n").encode("utf-8")
+            (root / "data" / editions_name / "2026-10-05-0937.json").write_bytes(
+                review_bytes
+            )
+            (root / "data" / live_name).write_bytes(preview_bytes)
+            (unsigned / "data" / live_name).write_bytes(review_bytes)
+            (unsigned / "data" / editions_name / "2026-10-05-0937.json").write_bytes(
+                review_bytes
+            )
+            with patch.dict(os.environ, env, clear=False):
+                self.assertTrue(
+                    review_gate.automerge_blocked([review_rel], root=root)
+                )
+                self.assertTrue(
+                    review_gate.automerge_blocked(
+                        ["tools/chiefs_narrative/facts.py"], root=root
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["tools/chiefs_narrative/review_gate.py"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["tools/chiefs_narrative/config.py"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["tools/chiefs_narrative/__init__.py"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(["tools/__init__.py"])
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["layouts/narrative/single.html"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(["hugo.yaml"])
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(["hugo.toml"])
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(["hugo.json"])
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["config/_default/hugo.yaml"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["static/narrative/x/index.html"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(["assets/css/x.css"])
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["content/narrative/_content.gotmpl"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["scripts/review_signoff_pubkey.pem"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["scripts/review_legacy_editions.txt"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["signoff/review/2026-10-05-0937.json"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge([".github/workflows/ci.yml"])
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(["CODEOWNERS"])
+                )
+                live_rel = "data/" + live_name
+                preview_rel = "data/" + editions_name + "/2026-10-03-1538.json"
+                (root / "data" / editions_name / "2026-10-03-1538.json").write_bytes(
+                    preview_bytes
+                )
+                self.assertFalse(review_gate.requires_human_merge([live_rel]))
+                self.assertFalse(review_gate.requires_human_merge([preview_rel]))
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["tools/tests/test_narrative.py"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(["tools/requirements.txt"])
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(["tools/run_local.sh"])
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(["tools/run_local.ps1"])
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(["tools/.env.example"])
+                )
+                self.assertTrue(
+                    review_gate.automerge_blocked(
+                        ["tools/tests/test_evil.py"], root=root
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["public/narrative/2026-10-05-0937/index.html"]
+                    )
+                )
+                self.assertTrue(review_gate.requires_human_merge(["README.md"]))
+                self.assertFalse(review_gate.automerge_allowlisted("public/x.html"))
+                self.assertTrue(
+                    review_gate.automerge_blocked(
+                        ["tools/chiefs_narrative/review_gate.py"], root=root
+                    )
+                )
+                self.assertFalse(
+                    review_gate.automerge_blocked([live_rel], root=root)
+                )
+                self.assertFalse(
+                    review_gate.automerge_blocked([preview_rel], root=root)
+                )
+                self.assertEqual(
+                    review_gate.main(
+                        ["--automerge", "--root", str(root), review_rel]
+                    ),
+                    1,
+                )
+                # G14: any sign-off file counting.
+                fake = root / "signoff" / "review"
+                fake.mkdir(parents=True)
+                (fake / "2026-10-05-0937.json").write_text(
+                    json.dumps({"result": "PASS", "by": "Karen"}) + "\n",
+                    encoding="utf-8",
+                )
+                self.assertTrue(
+                    review_gate.should_block_review(
+                        review, root=root, edition_file=root / review_rel
+                    )
+                )
+                (fake / "2026-10-05-0937.json").write_bytes(
+                    review_gate.signoff_canonical_bytes(
+                        "2026-10-05-0937",
+                        hashlib.sha256(review_bytes).hexdigest(),
+                    )
+                )
+                (fake / "2026-10-05-0937.sig").write_text(
+                    "not-a-signature\n", encoding="ascii"
+                )
+                self.assertTrue(
+                    review_gate.should_block_review(
+                        review, root=root, edition_file=root / review_rel
+                    )
+                )
+                _sign_review_edition(
+                    priv, "2026-10-05-0937", review_bytes, fake
+                )
+                self.assertFalse(
+                    review_gate.should_block_review(
+                        review, root=root, edition_file=root / review_rel
+                    )
+                )
+                other = review_gate.signoff_canonical_bytes(
+                    "2026-10-03-1538",
+                    hashlib.sha256(preview_bytes).hexdigest(),
+                )
+                (fake / "2026-10-05-0937.json").write_bytes(other)
+                self.assertTrue(
+                    review_gate.should_block_review(
+                        review, root=root, edition_file=root / review_rel
+                    )
+                )
+                _sign_review_edition(
+                    priv, "2026-10-05-0937", review_bytes, fake
+                )
+                # G13: pages_blocked returns False when files changed.
+                self.assertTrue(
+                    review_gate.pages_blocked(["README.md"], root=unsigned)
+                )
+                self.assertTrue(
+                    review_gate.pages_blocked(
+                        ["data/schedule_2026.json"], root=unsigned
+                    )
+                )
+                self.assertTrue(review_gate.pages_blocked(root=unsigned))
+                self.assertFalse(
+                    review_gate.pages_blocked(["README.md"], root=root)
+                )
+                self.assertFalse(review_gate.pages_blocked(root=root))
+                self.assertEqual(
+                    review_gate.main(
+                        ["--pages", "--root", str(unsigned), "README.md"]
+                    ),
+                    2,
+                )
+                self.assertEqual(
+                    review_gate.main(
+                        ["--pages", "--root", str(root), "README.md"]
+                    ),
+                    0,
+                )
+                self.assertEqual(
+                    review_gate.main(
+                        ["--automerge", "--root", str(root), review_rel]
+                    ),
+                    1,
+                )
+                self.assertTrue(
+                    review_gate.automerge_blocked([review_rel], root=root)
+                )
+                self.assertEqual(
+                    review_gate.main(
+                        ["--automerge", "--root", str(root), preview_rel]
+                    ),
+                    0,
+                )
+                self.assertEqual(
+                    review_gate.main(["--automerge", "--root", str(tmp_path)]),
+                    1,
+                )
+                self.assertEqual(
+                    review_gate.main(["--pages", "--root", str(tmp_path)]),
+                    2,
+                )
+
+    def test_review_gate_signature_mutations_are_red(self):
+        """X1–X13: pin the crypto, slug, and published-edition scan."""
+        review = {
+            "slug": "2026-10-05-0937",
+            "edition": "2026 Week 6 · Week 4 Review",
+            "phase": {"mode": "review"},
+        }
+        preview = {
+            "slug": "2026-10-03-1538",
+            "edition": "2026 Week 4 · Preview",
+            "phase": {"mode": "preview"},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "a").mkdir()
+            (tmp_path / "b").mkdir()
+            priv_a, pub_a = _ed25519_keypair(tmp_path / "a")
+            priv_b, pub_b = _ed25519_keypair(tmp_path / "b")
+            del pub_b
+            root = tmp_path / "tree"
+            live = "narrative"
+            editions_name = live + "_editions"
+            live_name = live + ".json"
+            editions = root / "data" / editions_name
+            signoff = root / "signoff" / "review"
+            editions.mkdir(parents=True)
+            signoff.mkdir(parents=True)
+            review_bytes = (json.dumps(review) + "\n").encode("utf-8")
+            preview_bytes = (json.dumps(preview) + "\n").encode("utf-8")
+            (root / "data" / live_name).write_bytes(preview_bytes)
+            (editions / "2026-10-05-0937.json").write_bytes(review_bytes)
+            sha = hashlib.sha256(review_bytes).hexdigest()
+            slug = "2026-10-05-0937"
+            env_a = {"REVIEW_SIGNOFF_PUBKEY": str(pub_a)}
+
+            def _write_sig(message: bytes, priv: Path, name: str = slug) -> None:
+                (signoff / f"{name}.json").write_bytes(message)
+                (signoff / f"{name}.sig").write_text(
+                    base64.b64encode(_sign_message(priv, message)).decode(
+                        "ascii"
+                    ),
+                    encoding="ascii",
+                )
+
+            with patch.dict(os.environ, env_a, clear=False):
+                # X13: missing narrative.json must block, not deploy.
+                missing = tmp_path / "missing"
+                missing.mkdir()
+                self.assertTrue(review_gate.pages_blocked(root=missing))
+
+                # Archive-only unsigned Review must block (P7/P8/P9).
+                self.assertTrue(
+                    review_gate.pages_blocked(["README.md"], root=root)
+                )
+                _sign_review_edition(priv_a, slug, review_bytes, signoff)
+                self.assertFalse(
+                    review_gate.pages_blocked(["README.md"], root=root)
+                )
+
+                # X1 / X2b / X2c: any 64-byte signature is not enough.
+                junk = base64.b64encode(os.urandom(64)).decode("ascii")
+                (signoff / f"{slug}.json").write_bytes(
+                    review_gate.signoff_canonical_bytes(slug, sha)
+                )
+                (signoff / f"{slug}.sig").write_text(junk + "\n", encoding="ascii")
+                self.assertTrue(
+                    review_gate.should_block_review(
+                        review,
+                        root=root,
+                        edition_file=editions / f"{slug}.json",
+                    )
+                )
+
+                # X2: wrong-key 64-byte signature.
+                _write_sig(review_gate.signoff_canonical_bytes(slug, sha), priv_b)
+                self.assertTrue(
+                    review_gate.should_block_review(
+                        review,
+                        root=root,
+                        edition_file=editions / f"{slug}.json",
+                    )
+                )
+
+                # X4b / sha-only mismatch: valid crypto over the wrong sha.
+                wrong_sha = "ab" * 32
+                _write_sig(
+                    review_gate.signoff_canonical_bytes(slug, wrong_sha), priv_a
+                )
+                self.assertTrue(
+                    review_gate.should_block_review(
+                        review,
+                        root=root,
+                        edition_file=editions / f"{slug}.json",
+                    )
+                )
+
+                # X3: case-insensitive sha compare must not pass.
+                _write_sig(
+                    review_gate.signoff_canonical_bytes(slug, sha.upper()),
+                    priv_a,
+                )
+                self.assertTrue(
+                    review_gate.should_block_review(
+                        review,
+                        root=root,
+                        edition_file=editions / f"{slug}.json",
+                    )
+                )
+
+                # X4: prefix sha compare must not pass.
+                _write_sig(
+                    review_gate.signoff_canonical_bytes(slug, sha[:8]), priv_a
+                )
+                self.assertTrue(
+                    review_gate.should_block_review(
+                        review,
+                        root=root,
+                        edition_file=editions / f"{slug}.json",
+                    )
+                )
+
+                # X8: exact-bytes JSON check. Pretty JSON is a different message.
+                pretty = (
+                    json.dumps(
+                        {"slug": slug, "verdict": "PASS", "sha": sha},
+                        indent=2,
+                    )
+                    + "\n"
+                ).encode("ascii")
+                _write_sig(pretty, priv_a)
+                self.assertTrue(
+                    review_gate.should_block_review(
+                        review,
+                        root=root,
+                        edition_file=editions / f"{slug}.json",
+                    )
+                )
+
+                # X11: slug traversal is never a valid sign-off target.
+                for bad_slug in ("../narrative", "2026-10-05/0937", ".."):
+                    payload = dict(review)
+                    payload["slug"] = bad_slug
+                    self.assertFalse(review_gate._safe_signoff_slug(bad_slug))
+                    self.assertFalse(
+                        review_gate.verify_signoff(
+                            bad_slug, review_bytes, root=root
+                        )
+                    )
+                    self.assertTrue(
+                        review_gate.should_block_review(
+                            payload,
+                            root=root,
+                            edition_file=editions / f"{slug}.json",
+                        )
+                    )
+
+                # X6: malformed editions JSON is not "not a Review".
+                broken = tmp_path / "broken"
+                (broken / "data" / editions_name).mkdir(parents=True)
+                (broken / "data" / live_name).write_bytes(preview_bytes)
+                (broken / "data" / editions_name / "2026-10-05-0937.json").write_text(
+                    "{not-json", encoding="utf-8"
+                )
+                with self.assertRaises(review_gate.GateError):
+                    review_gate.pages_blocked(root=broken)
+                self.assertEqual(
+                    review_gate.main(
+                        ["--pages", "--root", str(broken), "README.md"]
+                    ),
+                    1,
+                )
+
+            # X2 / real committed pubkey: REVIEW_SIGNOFF_PUBKEY unset.
+            env_clear = {
+                key: value
+                for key, value in os.environ.items()
+                if key != "REVIEW_SIGNOFF_PUBKEY"
+            }
+            with patch.dict(os.environ, env_clear, clear=True):
+                self.assertIsNone(os.environ.get("REVIEW_SIGNOFF_PUBKEY"))
+                real_pub = review_gate.public_key_path()
+                self.assertEqual(
+                    real_pub,
+                    Path(__file__).resolve().parents[2]
+                    / "scripts"
+                    / "review_signoff_pubkey.pem",
+                )
+                self.assertTrue(real_pub.is_file())
+                planted_pub = root / "scripts"
+                planted_pub.mkdir(parents=True)
+                shutil.copy(pub_a, planted_pub / "review_signoff_pubkey.pem")
+                _sign_review_edition(priv_a, slug, review_bytes, signoff)
+                # Throwaway-signed edition must fail under Karen's real key,
+                # even if the evaluated tree planted a matching pubkey.
+                self.assertTrue(
+                    review_gate.should_block_review(
+                        review,
+                        root=root,
+                        edition_file=editions / f"{slug}.json",
+                    )
+                )
+                (signoff / f"{slug}.json").write_bytes(
+                    review_gate.signoff_canonical_bytes(slug, sha)
+                )
+                (signoff / f"{slug}.sig").write_text(
+                    base64.b64encode(os.urandom(64)).decode("ascii") + "\n",
+                    encoding="ascii",
+                )
+                self.assertFalse(
+                    review_gate.verify_signoff(slug, review_bytes, root=root)
+                )
+
+    def test_pages_blocked_allows_current_repo_tree(self):
+        """Real checkout must deploy: preview + pinned pre-gate Review archives."""
+        repo = Path(__file__).resolve().parents[2]
+        pins = review_gate.load_legacy_pins(repo)
+        self.assertEqual(len(pins), 8)
+        slugs = [review_gate._legacy_slug_from_path(path) for path in pins]
+        self.assertTrue(all(review_gate._legacy_date_ok(slug) for slug in slugs))
+        editions_rel = "data/" + "narrative" + "_editions/"
+        self.assertTrue(all(path.startswith(editions_rel) for path in pins))
+        self.assertTrue(all("/2026-10-" not in path for path in pins))
+        self.assertFalse(review_gate.pages_blocked(root=repo))
+        self.assertEqual(review_gate.main(["--pages", "--root", str(repo)]), 0)
+        hugo_bin = _hugo_bin()
+        if hugo_bin:
+            cfg = review_gate.load_hugo_config(repo)
+            self.assertEqual(cfg["staticdir"], ["public"])
+            self.assertEqual(cfg["contentdir"], "content")
+            self.assertEqual(cfg["datadir"], "data")
+            self.assertEqual(cfg["layoutdir"], "layouts")
+            self.assertTrue(
+                any(
+                    isinstance(mount, dict)
+                    and mount.get("source") == "public"
+                    and str(mount.get("target") or "").startswith("static")
+                    for mount in (cfg.get("module") or {}).get("mounts") or []
+                )
+            )
+            with tempfile.TemporaryDirectory() as tmp:
+                dest = Path(tmp) / "dist"
+                result = subprocess.run(
+                    [hugo_bin, "--gc", "--minify", "--destination", str(dest)],
+                    cwd=repo,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(
+                    result.returncode, 0, result.stdout + result.stderr
+                )
+                self.assertFalse(review_gate.output_blocked(dest, root=repo))
+                self.assertEqual(
+                    review_gate.main(
+                        ["--pages", "--root", str(repo), "--dist", str(dest)]
+                    ),
+                    0,
+                )
+
+    def test_legacy_review_manifest_mutations_are_red(self):
+        """L1 unlisted / L2 edited bytes / L3 empty manifest all block."""
+        preview = {
+            "slug": "2026-10-03-1538",
+            "edition": "2026 Week 4 · Preview",
+            "phase": {"mode": "preview"},
+        }
+        listed = {
+            "slug": "2026-09-29-1734",
+            "edition": "2026 Week 4 · Week 3 Review",
+            "phase": {"mode": "review"},
+        }
+        unlisted = {
+            "slug": "2026-09-15-1200",
+            "edition": "2026 Week 2 · Week 1 Review",
+            "phase": {"mode": "review"},
+        }
+        live = "narrative"
+        editions_name = live + "_editions"
+        live_name = live + ".json"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            editions = root / "data" / editions_name
+            scripts = root / "scripts"
+            editions.mkdir(parents=True)
+            scripts.mkdir(parents=True)
+            preview_bytes = (json.dumps(preview) + "\n").encode("utf-8")
+            listed_bytes = (json.dumps(listed) + "\n").encode("utf-8")
+            unlisted_bytes = (json.dumps(unlisted) + "\n").encode("utf-8")
+            (root / "data" / live_name).write_bytes(preview_bytes)
+            listed_sha = hashlib.sha256(listed_bytes).hexdigest()
+            manifest = scripts / "review_legacy_editions.txt"
+
+            def _write_pin(text: str) -> None:
+                manifest.write_text(text, encoding="ascii")
+
+            # Listed + matching bytes: allowed.
+            (editions / "2026-09-29-1734.json").write_bytes(listed_bytes)
+            editions_rel = "data/" + "narrative" + "_editions"
+            _write_pin(
+                f"{editions_rel}/2026-09-29-1734.json {listed_sha}\n"
+            )
+            self.assertFalse(review_gate.pages_blocked(root=root))
+
+            # L1: unlisted legacy Review blocks.
+            (editions / "2026-09-15-1200.json").write_bytes(unlisted_bytes)
+            self.assertTrue(review_gate.pages_blocked(root=root))
+            (editions / "2026-09-15-1200.json").unlink()
+            self.assertFalse(review_gate.pages_blocked(root=root))
+
+            # L2: listed slug whose bytes no longer match the pin blocks.
+            (editions / "2026-09-29-1734.json").write_bytes(
+                listed_bytes + b" "
+            )
+            self.assertTrue(review_gate.pages_blocked(root=root))
+            (editions / "2026-09-29-1734.json").write_bytes(listed_bytes)
+            self.assertFalse(review_gate.pages_blocked(root=root))
+
+            # L3: empty manifest blocks the unsigned listed Review.
+            _write_pin("")
+            self.assertEqual(review_gate.load_legacy_pins(root), {})
+            self.assertTrue(review_gate.pages_blocked(root=root))
+            _write_pin("# comments only\n")
+            self.assertEqual(review_gate.load_legacy_pins(root), {})
+            self.assertTrue(review_gate.pages_blocked(root=root))
+
+            # M1: same bytes as narrative.json do not inherit the editions pin.
+            live_as_legacy = root / "data" / live_name
+            live_as_legacy.write_bytes(listed_bytes)
+            editions_rel = "data/" + "narrative" + "_editions"
+            _write_pin(
+                f"{editions_rel}/2026-09-29-1734.json {listed_sha}\n"
+            )
+            (editions / "2026-09-29-1734.json").write_bytes(listed_bytes)
+            self.assertTrue(
+                review_gate.should_block_review(
+                    listed, root=root, edition_file=live_as_legacy
+                )
+            )
+            live_as_legacy.write_bytes(preview_bytes)
+
+            # M2: same bytes under a new slug path do not inherit the pin.
+            (editions / "2026-09-20-1200.json").write_bytes(listed_bytes)
+            self.assertTrue(
+                review_gate.should_block_review(
+                    {
+                        "slug": "2026-09-20-1200",
+                        "edition": "2026 Week 3 · Week 2 Review",
+                        "phase": {"mode": "review"},
+                    },
+                    root=root,
+                    edition_file=editions / "2026-09-20-1200.json",
+                )
+            )
+            (editions / "2026-09-20-1200.json").unlink()
+
+            # N3 / N3b: prefix sha compare must not pass.
+            self.assertFalse(
+                review_gate._legacy_sha_matches(listed_sha, listed_sha[:12])
+            )
+            self.assertFalse(
+                review_gate._legacy_sha_matches(listed_sha, listed_sha[:63])
+            )
+            self.assertTrue(
+                review_gate._legacy_sha_matches(listed_sha, listed_sha)
+            )
+            gate_src = (
+                Path(__file__).resolve().parents[2]
+                / "tools"
+                / "chiefs_narrative"
+                / "review_gate.py"
+            ).read_text(encoding="utf-8")
+            self.assertIn("return actual == pinned", gate_src)
+            self.assertNotIn("actual.startswith(pinned)", gate_src)
+            self.assertNotIn("actual[:12]", gate_src)
+            self.assertNotIn("actual[:63]", gate_src)
+            self.assertIn("_legacy_sha_matches(", gate_src)
+
+            # N4: date cutoff removed must fail — a 2026-10-01+ pin is refused.
+            later = "ab" * 32
+            _write_pin(
+                f"{'data/' + 'narrative' + '_editions'}/2026-10-05-0937.json {later}\n"
+            )
+            with self.assertRaises(review_gate.GateError):
+                review_gate.load_legacy_pins(root)
+            self.assertIn("LEGACY_CUTOFF", gate_src)
+            self.assertIn("_legacy_date_ok", gate_src)
+
+            # N7: malformed manifest lines fail closed, they are not skipped.
+            _write_pin("not-a-valid-pin-line\n")
+            with self.assertRaises(review_gate.GateError):
+                review_gate.load_legacy_pins(root)
+            _write_pin("too many parts on this line\n")
+            with self.assertRaises(review_gate.GateError):
+                review_gate.load_legacy_pins(root)
+            editions_rel = "data/" + "narrative" + "_editions"
+            _write_pin(
+                f"{editions_rel}/2026-09-29-1734.json {listed_sha}\n"
+            )
+            self.assertFalse(review_gate.pages_blocked(root=root))
+
+    def test_extra_publish_surface_fails_closed(self):
+        """S1–S6: yaml/toml/.JSON under data/ and extra Hugo config block."""
+        preview = {
+            "slug": "2026-10-03-1538",
+            "edition": "2026 Week 4 · Preview",
+            "phase": {"mode": "preview"},
+        }
+        live = "narrative"
+        editions_name = live + "_editions"
+        live_name = live + ".json"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
             editions = root / "data" / editions_name
             editions.mkdir(parents=True)
-            (editions / "2026-10-05-0937.json").write_text(
-                json.dumps(review) + "\n", encoding="utf-8"
+            (root / "data" / live_name).write_text(
+                json.dumps(preview) + "\n", encoding="utf-8"
+            )
+            self.assertFalse(review_gate.extra_publish_surface(root))
+            self.assertFalse(review_gate.pages_blocked(root=root))
+
+            yaml_home = root / "data" / (live + ".yaml")
+            yaml_home.write_text("headline: HOMEYAML\n", encoding="utf-8")
+            self.assertTrue(review_gate.extra_publish_path("data/narrative.yaml"))
+            self.assertTrue(review_gate.extra_publish_surface(root))
+            self.assertTrue(review_gate.pages_blocked(root=root))
+            self.assertTrue(
+                review_gate.automerge_blocked(
+                    ["data/narrative.yaml"], root=root
+                )
+            )
+            yaml_home.unlink()
+            self.assertFalse(review_gate.pages_blocked(root=root))
+
+            for suffix in (".yml", ".toml", ".JSON"):
+                extra = editions / f"2026-10-05-0937{suffix}"
+                extra.write_text("headline: COLLIDE\n", encoding="utf-8")
+                self.assertTrue(review_gate.extra_publish_surface(root), suffix)
+                self.assertTrue(review_gate.pages_blocked(root=root), suffix)
+                extra.unlink()
+
+            cased = root / "data" / "Narrative_Editions"
+            cased.mkdir()
+            (cased / "2026-10-05-0937.json").write_text(
+                json.dumps(
+                    {
+                        "slug": "2026-10-05-0937",
+                        "edition": "2026 Week 6 · Week 4 Review",
+                        "phase": {"mode": "review"},
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            self.assertTrue(review_gate.pages_blocked(root=root))
+            shutil.rmtree(cased)
+
+            (root / "hugo.toml").write_text("baseURL = '/'\\n", encoding="utf-8")
+            self.assertTrue(review_gate.extra_publish_path("hugo.toml"))
+            self.assertTrue(review_gate.pages_blocked(root=root))
+            (root / "hugo.toml").unlink()
+
+            (root / "hugo.json").write_text("{}\n", encoding="utf-8")
+            self.assertTrue(review_gate.pages_blocked(root=root))
+            (root / "hugo.json").unlink()
+
+            nested = root / "config" / "_default"
+            nested.mkdir(parents=True)
+            (nested / "hugo.yaml").write_text("baseURL: /\n", encoding="utf-8")
+            self.assertTrue(review_gate.extra_publish_path("config/_default/hugo.yaml"))
+            self.assertTrue(review_gate.pages_blocked(root=root))
+            shutil.rmtree(root / "config")
+            self.assertFalse(review_gate.pages_blocked(root=root))
+
+    def test_hugo_build_allows_signed_review_outside_data(self):
+        """B1: a .sig under signoff/review must not break `hugo`."""
+        hugo_bin = _hugo_bin()
+        if not hugo_bin:
+            self.skipTest("hugo is not on PATH or ~/.local/hugo/hugo")
+        review = {
+            "slug": "2026-10-05-0937",
+            "edition": "2026 Week 6 · Week 4 Review",
+            "phase": {"mode": "review"},
+            "headline": "Signed review",
+            "dek": "Gate sign-off lives outside data/.",
+            "generatedAt": "2026-10-05T09:37:00+00:00",
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            priv, pub = _ed25519_keypair(tmp_path)
+            root = tmp_path / "site"
+            (root / "layouts").mkdir(parents=True)
+            live = "narrative"
+            editions_name = live + "_editions"
+            live_name = live + ".json"
+            (root / "data" / editions_name).mkdir(parents=True)
+            (root / "hugo.yaml").write_text(
+                'baseURL: "/"\npublishDir: "dist"\n',
+                encoding="utf-8",
+            )
+            (root / "layouts" / "index.html").write_text(
+                "{{ with .Site.Data.narrative }}{{ .headline }}{{ end }}\n",
+                encoding="utf-8",
+            )
+            review_bytes = (json.dumps(review) + "\n").encode("utf-8")
+            (root / "data" / live_name).write_bytes(review_bytes)
+            (root / "data" / editions_name / "2026-10-05-0937.json").write_bytes(
+                review_bytes
+            )
+            signoff = root / "signoff" / "review"
+            _sign_review_edition(priv, "2026-10-05-0937", review_bytes, signoff)
+            env = {"REVIEW_SIGNOFF_PUBKEY": str(pub)}
+            with patch.dict(os.environ, env, clear=False):
+                self.assertFalse(
+                    review_gate.pages_blocked(root=root),
+                )
+            result = subprocess.run(
+                [hugo_bin, "--gc", "--minify"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn(
+                "Signed review",
+                (root / "dist" / "index.html").read_text(encoding="utf-8"),
+            )
+            leftover = root / "data" / "review_signoff"
+            leftover.mkdir(parents=True)
+            shutil.copy(signoff / "2026-10-05-0937.sig", leftover / "2026-10-05-0937.sig")
+            broken = subprocess.run(
+                [hugo_bin, "--gc", "--minify"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(broken.returncode, 0, broken.stdout + broken.stderr)
+            self.assertIn("unmarshal", (broken.stdout + broken.stderr).lower())
+
+    def test_public_staticdir_review_html_fails_output_gate(self):
+        """B2': Karen's public/ PR attack must fail a real hugo build."""
+        hugo_bin = _hugo_bin()
+        if not hugo_bin:
+            self.skipTest("hugo is not on PATH or ~/.local/hugo/hugo")
+        preview = {
+            "slug": "2026-10-03-1538",
+            "edition": "2026 Week 4 · Preview",
+            "phase": {"mode": "preview"},
+            "headline": "Preview headline",
+            "dek": "Preview dek",
+            "generatedAt": "2026-10-03T15:38:00+00:00",
+        }
+        attack_slug = "2026-10-05-0937"
+        attack_html = (
+            "<html><body><h1>Week 5 Review</h1>"
+            "<p>PUBLICREVIEW 27-17 unsigned</p></body></html>\n"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "site"
+            live = "narrative"
+            editions_name = live + "_editions"
+            live_name = live + ".json"
+            (root / "data" / editions_name).mkdir(parents=True)
+            (root / "layouts").mkdir(parents=True)
+            (root / "public" / "narrative" / attack_slug).mkdir(parents=True)
+            (root / "hugo.yaml").write_text(
+                "baseURL: /\n"
+                "publishDir: dist\n"
+                "staticDir:\n"
+                "  - public\n",
+                encoding="utf-8",
+            )
+            (root / "layouts" / "index.html").write_text(
+                "{{ with .Site.Data.narrative }}{{ .headline }}{{ end }}\n",
+                encoding="utf-8",
             )
             (root / "data" / live_name).write_text(
                 json.dumps(preview) + "\n", encoding="utf-8"
             )
+            (root / "data" / editions_name / "2026-10-03-1538.json").write_text(
+                json.dumps(preview) + "\n", encoding="utf-8"
+            )
+            attack_rel = f"public/narrative/{attack_slug}/index.html"
+            (root / attack_rel).write_text(attack_html, encoding="utf-8")
+            self.assertFalse(review_gate.automerge_allowlisted(attack_rel))
+            self.assertTrue(review_gate.requires_human_merge([attack_rel]))
             self.assertTrue(
-                review_gate.automerge_blocked(
-                    [review_rel],
-                    root=root,
-                )
+                review_gate.automerge_blocked([attack_rel], root=root)
             )
-            self.assertFalse(
-                review_gate.automerge_blocked(
-                    [review_rel],
-                    labels=["qa-pass"],
-                    root=root,
-                )
+            # Source-only pages scan still misses staticDir copies — the
+            # post-build census is the close. Keep that split load-bearing.
+            self.assertFalse(review_gate.pages_blocked(root=root))
+            result = subprocess.run(
+                [hugo_bin, "--gc", "--minify"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
             )
-            self.assertFalse(
-                review_gate.automerge_blocked(
-                    ["tools/chiefs_narrative/facts.py"], root=root
-                )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            built = (
+                root / "dist" / "narrative" / attack_slug / "index.html"
+            )
+            self.assertTrue(built.is_file())
+            self.assertIn("PUBLICREVIEW 27-17 unsigned", built.read_text(encoding="utf-8"))
+            self.assertTrue(review_gate.output_blocked(root / "dist", root=root))
+            self.assertTrue(
+                review_gate.pages_blocked(root=root, dist=root / "dist")
             )
             self.assertEqual(
                 review_gate.main(
                     [
-                        "--automerge",
+                        "--pages",
                         "--root",
                         str(root),
-                        review_rel,
+                        "--dist",
+                        "dist",
                     ]
                 ),
-                1,
+                2,
+            )
+            overlay = root / "public" / "narrative" / "2026-10-03-1538"
+            overlay.mkdir(parents=True)
+            (overlay / "index.html").write_text(
+                attack_html, encoding="utf-8"
+            )
+            overlay_build = subprocess.run(
+                [hugo_bin, "--gc", "--minify"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             self.assertEqual(
+                overlay_build.returncode, 0, overlay_build.stdout + overlay_build.stderr
+            )
+            self.assertTrue(review_gate.output_blocked(root / "dist", root=root))
+            (root / attack_rel).unlink()
+            shutil.rmtree(overlay)
+            shutil.rmtree(root / "dist", ignore_errors=True)
+            clean = subprocess.run(
+                [hugo_bin, "--gc", "--minify"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(clean.returncode, 0, clean.stdout + clean.stderr)
+            self.assertFalse(review_gate.output_blocked(root / "dist", root=root))
+            self.assertEqual(
                 review_gate.main(
-                    [
-                        "--automerge",
-                        "--labels",
-                        "qa-pass",
-                        "--root",
-                        str(root),
-                        review_rel,
-                    ]
+                    ["--pages", "--root", str(root), "--dist", "dist"]
                 ),
                 0,
             )
-            sign = root / "data" / "review_signoff"
-            sign.mkdir(parents=True)
-            (sign / "2026-10-05-0937.json").write_text(
-                json.dumps({"result": "PASS", "by": "Karen"}) + "\n",
+
+    def test_output_gate_reads_hugo_config_not_hardcoded_dirs(self):
+        """Custom staticDir/dataDir/mounts must drive the post-build census."""
+        hugo_bin = _hugo_bin()
+        if not hugo_bin:
+            self.skipTest("hugo is not on PATH or ~/.local/hugo/hugo")
+        preview = {
+            "slug": "2026-10-03-1538",
+            "edition": "2026 Week 4 · Preview",
+            "phase": {"mode": "preview"},
+            "headline": "Preview headline",
+            "generatedAt": "2026-10-03T15:38:00+00:00",
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "site"
+            (root / "payloads" / "narrative_editions").mkdir(parents=True)
+            (root / "views").mkdir(parents=True)
+            (root / "pages").mkdir(parents=True)
+            (root / "cdn" / "narrative" / "2026-10-03-1538").mkdir(parents=True)
+            (root / "hugo.yaml").write_text(
+                "baseURL: /\n"
+                "publishDir: out\n"
+                "staticDir:\n"
+                "  - cdn\n"
+                "contentDir: pages\n"
+                "dataDir: payloads\n"
+                "layoutDir: views\n",
                 encoding="utf-8",
             )
-            self.assertFalse(review_gate.should_block_review(review, root=root))
-            unsigned = root / "unsigned"
-            unsigned.mkdir()
-            (unsigned / "data").mkdir()
-            (unsigned / "data" / live_name).write_text(
-                json.dumps(review) + "\n", encoding="utf-8"
+            (root / "views" / "index.html").write_text(
+                "{{ with .Site.Data.narrative }}{{ .headline }}{{ end }}\n",
+                encoding="utf-8",
             )
-            self.assertTrue(review_gate.pages_blocked(root=unsigned))
-            self.assertFalse(review_gate.pages_blocked(root=root))
-            self.assertEqual(
-                review_gate.main(["--pages", "--root", str(unsigned)]), 2
+            (root / "payloads" / "narrative.json").write_text(
+                json.dumps(preview) + "\n", encoding="utf-8"
             )
-            self.assertEqual(review_gate.main(["--pages", "--root", str(root)]), 0)
+            (
+                root / "payloads" / "narrative_editions" / "2026-10-03-1538.json"
+            ).write_text(json.dumps(preview) + "\n", encoding="utf-8")
+            (root / "cdn" / "narrative" / "2026-10-03-1538" / "index.html").write_text(
+                "<html><body>PUBLICREVIEW 27-17 unsigned</body></html>\n",
+                encoding="utf-8",
+            )
+            cfg = review_gate.load_hugo_config(root)
+            self.assertEqual(cfg["staticdir"], ["cdn"])
+            self.assertEqual(cfg["contentdir"], "pages")
+            self.assertEqual(cfg["datadir"], "payloads")
+            self.assertEqual(cfg["layoutdir"], "views")
+            self.assertEqual(cfg["publishdir"], "out")
+            surface = review_gate.resolve_hugo_surface(root)
+            self.assertIn("cdn", surface["static"])
+            self.assertIn("pages", surface["content"])
+            self.assertIn("payloads", surface["data"])
+            self.assertIn("views", surface["layouts"])
+            result = subprocess.run(
+                [hugo_bin, "--gc", "--minify"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertTrue((root / "out" / "index.html").is_file())
+            self.assertTrue(
+                review_gate.output_blocked(root / "out", root=root)
+            )
+            shutil.rmtree(root / "cdn" / "narrative")
+            shutil.rmtree(root / "out", ignore_errors=True)
+            clean = subprocess.run(
+                [hugo_bin, "--gc", "--minify"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(clean.returncode, 0, clean.stdout + clean.stderr)
+            self.assertFalse(
+                review_gate.output_blocked(root / "out", root=root)
+            )
+
+    def test_hugo_config_fails_closed_when_hugo_missing(self):
+        """MY4: missing hugo must raise, never fall back to hardcoded dirs."""
+        gate_src = (
+            Path(__file__).resolve().parents[2]
+            / "tools"
+            / "chiefs_narrative"
+            / "review_gate.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("hugo is required to resolve", gate_src)
+        self.assertNotRegex(
+            gate_src, r"if not binary:\s*\n\s*return\s*\{"
+        )
+        self.assertNotRegex(
+            gate_src, r'if not binary:\s*\n\s*cfg\s*='
+        )
+        self.assertNotIn('"staticdir": ["public"]', gate_src)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "dist").mkdir()
+            (root / "dist" / "index.html").write_text("x\n", encoding="utf-8")
+            with patch.object(review_gate, "_hugo_bin", return_value=None):
+                with self.assertRaises(review_gate.GateError) as ctx:
+                    review_gate.load_hugo_config(root)
+                self.assertIn("hugo is required", str(ctx.exception))
+                with self.assertRaises(review_gate.GateError):
+                    review_gate.resolve_hugo_surface(root)
+                with self.assertRaises(review_gate.GateError):
+                    review_gate.output_blocked(root / "dist", root=root)
+            with patch.object(review_gate, "_hugo_bin", return_value="hugo"):
+                with patch.object(
+                    subprocess, "check_output", return_value="not-json"
+                ):
+                    with self.assertRaises(review_gate.GateError) as ctx:
+                        review_gate.load_hugo_config(root)
+                    self.assertIn("not JSON", str(ctx.exception))
+
+    def test_write_token_jobs_refuse_unittest_and_pip(self):
+        """Write-token jobs must not run unittest or pip install -r."""
+        errors = check_workflows.audit_write_jobs()
+        self.assertEqual(errors, [])
+        self.assertEqual(check_workflows.main(), 0)
+        root = Path(__file__).resolve().parents[2] / ".github" / "workflows"
+        narrative = yaml.safe_load((root / "narrative.yml").read_text(encoding="utf-8"))
+        self.assertEqual(narrative.get("permissions"), {"contents": "read"})
+        jobs = narrative.get("jobs") or {}
+        self.assertEqual((jobs.get("generate") or {}).get("permissions"), {"contents": "read"})
+        self.assertEqual((jobs.get("test") or {}).get("permissions"), {"contents": "read"})
+        self.assertEqual(
+            (jobs.get("update") or {}).get("permissions"),
+            {
+                "contents": "write",
+                "pull-requests": "write",
+                "actions": "write",
+            },
+        )
+        self.assertEqual((jobs.get("deploy") or {}).get("permissions"), {"contents": "write"})
+        for job_name in ("generate", "test"):
+            blob = "\n".join(
+                str(step.get("run") or "")
+                for step in (jobs.get(job_name) or {}).get("steps") or []
+                if isinstance(step, dict)
+            )
+            self.assertIn("pip install -r", blob, job_name)
+        for job_name in ("update", "deploy"):
+            blob = "\n".join(
+                str(step.get("run") or "")
+                for step in (jobs.get(job_name) or {}).get("steps") or []
+                if isinstance(step, dict)
+            )
+            self.assertNotIn("unittest", blob, job_name)
+            self.assertNotIn("pip install -r", blob, job_name)
+            self.assertIn("GATE_BASE", blob, job_name)
+            self.assertIn("python -P -m tools.chiefs_narrative.review_gate", blob, job_name)
+        with tempfile.TemporaryDirectory() as tmp:
+            scratch = Path(tmp)
+            wf = scratch / ".github" / "workflows"
+            wf.mkdir(parents=True)
+            (wf / "evil.yml").write_text(
+                "name: Evil\npermissions:\n  contents: write\njobs:\n"
+                "  evil:\n    runs-on: ubuntu-latest\n    steps:\n"
+                "      - uses: actions/checkout@v6\n"
+                "      - run: python -m unittest discover -s tools/tests -v\n"
+                "      - run: python -m pip install -r tools/requirements.txt\n",
+                encoding="utf-8",
+            )
+            found = check_workflows.audit_write_jobs(scratch)
+            self.assertTrue(any("unittest" in item for item in found), found)
+            self.assertTrue(any("pip" in item for item in found), found)
+            self.assertTrue(
+                any("persist-credentials" in item for item in found), found
+            )
+
+    def test_public_staticdir_census_misses_are_must_fail(self):
+        """Karen's leftover dist surfaces must fail a real hugo build."""
+        hugo_bin = _hugo_bin()
+        if not hugo_bin:
+            self.skipTest("hugo is not on PATH or ~/.local/hugo/hugo")
+        preview = {
+            "slug": "2026-10-03-1538",
+            "edition": "2026 Week 4 · Preview",
+            "phase": {"mode": "preview"},
+            "headline": "Preview headline",
+            "dek": "Preview dek",
+            "generatedAt": "2026-10-03T15:38:00+00:00",
+        }
+        attack_html = (
+            "<html><body><h1>Week 5 Review</h1>"
+            "<p>PUBLICREVIEW 27-17 unsigned</p></body></html>\n"
+        )
+        attack_xml = (
+            '<?xml version="1.0"?><rss><channel><title>Week 5 Review'
+            "</title><item>PUBLICREVIEW 27-17 unsigned</item></channel></rss>\n"
+        )
+        rows = (
+            ("public/narrative/index.html", attack_html),
+            ("public/index.xml", attack_xml),
+            ("public/narrative/index.xml", attack_xml),
+            ("public/sitemap.xml", attack_xml),
+            ("public/narrative/2026-10-03-1538/amp.html", attack_html),
+            ("public/narrative/2026-10-05-0937.html", attack_html),
+            ("public/intel/review.html", attack_html),
+            ("public/404.html", attack_html),
+            ("public/notes.md", attack_html),
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "site"
+            live = "narrative"
+            editions_name = live + "_editions"
+            live_name = live + ".json"
+            (root / "data" / editions_name).mkdir(parents=True)
+            (root / "layouts").mkdir(parents=True)
+            (root / "hugo.yaml").write_text(
+                "baseURL: /\n"
+                "publishDir: dist\n"
+                "staticDir:\n"
+                "  - public\n",
+                encoding="utf-8",
+            )
+            (root / "layouts" / "index.html").write_text(
+                "{{ with .Site.Data.narrative }}{{ .headline }}{{ end }}\n",
+                encoding="utf-8",
+            )
+            (root / "data" / live_name).write_text(
+                json.dumps(preview) + "\n", encoding="utf-8"
+            )
+            (root / "data" / editions_name / "2026-10-03-1538.json").write_text(
+                json.dumps(preview) + "\n", encoding="utf-8"
+            )
+            for rel, body in rows:
+                path = root / rel
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(body, encoding="utf-8")
+                self.assertTrue(
+                    review_gate.requires_human_merge([rel]), rel
+                )
+                self.assertTrue(
+                    review_gate.automerge_blocked([rel], root=root), rel
+                )
+                result = subprocess.run(
+                    [hugo_bin, "--gc", "--minify"],
+                    cwd=root,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(
+                    result.returncode, 0, rel + result.stdout + result.stderr
+                )
+                self.assertTrue(
+                    review_gate.output_blocked(root / "dist", root=root),
+                    rel,
+                )
+                path.unlink()
+                shutil.rmtree(root / "dist", ignore_errors=True)
+            clean = subprocess.run(
+                [hugo_bin, "--gc", "--minify"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(clean.returncode, 0, clean.stdout + clean.stderr)
+            self.assertFalse(review_gate.output_blocked(root / "dist", root=root))
 
     def _week3_slate(self):
         return [
@@ -7560,6 +9261,14 @@ class FactCheck(unittest.TestCase):
         from tools.tests import karen_matrices
         self._run_karen_matrix("pv12x", karen_matrices.pv12x_cases)
 
+    def test_karen_matrix_r18(self):
+        from tools.tests import karen_matrices
+        self._run_karen_matrix("r18", karen_matrices.r18_cases)
+
+    def test_karen_matrix_r19(self):
+        from tools.tests import karen_matrices
+        self._run_karen_matrix("r19", karen_matrices.r19_cases)
+
     def test_karen_matrix_rs9(self):
         from tools.tests import karen_matrices
         self._run_karen_matrix("rs9", karen_matrices.rs9_cases)
@@ -7820,7 +9529,12 @@ class FactCheck(unittest.TestCase):
         issues = facts.check_review(
             karen_matrices.story(led), last, recap, schedule=slate
         )
-        self.assertFalse(issues, f"in-game wording must pass: {issues}")
+        self.assertTrue(issues, f"must flag wrong LV halftime: {led} {issues}")
+        led_ok = "Kansas City led 17-7 at the half."
+        issues = facts.check_review(
+            karen_matrices.story(led_ok), last, recap, schedule=slate
+        )
+        self.assertFalse(issues, f"real LV halftime must pass: {issues}")
 
         recap, last, slate = karen_matrices.ctx("MIA")
         for sentence in (
