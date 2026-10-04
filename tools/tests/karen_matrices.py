@@ -1023,6 +1023,24 @@ RS9_SENTENCES = (
     ("{name} had the ball for 34:21 and Kansas City for 25:39.", False),
 )
 
+# Karen r17 probes17b: true other-game / other-team sentences. Must pass.
+R18 = (
+    ("LV5", "Last week Kansas City won by 14 in Miami.", False),
+    ("LV5", "The Raiders beat Denver by 7 last week.", False),
+    ("LV5", "In Miami, Kansas City led 14-7 at the half.", False),
+    ("LV5", "Walker powered in from the 10 in Miami last week.", False),
+    ("LV5", "Walker ran 18 times for 70 yards in Miami.", False),
+    ("LV5", "Las Vegas got past the Broncos 20-13 in Week 3.", False),
+    ("MIA", "Next week Kansas City visits Las Vegas, which beat the Broncos by 7.", False),
+    ("MIA", "The Raiders beat Denver by 7 last week.", False),
+    ("MIA", "Las Vegas got past the Broncos 20-13 in Week 3.", False),
+    ("LV5", "Kansas City beat the Colts by 3 in Week 2.", False),
+    ("MIA", "Kansas City beat Indianapolis by 3 in Week 2.", False),
+    ("LV5", "Kansas City won by 14 in Miami last week.", False),
+    ("LV5", "Walker had 18 carries for 70 yards in Miami.", False),
+    ("MIA", "Las Vegas topped the Broncos 20-13 in Week 3.", False),
+)
+
 MATRIX_COUNTS = {
     "mw7": 156,
     "mx8": 1272,
@@ -1041,6 +1059,7 @@ MATRIX_COUNTS = {
     "pv12x": 29,
     "rs9": 40,
     "replay163": 179,
+    "r18": 14,
 }
 
 
@@ -1074,6 +1093,10 @@ def pv12_cases() -> list[dict]:
 
 def pv12x_cases() -> list[dict]:
     return _pair_cases("pv12x", PV12X)
+
+
+def r18_cases() -> list[dict]:
+    return _pair_cases("r18", R18)
 
 
 def rs9_cases() -> list[dict]:

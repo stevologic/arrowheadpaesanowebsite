@@ -1,9 +1,11 @@
 """Refuse unsigned Review editions on every path to main and gh-pages.
 
-A Review-phase edition (phase.mode=review or ``Week N · Week M Review``)
-cannot automerge or deploy unless Karen signed it with the committed
-ed25519 public key. Sign-off is ``data/review_signoff/<slug>.json`` plus
-``<slug>.sig`` — never a label, never a substring. Easy to disable later
+A Review-phase edition (phase.mode in review/recap/postgame, a Review
+label with any separator, or a completed last-game final when the
+edition is not an explicit Preview) cannot automerge or deploy unless
+Karen signed it with the committed ed25519 public key. Sign-off is
+``signoff/review/<slug>.json`` plus ``<slug>.sig`` — never under
+``data/``, never a label, never a substring. Easy to disable later
 via ``REVIEW_SIGNOFF_REQUIRED``.
 
 Automerge must run this module from the *base* checkout, never the PR
@@ -15,10 +17,16 @@ a path argument.
 Protected paths cover everything this module imports
 (``tools/chiefs_narrative/**``, including ``config.py`` and
 ``__init__.py``) plus the Hugo render surface for ``/narrative/``
-(``layouts/``, ``hugo.yaml``, ``content/narrative/``, ``themes/``).
-Automerge refuses those PRs. A layouts/hugo-config change while a
-signed Review is published therefore needs a human merge; the signature
-covers edition JSON bytes, not the templates that render them.
+(``layouts/``, ``hugo.yaml``, ``content/narrative/``, ``themes/``,
+``config/``, ``static/``, ``assets/``, extra ``hugo.*``). Automerge
+refuses those PRs. A layouts/hugo-config change while a signed Review
+is published therefore needs a human merge; the signature covers
+edition JSON bytes, not the templates that render them.
+
+Any non-``.json`` file under ``data/`` (``.yaml``, ``.yml``, ``.toml``,
+``.JSON``, ``.sig``) and any Hugo config besides ``hugo.yaml`` fail
+closed on both automerge and pages: Hugo would otherwise prefer them
+over the scanned JSON.
 """
 from __future__ import annotations
 
@@ -37,7 +45,7 @@ from pathlib import Path
 from tools.chiefs_narrative import config
 
 REVIEW_SIGNOFF_REQUIRED = True
-SIGNOFF_DIR = "data/review_signoff"
+SIGNOFF_DIR = "signoff/review"
 PUBLIC_KEY_REL = "scripts/review_signoff_pubkey.pem"
 LEGACY_MANIFEST_REL = "scripts/review_legacy_editions.txt"
 LEGACY_CUTOFF = (2026, 10, 1)
@@ -49,9 +57,27 @@ EDITION_NAMES = frozenset(
         "data/narrative_archive.json",
     }
 )
+_REVIEW_MODES = frozenset({"review", "recap", "postgame"})
+_PREVIEW_MODES = frozenset({"preview", "camp", "offseason"})
+# Label Review with ·, en-dash, em-dash, hyphen, &middot;, or no mark.
 _REVIEW_EDITION = re.compile(
-    r"Week\s+\d+\s+·\s+Week\s+\d+\s+Review",
+    r"Week\s+\d+\s*"
+    r"(?:[·\u00b7\u2013\u2014\-]|&middot;|&#183;)?\s*"
+    r"(?:Week\s+\d+\s+)?"
+    r"Review",
     re.IGNORECASE,
+)
+_ALLOWED_HUGO_CONFIG = "hugo.yaml"
+_BLOCKED_HUGO_CONFIGS = frozenset(
+    {
+        "hugo.toml",
+        "hugo.json",
+        "hugo.yml",
+        "config.toml",
+        "config.yaml",
+        "config.yml",
+        "config.json",
+    }
 )
 HUMAN_MERGE_PATHS = frozenset(
     {
@@ -65,18 +91,24 @@ HUMAN_MERGE_PATHS = frozenset(
         ".github/CODEOWNERS",
         "hugo.yaml",
         "hugo.yml",
+        "hugo.toml",
+        "hugo.json",
         "config.toml",
         "config.yaml",
         "config.yml",
+        "config.json",
     }
 )
 HUMAN_MERGE_PREFIXES = (
-    "data/review_signoff/",
+    "signoff/",
     ".github/workflows/",
     "tools/chiefs_narrative/",
     "layouts/",
     "content/narrative/",
     "themes/",
+    "config/",
+    "static/",
+    "assets/",
 )
 
 
@@ -84,11 +116,74 @@ class GateError(RuntimeError):
     """Fail closed: a read or git diff failed, so the gate must block."""
 
 
-def edition_path(path: str | Path) -> bool:
+def _posix_rel(path: str | Path) -> str:
     text = str(path).replace("\\", "/")
-    if text in EDITION_NAMES:
+    if text.startswith("./"):
+        text = text[2:]
+    return text
+
+
+def edition_path(path: str | Path) -> bool:
+    """True for known edition JSON, including a case-folded editions dir."""
+    text = _posix_rel(path)
+    lower = text.lower()
+    if lower in {name.lower() for name in EDITION_NAMES}:
+        return text.endswith(".json")
+    parts = text.split("/")
+    if (
+        len(parts) >= 3
+        and parts[0].lower() == "data"
+        and parts[1].lower() == "narrative_editions"
+    ):
+        return text.endswith(".json")
+    return False
+
+
+def extra_publish_path(path: str | Path) -> bool:
+    """True for a Hugo-readable path the JSON edition scan would miss."""
+    text = _posix_rel(path)
+    name = text.rsplit("/", 1)[-1]
+    lower_name = name.lower()
+    if text == _ALLOWED_HUGO_CONFIG:
+        return False
+    if lower_name in {item.lower() for item in _BLOCKED_HUGO_CONFIGS}:
         return True
-    return text.startswith("data/narrative_editions/") and text.endswith(".json")
+    if text == name and lower_name.startswith("hugo.") and lower_name != "hugo.yaml":
+        return True
+    parts = text.split("/")
+    if parts and parts[0].lower() == "config":
+        return True
+    if parts and parts[0].lower() == "data":
+        return not text.endswith(".json")
+    return False
+
+
+def extra_publish_surface(root: Path) -> bool:
+    """True when the tree has a non-JSON data file or extra Hugo config."""
+    base = Path(root)
+    if not base.is_dir():
+        return False
+    for name in _BLOCKED_HUGO_CONFIGS:
+        if (base / name).is_file():
+            return True
+    for child in base.iterdir() if base.is_dir() else []:
+        if not child.is_file():
+            continue
+        lower = child.name.lower()
+        if lower.startswith("hugo.") and lower != "hugo.yaml":
+            return True
+    config_dir = base / "config"
+    if config_dir.is_dir():
+        for path in config_dir.rglob("*"):
+            if path.is_file():
+                return True
+    data = base / "data"
+    if not data.is_dir():
+        return False
+    for path in data.rglob("*"):
+        if path.is_file() and not path.name.endswith(".json"):
+            return True
+    return False
 
 
 def public_key_path(root: Path | None = None) -> Path:
@@ -116,21 +211,60 @@ def load_payload(path: Path) -> dict | None:
     return data if isinstance(data, dict) else None
 
 
-def payload_is_review(payload: dict | None) -> bool:
-    """True for phase.mode=review or a 'Week N · Week M Review' edition.
+def _phase_mode_and_edition(payload: dict) -> tuple[str, str, dict | None]:
+    """mode, edition label, phase.lastGame. phase may be a dict or a string."""
+    raw = payload.get("phase")
+    edition = str(payload.get("edition") or "")
+    if isinstance(raw, dict):
+        mode = str(raw.get("mode") or "").strip().lower()
+        edition = edition or str(raw.get("edition") or "")
+        last = raw.get("lastGame") if isinstance(raw.get("lastGame"), dict) else None
+        return mode, edition, last
+    if isinstance(raw, str):
+        token = raw.strip()
+        return token.lower(), edition or token, None
+    return "", edition, None
 
-    Duplicated from facts.is_review_edition so automerge/pages can run
-    this module without importing facts (and therefore requests).
+
+def _completed_last_game(block: dict | None) -> bool:
+    """True when lastGame carries a completed final score."""
+    if not isinstance(block, dict):
+        return False
+    completed = block.get("completed")
+    if completed not in (True, "true", "True", 1):
+        status = str(block.get("status") or "").strip().lower()
+        if status not in {"final", "post", "status_final"}:
+            return False
+    kc = block.get("kcScore")
+    opp = block.get("oppScore")
+    try:
+        int(kc)
+        int(opp)
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+def payload_is_review(payload: dict | None) -> bool:
+    """True for review/recap/postgame, a Review label, or a last-game final.
+
+    Uses phase.mode (dict or string) and lastGame scores — not a single
+    middot label. An explicit Preview/camp/offseason mode is not a Review
+    just because lastGameReview still holds last week's final.
     """
     if not payload:
         return False
-    phase = payload.get("phase") if isinstance(payload.get("phase"), dict) else {}
-    if str((phase or {}).get("mode") or "").strip().lower() == "review":
+    mode, edition, phase_last = _phase_mode_and_edition(payload)
+    if mode in _REVIEW_MODES:
         return True
-    edition = str(
-        payload.get("edition") or (phase or {}).get("edition") or ""
-    )
-    return bool(_REVIEW_EDITION.search(edition))
+    if _REVIEW_EDITION.search(edition):
+        return True
+    if mode in _PREVIEW_MODES:
+        return False
+    last = payload.get("lastGame")
+    if not isinstance(last, dict):
+        last = phase_last
+    return _completed_last_game(last if isinstance(last, dict) else None)
 
 
 def signoff_canonical_bytes(slug: str, sha: str) -> bytes:
@@ -246,10 +380,25 @@ def _legacy_date_ok(slug: str) -> bool:
     return when < LEGACY_CUTOFF
 
 
-def load_legacy_pins(root: Path | None = None) -> dict[str, str]:
-    """slug → pinned sha256. Missing or empty file: no grandfathering.
+def _legacy_slug_from_path(rel: str) -> str:
+    name = Path(_posix_rel(rel)).stem
+    return name
 
-    Never writes this file. New entries are a human-merge change.
+
+def _legacy_sha_matches(actual: str, pinned: str) -> bool:
+    """Full 64-char lowercase equality. Prefix compares must not pass."""
+    if not _LEGACY_SHA_RE.fullmatch(actual):
+        return False
+    if not _LEGACY_SHA_RE.fullmatch(pinned):
+        return False
+    return actual == pinned
+
+
+def load_legacy_pins(root: Path | None = None) -> dict[str, str]:
+    """repo-relative edition path → pinned sha256.
+
+    Missing or empty file: no grandfathering. Never writes this file.
+    New entries are a human-merge change. Malformed lines fail closed.
     """
     base = Path(root) if root is not None else config.REPO_ROOT
     path = base / LEGACY_MANIFEST_REL
@@ -267,12 +416,16 @@ def load_legacy_pins(root: Path | None = None) -> dict[str, str]:
         parts = line.split()
         if len(parts) != 2:
             raise GateError(f"malformed legacy pin: {line!r}")
-        slug, sha = parts
+        rel, sha = parts
+        rel = _posix_rel(rel)
+        if not rel.startswith("data/") or not rel.endswith(".json"):
+            raise GateError(f"legacy pin path not allowed: {rel!r}")
+        slug = _legacy_slug_from_path(rel)
         if not _legacy_date_ok(slug):
             raise GateError(f"legacy pin slug not allowed: {slug!r}")
         if not _LEGACY_SHA_RE.fullmatch(sha):
-            raise GateError(f"legacy pin sha is not 64 lowercase hex: {slug}")
-        pins[slug] = sha
+            raise GateError(f"legacy pin sha is not 64 lowercase hex: {rel}")
+        pins[rel] = sha
     return pins
 
 
@@ -282,23 +435,33 @@ def review_legacy_pinned(
     root: Path | None = None,
     edition_file: Path | None = None,
 ) -> bool:
-    """True only for a listed pre-gate slug whose bytes still match the pin."""
-    slug = str((payload or {}).get("slug") or "").strip()
+    """True only for the pinned path whose bytes still match the full sha."""
+    base = Path(root) if root is not None else config.REPO_ROOT
+    path = (
+        Path(edition_file)
+        if edition_file is not None
+        else _edition_file_for(payload, base)
+    )
+    if path is None or not path.is_file():
+        return False
+    try:
+        rel = path.resolve().relative_to(base.resolve()).as_posix()
+    except ValueError:
+        rel = _posix_rel(path)
+    slug = _legacy_slug_from_path(rel)
     if not _legacy_date_ok(slug):
         return False
-    base = Path(root) if root is not None else config.REPO_ROOT
     pins = load_legacy_pins(base)
-    pinned = pins.get(slug)
+    pinned = pins.get(rel)
     if not pinned:
-        return False
-    path = Path(edition_file) if edition_file is not None else _edition_file_for(payload, base)
-    if path is None or not path.is_file():
         return False
     try:
         edition_bytes = path.read_bytes()
     except OSError as exc:
         raise GateError(f"cannot read edition {path}: {exc}") from exc
-    return hashlib.sha256(edition_bytes).hexdigest() == pinned
+    return _legacy_sha_matches(
+        hashlib.sha256(edition_bytes).hexdigest(), pinned
+    )
 
 
 def review_signed_off(
@@ -356,12 +519,13 @@ def changed_review_payloads(
 def requires_human_merge(paths) -> bool:
     """PRs that touch the gate itself must not automerge."""
     for raw in paths or []:
-        rel = str(raw).replace("\\", "/")
-        if rel.startswith("./"):
-            rel = rel[2:]
+        rel = _posix_rel(raw)
         if rel in HUMAN_MERGE_PATHS:
             return True
         if any(rel.startswith(prefix) for prefix in HUMAN_MERGE_PREFIXES):
+            return True
+        name = rel.rsplit("/", 1)[-1].lower()
+        if name.startswith("hugo.") and name != "hugo.yaml":
             return True
     return False
 
@@ -371,6 +535,11 @@ def automerge_blocked(paths, *, root: Path | None = None) -> bool:
     if requires_human_merge(paths):
         return True
     base = Path(root) if root is not None else config.REPO_ROOT
+    if extra_publish_surface(base):
+        return True
+    for raw in paths or []:
+        if extra_publish_path(raw):
+            return True
     for rel, payload in changed_review_payloads(paths, root=base):
         if should_block_review(payload, root=base, edition_file=base / rel):
             return True
@@ -378,11 +547,30 @@ def automerge_blocked(paths, *, root: Path | None = None) -> bool:
 
 
 def _published_edition_files(root: Path) -> list[Path]:
-    """Every JSON Hugo can render as ``/narrative/`` or ``/narrative/<slug>/``."""
-    files = [root / "data" / "narrative.json"]
-    editions = root / "data" / "narrative_editions"
-    if editions.is_dir():
-        files.extend(sorted(editions.glob("*.json")))
+    """Every JSON Hugo can render as ``/narrative/`` or ``/narrative/<slug>/``.
+
+    The editions directory name is matched case-insensitively so a
+    ``Narrative_Editions`` drop still goes through the Review gate.
+    Only exact ``.json`` suffixes are editions; ``.JSON`` is extra surface.
+    """
+    files: list[Path] = []
+    data = root / "data"
+    if data.is_dir():
+        for child in sorted(data.iterdir()):
+            if child.is_file() and child.name.lower() == "narrative.json":
+                if child.name.endswith(".json"):
+                    files.append(child)
+            if child.is_dir() and child.name.lower() == "narrative_editions":
+                files.extend(
+                    sorted(
+                        path
+                        for path in child.iterdir()
+                        if path.is_file() and path.name.endswith(".json")
+                    )
+                )
+    current = root / "data" / "narrative.json"
+    if current not in files:
+        files.insert(0, current)
     return files
 
 
@@ -394,9 +582,14 @@ def pages_blocked(paths=None, *, root: Path | None = None) -> bool:
     A hand-merged held Review, an editions-only Review, and an edited
     archive copy of a signed Review must all block the next deploy —
     even when this push only touched README or the schedule.
+
+    Extra Hugo data/config (yaml/toml/.JSON, hugo.toml, config/) also
+    blocks: those files render without going through the JSON scan.
     """
     del paths
     base = Path(root) if root is not None else config.REPO_ROOT
+    if extra_publish_surface(base):
+        return True
     current_path = base / "data" / "narrative.json"
     if not current_path.is_file():
         return True

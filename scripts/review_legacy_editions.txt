@@ -1,12 +1,13 @@
 # Pre-sign-off Review archives on main (40ed4dec).
-# Each line is: <slug> <sha256 of data/narrative_editions/<slug>.json>.
-# A listed Review deploys only while its bytes still match this pin.
+# Each line is: <path> <sha256 of those exact file bytes>.
+# A listed Review deploys only at that path while its bytes still match.
+# Republishing the same bytes as narrative.json or a new slug does not match.
 # Do not add entries automatically. No slug dated 2026-10-01 or later.
-2026-09-16-1533 23b4c246f1142ccf509bf86194e8d6903c988b85fec9ccd1acee1cdb36d349b5
-2026-09-17-1536 18c1664333f02a5b4b57182b91d36e4c5168e4eaa6e6e7522812f29e6f1471f0
-2026-09-27-2020 cafa431e873738a6bf5aec04112536f86382c397f83e555ba01dee91c9e05c5c
-2026-09-27-2304 e28b81853d3a35b2e9c97dedce74480d5dcb7414415178f7950ab3b79fd38c72
-2026-09-28-0010 660c0398d31f3a89dca1833916325951dcaa957352aa955050960693e555cc55
-2026-09-28-0142 a384494a70f8ae44eb636d3260c19aa1867bd56a47d7d291ab44b48a04c6c1bf
-2026-09-28-1547 61e5c51678ed8614834f84327ef50eef18050468beaa453c9b54a6f1364f81c1
-2026-09-29-1734 4705cb4789fb29fb16c037b54897473ff88b572d3bdc6d57db7ce2e2945c35a3
+data/narrative_editions/2026-09-16-1533.json 23b4c246f1142ccf509bf86194e8d6903c988b85fec9ccd1acee1cdb36d349b5
+data/narrative_editions/2026-09-17-1536.json 18c1664333f02a5b4b57182b91d36e4c5168e4eaa6e6e7522812f29e6f1471f0
+data/narrative_editions/2026-09-27-2020.json cafa431e873738a6bf5aec04112536f86382c397f83e555ba01dee91c9e05c5c
+data/narrative_editions/2026-09-27-2304.json e28b81853d3a35b2e9c97dedce74480d5dcb7414415178f7950ab3b79fd38c72
+data/narrative_editions/2026-09-28-0010.json 660c0398d31f3a89dca1833916325951dcaa957352aa955050960693e555cc55
+data/narrative_editions/2026-09-28-0142.json a384494a70f8ae44eb636d3260c19aa1867bd56a47d7d291ab44b48a04c6c1bf
+data/narrative_editions/2026-09-28-1547.json 61e5c51678ed8614834f84327ef50eef18050468beaa453c9b54a6f1364f81c1
+data/narrative_editions/2026-09-29-1734.json 4705cb4789fb29fb16c037b54897473ff88b572d3bdc6d57db7ce2e2945c35a3

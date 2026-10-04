@@ -5543,6 +5543,34 @@ class FactCheck(unittest.TestCase):
         self.assertIn("python -m tools.chiefs_narrative.review_gate --pages", ci_gates)
         self.assertIn('echo "skip=false"', ci_gates)
         self.assertIn('grep -qx "skip=false"', ci_gates)
+        # B3: workflow is read-only; write lives only on automerge.
+        self.assertEqual(ci.get("permissions"), {"contents": "read"})
+        self.assertNotIn("contents: write", yaml.dump(ci.get("jobs", {}).get("gates") or {}))
+        self.assertEqual(
+            ((ci.get("jobs") or {}).get("automerge") or {}).get("permissions"),
+            {
+                "contents": "write",
+                "pull-requests": "write",
+                "actions": "write",
+            },
+        )
+        gates_checkouts = [
+            step
+            for step in ((ci.get("jobs") or {}).get("gates") or {}).get("steps")
+            or []
+            if isinstance(step, dict)
+            and "actions/checkout" in str(step.get("uses") or "")
+        ]
+        self.assertTrue(gates_checkouts)
+        for step in gates_checkouts:
+            self.assertEqual(
+                (step.get("with") or {}).get("persist-credentials"),
+                False,
+            )
+        pages_job = (pages.get("jobs") or {}).get("build-deploy") or {}
+        self.assertEqual(pages_job.get("if"), "github.ref == 'refs/heads/main'")
+        narr_job = (narrative.get("jobs") or {}).get("deploy") or {}
+        self.assertIn("github.ref == 'refs/heads/main'", str(narr_job.get("if")))
 
     def test_review_gate_blocks_unsigned_review_json(self):
         gate_src = (
@@ -5553,6 +5581,8 @@ class FactCheck(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertNotIn("import facts", gate_src)
         self.assertNotIn("from tools.chiefs_narrative import config, facts", gate_src)
+        self.assertEqual(review_gate.SIGNOFF_DIR, "signoff/review")
+        self.assertNotIn('SIGNOFF_DIR = "data/review_signoff"', gate_src)
         self.assertNotIn("qa-pass", gate_src)
         self.assertNotIn("QA_PASS", gate_src)
         self.assertNotIn('"pass" in', gate_src)
@@ -5577,11 +5607,71 @@ class FactCheck(unittest.TestCase):
             "edition": "2026 Week 6 · Week 4 Review",
             "phase": {"mode": "preview"},
         }
+        recap_label = {
+            "slug": "2026-10-05-0937",
+            "edition": "2026 Week 5 Review",
+            "phase": {"mode": "recap"},
+        }
+        postgame_label = {
+            "slug": "2026-10-05-0937",
+            "edition": "2026 Week 5 · Review",
+            "phase": {"mode": "postgame"},
+        }
+        endash_preview = {
+            "slug": "2026-10-05-0937",
+            "edition": "2026 Week 5 – Week 4 Review",
+            "phase": {"mode": "preview"},
+        }
+        phase_string = {
+            "slug": "2026-10-05-0937",
+            "edition": "",
+            "phase": "Week 5 Review",
+        }
+        middot_label = {
+            "slug": "2026-10-05-0937",
+            "edition": "2026 Week 5 &middot; Review",
+            "phase": {"mode": "preview"},
+        }
+        final_only = {
+            "slug": "2026-10-05-0937",
+            "edition": "desk notes",
+            "phase": {},
+            "lastGame": {
+                "completed": True,
+                "kcScore": 27,
+                "oppScore": 17,
+            },
+        }
+        preview_with_final = {
+            "slug": "2026-10-03-1538",
+            "edition": "2026 Week 4 · Preview",
+            "phase": {"mode": "preview"},
+            "lastGame": {
+                "completed": True,
+                "kcScore": 24,
+                "oppScore": 10,
+            },
+        }
         self.assertFalse(review_gate.should_block_review(preview))
         self.assertTrue(review_gate.should_block_review(review))
         # G18: drop the phase.mode check.
         self.assertTrue(review_gate.should_block_review(mode_only))
         self.assertTrue(review_gate.should_block_review(title_only))
+        # C2 / C3 / C4 / C6 / C10: mode or Review label, not the middot form.
+        self.assertTrue(review_gate.payload_is_review(recap_label))
+        self.assertTrue(review_gate.payload_is_review(postgame_label))
+        self.assertTrue(review_gate.payload_is_review(endash_preview))
+        self.assertTrue(review_gate.payload_is_review(phase_string))
+        self.assertTrue(review_gate.payload_is_review(middot_label))
+        self.assertTrue(review_gate.payload_is_review(final_only))
+        self.assertFalse(review_gate.payload_is_review(preview_with_final))
+        self.assertTrue(facts.is_review_edition(recap_label))
+        self.assertTrue(facts.is_review_edition(postgame_label))
+        self.assertTrue(facts.is_review_edition(endash_preview))
+        self.assertTrue(facts.is_review_edition(phase_string))
+        self.assertTrue(facts.is_review_edition(middot_label))
+        self.assertTrue(facts.is_review_edition(final_only))
+        self.assertFalse(facts.is_review_edition(preview_with_final))
         # G17: any label counts as qa-pass. Labels are gone.
         self.assertTrue(review_gate.should_block_review(review))
         with tempfile.TemporaryDirectory() as tmp:
@@ -5643,6 +5733,25 @@ class FactCheck(unittest.TestCase):
                     review_gate.requires_human_merge(["hugo.yaml"])
                 )
                 self.assertTrue(
+                    review_gate.requires_human_merge(["hugo.toml"])
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(["hugo.json"])
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["config/_default/hugo.yaml"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["static/narrative/x/index.html"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(["assets/css/x.css"])
+                )
+                self.assertTrue(
                     review_gate.requires_human_merge(
                         ["content/narrative/_content.gotmpl"]
                     )
@@ -5659,7 +5768,7 @@ class FactCheck(unittest.TestCase):
                 )
                 self.assertTrue(
                     review_gate.requires_human_merge(
-                        ["data/review_signoff/2026-10-05-0937.json"]
+                        ["signoff/review/2026-10-05-0937.json"]
                     )
                 )
                 self.assertTrue(
@@ -5680,7 +5789,7 @@ class FactCheck(unittest.TestCase):
                     1,
                 )
                 # G14: any sign-off file counting.
-                fake = root / "data" / "review_signoff"
+                fake = root / "signoff" / "review"
                 fake.mkdir(parents=True)
                 (fake / "2026-10-05-0937.json").write_text(
                     json.dumps({"result": "PASS", "by": "Karen"}) + "\n",
@@ -5791,7 +5900,7 @@ class FactCheck(unittest.TestCase):
             editions_name = live + "_editions"
             live_name = live + ".json"
             editions = root / "data" / editions_name
-            signoff = root / "data" / "review_signoff"
+            signoff = root / "signoff" / "review"
             editions.mkdir(parents=True)
             signoff.mkdir(parents=True)
             review_bytes = (json.dumps(review) + "\n").encode("utf-8")
@@ -5984,8 +6093,11 @@ class FactCheck(unittest.TestCase):
         repo = Path(__file__).resolve().parents[2]
         pins = review_gate.load_legacy_pins(repo)
         self.assertEqual(len(pins), 8)
-        self.assertTrue(all(review_gate._legacy_date_ok(s) for s in pins))
-        self.assertTrue(all(not s.startswith("2026-10-") for s in pins))
+        slugs = [review_gate._legacy_slug_from_path(path) for path in pins]
+        self.assertTrue(all(review_gate._legacy_date_ok(slug) for slug in slugs))
+        editions_rel = "data/" + "narrative" + "_editions/"
+        self.assertTrue(all(path.startswith(editions_rel) for path in pins))
+        self.assertTrue(all("/2026-10-" not in path for path in pins))
         self.assertFalse(review_gate.pages_blocked(root=repo))
         self.assertEqual(review_gate.main(["--pages", "--root", str(repo)]), 0)
 
@@ -6027,7 +6139,10 @@ class FactCheck(unittest.TestCase):
 
             # Listed + matching bytes: allowed.
             (editions / "2026-09-29-1734.json").write_bytes(listed_bytes)
-            _write_pin(f"2026-09-29-1734 {listed_sha}\n")
+            editions_rel = "data/" + "narrative" + "_editions"
+            _write_pin(
+                f"{editions_rel}/2026-09-29-1734.json {listed_sha}\n"
+            )
             self.assertFalse(review_gate.pages_blocked(root=root))
 
             # L1: unlisted legacy Review blocks.
@@ -6051,6 +6166,221 @@ class FactCheck(unittest.TestCase):
             _write_pin("# comments only\n")
             self.assertEqual(review_gate.load_legacy_pins(root), {})
             self.assertTrue(review_gate.pages_blocked(root=root))
+
+            # M1: same bytes as narrative.json do not inherit the editions pin.
+            live_as_legacy = root / "data" / live_name
+            live_as_legacy.write_bytes(listed_bytes)
+            editions_rel = "data/" + "narrative" + "_editions"
+            _write_pin(
+                f"{editions_rel}/2026-09-29-1734.json {listed_sha}\n"
+            )
+            (editions / "2026-09-29-1734.json").write_bytes(listed_bytes)
+            self.assertTrue(
+                review_gate.should_block_review(
+                    listed, root=root, edition_file=live_as_legacy
+                )
+            )
+            live_as_legacy.write_bytes(preview_bytes)
+
+            # M2: same bytes under a new slug path do not inherit the pin.
+            (editions / "2026-09-20-1200.json").write_bytes(listed_bytes)
+            self.assertTrue(
+                review_gate.should_block_review(
+                    {
+                        "slug": "2026-09-20-1200",
+                        "edition": "2026 Week 3 · Week 2 Review",
+                        "phase": {"mode": "review"},
+                    },
+                    root=root,
+                    edition_file=editions / "2026-09-20-1200.json",
+                )
+            )
+            (editions / "2026-09-20-1200.json").unlink()
+
+            # N3 / N3b: prefix sha compare must not pass.
+            self.assertFalse(
+                review_gate._legacy_sha_matches(listed_sha, listed_sha[:12])
+            )
+            self.assertFalse(
+                review_gate._legacy_sha_matches(listed_sha, listed_sha[:63])
+            )
+            self.assertTrue(
+                review_gate._legacy_sha_matches(listed_sha, listed_sha)
+            )
+            gate_src = (
+                Path(__file__).resolve().parents[2]
+                / "tools"
+                / "chiefs_narrative"
+                / "review_gate.py"
+            ).read_text(encoding="utf-8")
+            self.assertIn("return actual == pinned", gate_src)
+            self.assertNotIn("actual.startswith(pinned)", gate_src)
+            self.assertNotIn("actual[:12]", gate_src)
+            self.assertNotIn("actual[:63]", gate_src)
+            self.assertIn("_legacy_sha_matches(", gate_src)
+
+            # N4: date cutoff removed must fail — a 2026-10-01+ pin is refused.
+            later = "ab" * 32
+            _write_pin(
+                f"{'data/' + 'narrative' + '_editions'}/2026-10-05-0937.json {later}\n"
+            )
+            with self.assertRaises(review_gate.GateError):
+                review_gate.load_legacy_pins(root)
+            self.assertIn("LEGACY_CUTOFF", gate_src)
+            self.assertIn("_legacy_date_ok", gate_src)
+
+            # N7: malformed manifest lines fail closed, they are not skipped.
+            _write_pin("not-a-valid-pin-line\n")
+            with self.assertRaises(review_gate.GateError):
+                review_gate.load_legacy_pins(root)
+            _write_pin("too many parts on this line\n")
+            with self.assertRaises(review_gate.GateError):
+                review_gate.load_legacy_pins(root)
+            editions_rel = "data/" + "narrative" + "_editions"
+            _write_pin(
+                f"{editions_rel}/2026-09-29-1734.json {listed_sha}\n"
+            )
+            self.assertFalse(review_gate.pages_blocked(root=root))
+
+    def test_extra_publish_surface_fails_closed(self):
+        """S1–S6: yaml/toml/.JSON under data/ and extra Hugo config block."""
+        preview = {
+            "slug": "2026-10-03-1538",
+            "edition": "2026 Week 4 · Preview",
+            "phase": {"mode": "preview"},
+        }
+        live = "narrative"
+        editions_name = live + "_editions"
+        live_name = live + ".json"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            editions = root / "data" / editions_name
+            editions.mkdir(parents=True)
+            (root / "data" / live_name).write_text(
+                json.dumps(preview) + "\n", encoding="utf-8"
+            )
+            self.assertFalse(review_gate.extra_publish_surface(root))
+            self.assertFalse(review_gate.pages_blocked(root=root))
+
+            yaml_home = root / "data" / (live + ".yaml")
+            yaml_home.write_text("headline: HOMEYAML\n", encoding="utf-8")
+            self.assertTrue(review_gate.extra_publish_path("data/narrative.yaml"))
+            self.assertTrue(review_gate.extra_publish_surface(root))
+            self.assertTrue(review_gate.pages_blocked(root=root))
+            self.assertTrue(
+                review_gate.automerge_blocked(
+                    ["data/narrative.yaml"], root=root
+                )
+            )
+            yaml_home.unlink()
+            self.assertFalse(review_gate.pages_blocked(root=root))
+
+            for suffix in (".yml", ".toml", ".JSON"):
+                extra = editions / f"2026-10-05-0937{suffix}"
+                extra.write_text("headline: COLLIDE\n", encoding="utf-8")
+                self.assertTrue(review_gate.extra_publish_surface(root), suffix)
+                self.assertTrue(review_gate.pages_blocked(root=root), suffix)
+                extra.unlink()
+
+            cased = root / "data" / "Narrative_Editions"
+            cased.mkdir()
+            (cased / "2026-10-05-0937.json").write_text(
+                json.dumps(
+                    {
+                        "slug": "2026-10-05-0937",
+                        "edition": "2026 Week 6 · Week 4 Review",
+                        "phase": {"mode": "review"},
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            self.assertTrue(review_gate.pages_blocked(root=root))
+            shutil.rmtree(cased)
+
+            (root / "hugo.toml").write_text("baseURL = '/'\\n", encoding="utf-8")
+            self.assertTrue(review_gate.extra_publish_path("hugo.toml"))
+            self.assertTrue(review_gate.pages_blocked(root=root))
+            (root / "hugo.toml").unlink()
+
+            (root / "hugo.json").write_text("{}\n", encoding="utf-8")
+            self.assertTrue(review_gate.pages_blocked(root=root))
+            (root / "hugo.json").unlink()
+
+            nested = root / "config" / "_default"
+            nested.mkdir(parents=True)
+            (nested / "hugo.yaml").write_text("baseURL: /\n", encoding="utf-8")
+            self.assertTrue(review_gate.extra_publish_path("config/_default/hugo.yaml"))
+            self.assertTrue(review_gate.pages_blocked(root=root))
+            shutil.rmtree(root / "config")
+            self.assertFalse(review_gate.pages_blocked(root=root))
+
+    def test_hugo_build_allows_signed_review_outside_data(self):
+        """B1: a .sig under signoff/review must not break `hugo`."""
+        hugo_bin = _hugo_bin()
+        if not hugo_bin:
+            self.skipTest("hugo is not on PATH or ~/.local/hugo/hugo")
+        review = {
+            "slug": "2026-10-05-0937",
+            "edition": "2026 Week 6 · Week 4 Review",
+            "phase": {"mode": "review"},
+            "headline": "Signed review",
+            "dek": "Gate sign-off lives outside data/.",
+            "generatedAt": "2026-10-05T09:37:00+00:00",
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            priv, pub = _ed25519_keypair(tmp_path)
+            root = tmp_path / "site"
+            (root / "layouts").mkdir(parents=True)
+            live = "narrative"
+            editions_name = live + "_editions"
+            live_name = live + ".json"
+            (root / "data" / editions_name).mkdir(parents=True)
+            (root / "hugo.yaml").write_text(
+                'baseURL: "/"\npublishDir: "dist"\n',
+                encoding="utf-8",
+            )
+            (root / "layouts" / "index.html").write_text(
+                "{{ with .Site.Data.narrative }}{{ .headline }}{{ end }}\n",
+                encoding="utf-8",
+            )
+            review_bytes = (json.dumps(review) + "\n").encode("utf-8")
+            (root / "data" / live_name).write_bytes(review_bytes)
+            (root / "data" / editions_name / "2026-10-05-0937.json").write_bytes(
+                review_bytes
+            )
+            signoff = root / "signoff" / "review"
+            _sign_review_edition(priv, "2026-10-05-0937", review_bytes, signoff)
+            env = {"REVIEW_SIGNOFF_PUBKEY": str(pub)}
+            with patch.dict(os.environ, env, clear=False):
+                self.assertFalse(
+                    review_gate.pages_blocked(root=root),
+                )
+            result = subprocess.run(
+                [hugo_bin, "--gc", "--minify"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn(
+                "Signed review",
+                (root / "dist" / "index.html").read_text(encoding="utf-8"),
+            )
+            leftover = root / "data" / "review_signoff"
+            leftover.mkdir(parents=True)
+            shutil.copy(signoff / "2026-10-05-0937.sig", leftover / "2026-10-05-0937.sig")
+            broken = subprocess.run(
+                [hugo_bin, "--gc", "--minify"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertNotEqual(broken.returncode, 0, broken.stdout + broken.stderr)
+            self.assertIn("unmarshal", (broken.stdout + broken.stderr).lower())
 
     def _week3_slate(self):
         return [
@@ -8354,6 +8684,10 @@ class FactCheck(unittest.TestCase):
     def test_karen_matrix_pv12x(self):
         from tools.tests import karen_matrices
         self._run_karen_matrix("pv12x", karen_matrices.pv12x_cases)
+
+    def test_karen_matrix_r18(self):
+        from tools.tests import karen_matrices
+        self._run_karen_matrix("r18", karen_matrices.r18_cases)
 
     def test_karen_matrix_rs9(self):
         from tools.tests import karen_matrices

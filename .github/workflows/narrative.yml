@@ -327,7 +327,7 @@ jobs:
 
   deploy:
     needs: update
-    if: needs.update.outputs.publish == 'true'
+    if: needs.update.outputs.publish == 'true' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     concurrency:
       group: pages-publish
