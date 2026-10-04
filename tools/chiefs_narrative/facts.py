@@ -2684,7 +2684,7 @@ def _check_win_margin(
             text, match.start(), recap, last_game, schedule
         )
         if scope == "other":
-            scope = ""
+            continue
         box = _scoped_recap(recap, scope) if scope in {"prior", "older"} else recap
         if scope in {"prior", "older"}:
             official = _official_margin(None, box)
@@ -5234,11 +5234,11 @@ def _check_box_clocks(
             yards = int(match.group(1))
         except (TypeError, ValueError):
             continue
-        scope = _claim_game_scope(
+        scope = _bound_claim_scope(
             text, match.start(), recap, last_game, schedule
         )
         if scope == "other":
-            continue
+            scope = ""
         start, end = _sentence_span(text, match.start())
         nl = text.rfind("\n", start, match.start())
         if nl >= 0:
@@ -8052,10 +8052,12 @@ _REVIEW_EDITION = re.compile(
 
 
 def is_review_edition(narrative: dict | None) -> bool:
-    """True for review/recap/postgame, a Review label, or a last-game final.
+    """True for review/recap/postgame, a Review label, last-game, or body score.
 
     Matches review_gate.payload_is_review. An explicit Preview is not a
     Review just because lastGameReview still holds last week's score.
+    A missing phase + missing lastGame still counts when body prose has
+    a final score.
     """
     payload = narrative or {}
     raw = payload.get("phase")
@@ -8080,18 +8082,30 @@ def is_review_edition(narrative: dict | None) -> bool:
     last = payload.get("lastGame")
     if not isinstance(last, dict):
         last = phase_last
-    if not isinstance(last, dict):
-        return False
-    if last.get("completed") not in (True, "true", "True", 1):
+    if isinstance(last, dict):
+        completed = last.get("completed") in (True, "true", "True", 1)
         status = str(last.get("status") or "").strip().lower()
-        if status not in {"final", "post", "status_final"}:
-            return False
-    try:
-        int(last.get("kcScore"))
-        int(last.get("oppScore"))
-    except (TypeError, ValueError):
-        return False
-    return True
+        if completed or status in {"final", "post", "status_final"}:
+            try:
+                int(last.get("kcScore"))
+                int(last.get("oppScore"))
+            except (TypeError, ValueError):
+                pass
+            else:
+                return True
+    blob = prose_text(payload) or edition_text(payload)
+    for match in re.finditer(r"\b(\d{1,2})\s*[–-]\s*(\d{1,2})\b", blob or ""):
+        try:
+            first = int(match.group(1))
+            second = int(match.group(2))
+        except (TypeError, ValueError):
+            continue
+        if first > 70 or second > 70 or (first == 0 and second == 0):
+            continue
+        if max(first, second) <= 4:
+            continue
+        return True
+    return False
 
 
 def review_requires_human(narrative: dict | None) -> bool:

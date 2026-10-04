@@ -80,13 +80,25 @@ jobs:
       - name: Gate 1 — narrative engine tests
         run: python -m unittest discover -s tools/tests -v
 
+      - name: Fact-check the published edition
+        run: python -m tools.chiefs_narrative.generate --check-edition
+
+      - name: Render XO diagrams from narrative.json
+        run: python -m tools.chiefs_narrative.generate --diagrams-only
+
+      - name: Fail if the render rewrote committed SVGs
+        run: git diff --exit-code -- public/images/narrative
+
+      - name: Gate 2 — Hugo build
+        run: hugo --gc --minify
+
       - name: Pages and narrative deploy gates on the real tree
         run: |
           set -euo pipefail
           # Same command as pages.yml / narrative.yml against this checkout.
           run_gate() {
             local out="$1"
-            if python -m tools.chiefs_narrative.review_gate --pages; then
+            if python -m tools.chiefs_narrative.review_gate --pages --dist dist; then
               echo "skip=false" >> "$out"
             else
               rc=$?
@@ -108,18 +120,6 @@ jobs:
           echo "narrative.yml: $(cat "$narr_out")"
           grep -qx "skip=false" "$pages_out"
           grep -qx "skip=false" "$narr_out"
-
-      - name: Fact-check the published edition
-        run: python -m tools.chiefs_narrative.generate --check-edition
-
-      - name: Render XO diagrams from narrative.json
-        run: python -m tools.chiefs_narrative.generate --diagrams-only
-
-      - name: Fail if the render rewrote committed SVGs
-        run: git diff --exit-code -- public/images/narrative
-
-      - name: Gate 2 — Hugo build
-        run: hugo --gc --minify
 
   automerge:
     needs: gates

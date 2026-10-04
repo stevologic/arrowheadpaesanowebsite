@@ -1041,6 +1041,15 @@ R18 = (
     ("MIA", "Las Vegas topped the Broncos 20-13 in Week 3.", False),
 )
 
+# Karen r18 residuals: opener / other-game margin, and team total yards
+# scoped to a named prior location. Must pass.
+R19 = (
+    ("MIA", "Kansas City beat Denver by 21 in the opener.", False),
+    ("LV5", "Kansas City beat Denver by 21 in the opener.", False),
+    ("LV5", "Kansas City had 334 total yards in Miami.", False),
+    ("MIA", "Kansas City had 334 total yards in Miami.", False),
+)
+
 MATRIX_COUNTS = {
     "mw7": 156,
     "mx8": 1272,
@@ -1060,6 +1069,7 @@ MATRIX_COUNTS = {
     "rs9": 40,
     "replay163": 179,
     "r18": 14,
+    "r19": 4,
 }
 
 
@@ -1097,6 +1107,10 @@ def pv12x_cases() -> list[dict]:
 
 def r18_cases() -> list[dict]:
     return _pair_cases("r18", R18)
+
+
+def r19_cases() -> list[dict]:
+    return _pair_cases("r19", R19)
 
 
 def rs9_cases() -> list[dict]:

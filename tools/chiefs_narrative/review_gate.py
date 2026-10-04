@@ -1,12 +1,12 @@
 """Refuse unsigned Review editions on every path to main and gh-pages.
 
 A Review-phase edition (phase.mode in review/recap/postgame, a Review
-label with any separator, or a completed last-game final when the
-edition is not an explicit Preview) cannot automerge or deploy unless
-Karen signed it with the committed ed25519 public key. Sign-off is
-``signoff/review/<slug>.json`` plus ``<slug>.sig`` — never under
-``data/``, never a label, never a substring. Easy to disable later
-via ``REVIEW_SIGNOFF_REQUIRED``.
+label with any separator, a completed last-game final, or a final
+score only in body prose when the edition is not an explicit Preview)
+cannot automerge or deploy unless Karen signed it with the committed
+ed25519 public key. Sign-off is ``signoff/review/<slug>.json`` plus
+``<slug>.sig`` — never under ``data/``, never a label, never a
+substring. Easy to disable later via ``REVIEW_SIGNOFF_REQUIRED``.
 
 Automerge must run this module from the *base* checkout, never the PR
 head, so a PR cannot rewrite the gate and then pass it. Workflows do
@@ -14,14 +14,19 @@ that with ``cd "$GATE_BASE" && python -P -m … --root <PR-tree>``: ``-P``
 keeps the PR working directory off ``sys.path``, and ``--root`` is only
 a path argument.
 
-Protected paths cover everything this module imports
-(``tools/chiefs_narrative/**``, including ``config.py`` and
-``__init__.py``) plus the Hugo render surface for ``/narrative/``
-(``layouts/``, ``hugo.yaml``, ``content/narrative/``, ``themes/``,
-``config/``, ``static/``, ``assets/``, extra ``hugo.*``). Automerge
-refuses those PRs. A layouts/hugo-config change while a signed Review
-is published therefore needs a human merge; the signature covers
-edition JSON bytes, not the templates that render them.
+Automerge is an allowlist, not a growing blocklist. Only
+``data/narrative.json``, Preview ``data/narrative_editions/*.json``,
+and known code/test paths (``tools/tests/**`` plus a few tool
+dotfiles) may automerge. Everything else — ``public/``, layouts,
+workflows, the gate itself, README — needs a human merge. A Review
+edition, even a signed one, still needs a human merge.
+
+After Hugo writes ``dist/``, ``--pages --dist`` fails closed unless
+every ``dist/narrative/<slug>/`` and ``dist/index.html`` maps to a
+Preview edition, a signed Review, or a legacy-pinned edition. Pages
+that exist only because Hugo copied ``staticDir`` (this repo:
+``public/``) are an unknown source. Dirs and mounts come from the
+resolved ``hugo config``, never hardcoded ``public/`` / ``content/``.
 
 Any non-``.json`` file under ``data/`` (``.yaml``, ``.yml``, ``.toml``,
 ``.JSON``, ``.sig``) and any Hugo config besides ``hugo.yaml`` fail
@@ -37,6 +42,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -79,37 +85,40 @@ _BLOCKED_HUGO_CONFIGS = frozenset(
         "config.json",
     }
 )
-HUMAN_MERGE_PATHS = frozenset(
+# Automerge allowlist. Anything not listed needs a human merge.
+# tools/chiefs_narrative/** is intentionally absent: rewriting the gate
+# must not automerge after this module lands on main.
+AUTOMERGE_ALLOWED_PATHS = frozenset(
     {
-        "tools/chiefs_narrative/review_gate.py",
-        "tools/chiefs_narrative/config.py",
-        "tools/chiefs_narrative/__init__.py",
-        "tools/__init__.py",
-        "scripts/review_signoff_pubkey.pem",
-        "scripts/review_legacy_editions.txt",
-        "CODEOWNERS",
-        ".github/CODEOWNERS",
-        "hugo.yaml",
-        "hugo.yml",
-        "hugo.toml",
-        "hugo.json",
-        "config.toml",
-        "config.yaml",
-        "config.yml",
-        "config.json",
+        "data/narrative.json",
+        "tools/requirements.txt",
+        "tools/run_local.sh",
+        "tools/run_local.ps1",
+        "tools/.env.example",
     }
 )
-HUMAN_MERGE_PREFIXES = (
-    "signoff/",
-    ".github/workflows/",
-    "tools/chiefs_narrative/",
-    "layouts/",
-    "content/narrative/",
-    "themes/",
-    "config/",
-    "static/",
-    "assets/",
+AUTOMERGE_ALLOWED_PREFIXES = (
+    "tools/tests/",
 )
+_PROSE_KEYS = (
+    "headline",
+    "dek",
+    "lede",
+    "theEdge",
+    "analysis",
+    "body",
+    "whatWorked",
+    "whatDidnt",
+    "lookAhead",
+    "lastGameReview",
+)
+_BODY_SCORE = re.compile(r"\b(\d{1,2})\s*[–-]\s*(\d{1,2})\b")
+_REVIEW_HTML = re.compile(
+    r"PUBLICREVIEW|Week\s+\d+.{0,40}Review|"
+    r"\b(?:final(?:\s+score)?)\b.{0,24}\d{1,2}\s*[–-]\s*\d{1,2}",
+    re.IGNORECASE | re.DOTALL,
+)
+_HUGO_DIR_KEYS = ("staticdir", "contentdir", "datadir", "layoutdir")
 
 
 class GateError(RuntimeError):
@@ -156,6 +165,102 @@ def extra_publish_path(path: str | Path) -> bool:
     if parts and parts[0].lower() == "data":
         return not text.endswith(".json")
     return False
+
+
+def _hugo_bin() -> str | None:
+    found = shutil.which("hugo")
+    if found:
+        return found
+    fallback = Path.home() / ".local" / "hugo" / "hugo"
+    if fallback.is_file():
+        return str(fallback)
+    return None
+
+
+def load_hugo_config(root: Path) -> dict:
+    """Resolved Hugo dirs and mounts. Fail closed if hugo or a key is missing."""
+    binary = _hugo_bin()
+    if not binary:
+        raise GateError("hugo is required to resolve staticDir/contentDir/mounts")
+    try:
+        raw = subprocess.check_output(
+            [binary, "config", "--format", "json"],
+            cwd=root,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise GateError(f"hugo config failed: {exc}") from exc
+    try:
+        cfg = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise GateError(f"hugo config is not JSON: {exc}") from exc
+    if not isinstance(cfg, dict):
+        raise GateError("hugo config is not an object")
+    missing = [key for key in _HUGO_DIR_KEYS if key not in cfg]
+    if missing:
+        raise GateError(f"hugo config missing {', '.join(missing)}")
+    mounts = (cfg.get("module") or {}).get("mounts")
+    if not isinstance(mounts, list):
+        raise GateError("hugo config missing module.mounts")
+    return cfg
+
+
+def _as_rel_dirs(value) -> list[str]:
+    if value in (None, ""):
+        return []
+    if isinstance(value, str):
+        text = value.replace("\\", "/").strip().strip("/")
+        return [text] if text else []
+    if isinstance(value, (list, tuple)):
+        out: list[str] = []
+        for item in value:
+            out.extend(_as_rel_dirs(item))
+        return out
+    return []
+
+
+def resolve_hugo_surface(root: Path) -> dict[str, list[str] | str]:
+    """static/content/data/layout dirs plus publishDir from `hugo config`."""
+    cfg = load_hugo_config(root)
+    static_dirs = _as_rel_dirs(cfg.get("staticdir"))
+    content_dirs = _as_rel_dirs(cfg.get("contentdir"))
+    data_dirs = _as_rel_dirs(cfg.get("datadir"))
+    layout_dirs = _as_rel_dirs(cfg.get("layoutdir"))
+    publish = str(cfg.get("publishdir") or "dist").replace("\\", "/").strip("/")
+    for mount in (cfg.get("module") or {}).get("mounts") or []:
+        if not isinstance(mount, dict):
+            continue
+        source = str(mount.get("source") or "").replace("\\", "/").strip()
+        target = str(mount.get("target") or "").replace("\\", "/").strip()
+        if not source or source.startswith("/") or ".." in source.split("/"):
+            continue
+        top = target.split("/", 1)[0]
+        if top == "static":
+            static_dirs.append(source)
+        elif top == "content":
+            content_dirs.append(source)
+        elif top == "data":
+            data_dirs.append(source)
+        elif top == "layouts":
+            layout_dirs.append(source)
+
+    def _unique(items: list[str]) -> list[str]:
+        seen: set[str] = set()
+        out: list[str] = []
+        for item in items:
+            if item and item not in seen:
+                seen.add(item)
+                out.append(item)
+        return out
+
+    return {
+        "static": _unique(static_dirs),
+        "content": _unique(content_dirs),
+        "data": _unique(data_dirs),
+        "layouts": _unique(layout_dirs),
+        "publish": publish or "dist",
+    }
 
 
 def extra_publish_surface(root: Path) -> bool:
@@ -245,12 +350,61 @@ def _completed_last_game(block: dict | None) -> bool:
     return True
 
 
+def _walk_prose(value, parts: list[str]) -> None:
+    if isinstance(value, str):
+        text = value.strip()
+        if text:
+            parts.append(text)
+        return
+    if isinstance(value, list):
+        for item in value:
+            _walk_prose(item, parts)
+        return
+    if isinstance(value, dict):
+        for item in value.values():
+            _walk_prose(item, parts)
+
+
+def _payload_prose(payload: dict) -> str:
+    parts: list[str] = []
+    for key in _PROSE_KEYS:
+        _walk_prose(payload.get(key), parts)
+    return "\n".join(parts)
+
+
+def _looks_like_final_score(left: str, right: str) -> bool:
+    try:
+        first = int(left)
+        second = int(right)
+    except (TypeError, ValueError):
+        return False
+    if first > 70 or second > 70:
+        return False
+    if first == 0 and second == 0:
+        return False
+    if max(first, second) <= 4:
+        return False
+    return True
+
+
+def _body_has_final_score(payload: dict) -> bool:
+    """Cheap prose-score check when phase/lastGame/label are all non-Review."""
+    blob = _payload_prose(payload)
+    if not blob:
+        return False
+    for match in _BODY_SCORE.finditer(blob):
+        if _looks_like_final_score(match.group(1), match.group(2)):
+            return True
+    return False
+
+
 def payload_is_review(payload: dict | None) -> bool:
-    """True for review/recap/postgame, a Review label, or a last-game final.
+    """True for review/recap/postgame, a Review label, last-game, or body score.
 
     Uses phase.mode (dict or string) and lastGame scores — not a single
     middot label. An explicit Preview/camp/offseason mode is not a Review
-    just because lastGameReview still holds last week's final.
+    just because lastGameReview still holds last week's final. A missing
+    phase + missing lastGame still counts when body prose has a final.
     """
     if not payload:
         return False
@@ -264,7 +418,9 @@ def payload_is_review(payload: dict | None) -> bool:
     last = payload.get("lastGame")
     if not isinstance(last, dict):
         last = phase_last
-    return _completed_last_game(last if isinstance(last, dict) else None)
+    if _completed_last_game(last if isinstance(last, dict) else None):
+        return True
+    return _body_has_final_score(payload)
 
 
 def signoff_canonical_bytes(slug: str, sha: str) -> bytes:
@@ -516,23 +672,47 @@ def changed_review_payloads(
     return found
 
 
-def requires_human_merge(paths) -> bool:
-    """PRs that touch the gate itself must not automerge."""
+def _editions_json_path(rel: str) -> bool:
+    text = _posix_rel(rel)
+    parts = text.split("/")
+    return (
+        len(parts) >= 3
+        and parts[0].lower() == "data"
+        and parts[1].lower() == "narrative_editions"
+        and text.endswith(".json")
+    )
+
+
+def automerge_allowlisted(path: str | Path) -> bool:
+    """True only for Preview edition JSON and known code/test paths."""
+    rel = _posix_rel(path)
+    if rel in AUTOMERGE_ALLOWED_PATHS:
+        return True
+    if any(rel.startswith(prefix) for prefix in AUTOMERGE_ALLOWED_PREFIXES):
+        return True
+    return _editions_json_path(rel)
+
+
+def requires_human_merge(paths, *, root: Path | None = None) -> bool:
+    """True unless every path is on the automerge allowlist.
+
+    ``root`` is accepted so callers can pass the PR tree; Preview-vs-
+    Review is decided in ``automerge_blocked``, not here.
+    """
+    del root
     for raw in paths or []:
-        rel = _posix_rel(raw)
-        if rel in HUMAN_MERGE_PATHS:
-            return True
-        if any(rel.startswith(prefix) for prefix in HUMAN_MERGE_PREFIXES):
-            return True
-        name = rel.rsplit("/", 1)[-1].lower()
-        if name.startswith("hugo.") and name != "hugo.yaml":
+        if not automerge_allowlisted(raw):
             return True
     return False
 
 
 def automerge_blocked(paths, *, root: Path | None = None) -> bool:
-    """True when the PR needs a human, or a changed Review is unsigned."""
-    if requires_human_merge(paths):
+    """True when the PR is off the allowlist or a Review edition changed.
+
+    Signed Reviews still need a human merge. Only Preview edition JSON
+    and known code/test paths may automerge.
+    """
+    if requires_human_merge(paths, root=root):
         return True
     base = Path(root) if root is not None else config.REPO_ROOT
     if extra_publish_surface(base):
@@ -540,9 +720,11 @@ def automerge_blocked(paths, *, root: Path | None = None) -> bool:
     for raw in paths or []:
         if extra_publish_path(raw):
             return True
-    for rel, payload in changed_review_payloads(paths, root=base):
-        if should_block_review(payload, root=base, edition_file=base / rel):
-            return True
+        rel = _posix_rel(raw)
+        if rel == "data/narrative.json" or _editions_json_path(rel):
+            payload = load_payload(base / rel)
+            if payload_is_review(payload):
+                return True
     return False
 
 
@@ -574,7 +756,134 @@ def _published_edition_files(root: Path) -> list[Path]:
     return files
 
 
-def pages_blocked(paths=None, *, root: Path | None = None) -> bool:
+def _edition_file_for_slug(root: Path, slug: str, data_dirs: list[str]) -> Path | None:
+    """Edition JSON that publishes ``/`` (empty slug) or ``/narrative/<slug>/``."""
+    dirs = data_dirs or ["data"]
+    if not slug:
+        for rel in dirs:
+            live = root / rel / "narrative.json"
+            if live.is_file() and live.name.endswith(".json"):
+                return live
+        return None
+    if not _safe_signoff_slug(slug):
+        return None
+    for rel in dirs:
+        edition = root / rel / "narrative_editions" / f"{slug}.json"
+        if edition.is_file() and edition.name.endswith(".json"):
+            return edition
+        live = root / rel / "narrative.json"
+        if live.is_file() and live.name.endswith(".json"):
+            loaded = load_payload(live)
+            if loaded and str(loaded.get("slug") or "").strip() == slug:
+                return live
+    return None
+
+
+def _static_page_sources(root: Path, static_dirs: list[str], rel_url: str) -> list[Path]:
+    found: list[Path] = []
+    for rel in static_dirs:
+        candidate = root / rel / rel_url
+        if candidate.is_file():
+            found.append(candidate)
+    return found
+
+
+def _unexpected_content_pages(root: Path, content_dirs: list[str]) -> list[Path]:
+    """content/narrative/<slug>/ pages that are not the section stub."""
+    found: list[Path] = []
+    for rel in content_dirs:
+        base = root / rel / "narrative"
+        if not base.is_dir():
+            continue
+        for child in base.iterdir():
+            name = child.name
+            if name.startswith("_"):
+                continue
+            if child.is_file() and name in {"_index.md", "_index.html"}:
+                continue
+            if child.is_dir() and _safe_signoff_slug(name):
+                for extra in child.rglob("*"):
+                    if extra.is_file():
+                        found.append(extra)
+            elif child.is_file() and _safe_signoff_slug(child.stem):
+                found.append(child)
+    return found
+
+
+def _published_output_pages(dist: Path) -> list[tuple[str, Path, str]]:
+    """(slug_or_empty, html_path, url_rel) for home and each narrative slug."""
+    pages: list[tuple[str, Path, str]] = []
+    home = dist / "index.html"
+    if home.is_file():
+        pages.append(("", home, "index.html"))
+    narr = dist / "narrative"
+    if not narr.is_dir():
+        return pages
+    for child in sorted(narr.iterdir()):
+        if not child.is_dir():
+            continue
+        html = child / "index.html"
+        if html.is_file():
+            pages.append((child.name, html, f"narrative/{child.name}/index.html"))
+    return pages
+
+
+def _html_is_review_shaped(path: Path) -> bool:
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    return bool(_REVIEW_HTML.search(text))
+
+
+def output_blocked(dist: Path, *, root: Path | None = None) -> bool:
+    """True when a built page is unsigned, unmapped, or from staticDir.
+
+    ``staticDir``, ``contentDir``, ``dataDir``, ``layoutDir``, and mounts
+    come from ``hugo config``. A ``public/narrative/<slug>/index.html``
+    drop is an unknown source even when Hugo copies it verbatim.
+    """
+    base = Path(root) if root is not None else config.REPO_ROOT
+    publish = Path(dist)
+    if not publish.is_dir():
+        raise GateError(f"build output missing: {publish}")
+    surface = resolve_hugo_surface(base)
+    # layoutDir is required from hugo config so a hardcoded-dir mutation
+    # cannot skip it; templates alone never authorize a published page.
+    if not surface["layouts"]:
+        raise GateError("hugo config resolved no layoutDir")
+    if _unexpected_content_pages(base, list(surface["content"])):
+        return True
+    pages = _published_output_pages(publish)
+    if not pages:
+        raise GateError(f"no narrative pages under {publish}")
+    home_seen = False
+    for slug, html, rel_url in pages:
+        static_hits = _static_page_sources(base, list(surface["static"]), rel_url)
+        if static_hits:
+            return True
+        if slug and not _safe_signoff_slug(slug):
+            return True
+        edition = _edition_file_for_slug(base, slug, list(surface["data"]))
+        if edition is None:
+            if _html_is_review_shaped(html) or slug:
+                return True
+            continue
+        payload = load_payload(edition)
+        if payload is None:
+            raise GateError(f"cannot load edition {edition}")
+        if should_block_review(payload, root=base, edition_file=edition):
+            return True
+        if slug == "":
+            home_seen = True
+        elif str(payload.get("slug") or "").strip() not in {"", slug}:
+            return True
+    if not home_seen:
+        return True
+    return False
+
+
+def pages_blocked(paths=None, *, root: Path | None = None, dist: Path | None = None) -> bool:
     """True when any published Review edition is unsigned or unreadable.
 
     Hugo builds ``/narrative/`` from ``data/narrative.json`` and every
@@ -585,6 +894,10 @@ def pages_blocked(paths=None, *, root: Path | None = None) -> bool:
 
     Extra Hugo data/config (yaml/toml/.JSON, hugo.toml, config/) also
     blocks: those files render without going through the JSON scan.
+
+    When ``dist`` is set, also census the built output. Every home and
+    ``/narrative/<slug>/`` page must map to Preview / signed Review /
+    legacy-pinned edition JSON. staticDir copies fail closed.
     """
     del paths
     base = Path(root) if root is not None else config.REPO_ROOT
@@ -603,6 +916,8 @@ def pages_blocked(paths=None, *, root: Path | None = None) -> bool:
             raise GateError(f"cannot load edition {path}")
         if should_block_review(payload, root=base, edition_file=path):
             return True
+    if dist is not None:
+        return output_blocked(Path(dist), root=base)
     return False
 
 
@@ -636,6 +951,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--pages", action="store_true")
     parser.add_argument("--base", help="git ref to diff against for --automerge")
     parser.add_argument("--root", default="")
+    parser.add_argument(
+        "--dist",
+        default="",
+        help="post-build publishDir to census (required on deploy)",
+    )
     parser.add_argument("paths", nargs="*", help="changed paths (tests / overrides)")
     args = parser.parse_args(argv)
     root = Path(args.root) if args.root else config.REPO_ROOT
@@ -648,7 +968,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(
                     "Review edition requires Karen's ed25519 sign-off "
                     f"({SIGNOFF_DIR}/<slug>.json + <slug>.sig), "
-                    "or this PR touches the gate and needs a human merge",
+                    "or this PR is off the automerge allowlist",
                     file=sys.stderr,
                 )
                 return 1
@@ -656,7 +976,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.pages:
             # pages_blocked scans every published edition; the push diff
             # is not consulted, so a shallow checkout must not fail closed.
-            if pages_blocked(paths, root=root):
+            dist = Path(args.dist) if args.dist else None
+            if dist is not None and not dist.is_absolute():
+                dist = root / dist
+            if pages_blocked(paths, root=root, dist=dist):
                 print(
                     "skip: unsigned Review edition; not deploying to gh-pages",
                     file=sys.stderr,

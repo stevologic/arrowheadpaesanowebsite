@@ -5487,7 +5487,12 @@ class FactCheck(unittest.TestCase):
             if isinstance(step, dict)
         )
         self.assertIn(
-            "python -m tools.chiefs_narrative.review_gate --pages", pages_scripts
+            "python -m tools.chiefs_narrative.review_gate --pages --dist dist",
+            pages_scripts,
+        )
+        self.assertLess(
+            pages_scripts.index("hugo --gc --minify"),
+            pages_scripts.index("review_gate --pages --dist dist"),
         )
         # G7: `review_gate --pages || true`
         self.assertIsNone(
@@ -5496,7 +5501,7 @@ class FactCheck(unittest.TestCase):
         pages_gate = _job_step_script(
             pages, "build-deploy", name="Skip unsigned Review editions"
         ) or _job_step_script(pages, "build-deploy", step_id="review")
-        self.assertIn("review_gate --pages", pages_gate)
+        self.assertIn("review_gate --pages --dist dist", pages_gate)
         blocked = pages_gate[pages_gate.find("else") :]
         # G6: the pages blocked branch writes skip=false.
         self.assertIn('echo "skip=true"', blocked)
@@ -5514,13 +5519,25 @@ class FactCheck(unittest.TestCase):
         narr_gate = _job_step_script(
             narrative, "deploy", name="Skip unsigned Review editions"
         ) or _job_step_script(narrative, "deploy", step_id="review")
-        self.assertIn("review_gate --pages", narr_gate)
+        self.assertIn("review_gate --pages --dist dist", narr_gate)
         self.assertIsNone(
             re.search(r"review_gate --pages[^\n]*\|\|\s*true", narr_gate)
         )
         narr_blocked = narr_gate[narr_gate.find("else") :]
         self.assertIn('echo "skip=true"', narr_blocked)
         self.assertNotIn("skip=false", narr_blocked)
+        narr_scripts = "\n".join(
+            str(step.get("run") or "")
+            for step in ((narrative.get("jobs") or {}).get("deploy") or {}).get(
+                "steps"
+            )
+            or []
+            if isinstance(step, dict)
+        )
+        self.assertLess(
+            narr_scripts.index("hugo --gc --minify"),
+            narr_scripts.index("review_gate --pages --dist dist"),
+        )
         narr_publish = next(
             step
             for step in ((narrative.get("jobs") or {}).get("deploy") or {}).get(
@@ -5540,7 +5557,14 @@ class FactCheck(unittest.TestCase):
         )
         self.assertIn("pages.yml:", ci_gates)
         self.assertIn("narrative.yml:", ci_gates)
-        self.assertIn("python -m tools.chiefs_narrative.review_gate --pages", ci_gates)
+        self.assertIn(
+            "python -m tools.chiefs_narrative.review_gate --pages --dist dist",
+            ci_gates,
+        )
+        self.assertLess(
+            ci_gates.index("hugo --gc --minify"),
+            ci_gates.index("review_gate --pages --dist dist"),
+        )
         self.assertIn('echo "skip=false"', ci_gates)
         self.assertIn('grep -qx "skip=false"', ci_gates)
         # B3: workflow is read-only; write lives only on automerge.
@@ -5583,6 +5607,17 @@ class FactCheck(unittest.TestCase):
         self.assertNotIn("from tools.chiefs_narrative import config, facts", gate_src)
         self.assertEqual(review_gate.SIGNOFF_DIR, "signoff/review")
         self.assertNotIn('SIGNOFF_DIR = "data/review_signoff"', gate_src)
+        self.assertNotIn("HUMAN_MERGE_PREFIXES", gate_src)
+        self.assertNotIn("HUMAN_MERGE_PATHS", gate_src)
+        self.assertIn("AUTOMERGE_ALLOWED_PATHS", gate_src)
+        self.assertIn("AUTOMERGE_ALLOWED_PREFIXES", gate_src)
+        self.assertIn("hugo config", gate_src)
+        self.assertIn("staticdir", gate_src)
+        self.assertIn("contentdir", gate_src)
+        self.assertIn("datadir", gate_src)
+        self.assertIn("layoutdir", gate_src)
+        self.assertIn("mounts", gate_src)
+        self.assertIn("output_blocked", gate_src)
         self.assertNotIn("qa-pass", gate_src)
         self.assertNotIn("QA_PASS", gate_src)
         self.assertNotIn('"pass" in', gate_src)
@@ -5642,6 +5677,22 @@ class FactCheck(unittest.TestCase):
                 "oppScore": 17,
             },
         }
+        recap_mode_only = {
+            "slug": "2026-10-05-0937",
+            "edition": "desk notes",
+            "phase": {"mode": "recap"},
+        }
+        postgame_mode_only = {
+            "slug": "2026-10-05-0937",
+            "edition": "desk notes",
+            "phase": {"mode": "postgame"},
+        }
+        body_score_only = {
+            "slug": "2026-10-05-0937",
+            "edition": "desk notes",
+            "phase": {},
+            "lastGameReview": {"lede": "Kansas City finished 27-17."},
+        }
         preview_with_final = {
             "slug": "2026-10-03-1538",
             "edition": "2026 Week 4 · Preview",
@@ -5665,12 +5716,25 @@ class FactCheck(unittest.TestCase):
         self.assertTrue(review_gate.payload_is_review(middot_label))
         self.assertTrue(review_gate.payload_is_review(final_only))
         self.assertFalse(review_gate.payload_is_review(preview_with_final))
+        # C_drop_recap_postgame: mode alone, no score and no Review label.
+        self.assertEqual(
+            review_gate._REVIEW_MODES, frozenset({"review", "recap", "postgame"})
+        )
+        self.assertEqual(
+            facts._REVIEW_MODES, frozenset({"review", "recap", "postgame"})
+        )
+        self.assertTrue(review_gate.payload_is_review(recap_mode_only))
+        self.assertTrue(review_gate.payload_is_review(postgame_mode_only))
+        self.assertTrue(review_gate.payload_is_review(body_score_only))
         self.assertTrue(facts.is_review_edition(recap_label))
         self.assertTrue(facts.is_review_edition(postgame_label))
         self.assertTrue(facts.is_review_edition(endash_preview))
         self.assertTrue(facts.is_review_edition(phase_string))
         self.assertTrue(facts.is_review_edition(middot_label))
         self.assertTrue(facts.is_review_edition(final_only))
+        self.assertTrue(facts.is_review_edition(recap_mode_only))
+        self.assertTrue(facts.is_review_edition(postgame_mode_only))
+        self.assertTrue(facts.is_review_edition(body_score_only))
         self.assertFalse(facts.is_review_edition(preview_with_final))
         # G17: any label counts as qa-pass. Labels are gone.
         self.assertTrue(review_gate.should_block_review(review))
@@ -5777,10 +5841,35 @@ class FactCheck(unittest.TestCase):
                 self.assertTrue(
                     review_gate.requires_human_merge(["CODEOWNERS"])
                 )
+                live_rel = "data/" + live_name
+                preview_rel = "data/" + editions_name + "/2026-10-03-1538.json"
+                (root / "data" / editions_name / "2026-10-03-1538.json").write_bytes(
+                    preview_bytes
+                )
+                self.assertFalse(review_gate.requires_human_merge([live_rel]))
+                self.assertFalse(review_gate.requires_human_merge([preview_rel]))
+                self.assertFalse(
+                    review_gate.requires_human_merge(
+                        ["tools/tests/test_narrative.py"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["public/narrative/2026-10-05-0937/index.html"]
+                    )
+                )
+                self.assertTrue(review_gate.requires_human_merge(["README.md"]))
+                self.assertFalse(review_gate.automerge_allowlisted("public/x.html"))
                 self.assertTrue(
                     review_gate.automerge_blocked(
                         ["tools/chiefs_narrative/review_gate.py"], root=root
                     )
+                )
+                self.assertFalse(
+                    review_gate.automerge_blocked([live_rel], root=root)
+                )
+                self.assertFalse(
+                    review_gate.automerge_blocked([preview_rel], root=root)
                 )
                 self.assertEqual(
                     review_gate.main(
@@ -5864,6 +5953,15 @@ class FactCheck(unittest.TestCase):
                 self.assertEqual(
                     review_gate.main(
                         ["--automerge", "--root", str(root), review_rel]
+                    ),
+                    1,
+                )
+                self.assertTrue(
+                    review_gate.automerge_blocked([review_rel], root=root)
+                )
+                self.assertEqual(
+                    review_gate.main(
+                        ["--automerge", "--root", str(root), preview_rel]
                     ),
                     0,
                 )
@@ -6100,6 +6198,40 @@ class FactCheck(unittest.TestCase):
         self.assertTrue(all("/2026-10-" not in path for path in pins))
         self.assertFalse(review_gate.pages_blocked(root=repo))
         self.assertEqual(review_gate.main(["--pages", "--root", str(repo)]), 0)
+        hugo_bin = _hugo_bin()
+        if hugo_bin:
+            cfg = review_gate.load_hugo_config(repo)
+            self.assertEqual(cfg["staticdir"], ["public"])
+            self.assertEqual(cfg["contentdir"], "content")
+            self.assertEqual(cfg["datadir"], "data")
+            self.assertEqual(cfg["layoutdir"], "layouts")
+            self.assertTrue(
+                any(
+                    isinstance(mount, dict)
+                    and mount.get("source") == "public"
+                    and str(mount.get("target") or "").startswith("static")
+                    for mount in (cfg.get("module") or {}).get("mounts") or []
+                )
+            )
+            with tempfile.TemporaryDirectory() as tmp:
+                dest = Path(tmp) / "dist"
+                result = subprocess.run(
+                    [hugo_bin, "--gc", "--minify", "--destination", str(dest)],
+                    cwd=repo,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(
+                    result.returncode, 0, result.stdout + result.stderr
+                )
+                self.assertFalse(review_gate.output_blocked(dest, root=repo))
+                self.assertEqual(
+                    review_gate.main(
+                        ["--pages", "--root", str(repo), "--dist", str(dest)]
+                    ),
+                    0,
+                )
 
     def test_legacy_review_manifest_mutations_are_red(self):
         """L1 unlisted / L2 edited bytes / L3 empty manifest all block."""
@@ -6381,6 +6513,202 @@ class FactCheck(unittest.TestCase):
             )
             self.assertNotEqual(broken.returncode, 0, broken.stdout + broken.stderr)
             self.assertIn("unmarshal", (broken.stdout + broken.stderr).lower())
+
+    def test_public_staticdir_review_html_fails_output_gate(self):
+        """B2': Karen's public/ PR attack must fail a real hugo build."""
+        hugo_bin = _hugo_bin()
+        if not hugo_bin:
+            self.skipTest("hugo is not on PATH or ~/.local/hugo/hugo")
+        preview = {
+            "slug": "2026-10-03-1538",
+            "edition": "2026 Week 4 · Preview",
+            "phase": {"mode": "preview"},
+            "headline": "Preview headline",
+            "dek": "Preview dek",
+            "generatedAt": "2026-10-03T15:38:00+00:00",
+        }
+        attack_slug = "2026-10-05-0937"
+        attack_html = (
+            "<html><body><h1>Week 5 Review</h1>"
+            "<p>PUBLICREVIEW 27-17 unsigned</p></body></html>\n"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "site"
+            live = "narrative"
+            editions_name = live + "_editions"
+            live_name = live + ".json"
+            (root / "data" / editions_name).mkdir(parents=True)
+            (root / "layouts").mkdir(parents=True)
+            (root / "public" / "narrative" / attack_slug).mkdir(parents=True)
+            (root / "hugo.yaml").write_text(
+                "baseURL: /\n"
+                "publishDir: dist\n"
+                "staticDir:\n"
+                "  - public\n",
+                encoding="utf-8",
+            )
+            (root / "layouts" / "index.html").write_text(
+                "{{ with .Site.Data.narrative }}{{ .headline }}{{ end }}\n",
+                encoding="utf-8",
+            )
+            (root / "data" / live_name).write_text(
+                json.dumps(preview) + "\n", encoding="utf-8"
+            )
+            (root / "data" / editions_name / "2026-10-03-1538.json").write_text(
+                json.dumps(preview) + "\n", encoding="utf-8"
+            )
+            attack_rel = f"public/narrative/{attack_slug}/index.html"
+            (root / attack_rel).write_text(attack_html, encoding="utf-8")
+            self.assertFalse(review_gate.automerge_allowlisted(attack_rel))
+            self.assertTrue(review_gate.requires_human_merge([attack_rel]))
+            self.assertTrue(
+                review_gate.automerge_blocked([attack_rel], root=root)
+            )
+            # Source-only pages scan still misses staticDir copies — the
+            # post-build census is the close. Keep that split load-bearing.
+            self.assertFalse(review_gate.pages_blocked(root=root))
+            result = subprocess.run(
+                [hugo_bin, "--gc", "--minify"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            built = (
+                root / "dist" / "narrative" / attack_slug / "index.html"
+            )
+            self.assertTrue(built.is_file())
+            self.assertIn("PUBLICREVIEW 27-17 unsigned", built.read_text(encoding="utf-8"))
+            self.assertTrue(review_gate.output_blocked(root / "dist", root=root))
+            self.assertTrue(
+                review_gate.pages_blocked(root=root, dist=root / "dist")
+            )
+            self.assertEqual(
+                review_gate.main(
+                    [
+                        "--pages",
+                        "--root",
+                        str(root),
+                        "--dist",
+                        "dist",
+                    ]
+                ),
+                2,
+            )
+            overlay = root / "public" / "narrative" / "2026-10-03-1538"
+            overlay.mkdir(parents=True)
+            (overlay / "index.html").write_text(
+                attack_html, encoding="utf-8"
+            )
+            overlay_build = subprocess.run(
+                [hugo_bin, "--gc", "--minify"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(
+                overlay_build.returncode, 0, overlay_build.stdout + overlay_build.stderr
+            )
+            self.assertTrue(review_gate.output_blocked(root / "dist", root=root))
+            (root / attack_rel).unlink()
+            shutil.rmtree(overlay)
+            shutil.rmtree(root / "dist", ignore_errors=True)
+            clean = subprocess.run(
+                [hugo_bin, "--gc", "--minify"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(clean.returncode, 0, clean.stdout + clean.stderr)
+            self.assertFalse(review_gate.output_blocked(root / "dist", root=root))
+            self.assertEqual(
+                review_gate.main(
+                    ["--pages", "--root", str(root), "--dist", "dist"]
+                ),
+                0,
+            )
+
+    def test_output_gate_reads_hugo_config_not_hardcoded_dirs(self):
+        """Custom staticDir/dataDir/mounts must drive the post-build census."""
+        hugo_bin = _hugo_bin()
+        if not hugo_bin:
+            self.skipTest("hugo is not on PATH or ~/.local/hugo/hugo")
+        preview = {
+            "slug": "2026-10-03-1538",
+            "edition": "2026 Week 4 · Preview",
+            "phase": {"mode": "preview"},
+            "headline": "Preview headline",
+            "generatedAt": "2026-10-03T15:38:00+00:00",
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "site"
+            (root / "payloads" / "narrative_editions").mkdir(parents=True)
+            (root / "views").mkdir(parents=True)
+            (root / "pages").mkdir(parents=True)
+            (root / "cdn" / "narrative" / "2026-10-03-1538").mkdir(parents=True)
+            (root / "hugo.yaml").write_text(
+                "baseURL: /\n"
+                "publishDir: out\n"
+                "staticDir:\n"
+                "  - cdn\n"
+                "contentDir: pages\n"
+                "dataDir: payloads\n"
+                "layoutDir: views\n",
+                encoding="utf-8",
+            )
+            (root / "views" / "index.html").write_text(
+                "{{ with .Site.Data.narrative }}{{ .headline }}{{ end }}\n",
+                encoding="utf-8",
+            )
+            (root / "payloads" / "narrative.json").write_text(
+                json.dumps(preview) + "\n", encoding="utf-8"
+            )
+            (
+                root / "payloads" / "narrative_editions" / "2026-10-03-1538.json"
+            ).write_text(json.dumps(preview) + "\n", encoding="utf-8")
+            (root / "cdn" / "narrative" / "2026-10-03-1538" / "index.html").write_text(
+                "<html><body>PUBLICREVIEW 27-17 unsigned</body></html>\n",
+                encoding="utf-8",
+            )
+            cfg = review_gate.load_hugo_config(root)
+            self.assertEqual(cfg["staticdir"], ["cdn"])
+            self.assertEqual(cfg["contentdir"], "pages")
+            self.assertEqual(cfg["datadir"], "payloads")
+            self.assertEqual(cfg["layoutdir"], "views")
+            self.assertEqual(cfg["publishdir"], "out")
+            surface = review_gate.resolve_hugo_surface(root)
+            self.assertIn("cdn", surface["static"])
+            self.assertIn("pages", surface["content"])
+            self.assertIn("payloads", surface["data"])
+            self.assertIn("views", surface["layouts"])
+            result = subprocess.run(
+                [hugo_bin, "--gc", "--minify"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertTrue((root / "out" / "index.html").is_file())
+            self.assertTrue(
+                review_gate.output_blocked(root / "out", root=root)
+            )
+            shutil.rmtree(root / "cdn" / "narrative")
+            shutil.rmtree(root / "out", ignore_errors=True)
+            clean = subprocess.run(
+                [hugo_bin, "--gc", "--minify"],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(clean.returncode, 0, clean.stdout + clean.stderr)
+            self.assertFalse(
+                review_gate.output_blocked(root / "out", root=root)
+            )
 
     def _week3_slate(self):
         return [
@@ -8688,6 +9016,10 @@ class FactCheck(unittest.TestCase):
     def test_karen_matrix_r18(self):
         from tools.tests import karen_matrices
         self._run_karen_matrix("r18", karen_matrices.r18_cases)
+
+    def test_karen_matrix_r19(self):
+        from tools.tests import karen_matrices
+        self._run_karen_matrix("r19", karen_matrices.r19_cases)
 
     def test_karen_matrix_rs9(self):
         from tools.tests import karen_matrices
