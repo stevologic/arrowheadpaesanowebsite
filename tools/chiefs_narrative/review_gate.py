@@ -7,7 +7,18 @@ ed25519 public key. Sign-off is ``data/review_signoff/<slug>.json`` plus
 via ``REVIEW_SIGNOFF_REQUIRED``.
 
 Automerge must run this module from the *base* checkout, never the PR
-head, so a PR cannot rewrite the gate and then pass it.
+head, so a PR cannot rewrite the gate and then pass it. Workflows do
+that with ``cd "$GATE_BASE" && python -P -m … --root <PR-tree>``: ``-P``
+keeps the PR working directory off ``sys.path``, and ``--root`` is only
+a path argument.
+
+Protected paths cover everything this module imports
+(``tools/chiefs_narrative/**``, including ``config.py`` and
+``__init__.py``) plus the Hugo render surface for ``/narrative/``
+(``layouts/``, ``hugo.yaml``, ``content/narrative/``, ``themes/``).
+Automerge refuses those PRs. A layouts/hugo-config change while a
+signed Review is published therefore needs a human merge; the signature
+covers edition JSON bytes, not the templates that render them.
 """
 from __future__ import annotations
 
@@ -42,14 +53,26 @@ _REVIEW_EDITION = re.compile(
 HUMAN_MERGE_PATHS = frozenset(
     {
         "tools/chiefs_narrative/review_gate.py",
+        "tools/chiefs_narrative/config.py",
+        "tools/chiefs_narrative/__init__.py",
+        "tools/__init__.py",
         "scripts/review_signoff_pubkey.pem",
         "CODEOWNERS",
         ".github/CODEOWNERS",
+        "hugo.yaml",
+        "hugo.yml",
+        "config.toml",
+        "config.yaml",
+        "config.yml",
     }
 )
 HUMAN_MERGE_PREFIXES = (
     "data/review_signoff/",
     ".github/workflows/",
+    "tools/chiefs_narrative/",
+    "layouts/",
+    "content/narrative/",
+    "themes/",
 )
 
 
@@ -280,23 +303,38 @@ def automerge_blocked(paths, *, root: Path | None = None) -> bool:
     return False
 
 
-def pages_blocked(paths=None, *, root: Path | None = None) -> bool:
-    """True when the edition currently published on main is an unsigned Review.
+def _published_edition_files(root: Path) -> list[Path]:
+    """Every JSON Hugo can render as ``/narrative/`` or ``/narrative/<slug>/``."""
+    files = [root / "data" / "narrative.json"]
+    editions = root / "data" / "narrative_editions"
+    if editions.is_dir():
+        files.extend(sorted(editions.glob("*.json")))
+    return files
 
-    Always inspects ``data/narrative.json`` — the file the site builds
-    from — even when the push only touched README or the schedule. A
-    two-commit push, a later slate refresh, and Trigger Pages deploy
-    must all keep refusing until Karen signs.
+
+def pages_blocked(paths=None, *, root: Path | None = None) -> bool:
+    """True when any published Review edition is unsigned or unreadable.
+
+    Hugo builds ``/narrative/`` from ``data/narrative.json`` and every
+    ``/narrative/<slug>/`` from ``data/narrative_editions/<slug>.json``.
+    A hand-merged held Review, an editions-only Review, and an edited
+    archive copy of a signed Review must all block the next deploy —
+    even when this push only touched README or the schedule.
     """
+    del paths
     base = Path(root) if root is not None else config.REPO_ROOT
     current_path = base / "data" / "narrative.json"
     if not current_path.is_file():
         return True
-    current = load_payload(current_path)
-    if should_block_review(current, root=base, edition_file=current_path):
-        return True
-    for rel, payload in changed_review_payloads(paths, root=base):
-        if should_block_review(payload, root=base, edition_file=base / rel):
+    for path in _published_edition_files(base):
+        if not path.is_file():
+            if path == current_path:
+                return True
+            continue
+        payload = load_payload(path)
+        if payload is None:
+            raise GateError(f"cannot load edition {path}")
+        if should_block_review(payload, root=base, edition_file=path):
             return True
     return False
 

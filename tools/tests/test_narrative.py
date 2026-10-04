@@ -161,6 +161,31 @@ def _sign_review_edition(priv: Path, slug: str, edition_bytes: bytes, signoff_di
     sigbin.unlink()
 
 
+def _sign_message(priv: Path, message: bytes) -> bytes:
+    """Raw 64-byte ed25519 signature over exact message bytes."""
+    with tempfile.TemporaryDirectory() as tmp:
+        msg = Path(tmp) / "msg"
+        sigbin = Path(tmp) / "sig"
+        msg.write_bytes(message)
+        subprocess.check_call(
+            [
+                "openssl",
+                "pkeyutl",
+                "-sign",
+                "-inkey",
+                str(priv),
+                "-rawin",
+                "-in",
+                str(msg),
+                "-out",
+                str(sigbin),
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return sigbin.read_bytes()
+
+
 def _job_step_script(parsed, job: str, *, name=None, step_id=None) -> str:
     job_doc = ((parsed or {}).get("jobs") or {}).get(job) or {}
     for step in job_doc.get("steps") or []:
@@ -840,7 +865,7 @@ class GrokModelSelection(unittest.TestCase):
         )
         self.assertNotIn("git diff --exit-code -- public/images/narrative", qa)
         self.assertIn("persist-credentials: false", qa)
-        self.assertGreaterEqual(qa.count("persist-credentials: false"), 2)
+        self.assertGreaterEqual(qa.count("persist-credentials: false"), 3)
         self.assertIn("--match-head-commit", qa)
         self.assertIn("edition_overlay", qa)
         self.assertIn('gh workflow run "Deploy Hugo site to GitHub Pages"', qa)
@@ -3030,6 +3055,11 @@ class FactCheck(unittest.TestCase):
             any("total yards 305" in item and "KC" in item for item in kc_swap),
             kc_swap,
         )
+        located = issues("Kansas City had 305 total yards in Las Vegas.")
+        self.assertTrue(
+            any("total yards 305" in item and "KC" in item for item in located),
+            located,
+        )
 
     def test_p2_final_and_in_game_marks_and_td_verbs(self):
         recap = _load_fixture("espn_401872952_recap.json")
@@ -3057,12 +3087,28 @@ class FactCheck(unittest.TestCase):
         self.assertTrue(issues("Kansas City won the opener 28-10."))
         self.assertEqual(issues("Kansas City won the opener 31-10."), [])
         self.assertTrue(issues("Kelce made it 21-7."))
-        self.assertEqual(issues("Kansas City led 17-10 at the half."), [])
+        self.assertTrue(issues("Kansas City led 17-10 at the half."))
+        self.assertEqual(issues("Kansas City led 14-7 at the half."), [])
+        self.assertTrue(issues("Kansas City took a 21-3 lead into halftime."))
+        self.assertTrue(issues("Kansas City went up 21-3 before the break."))
         self.assertTrue(issues("Walker bulled in from the 15."))
         self.assertTrue(issues("Walker dove in from the 15."))
         self.assertTrue(issues("Walker scampered in from the 15."))
         self.assertTrue(issues("Walker scored on a 15-yard run."))
+        self.assertTrue(issues("Walker powered in from the 15."))
+        self.assertTrue(issues("Walker rumbled in from the 15."))
         self.assertEqual(issues("Walker scored on a 10-yard run."), [])
+        self.assertTrue(issues("Kansas City won by 7."))
+        self.assertEqual(issues("Kansas City won by 14."), [])
+        self.assertTrue(issues("Kansas City beat the Dolphins by 7."))
+        self.assertTrue(issues("Kansas City won in Miami, 17-10."))
+        self.assertEqual(issues("Kansas City won in Miami, 24-10."), [])
+        self.assertTrue(issues("Kansas City topped Miami 17-10."))
+        self.assertTrue(issues("Kansas City dispatched Miami 17-10."))
+        self.assertTrue(issues("Kansas City got past Miami 17-10."))
+        self.assertEqual(issues("Kansas City topped Miami 24-10."), [])
+        self.assertTrue(issues("Kansas City gained 329 total yards in Miami."))
+        self.assertEqual(issues("Kansas City gained 334 total yards in Miami."), [])
 
     def test_walker_carried_line_binds_last_game(self):
         from tools.tests import karen_matrices
@@ -3091,6 +3137,105 @@ class FactCheck(unittest.TestCase):
             mia,
         )
         self.assertEqual(ok, [])
+        for lede in (
+            "Walker finished with 70 yards on 18 carries.",
+            "Walker had 18 carries for 70 yards.",
+            "Walker ran 18 times for 70 yards.",
+        ):
+            wrong_form = facts.check_review(
+                self._lv5_review(lede),
+                last,
+                recap,
+                schedule=slate,
+            )
+            self.assertTrue(
+                any("carries" in item or "rushing" in item for item in wrong_form),
+                (lede, wrong_form),
+            )
+            ok_form = facts.check_review(
+                self._review(
+                    lede=lede,
+                    analysis=["Kelce scored on an 11-yard catch."],
+                ),
+                mia_last,
+                mia,
+            )
+            self.assertEqual(ok_form, [], lede)
+
+    def test_td_yardage_binds_to_scorer_team_not_unique_distance(self):
+        """Production LV 27-17: LV owns 15/4; Walker is KC via touches."""
+        from tools.tests import karen_matrices
+
+        recap, last, slate = karen_matrices.ctx("LV5")
+        recap = copy.deepcopy(recap)
+        recap["opponent"] = ""
+        recap["scoringPlays"] = [
+            {
+                "quarter": 1,
+                "type": "TD",
+                "yards": 6,
+                "team": "KC",
+                "kcScore": 7,
+                "oppScore": 0,
+            },
+            {
+                "quarter": 1,
+                "type": "TD",
+                "yards": 15,
+                "team": "LV",
+                "kcScore": 7,
+                "oppScore": 7,
+            },
+            {
+                "quarter": 2,
+                "type": "TD",
+                "yards": 4,
+                "team": "LV",
+                "kcScore": 7,
+                "oppScore": 14,
+            },
+            {
+                "quarter": 3,
+                "type": "TD",
+                "yards": 1,
+                "team": "KC",
+                "kcScore": 14,
+                "oppScore": 14,
+            },
+        ]
+        for play in recap["scoringPlays"]:
+            play.pop("player", None)
+
+        def issues(lede):
+            return facts.check_review(
+                self._lv5_review(lede),
+                last,
+                recap,
+                schedule=slate,
+            )
+
+        for lede in (
+            "Walker bulled in from the 15.",
+            "Walker scored on a 15-yard run.",
+            "Walker dove in from the 4.",
+            "Walker powered in from the 15.",
+            "Walker rumbled in from the 4.",
+        ):
+            hit = issues(lede)
+            self.assertTrue(
+                any("scoring yardage" in item and "KC" in item for item in hit),
+                (lede, hit),
+            )
+        self.assertTrue(issues("Kansas City won by 7."))
+        self.assertEqual(issues("Kansas City won by 10."), [])
+        self.assertTrue(issues("Kansas City beat the Raiders by 7."))
+        self.assertTrue(issues("Kansas City won in Las Vegas, 24-17."))
+        self.assertEqual(issues("Kansas City won in Las Vegas, 27-17."), [])
+        self.assertTrue(issues("Kansas City topped Las Vegas 24-17."))
+        self.assertTrue(issues("Kansas City dispatched Las Vegas 24-17."))
+        self.assertTrue(issues("Kansas City got past Las Vegas 24-17."))
+        self.assertTrue(issues("Kansas City took a 21-3 lead into halftime."))
+        self.assertEqual(issues("Kansas City led 7-14 at the half."), [])
 
     def test_ignores_records_and_completions_as_scores(self):
         narrative = self._review(
@@ -5295,11 +5440,33 @@ class FactCheck(unittest.TestCase):
             )
             self.assertIn("GATE_BASE", scripts, job)
             self.assertIn("git worktree add", scripts, job)
+            self.assertIn('cd "$GATE_BASE"', scripts, job)
             self.assertIn(
-                'PYTHONPATH="$GATE_BASE" python -m tools.chiefs_narrative.review_gate --automerge',
+                "python -P -m tools.chiefs_narrative.review_gate --automerge",
                 scripts,
                 job,
             )
+            self.assertIn('--root "${GITHUB_WORKSPACE}"', scripts, job)
+            self.assertNotRegex(
+                scripts,
+                r'PYTHONPATH="\$GATE_BASE" python -m tools\.chiefs_narrative\.review_gate',
+            )
+            checkouts = [
+                step
+                for step in ((parsed.get("jobs") or {}).get(job) or {}).get(
+                    "steps"
+                )
+                or []
+                if isinstance(step, dict)
+                and "actions/checkout" in str(step.get("uses") or "")
+            ]
+            self.assertTrue(checkouts, job)
+            for step in checkouts:
+                self.assertEqual(
+                    (step.get("with") or {}).get("persist-credentials"),
+                    False,
+                    job,
+                )
             self.assertLess(
                 scripts.index("review_gate --automerge"),
                 scripts.index("gh pr merge"),
@@ -5433,7 +5600,7 @@ class FactCheck(unittest.TestCase):
                 self.assertTrue(
                     review_gate.automerge_blocked([review_rel], root=root)
                 )
-                self.assertFalse(
+                self.assertTrue(
                     review_gate.automerge_blocked(
                         ["tools/chiefs_narrative/facts.py"], root=root
                     )
@@ -5441,6 +5608,32 @@ class FactCheck(unittest.TestCase):
                 self.assertTrue(
                     review_gate.requires_human_merge(
                         ["tools/chiefs_narrative/review_gate.py"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["tools/chiefs_narrative/config.py"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["tools/chiefs_narrative/__init__.py"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(["tools/__init__.py"])
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["layouts/narrative/single.html"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(["hugo.yaml"])
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(
+                        ["content/narrative/_content.gotmpl"]
                     )
                 )
                 self.assertTrue(
@@ -5556,6 +5749,213 @@ class FactCheck(unittest.TestCase):
                 self.assertEqual(
                     review_gate.main(["--pages", "--root", str(tmp_path)]),
                     1,
+                )
+
+    def test_review_gate_signature_mutations_are_red(self):
+        """X1–X13: pin the crypto, slug, and published-edition scan."""
+        review = {
+            "slug": "2026-10-05-0937",
+            "edition": "2026 Week 6 · Week 4 Review",
+            "phase": {"mode": "review"},
+        }
+        preview = {
+            "slug": "2026-10-03-1538",
+            "edition": "2026 Week 4 · Preview",
+            "phase": {"mode": "preview"},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            priv_a, pub_a = _ed25519_keypair(tmp_path / "a")
+            priv_b, pub_b = _ed25519_keypair(tmp_path / "b")
+            del pub_b
+            root = tmp_path / "tree"
+            editions = root / "data" / "narrative_editions"
+            signoff = root / "data" / "review_signoff"
+            editions.mkdir(parents=True)
+            signoff.mkdir(parents=True)
+            review_bytes = (json.dumps(review) + "\n").encode("utf-8")
+            preview_bytes = (json.dumps(preview) + "\n").encode("utf-8")
+            (root / "data" / "narrative.json").write_bytes(preview_bytes)
+            (editions / "2026-10-05-0937.json").write_bytes(review_bytes)
+            sha = hashlib.sha256(review_bytes).hexdigest()
+            slug = "2026-10-05-0937"
+            env_a = {"REVIEW_SIGNOFF_PUBKEY": str(pub_a)}
+
+            def _write_sig(message: bytes, priv: Path, name: str = slug) -> None:
+                (signoff / f"{name}.json").write_bytes(message)
+                (signoff / f"{name}.sig").write_text(
+                    base64.b64encode(_sign_message(priv, message)).decode(
+                        "ascii"
+                    ),
+                    encoding="ascii",
+                )
+
+            with patch.dict(os.environ, env_a, clear=False):
+                # X13: missing narrative.json must block, not deploy.
+                missing = tmp_path / "missing"
+                missing.mkdir()
+                self.assertTrue(review_gate.pages_blocked(root=missing))
+
+                # Archive-only unsigned Review must block (P7/P8/P9).
+                self.assertTrue(
+                    review_gate.pages_blocked(["README.md"], root=root)
+                )
+                _sign_review_edition(priv_a, slug, review_bytes, signoff)
+                self.assertFalse(
+                    review_gate.pages_blocked(["README.md"], root=root)
+                )
+
+                # X1 / X2b / X2c: any 64-byte signature is not enough.
+                junk = base64.b64encode(os.urandom(64)).decode("ascii")
+                (signoff / f"{slug}.json").write_bytes(
+                    review_gate.signoff_canonical_bytes(slug, sha)
+                )
+                (signoff / f"{slug}.sig").write_text(junk + "\n", encoding="ascii")
+                self.assertTrue(
+                    review_gate.should_block_review(
+                        review,
+                        root=root,
+                        edition_file=editions / f"{slug}.json",
+                    )
+                )
+
+                # X2: wrong-key 64-byte signature.
+                _write_sig(review_gate.signoff_canonical_bytes(slug, sha), priv_b)
+                self.assertTrue(
+                    review_gate.should_block_review(
+                        review,
+                        root=root,
+                        edition_file=editions / f"{slug}.json",
+                    )
+                )
+
+                # X4b / sha-only mismatch: valid crypto over the wrong sha.
+                wrong_sha = "ab" * 32
+                _write_sig(
+                    review_gate.signoff_canonical_bytes(slug, wrong_sha), priv_a
+                )
+                self.assertTrue(
+                    review_gate.should_block_review(
+                        review,
+                        root=root,
+                        edition_file=editions / f"{slug}.json",
+                    )
+                )
+
+                # X3: case-insensitive sha compare must not pass.
+                _write_sig(
+                    review_gate.signoff_canonical_bytes(slug, sha.upper()),
+                    priv_a,
+                )
+                self.assertTrue(
+                    review_gate.should_block_review(
+                        review,
+                        root=root,
+                        edition_file=editions / f"{slug}.json",
+                    )
+                )
+
+                # X4: prefix sha compare must not pass.
+                _write_sig(
+                    review_gate.signoff_canonical_bytes(slug, sha[:8]), priv_a
+                )
+                self.assertTrue(
+                    review_gate.should_block_review(
+                        review,
+                        root=root,
+                        edition_file=editions / f"{slug}.json",
+                    )
+                )
+
+                # X8: exact-bytes JSON check. Pretty JSON is a different message.
+                pretty = (
+                    json.dumps(
+                        {"slug": slug, "verdict": "PASS", "sha": sha},
+                        indent=2,
+                    )
+                    + "\n"
+                ).encode("ascii")
+                _write_sig(pretty, priv_a)
+                self.assertTrue(
+                    review_gate.should_block_review(
+                        review,
+                        root=root,
+                        edition_file=editions / f"{slug}.json",
+                    )
+                )
+
+                # X11: slug traversal is never a valid sign-off target.
+                for bad_slug in ("../narrative", "2026-10-05/0937", ".."):
+                    payload = dict(review)
+                    payload["slug"] = bad_slug
+                    self.assertFalse(review_gate._safe_signoff_slug(bad_slug))
+                    self.assertFalse(
+                        review_gate.verify_signoff(
+                            bad_slug, review_bytes, root=root
+                        )
+                    )
+                    self.assertTrue(
+                        review_gate.should_block_review(
+                            payload,
+                            root=root,
+                            edition_file=editions / f"{slug}.json",
+                        )
+                    )
+
+                # X6: malformed editions JSON is not "not a Review".
+                broken = tmp_path / "broken"
+                (broken / "data" / "narrative_editions").mkdir(parents=True)
+                (broken / "data" / "narrative.json").write_bytes(preview_bytes)
+                (broken / "data" / "narrative_editions" / "2026-10-05-0937.json").write_text(
+                    "{not-json", encoding="utf-8"
+                )
+                with self.assertRaises(review_gate.GateError):
+                    review_gate.pages_blocked(root=broken)
+                self.assertEqual(
+                    review_gate.main(
+                        ["--pages", "--root", str(broken), "README.md"]
+                    ),
+                    1,
+                )
+
+            # X2 / real committed pubkey: REVIEW_SIGNOFF_PUBKEY unset.
+            env_clear = {
+                key: value
+                for key, value in os.environ.items()
+                if key != "REVIEW_SIGNOFF_PUBKEY"
+            }
+            with patch.dict(os.environ, env_clear, clear=True):
+                self.assertIsNone(os.environ.get("REVIEW_SIGNOFF_PUBKEY"))
+                real_pub = review_gate.public_key_path()
+                self.assertEqual(
+                    real_pub,
+                    Path(__file__).resolve().parents[2]
+                    / "scripts"
+                    / "review_signoff_pubkey.pem",
+                )
+                self.assertTrue(real_pub.is_file())
+                planted_pub = root / "scripts"
+                planted_pub.mkdir(parents=True)
+                shutil.copy(pub_a, planted_pub / "review_signoff_pubkey.pem")
+                _sign_review_edition(priv_a, slug, review_bytes, signoff)
+                # Throwaway-signed edition must fail under Karen's real key,
+                # even if the evaluated tree planted a matching pubkey.
+                self.assertTrue(
+                    review_gate.should_block_review(
+                        review,
+                        root=root,
+                        edition_file=editions / f"{slug}.json",
+                    )
+                )
+                (signoff / f"{slug}.json").write_bytes(
+                    review_gate.signoff_canonical_bytes(slug, sha)
+                )
+                (signoff / f"{slug}.sig").write_text(
+                    base64.b64encode(os.urandom(64)).decode("ascii") + "\n",
+                    encoding="ascii",
+                )
+                self.assertFalse(
+                    review_gate.verify_signoff(slug, review_bytes, root=root)
                 )
 
     def _week3_slate(self):
@@ -8121,7 +8521,12 @@ class FactCheck(unittest.TestCase):
         issues = facts.check_review(
             karen_matrices.story(led), last, recap, schedule=slate
         )
-        self.assertFalse(issues, f"in-game wording must pass: {issues}")
+        self.assertTrue(issues, f"must flag wrong LV halftime: {led} {issues}")
+        led_ok = "Kansas City led 17-7 at the half."
+        issues = facts.check_review(
+            karen_matrices.story(led_ok), last, recap, schedule=slate
+        )
+        self.assertFalse(issues, f"real LV halftime must pass: {issues}")
 
         recap, last, slate = karen_matrices.ctx("MIA")
         for sentence in (

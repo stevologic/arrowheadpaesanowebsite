@@ -111,6 +111,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -123,7 +124,11 @@ jobs:
           git fetch --no-tags origin "${{ github.base_ref }}"
           GATE_BASE="${RUNNER_TEMP}/gate-base"
           git worktree add --detach "$GATE_BASE" "origin/${{ github.base_ref }}"
-          PYTHONPATH="$GATE_BASE" python -m tools.chiefs_narrative.review_gate --automerge \
+          # cwd + python -m would import PR-head tools/ (sys.path[0]).
+          # -P keeps cwd off sys.path; the module comes from GATE_BASE only.
+          # --root is the PR tree, read as data, never imported.
+          cd "$GATE_BASE"
+          PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.review_gate --automerge \
             --base "origin/${{ github.base_ref }}" \
             --root "${GITHUB_WORKSPACE}"
 

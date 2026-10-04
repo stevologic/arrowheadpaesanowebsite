@@ -292,7 +292,8 @@ _FINAL_SCORE_CLAIMS = (
         re.IGNORECASE,
     ),
     re.compile(
-        r"\b(?:edged|held off|outscored)(?:\s+the)?\s+"
+        r"\b(?:edged|held off|outscored|topped|dispatched|got past)"
+        r"(?:\s+the)?\s+"
         r"(?:[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,2})\s+"
         r"(\d{1,2})\s*[–-]\s*(\d{1,2})\b",
     ),
@@ -307,6 +308,11 @@ _FINAL_SCORE_CLAIMS = (
     re.compile(
         r"\bwon\s+(\d{1,2})\s*[–-]\s*(\d{1,2})"
         r"(?=\s+(?:in|against)\b|\s*[.]|\s*$)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bwon\s+in\s+[A-Za-z]+(?:\s+[A-Za-z]+){0,2},\s+"
+        r"(\d{1,2})\s*[–-]\s*(\d{1,2})\b",
         re.IGNORECASE,
     ),
     re.compile(
@@ -338,7 +344,8 @@ _TD_RUN_VERB = re.compile(
     r"plunged(?:\s+it)?\s+in|ran it in|went in|walked(?:\s+it)?\s+in|"
     r"took it in|found the end zone|crossed the goal line|"
     r"capped the drive|"
-    r"bulled(?:\s+it)?\s+in|dove(?:\s+in)?|scampered(?:\s+in)?)\b",
+    r"bulled(?:\s+it)?\s+in|dove(?:\s+in)?|scampered(?:\s+in)?|"
+    r"powered(?:\s+it)?\s+in|rumbled(?:\s+in)?)\b",
     re.IGNORECASE,
 )
 _KICKER_FROM = re.compile(
@@ -387,9 +394,36 @@ _PLAYER_RUSH_YARDS = re.compile(
     re.IGNORECASE,
 )
 _PLAYER_CARRY_LINE = re.compile(
-    r"\b([A-Za-z][A-Za-z .’-]+?)\s+carried\s+(\d{1,2})\s+times"
-    r"\s+for\s+(\d{2,3})\s+yards\b",
+    r"\b(?P<name>[A-Za-z][A-Za-z .’-]+?)\s+"
+    r"(?:"
+    r"carried\s+(?P<c1>\d{1,2})\s+times\s+for\s+(?P<y1>\d{2,3})\s+yards"
+    r"|"
+    r"finished with\s+(?P<y2>\d{2,3})\s+yards\s+on\s+(?P<c2>\d{1,2})\s+carries"
+    r"|"
+    r"had\s+(?P<c3>\d{1,2})\s+carries\s+for\s+(?P<y3>\d{2,3})\s+yards"
+    r"|"
+    r"ran\s+(?P<c4>\d{1,2})\s+times\s+for\s+(?P<y4>\d{2,3})\s+yards"
+    r")\b",
     re.IGNORECASE,
+)
+_WIN_MARGIN = re.compile(
+    r"\b(?:won|beat(?:\s+the)?(?:\s+[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,2})?)"
+    r"\s+by\s+(\d{1,2})\b",
+    re.IGNORECASE,
+)
+_HALFTIME_SCORE_CLAIMS = (
+    re.compile(
+        r"\bled\s+(\d{1,2})\s*[–-]\s*(\d{1,2})\s+at\s+(?:the\s+)?half(?:time)?\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\btook\s+a\s+(\d{1,2})\s*[–-]\s*(\d{1,2})\s+lead\s+into\s+halftime\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bwent\s+up\s+(\d{1,2})\s*[–-]\s*(\d{1,2})\s+before\s+the\s+break\b",
+        re.IGNORECASE,
+    ),
 )
 _SCORE_COUNT_WORDS = {
     "one": 1,
@@ -1553,18 +1587,35 @@ def _ground_subject(raw: str, aliases: dict[str, str]) -> str:
 
 
 def _player_teams(recap: dict | None) -> dict[str, str]:
+    """Last-name / full-name → team from scorers, then box usage.
+
+    Scoring-play ``player`` is often empty on production recaps. Touches
+    and passing rows still name Walker as KC, so a 15-yard Raiders TD
+    cannot satisfy 'Walker bulled in from the 15'.
+    """
     out: dict[str, str] = {}
-    for play in (recap or {}).get("scoringPlays") or []:
-        if not isinstance(play, dict):
-            continue
-        team = _play_team(play)
-        player = (play.get("player") or "").strip()
+    payload = recap or {}
+
+    def _add(player: str, team: str) -> None:
+        team = (team or "").strip().upper()
+        player = (player or "").strip()
         if not team or not player:
-            continue
-        out[player.lower()] = team
-        last = player.split()[-1]
-        if len(last) >= 3:
-            out[last.lower()] = team
+            return
+        out.setdefault(player.lower(), team)
+        last = _player_last(player)
+        if last:
+            out.setdefault(last, team)
+
+    for play in payload.get("scoringPlays") or []:
+        if isinstance(play, dict):
+            _add(play.get("player") or "", _play_team(play))
+    for row in (
+        list(payload.get("touches") or [])
+        + list(payload.get("passing") or [])
+        + list(payload.get("leaders") or [])
+    ):
+        if isinstance(row, dict):
+            _add(row.get("player") or "", row.get("team") or "")
     return out
 
 
@@ -2504,6 +2555,89 @@ def _check_scores(
             issues.append(
                 f"score {pair[0]}-{pair[1]} is not the official final "
                 f"or an ESPN score-after ({match.group(0)!r})"
+            )
+    return issues
+
+
+def _official_margin(last_game: dict | None, recap: dict | None):
+    pair = _slate_final_pair(last_game) or _recap_final_pair(recap)
+    if not pair:
+        return None
+    return abs(pair[0] - pair[1])
+
+
+def _check_win_margin(
+    text: str, last_game: dict | None, recap: dict | None
+) -> list[str]:
+    official = _official_margin(last_game, recap)
+    if official is None or not text:
+        return []
+    issues = []
+    seen: set[int] = set()
+    for match in _WIN_MARGIN.finditer(text):
+        try:
+            claimed = int(match.group(1))
+        except (TypeError, ValueError):
+            continue
+        if claimed == official or claimed in seen:
+            continue
+        seen.add(claimed)
+        issues.append(
+            f"win margin {claimed} disagrees with ESPN {official} "
+            f"({match.group(0)!r})"
+        )
+    return issues
+
+
+def _halftime_pair(recap: dict | None):
+    """KC/opp score after quarter ≤ 2. None when ESPN has no linescores."""
+    plays = [
+        play
+        for play in (recap or {}).get("scoringPlays") or []
+        if isinstance(play, dict)
+    ]
+    if not plays:
+        return None
+    if any(_play_quarter(play) is None for play in plays):
+        return None
+    last = (0, 0)
+    for play in plays:
+        if _play_quarter(play) > 2:
+            continue
+        pair = _int_pair(play.get("kcScore"), play.get("oppScore"))
+        if pair:
+            last = pair
+    return last
+
+
+def _check_halftime_scores(
+    text: str, last_game: dict | None, recap: dict | None
+) -> list[str]:
+    if not text:
+        return []
+    half = _halftime_pair(recap)
+    pairs = allowed_score_pairs(last_game, recap)
+    issues = []
+    seen: set[tuple[int, int]] = set()
+    for rx in _HALFTIME_SCORE_CLAIMS:
+        for match in rx.finditer(text):
+            pair = _int_pair(match.group(1), match.group(2))
+            if not pair or pair in seen:
+                continue
+            seen.add(pair)
+            if half is not None:
+                if pair == half or (pair[1], pair[0]) == half:
+                    continue
+                issues.append(
+                    f"halftime score {pair[0]}-{pair[1]} disagrees with "
+                    f"ESPN {half[0]}-{half[1]} ({match.group(0)!r})"
+                )
+                continue
+            if _pair_allowed(pair, pairs):
+                continue
+            issues.append(
+                f"halftime score {pair[0]}-{pair[1]} is not an ESPN "
+                f"score-after ({match.group(0)!r})"
             )
     return issues
 
@@ -4078,12 +4212,24 @@ def _check_team_yards(
         if last:
             player_rushes[last] = rushes
     for match in _PLAYER_CARRY_LINE.finditer(text):
-        last = _player_last(match.group(1) or "")
+        last = _player_last(match.group("name") or "")
         if not last:
             continue
+        raw_carries = (
+            match.group("c1")
+            or match.group("c2")
+            or match.group("c3")
+            or match.group("c4")
+        )
+        raw_yards = (
+            match.group("y1")
+            or match.group("y2")
+            or match.group("y3")
+            or match.group("y4")
+        )
         try:
-            carries = int(match.group(2))
-            yards = int(match.group(3))
+            carries = int(raw_carries)
+            yards = int(raw_yards)
         except (TypeError, ValueError):
             continue
         official_carries = player_rushes.get(last)
@@ -4951,8 +5097,10 @@ def _check_box_clocks(
         skip_names = _total_yards_opponent_names(
             recap, last_game, aliases, opp_hits
         )
+        # Location-only opponent names ("in Las Vegas") are not a subject.
+        skip_window = _LOCATION_TEAM.sub(" ", window)
         if opp_hits and any(
-            re.search(_alias_pattern(name), window, re.I)
+            re.search(_alias_pattern(name), skip_window, re.I)
             for name in skip_names
         ):
             continue
@@ -6027,6 +6175,8 @@ def check_review(
         if text.strip():
             recap = recap or {}
             issues.extend(_check_scores(text, last_game, recap, schedule))
+            issues.extend(_check_win_margin(text, last_game, recap))
+            issues.extend(_check_halftime_scores(text, last_game, recap))
             issues.extend(_check_part_of_day(text, last_game, recap))
             issues.extend(_check_echoed_instructions(text))
             issues.extend(_check_record_phrasing(text))
