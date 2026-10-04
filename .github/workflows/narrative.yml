@@ -290,6 +290,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: narrative-publish
+          include-hidden-files: true
           path: |
             data/narrative.json
             data/narrative_archive.json
