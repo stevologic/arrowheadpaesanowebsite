@@ -39,6 +39,9 @@ from tools.chiefs_narrative import config
 REVIEW_SIGNOFF_REQUIRED = True
 SIGNOFF_DIR = "data/review_signoff"
 PUBLIC_KEY_REL = "scripts/review_signoff_pubkey.pem"
+LEGACY_MANIFEST_REL = "scripts/review_legacy_editions.txt"
+LEGACY_CUTOFF = (2026, 10, 1)
+_LEGACY_SHA_RE = re.compile(r"^[0-9a-f]{64}$")
 SIGNOFF_SLUG_RE = re.compile(r"^\d{4}-\d{2}-\d{2}-\d{4}$")
 EDITION_NAMES = frozenset(
     {
@@ -57,6 +60,7 @@ HUMAN_MERGE_PATHS = frozenset(
         "tools/chiefs_narrative/__init__.py",
         "tools/__init__.py",
         "scripts/review_signoff_pubkey.pem",
+        "scripts/review_legacy_editions.txt",
         "CODEOWNERS",
         ".github/CODEOWNERS",
         "hugo.yaml",
@@ -231,6 +235,72 @@ def _edition_file_for(payload: dict | None, root: Path) -> Path | None:
     return None
 
 
+def _legacy_date_ok(slug: str) -> bool:
+    """Refuse any pin dated 2026-10-01 or later, even if listed."""
+    if not _safe_signoff_slug(slug):
+        return False
+    try:
+        when = (int(slug[0:4]), int(slug[5:7]), int(slug[8:10]))
+    except ValueError:
+        return False
+    return when < LEGACY_CUTOFF
+
+
+def load_legacy_pins(root: Path | None = None) -> dict[str, str]:
+    """slug → pinned sha256. Missing or empty file: no grandfathering.
+
+    Never writes this file. New entries are a human-merge change.
+    """
+    base = Path(root) if root is not None else config.REPO_ROOT
+    path = base / LEGACY_MANIFEST_REL
+    if not path.is_file():
+        return {}
+    try:
+        text = path.read_text(encoding="ascii")
+    except OSError as exc:
+        raise GateError(f"cannot read {path}: {exc}") from exc
+    pins: dict[str, str] = {}
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split()
+        if len(parts) != 2:
+            raise GateError(f"malformed legacy pin: {line!r}")
+        slug, sha = parts
+        if not _legacy_date_ok(slug):
+            raise GateError(f"legacy pin slug not allowed: {slug!r}")
+        if not _LEGACY_SHA_RE.fullmatch(sha):
+            raise GateError(f"legacy pin sha is not 64 lowercase hex: {slug}")
+        pins[slug] = sha
+    return pins
+
+
+def review_legacy_pinned(
+    payload: dict | None,
+    *,
+    root: Path | None = None,
+    edition_file: Path | None = None,
+) -> bool:
+    """True only for a listed pre-gate slug whose bytes still match the pin."""
+    slug = str((payload or {}).get("slug") or "").strip()
+    if not _legacy_date_ok(slug):
+        return False
+    base = Path(root) if root is not None else config.REPO_ROOT
+    pins = load_legacy_pins(base)
+    pinned = pins.get(slug)
+    if not pinned:
+        return False
+    path = Path(edition_file) if edition_file is not None else _edition_file_for(payload, base)
+    if path is None or not path.is_file():
+        return False
+    try:
+        edition_bytes = path.read_bytes()
+    except OSError as exc:
+        raise GateError(f"cannot read edition {path}: {exc}") from exc
+    return hashlib.sha256(edition_bytes).hexdigest() == pinned
+
+
 def review_signed_off(
     payload: dict | None,
     *,
@@ -261,7 +331,11 @@ def should_block_review(
         return False
     if not payload_is_review(payload):
         return False
-    return not review_signed_off(payload, root=root, edition_file=edition_file)
+    if review_signed_off(payload, root=root, edition_file=edition_file):
+        return False
+    return not review_legacy_pinned(
+        payload, root=root, edition_file=edition_file
+    )
 
 
 def changed_review_payloads(
@@ -387,8 +461,8 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             return 0
         if args.pages:
-            if not paths:
-                paths = _git_changed_from_parent(root)
+            # pages_blocked scans every published edition; the push diff
+            # is not consulted, so a shallow checkout must not fail closed.
             if pages_blocked(paths, root=root):
                 print(
                     "skip: unsigned Review edition; not deploying to gh-pages",

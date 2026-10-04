@@ -5532,6 +5532,17 @@ class FactCheck(unittest.TestCase):
         self.assertEqual(
             narr_publish.get("if"), "steps.review.outputs.skip != 'true'"
         )
+        ci_gates = "\n".join(
+            str(step.get("run") or "")
+            for step in ((ci.get("jobs") or {}).get("gates") or {}).get("steps")
+            or []
+            if isinstance(step, dict)
+        )
+        self.assertIn("pages.yml:", ci_gates)
+        self.assertIn("narrative.yml:", ci_gates)
+        self.assertIn("python -m tools.chiefs_narrative.review_gate --pages", ci_gates)
+        self.assertIn('echo "skip=false"', ci_gates)
+        self.assertIn('grep -qx "skip=false"', ci_gates)
 
     def test_review_gate_blocks_unsigned_review_json(self):
         gate_src = (
@@ -5643,6 +5654,11 @@ class FactCheck(unittest.TestCase):
                 )
                 self.assertTrue(
                     review_gate.requires_human_merge(
+                        ["scripts/review_legacy_editions.txt"]
+                    )
+                )
+                self.assertTrue(
+                    review_gate.requires_human_merge(
                         ["data/review_signoff/2026-10-05-0937.json"]
                     )
                 )
@@ -5748,7 +5764,7 @@ class FactCheck(unittest.TestCase):
                 )
                 self.assertEqual(
                     review_gate.main(["--pages", "--root", str(tmp_path)]),
-                    1,
+                    2,
                 )
 
     def test_review_gate_signature_mutations_are_red(self):
@@ -5962,6 +5978,79 @@ class FactCheck(unittest.TestCase):
                 self.assertFalse(
                     review_gate.verify_signoff(slug, review_bytes, root=root)
                 )
+
+    def test_pages_blocked_allows_current_repo_tree(self):
+        """Real checkout must deploy: preview + pinned pre-gate Review archives."""
+        repo = Path(__file__).resolve().parents[2]
+        pins = review_gate.load_legacy_pins(repo)
+        self.assertEqual(len(pins), 8)
+        self.assertTrue(all(review_gate._legacy_date_ok(s) for s in pins))
+        self.assertTrue(all(not s.startswith("2026-10-") for s in pins))
+        self.assertFalse(review_gate.pages_blocked(root=repo))
+        self.assertEqual(review_gate.main(["--pages", "--root", str(repo)]), 0)
+
+    def test_legacy_review_manifest_mutations_are_red(self):
+        """L1 unlisted / L2 edited bytes / L3 empty manifest all block."""
+        preview = {
+            "slug": "2026-10-03-1538",
+            "edition": "2026 Week 4 · Preview",
+            "phase": {"mode": "preview"},
+        }
+        listed = {
+            "slug": "2026-09-29-1734",
+            "edition": "2026 Week 4 · Week 3 Review",
+            "phase": {"mode": "review"},
+        }
+        unlisted = {
+            "slug": "2026-09-15-1200",
+            "edition": "2026 Week 2 · Week 1 Review",
+            "phase": {"mode": "review"},
+        }
+        live = "narrative"
+        editions_name = live + "_editions"
+        live_name = live + ".json"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            editions = root / "data" / editions_name
+            scripts = root / "scripts"
+            editions.mkdir(parents=True)
+            scripts.mkdir(parents=True)
+            preview_bytes = (json.dumps(preview) + "\n").encode("utf-8")
+            listed_bytes = (json.dumps(listed) + "\n").encode("utf-8")
+            unlisted_bytes = (json.dumps(unlisted) + "\n").encode("utf-8")
+            (root / "data" / live_name).write_bytes(preview_bytes)
+            listed_sha = hashlib.sha256(listed_bytes).hexdigest()
+            manifest = scripts / "review_legacy_editions.txt"
+
+            def _write_pin(text: str) -> None:
+                manifest.write_text(text, encoding="ascii")
+
+            # Listed + matching bytes: allowed.
+            (editions / "2026-09-29-1734.json").write_bytes(listed_bytes)
+            _write_pin(f"2026-09-29-1734 {listed_sha}\n")
+            self.assertFalse(review_gate.pages_blocked(root=root))
+
+            # L1: unlisted legacy Review blocks.
+            (editions / "2026-09-15-1200.json").write_bytes(unlisted_bytes)
+            self.assertTrue(review_gate.pages_blocked(root=root))
+            (editions / "2026-09-15-1200.json").unlink()
+            self.assertFalse(review_gate.pages_blocked(root=root))
+
+            # L2: listed slug whose bytes no longer match the pin blocks.
+            (editions / "2026-09-29-1734.json").write_bytes(
+                listed_bytes + b" "
+            )
+            self.assertTrue(review_gate.pages_blocked(root=root))
+            (editions / "2026-09-29-1734.json").write_bytes(listed_bytes)
+            self.assertFalse(review_gate.pages_blocked(root=root))
+
+            # L3: empty manifest blocks the unsigned listed Review.
+            _write_pin("")
+            self.assertEqual(review_gate.load_legacy_pins(root), {})
+            self.assertTrue(review_gate.pages_blocked(root=root))
+            _write_pin("# comments only\n")
+            self.assertEqual(review_gate.load_legacy_pins(root), {})
+            self.assertTrue(review_gate.pages_blocked(root=root))
 
     def _week3_slate(self):
         return [
