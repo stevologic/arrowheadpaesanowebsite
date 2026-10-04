@@ -5771,13 +5771,16 @@ class FactCheck(unittest.TestCase):
             priv_b, pub_b = _ed25519_keypair(tmp_path / "b")
             del pub_b
             root = tmp_path / "tree"
-            editions = root / "data" / "narrative_editions"
+            live = "narrative"
+            editions_name = live + "_editions"
+            live_name = live + ".json"
+            editions = root / "data" / editions_name
             signoff = root / "data" / "review_signoff"
             editions.mkdir(parents=True)
             signoff.mkdir(parents=True)
             review_bytes = (json.dumps(review) + "\n").encode("utf-8")
             preview_bytes = (json.dumps(preview) + "\n").encode("utf-8")
-            (root / "data" / "narrative.json").write_bytes(preview_bytes)
+            (root / "data" / live_name).write_bytes(preview_bytes)
             (editions / "2026-10-05-0937.json").write_bytes(review_bytes)
             sha = hashlib.sha256(review_bytes).hexdigest()
             slug = "2026-10-05-0937"
@@ -5906,9 +5909,9 @@ class FactCheck(unittest.TestCase):
 
                 # X6: malformed editions JSON is not "not a Review".
                 broken = tmp_path / "broken"
-                (broken / "data" / "narrative_editions").mkdir(parents=True)
-                (broken / "data" / "narrative.json").write_bytes(preview_bytes)
-                (broken / "data" / "narrative_editions" / "2026-10-05-0937.json").write_text(
+                (broken / "data" / editions_name).mkdir(parents=True)
+                (broken / "data" / live_name).write_bytes(preview_bytes)
+                (broken / "data" / editions_name / "2026-10-05-0937.json").write_text(
                     "{not-json", encoding="utf-8"
                 )
                 with self.assertRaises(review_gate.GateError):
