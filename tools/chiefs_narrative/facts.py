@@ -1599,7 +1599,9 @@ def _player_teams(recap: dict | None) -> dict[str, str]:
     def _add(player: str, team: str) -> None:
         team = (team or "").strip().upper()
         player = (player or "").strip()
-        if not team or not player:
+        if team == "OPP":
+            team = (payload.get("oppAbbr") or "").strip().upper()
+        if not team or team == "OPP" or not player:
             return
         out.setdefault(player.lower(), team)
         last = _player_last(player)

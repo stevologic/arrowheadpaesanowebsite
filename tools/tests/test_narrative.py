@@ -5765,6 +5765,8 @@ class FactCheck(unittest.TestCase):
         }
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
+            (tmp_path / "a").mkdir()
+            (tmp_path / "b").mkdir()
             priv_a, pub_a = _ed25519_keypair(tmp_path / "a")
             priv_b, pub_b = _ed25519_keypair(tmp_path / "b")
             del pub_b
