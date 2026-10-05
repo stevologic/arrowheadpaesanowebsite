@@ -93,9 +93,10 @@ def any_live(schedule: list[dict] | None, now: datetime = None) -> bool:
 def format_edition(ph: dict | None) -> str:
     """Desk-written edition header. The model does not own this string.
 
-    Regular review: ``2026 Week 4 · Week 3 Review`` (upcoming week, then
-    the completed week). Regular preview: ``2026 Week N · Preview``.
-    Archive grouping still uses ``phase.week`` (the upcoming / live week).
+    Regular review: ``2026 Week N · Review`` for the completed game week.
+    Regular preview: ``2026 Week N · Preview`` for the upcoming game week.
+    A bye after a final still labels the Review with the finished week,
+    not the next slate week.
     """
     season = config.TEAM["season"]
     ph = ph or {}
@@ -104,10 +105,13 @@ def format_edition(ph: dict | None) -> str:
     week = ph.get("week")
     last = ph.get("lastGame") or {}
     last_week = last.get("week")
-    if ptype == "regular" and week:
-        if mode == "review" and last_week:
-            return f"{season} Week {week} · Week {last_week} Review"
-        return f"{season} Week {week} · Preview"
+    if ptype == "regular":
+        if mode == "review":
+            review_week = last_week or week
+            if review_week:
+                return f"{season} Week {review_week} · Review"
+        if week:
+            return f"{season} Week {week} · Preview"
     existing = (ph.get("edition") or "").strip()
     if existing:
         return existing
@@ -117,8 +121,9 @@ def format_edition(ph: dict | None) -> str:
 
 def _regular_edition(season, week, mode, last_game) -> str:
     last_week = (last_game or {}).get("week")
-    if mode == "review" and last_week:
-        return f"{season} Week {week} · Week {last_week} Review"
+    if mode == "review":
+        review_week = last_week or week
+        return f"{season} Week {review_week} · Review"
     return f"{season} Week {week} · Preview"
 
 
@@ -202,6 +207,12 @@ def detect(schedule: list[dict], now: datetime = None) -> dict:
                 "preseason", "Preseason", wk, "preview", f"{season} Preseason",
                 next_game, last_game, live_game, now,
             )
+        if (
+            mode == "review"
+            and (last_game or {}).get("seasonType") == "reg"
+            and (last_game or {}).get("week")
+        ):
+            wk = last_game.get("week")
         return _wrap(
             "regular", f"Week {wk}", wk, mode,
             _regular_edition(season, wk, mode, last_game),

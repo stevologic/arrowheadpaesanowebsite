@@ -1347,6 +1347,48 @@ class SeasonClock(unittest.TestCase):
         "completed": False,
     }
 
+    @staticmethod
+    def week4_preview_slate():
+        """Pinned pre-kickoff Week 4 slate. Do not read live schedule_2026.json."""
+        return [
+            {
+                "id": "401872952",
+                "week": 3,
+                "seasonType": "reg",
+                "date": "2026-09-27T17:00:00Z",
+                "opponent": "Miami Dolphins",
+                "opponentAbbr": "MIA",
+                "completed": True,
+                "inProgress": False,
+                "kcScore": 24,
+                "oppScore": 10,
+            },
+            {
+                "id": "401872976",
+                "week": 4,
+                "seasonType": "reg",
+                "date": "2026-10-04T20:25:00Z",
+                "opponent": "Las Vegas Raiders",
+                "opponentAbbr": "LV",
+                "completed": False,
+                "inProgress": False,
+                "kcScore": None,
+                "oppScore": None,
+            },
+            {
+                "id": "401873006",
+                "week": 6,
+                "seasonType": "reg",
+                "date": "2026-10-18T20:25:00Z",
+                "opponent": "Los Angeles Chargers",
+                "opponentAbbr": "LAC",
+                "completed": False,
+                "inProgress": False,
+                "kcScore": None,
+                "oppScore": None,
+            },
+        ]
+
     def test_mid_august_with_preseason_is_preseason(self):
         now = datetime(2026, 8, 12, 18, 0, tzinfo=timezone.utc)
         ph = phase.detect([self.RAMS, self.DEN], now=now)
@@ -1365,7 +1407,7 @@ class SeasonClock(unittest.TestCase):
 
     def test_bye_week_on_prod_slate_after_lv_final(self):
         """Week 5 bye must stay in-season: LV review, then LAC preview."""
-        slate = copy.deepcopy(collect.load_cached_schedule())
+        slate = self.week4_preview_slate()
         lv = None
         for game in slate:
             if game.get("id") == "401872976":
@@ -1375,19 +1417,20 @@ class SeasonClock(unittest.TestCase):
                 lv = game
                 break
         self.assertIsNotNone(lv)
-        for stamp, edition, mode in (
+        for stamp, edition, mode, week in (
             (datetime(2026, 10, 5, 3, 43, tzinfo=timezone.utc),
-             "2026 Week 6 · Week 4 Review", "review"),
+             "2026 Week 4 · Review", "review", 4),
             (datetime(2026, 10, 7, 3, 43, tzinfo=timezone.utc),
-             "2026 Week 6 · Week 4 Review", "review"),
+             "2026 Week 4 · Review", "review", 4),
             (datetime(2026, 10, 8, 3, 43, tzinfo=timezone.utc),
-             "2026 Week 6 · Preview", "preview"),
+             "2026 Week 6 · Preview", "preview", 6),
         ):
             ph = phase.detect(slate, now=stamp)
             self.assertEqual(ph["type"], "regular", stamp)
             self.assertEqual(ph["mode"], mode, stamp)
             self.assertEqual(ph["edition"], edition, stamp)
-            self.assertEqual(ph["week"], 6, stamp)
+            self.assertEqual(ph["week"], week, stamp)
+            self.assertEqual(ph["label"], f"Week {week}", stamp)
             self.assertEqual(ph["lastGame"]["opponent"], "Las Vegas Raiders")
             self.assertEqual(ph["nextGame"]["opponent"], "Los Angeles Chargers")
             self.assertNotIn("Denver", ph["nextGame"]["opponent"])
@@ -1418,7 +1461,7 @@ class SeasonClock(unittest.TestCase):
                 "lastGameReview": {"lede": fat, "analysis": [fat]},
             }
 
-        preview_slate = copy.deepcopy(collect.load_cached_schedule())
+        preview_slate = self.week4_preview_slate()
         preview_ph = phase.detect(
             preview_slate,
             now=datetime(2026, 10, 4, 9, 37, tzinfo=timezone.utc),
@@ -1444,7 +1487,9 @@ class SeasonClock(unittest.TestCase):
             now=datetime(2026, 10, 5, 9, 37, tzinfo=timezone.utc),
         )
         self.assertEqual(review_ph["mode"], "review")
-        self.assertEqual(review_ph["edition"], "2026 Week 6 · Week 4 Review")
+        self.assertEqual(review_ph["edition"], "2026 Week 4 · Review")
+        self.assertEqual(review_ph["week"], 4)
+        self.assertEqual(review_ph["label"], "Week 4")
         review = fat_edition(review_ph)
         self.assertGreaterEqual(
             facts.edition_word_count(review), facts.PUBLISH_WORD_FLOOR
@@ -1551,7 +1596,7 @@ class SeasonClock(unittest.TestCase):
         )
 
     def test_sunday_pregame_runs_stay_week4_preview(self):
-        slate = collect.load_cached_schedule()
+        slate = self.week4_preview_slate()
         for hour, minute in ((3, 43), (7, 20), (9, 37)):
             now = datetime(2026, 10, 4, hour, minute, tzinfo=timezone.utc)
             ph = phase.detect(slate, now=now)
@@ -2543,7 +2588,8 @@ class LiveGamePhase(unittest.TestCase):
         ph = phase.detect([self.WEEK2, week3, self.WEEK4], now=now)
         self.assertEqual(ph["mode"], "review")
         self.assertEqual(ph["lastGame"]["week"], 3)
-        self.assertEqual(ph["week"], 4)
+        self.assertEqual(ph["week"], 3)
+        self.assertEqual(ph["label"], "Week 3")
         self.assertIsNone(ph["liveGame"])
 
     def test_completed_without_scores_is_not_review(self):
@@ -2727,7 +2773,7 @@ class LiveGamePhase(unittest.TestCase):
             self.assertFalse(wire_json.exists())
             self.assertEqual(list(editions.iterdir()), [])
 
-    def test_review_edition_header_names_both_weeks(self):
+    def test_review_edition_header_uses_completed_week(self):
         now = datetime(2026, 9, 28, 15, 0, tzinfo=timezone.utc)
         week3 = {
             "id": "w3f",
@@ -2743,9 +2789,14 @@ class LiveGamePhase(unittest.TestCase):
         }
         ph = phase.detect([self.WEEK2, week3, self.WEEK4], now=now)
         self.assertEqual(ph["mode"], "review")
-        self.assertEqual(ph["week"], 4)
-        self.assertEqual(ph["edition"], "2026 Week 4 · Week 3 Review")
-        self.assertEqual(phase.format_edition(ph), "2026 Week 4 · Week 3 Review")
+        self.assertEqual(ph["week"], 3)
+        self.assertEqual(ph["label"], "Week 3")
+        self.assertEqual(ph["edition"], "2026 Week 3 · Review")
+        self.assertEqual(phase.format_edition(ph), "2026 Week 3 · Review")
+        stale = dict(ph)
+        stale["week"] = 4
+        stale["label"] = "Week 4"
+        self.assertEqual(phase.format_edition(stale), "2026 Week 3 · Review")
 
     def test_preview_edition_header(self):
         now = datetime(2026, 10, 2, 15, 0, tzinfo=timezone.utc)
@@ -6251,7 +6302,12 @@ class FactCheck(unittest.TestCase):
                 )
 
     def test_pages_blocked_allows_current_repo_tree(self):
-        """Real checkout must deploy: preview + pinned pre-gate Review archives."""
+        """Committed checkout must deploy: preview + pinned pre-gate Review archives.
+
+        narrative.yml overlays generated data before unittest. An unsigned
+        Review in the working tree is supposed to block pages; this test
+        must still pass against HEAD so a post-game run can open a held PR.
+        """
         repo = Path(__file__).resolve().parents[2]
         pins = review_gate.load_legacy_pins(repo)
         self.assertEqual(len(pins), 8)
@@ -6260,41 +6316,60 @@ class FactCheck(unittest.TestCase):
         editions_rel = "data/" + "narrative" + "_editions/"
         self.assertTrue(all(path.startswith(editions_rel) for path in pins))
         self.assertTrue(all("/2026-10-" not in path for path in pins))
-        self.assertFalse(review_gate.pages_blocked(root=repo))
-        self.assertEqual(review_gate.main(["--pages", "--root", str(repo)]), 0)
-        hugo_bin = _hugo_bin()
-        if hugo_bin:
-            cfg = review_gate.load_hugo_config(repo)
-            self.assertEqual(cfg["staticdir"], ["public"])
-            self.assertEqual(cfg["contentdir"], "content")
-            self.assertEqual(cfg["datadir"], "data")
-            self.assertEqual(cfg["layoutdir"], "layouts")
-            self.assertTrue(
-                any(
-                    isinstance(mount, dict)
-                    and mount.get("source") == "public"
-                    and str(mount.get("target") or "").startswith("static")
-                    for mount in (cfg.get("module") or {}).get("mounts") or []
-                )
+        with tempfile.TemporaryDirectory() as tmp:
+            clean = Path(tmp) / "head"
+            added = subprocess.run(
+                ["git", "worktree", "add", "--detach", str(clean), "HEAD"],
+                cwd=repo,
+                capture_output=True,
+                text=True,
             )
-            with tempfile.TemporaryDirectory() as tmp:
-                dest = Path(tmp) / "dist"
-                result = subprocess.run(
-                    [hugo_bin, "--gc", "--minify", "--destination", str(dest)],
+            self.assertEqual(added.returncode, 0, added.stderr)
+            try:
+                self.assertFalse(review_gate.pages_blocked(root=clean))
+                self.assertEqual(
+                    review_gate.main(["--pages", "--root", str(clean)]), 0
+                )
+                hugo_bin = _hugo_bin()
+                if hugo_bin:
+                    cfg = review_gate.load_hugo_config(clean)
+                    self.assertEqual(cfg["staticdir"], ["public"])
+                    self.assertEqual(cfg["contentdir"], "content")
+                    self.assertEqual(cfg["datadir"], "data")
+                    self.assertEqual(cfg["layoutdir"], "layouts")
+                    self.assertTrue(
+                        any(
+                            isinstance(mount, dict)
+                            and mount.get("source") == "public"
+                            and str(mount.get("target") or "").startswith("static")
+                            for mount in (cfg.get("module") or {}).get("mounts")
+                            or []
+                        )
+                    )
+                    dest = Path(tmp) / "dist"
+                    result = subprocess.run(
+                        [hugo_bin, "--gc", "--minify", "--destination", str(dest)],
+                        cwd=clean,
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    self.assertEqual(
+                        result.returncode, 0, result.stdout + result.stderr
+                    )
+                    self.assertFalse(review_gate.output_blocked(dest, root=clean))
+                    self.assertEqual(
+                        review_gate.main(
+                            ["--pages", "--root", str(clean), "--dist", str(dest)]
+                        ),
+                        0,
+                    )
+            finally:
+                subprocess.run(
+                    ["git", "worktree", "remove", "--force", str(clean)],
                     cwd=repo,
                     capture_output=True,
                     text=True,
-                    check=False,
-                )
-                self.assertEqual(
-                    result.returncode, 0, result.stdout + result.stderr
-                )
-                self.assertFalse(review_gate.output_blocked(dest, root=repo))
-                self.assertEqual(
-                    review_gate.main(
-                        ["--pages", "--root", str(repo), "--dist", str(dest)]
-                    ),
-                    0,
                 )
 
     def test_legacy_review_manifest_mutations_are_red(self):
@@ -10652,6 +10727,8 @@ class Week3MiamiWeek4Raiders(unittest.TestCase):
                 generate.config, "EDITIONS_DIR", editions
             ), patch.object(
                 generate, "_load_recent_editions", return_value=[]
+            ), patch.object(
+                phase, "any_live", return_value=False
             ):
                 grok = generate.build("grok", persist_schedule=False)
                 offline_run = generate.build("offline", persist_schedule=False)
