@@ -1,5 +1,12 @@
 {
-  "droppedSentences": [],
+  "droppedSentences": [
+    "Las Vegas led 7\u20130 on a 27-yard Kirk Cousins touchdown to Ian Thomas with 8:10 left in the first quarter, and the Raiders still led 10\u201313 at halftime after field goals of 32 and 48 yards."
+  ],
+  "correctedSentences": [
+    "ambiguous snippet '52 dropbacks'; holding",
+    "ambiguous snippet 'zero sacks'; holding",
+    "ambiguous snippet 'Ten hits'; holding"
+  ],
   "leftoverIssues": [],
   "holdAutomerge": true
 }

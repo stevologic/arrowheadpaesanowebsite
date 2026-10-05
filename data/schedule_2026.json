@@ -112,10 +112,10 @@
     "homeAway": "away",
     "venue": "Allegiant Stadium",
     "tv": "CBS",
-    "completed": false,
+    "completed": true,
     "inProgress": false,
-    "kcScore": null,
-    "oppScore": null,
+    "kcScore": 30,
+    "oppScore": 27,
     "kickoff": "Sun, Oct 4 · 3:25 PM CT"
   },
   {
