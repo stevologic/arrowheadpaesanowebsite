@@ -6302,11 +6302,12 @@ class FactCheck(unittest.TestCase):
                 )
 
     def test_pages_blocked_allows_current_repo_tree(self):
-        """Committed checkout must deploy: preview + pinned pre-gate Review archives.
+        """Live deployable tree is origin/main, not a PR or overlay checkout.
 
         narrative.yml overlays generated data before unittest. An unsigned
         Review in the working tree is supposed to block pages; this test
-        must still pass against HEAD so a post-game run can open a held PR.
+        must still pass against the main tip so a post-game run can open
+        a held PR. HEAD may itself be that held unsigned Review.
         """
         repo = Path(__file__).resolve().parents[2]
         pins = review_gate.load_legacy_pins(repo)
@@ -6317,9 +6318,23 @@ class FactCheck(unittest.TestCase):
         self.assertTrue(all(path.startswith(editions_rel) for path in pins))
         self.assertTrue(all("/2026-10-" not in path for path in pins))
         with tempfile.TemporaryDirectory() as tmp:
-            clean = Path(tmp) / "head"
+            clean = Path(tmp) / "main"
+            tip = "origin/main"
+            if subprocess.run(
+                ["git", "rev-parse", "--verify", tip],
+                cwd=repo,
+                capture_output=True,
+                text=True,
+            ).returncode != 0:
+                fetched = subprocess.run(
+                    ["git", "fetch", "--no-tags", "origin", "main"],
+                    cwd=repo,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(fetched.returncode, 0, fetched.stderr)
             added = subprocess.run(
-                ["git", "worktree", "add", "--detach", str(clean), "HEAD"],
+                ["git", "worktree", "add", "--detach", str(clean), tip],
                 cwd=repo,
                 capture_output=True,
                 text=True,
