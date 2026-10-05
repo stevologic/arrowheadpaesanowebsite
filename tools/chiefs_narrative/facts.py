@@ -3089,6 +3089,9 @@ def _check_fg_claims(
             )
 
     for match in _FG_COUNT.finditer(text):
+        # "17–19 after Las Vegas field goals" is a score-after, not 19 FGs.
+        if re.search(r"\d{1,2}\s*[–-]\s*$", text[max(0, match.start() - 8) : match.start()]):
+            continue
         issue = _count_issue(
             text, match, recap, "fg", aliases, "field-goal count"
         )
@@ -5841,7 +5844,26 @@ def _skip_pressure_claim(sentence: str, match) -> bool:
     return True
 
 
-def _pressure_side(sentence: str, match) -> str:
+def _passer_sides(recap: dict | None) -> dict[str, str]:
+    """Last-name and full-name → kc_qb / opp_qb from the ESPN passing table."""
+    out: dict[str, str] = {}
+    for row in (recap or {}).get("passing") or []:
+        if not isinstance(row, dict):
+            continue
+        name = (row.get("player") or "").strip()
+        if not name:
+            continue
+        team = (row.get("team") or "").strip().upper()
+        side = "kc_qb" if team == "KC" else "opp_qb"
+        low = name.lower()
+        out[low] = side
+        last = low.split()[-1]
+        if len(last) >= 4:
+            out[last] = side
+    return out
+
+
+def _pressure_side(sentence: str, match, recap: dict | None = None) -> str:
     groups = match.groupdict() if getattr(match, "re", None) and match.re.groupindex else {}
     qb = (groups.get("sack_qb") or groups.get("hit_qb") or "").strip().lower()
     if qb in _QB_ALIASES:
@@ -5851,6 +5873,15 @@ def _pressure_side(sentence: str, match) -> str:
         if token in _TEAM_SIDES:
             return _TEAM_SIDES[token]
     low = sentence.lower()
+    named = [
+        side
+        for token, side in _passer_sides(recap).items()
+        if len(token) >= 4 and re.search(rf"\b{re.escape(token)}\b", low)
+    ]
+    if "opp_qb" in named and "kc_qb" not in named:
+        return "opp_qb"
+    if "kc_qb" in named and "opp_qb" not in named:
+        return "kc_qb"
     if re.search(
         r"\b(?:sacked|hit)\s+willis\b|\b(?:sacks?|hits?)\s+(?:of|on)\s+willis\b",
         low,
@@ -5896,7 +5927,7 @@ def _check_sack_counts(text: str, recap: dict | None) -> list[str]:
         if _skip_pressure_claim(sentence, match):
             continue
         claimed = _match_count(match)
-        official = _official_sacks(recap, _pressure_side(sentence, match))
+        official = _official_sacks(recap, _pressure_side(sentence, match, recap))
         if claimed is None or official is None or claimed == official:
             continue
         issues.append(
@@ -5915,8 +5946,21 @@ def _check_qb_hit_counts(text: str, recap: dict | None) -> list[str]:
         if _skip_pressure_claim(sentence, match):
             continue
         claimed = _match_count(match)
-        official = _official_qb_hits(recap, _pressure_side(sentence, match))
+        side = _pressure_side(sentence, match, recap)
+        official = _official_qb_hits(recap, side)
         if claimed is None or official is None or claimed == official:
+            continue
+        other = _official_qb_hits(
+            recap, "opp_qb" if side == "kc_qb" else "kc_qb"
+        )
+        # Bare "10 hits" that matches KC's recorded total is the defense, not
+        # an invented Mahomes-hit line. Name Mahomes and the other total fails.
+        if (
+            other is not None
+            and claimed == other
+            and side == "kc_qb"
+            and not re.search(r"\b(?:mahomes|patrick)\b", sentence, re.I)
+        ):
             continue
         issues.append(
             f"QB hits {claimed} disagrees with ESPN {official} "
