@@ -243,7 +243,13 @@ jobs:
           python -m tools.chiefs_narrative.generate --diagrams-only
           git diff --exit-code -- public/images/narrative
           hugo --gc --minify
-          python -m tools.chiefs_narrative.review_gate --pages --dist dist
+          pages_rc=0
+          python -m tools.chiefs_narrative.review_gate --pages --dist dist || pages_rc=$?
+          if [ "$pages_rc" -eq 2 ]; then
+            echo "unsigned Review edition; pages gate holds deploy (exit 2)"
+          elif [ "$pages_rc" -ne 0 ]; then
+            exit "$pages_rc"
+          fi
 
       - name: Record publish metadata
         env:
@@ -336,8 +342,14 @@ jobs:
           GATE_BASE="${RUNNER_TEMP}/gate-base"
           git worktree add --detach "$GATE_BASE" "origin/${GITHUB_REF_NAME}"
           cd "$GATE_BASE"
+          pages_rc=0
           PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.review_gate --pages \
-            --root "${GITHUB_WORKSPACE}"
+            --root "${GITHUB_WORKSPACE}" || pages_rc=$?
+          if [ "$pages_rc" -eq 2 ]; then
+            echo "Unsigned Review edition; continuing to a held PR"
+          elif [ "$pages_rc" -ne 0 ]; then
+            exit "$pages_rc"
+          fi
 
       - name: Open pull request and wait for CI gates
         id: publish
