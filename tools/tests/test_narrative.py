@@ -2773,6 +2773,99 @@ class LiveGamePhase(unittest.TestCase):
             self.assertFalse(wire_json.exists())
             self.assertEqual(list(editions.iterdir()), [])
 
+    def test_signed_review_skips_remint_after_edition_lands(self):
+        """A signed Week 4 Review must not be overwritten on the next daily run."""
+        live = {
+            "slug": "2026-10-05-0747",
+            "edition": "2026 Week 4 · Review",
+            "phase": {"type": "regular", "mode": "review", "week": 4},
+            "lastGameReview": {"opponent": "Las Vegas Raiders"},
+        }
+        ph = {
+            "mode": "review",
+            "label": "Week 4",
+            "type": "regular",
+            "lastGame": {"opponent": "Las Vegas Raiders", "id": "401872976"},
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            narrative_json = root / "narrative.json"
+            narrative_json.write_text(json.dumps(live) + "\n", encoding="utf-8")
+            with patch.object(generate.config, "NARRATIVE_JSON", narrative_json), \
+                patch.object(review_gate, "review_signed_off", return_value=True):
+                self.assertTrue(generate._signed_review_already_published(ph))
+            with patch.object(generate.config, "NARRATIVE_JSON", narrative_json), \
+                patch.object(review_gate, "review_signed_off", return_value=False):
+                self.assertFalse(generate._signed_review_already_published(ph))
+            preview_ph = dict(ph)
+            preview_ph["mode"] = "preview"
+            with patch.object(generate.config, "NARRATIVE_JSON", narrative_json), \
+                patch.object(review_gate, "review_signed_off", return_value=True):
+                self.assertFalse(generate._signed_review_already_published(preview_ph))
+
+        week4 = {
+            "id": "401872976",
+            "week": 4,
+            "seasonType": "reg",
+            "date": "2026-10-04T20:25:00Z",
+            "opponent": "Las Vegas Raiders",
+            "completed": True,
+            "inProgress": False,
+            "kcScore": 30,
+            "oppScore": 27,
+        }
+        review_ph = {
+            "type": "regular",
+            "label": "Week 4",
+            "week": 4,
+            "mode": "review",
+            "edition": "2026 Week 4 · Review",
+            "lastGame": week4,
+            "nextGame": {
+                "id": "401873006",
+                "opponent": "Los Angeles Chargers",
+                "completed": False,
+            },
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            narrative_json = root / "narrative.json"
+            wire_json = root / "wire.json"
+            editions = root / "editions"
+            editions.mkdir()
+            archive = root / "archive.json"
+            archive.write_text("[]\n", encoding="utf-8")
+            narrative_json.write_text(json.dumps(live) + "\n", encoding="utf-8")
+            with patch.object(
+                collect,
+                "collect_all",
+                return_value={"schedule": [week4], "news": [], "markets": {}},
+            ), patch.object(generate, "_write_schedule"), patch.object(
+                generate.config, "NARRATIVE_JSON", narrative_json
+            ), patch.object(
+                generate.config, "WIRE_JSON", wire_json
+            ), patch.object(
+                generate.config, "EDITIONS_DIR", editions
+            ), patch.object(
+                generate.config, "ARCHIVE_JSON", archive
+            ), patch.object(
+                generate, "_render_diagrams"
+            ), patch.object(
+                review_gate, "review_signed_off", return_value=True
+            ), patch.object(
+                phase, "any_live", return_value=False
+            ), patch.object(
+                phase, "detect", return_value=review_ph
+            ):
+                rc = generate.main(["--provider", "offline"])
+            self.assertEqual(rc, 0)
+            self.assertEqual(
+                json.loads(narrative_json.read_text(encoding="utf-8"))["slug"],
+                "2026-10-05-0747",
+            )
+            self.assertFalse(wire_json.exists())
+            self.assertEqual(list(editions.iterdir()), [])
+
     def test_review_edition_header_uses_completed_week(self):
         now = datetime(2026, 9, 28, 15, 0, tzinfo=timezone.utc)
         week3 = {
@@ -3591,6 +3684,73 @@ class FactCheck(unittest.TestCase):
         blob = " ".join(issues)
         self.assertIn("echoed writer instruction", blob)
         self.assertFalse(any("kickoff is midday" in item for item in issues), issues)
+
+    def test_week4_review_mid_scores_and_cousins_hits_are_espn_backed(self):
+        """Run 37358660165: 17-13 / 30-19 are LV score-afters; 10 hits is Cousins."""
+        recap = _load_fixture("espn_401872976_recap.json")
+        last = {
+            "id": "401872976",
+            "completed": True,
+            "opponent": "Las Vegas Raiders",
+            "opponentAbbr": "LV",
+            "kcScore": 30,
+            "oppScore": 27,
+            "date": "2026-10-04T20:25:00Z",
+        }
+        narrative = {
+            "lastGameReview": {
+                "opponent": "Las Vegas Raiders",
+                "result": "W",
+                "score": "KC 30–27",
+                "lede": (
+                    "An 8-yard Chiefs touchdown made it 17-13, then Walker "
+                    "took right end 22 yards to make it 30-19."
+                ),
+                "analysis": [
+                    {
+                        "body": (
+                            "Kansas City trailed 17–19 after Las Vegas field "
+                            "goals of 44 and 48 yards. Cousins was hit 10 "
+                            "times and never sacked."
+                        )
+                    }
+                ],
+            }
+        }
+        self.assertEqual(facts.check_review(narrative, last, recap), [])
+        echo = {
+            "runOfShow": [
+                {"talkTrack": "Do not invent a Chargers score. Look ahead."}
+            ]
+        }
+        echo_issues = facts.check_review(echo, last, recap)
+        self.assertTrue(
+            any("echoed writer instruction" in item for item in echo_issues),
+            echo_issues,
+        )
+
+    def test_live_week4_review_edition_is_clean_against_lv_recap(self):
+        """Published 2026-10-05-0747 must stay green once the LV box is wired."""
+        from tools.tests.archive_replay import salvage_all_editions
+
+        rows = salvage_all_editions()
+        slug, row = next(
+            item for item in rows if item[0] == "2026-10-05-0747.json"
+        )
+        del slug
+        self.assertEqual(row["issues"], [])
+        self.assertEqual(row["before"], row["after"])
+        self.assertEqual(
+            generate._recap_for_edition(
+                {
+                    "lastGameReview": {
+                        "opponent": "Las Vegas Raiders",
+                        "score": "KC 30–27",
+                    }
+                }
+            ).get("eventId"),
+            "401872976",
+        )
 
     def test_private_night_guidance_is_not_in_the_user_prompt(self):
         self.assertIn("[PRIVATE WRITER INSTRUCTION", prompts.SYSTEM_PROMPT)

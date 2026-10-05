@@ -28,7 +28,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from . import collect, config, diagrams, facts, odds, offline, phase as phase_mod
-from . import prompts, providers, schema, x_embeds
+from . import prompts, providers, review_gate, schema, x_embeds
 
 _CT = ZoneInfo("America/Chicago")
 
@@ -44,7 +44,7 @@ class DuplicateNarrativeError(RuntimeError):
 
 
 class LiveGameSkip(RuntimeError):
-    """A Chiefs game is live; do not mint a new edition."""
+    """Do not mint a new edition (live game, or a signed Review already landed)."""
 
 
 class FactCheckError(facts.FactCheckError):
@@ -507,6 +507,10 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
     ph = phase_mod.detect(schedule)
     upcoming = phase_mod.next_games(schedule, count=3)
     print(f"  [phase] {ph['label']} (type={ph['type']}, mode={ph['mode']})")
+    if _signed_review_already_published(ph):
+        raise LiveGameSkip(
+            "signed Review edition already published; skipping new edition"
+        )
 
     last = ph.get("lastGame") or {}
     if last.get("id"):
@@ -947,6 +951,39 @@ def _last_game_from_edition(narrative: dict) -> dict:
     }
 
 
+_RECAP_FIXTURES = (
+    (("miami",), "espn_401872952_recap.json"),
+    (("las vegas", "raiders"), "espn_401872976_recap.json"),
+)
+
+
+def _signed_review_already_published(ph: dict | None) -> bool:
+    """True when Karen already signed the live Review for this last game.
+
+    Same-day regen may still overwrite an unsigned draft. A signed Review
+    must stay byte-identical; reminting it is what turned run 37358660165
+    red after Week 4 landed.
+    """
+    if str((ph or {}).get("mode") or "").strip().lower() != "review":
+        return False
+    path = config.NARRATIVE_JSON
+    if not path.is_file():
+        return False
+    try:
+        live = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    if not isinstance(live, dict) or not facts.is_review_edition(live):
+        return False
+    if not review_gate.review_signed_off(live):
+        return False
+    live_opp = ((live.get("lastGameReview") or {}).get("opponent") or "").strip().lower()
+    last_opp = (((ph or {}).get("lastGame") or {}).get("opponent") or "").strip().lower()
+    if live_opp and last_opp and live_opp != last_opp:
+        return False
+    return True
+
+
 def _recap_for_edition(narrative: dict) -> dict:
     """Load the truth recap from this checkout's tools/ fixtures.
 
@@ -955,16 +992,12 @@ def _recap_for_edition(narrative: dict) -> dict:
     """
     review = narrative.get("lastGameReview") or {}
     opponent = (review.get("opponent") or "").lower()
-    if "miami" in opponent:
-        path = (
-            config.REPO_ROOT
-            / "tools"
-            / "tests"
-            / "fixtures"
-            / "espn_401872952_recap.json"
-        )
-        if path.is_file():
-            return json.loads(path.read_text(encoding="utf-8"))
+    fixtures = config.REPO_ROOT / "tools" / "tests" / "fixtures"
+    for tokens, name in _RECAP_FIXTURES:
+        if any(token in opponent for token in tokens):
+            path = fixtures / name
+            if path.is_file():
+                return json.loads(path.read_text(encoding="utf-8"))
     return {}
 
 
