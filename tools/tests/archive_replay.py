@@ -31,6 +31,13 @@ def recap_path(event_id: str) -> Path:
     return FIXTURES / f"espn_{event_id}_recap.json"
 
 
+def pinned_edition_names() -> set[str]:
+    """Frozen replay net. Today's generate overlay is not in this list."""
+    return set(
+        json.loads((FIXTURES / "archive_replay_editions.json").read_text(encoding="utf-8"))
+    )
+
+
 def load_recap(event_id: str) -> dict:
     path = recap_path(event_id)
     if not path.is_file():
@@ -94,8 +101,11 @@ def replay_edition(edition: dict, schedule: list, recaps: dict) -> list[str]:
 def replay_all_editions() -> list[tuple[str, list[str]]]:
     schedule = collect.load_cached_schedule()
     recaps = recaps_by_event()
+    pinned = pinned_edition_names()
     rows = []
     for path in sorted(EDITIONS.glob("*.json")):
+        if path.name not in pinned:
+            continue
         edition = json.loads(path.read_text(encoding="utf-8"))
         rows.append((path.name, replay_edition(edition, schedule, recaps)))
     return rows
@@ -133,11 +143,22 @@ def salvage_edition(edition: dict, schedule: list, recaps: dict) -> dict:
 def salvage_all_editions() -> list[tuple[str, dict]]:
     schedule = collect.load_cached_schedule()
     recaps = recaps_by_event()
+    pinned = pinned_edition_names()
     rows = []
     for path in sorted(EDITIONS.glob("*.json")):
+        if path.name not in pinned:
+            continue
         edition = json.loads(path.read_text(encoding="utf-8"))
         rows.append((path.name, salvage_edition(edition, schedule, recaps)))
     return rows
+
+
+def salvage_edition_file(name: str) -> dict:
+    """Replay one on-disk edition, including unpinned published Reviews."""
+    schedule = collect.load_cached_schedule()
+    recaps = recaps_by_event()
+    edition = json.loads((EDITIONS / name).read_text(encoding="utf-8"))
+    return salvage_edition(edition, schedule, recaps)
 
 
 def quoted_snippets(issues: list[str]) -> list[str]:

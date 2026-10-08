@@ -3731,13 +3731,9 @@ class FactCheck(unittest.TestCase):
 
     def test_live_week4_review_edition_is_clean_against_lv_recap(self):
         """Published 2026-10-05-0747 must stay green once the LV box is wired."""
-        from tools.tests.archive_replay import salvage_all_editions
+        from tools.tests.archive_replay import salvage_edition_file
 
-        rows = salvage_all_editions()
-        slug, row = next(
-            item for item in rows if item[0] == "2026-10-05-0747.json"
-        )
-        del slug
+        row = salvage_edition_file("2026-10-05-0747.json")
         self.assertEqual(row["issues"], [])
         self.assertEqual(row["before"], row["after"])
         self.assertEqual(
@@ -3751,6 +3747,63 @@ class FactCheck(unittest.TestCase):
             ).get("eventId"),
             "401872976",
         )
+
+    def test_run_37812217166_allowed_lv_box_and_cousins_sacks_pass(self):
+        """Run 37812217166: KC allowed LV's 28/35:42; zero sacks is Cousins.
+
+        ESPN 401872976: LV 28 first downs and 35:42 TOP, Cousins 0 sacks
+        taken, KC recorded 10 hits. 'Kansas City just allowed …' is the
+        opponent column, not KC's 18 / 24:18. Wrong-subject copy still
+        fails, and a held leftover overlay must not fail the frozen net.
+        """
+        from tools.tests.archive_replay import (
+            pinned_edition_names,
+            salvage_all_editions,
+        )
+
+        recap = _load_fixture("espn_401872976_recap.json")
+        last = {
+            "id": "401872976",
+            "completed": True,
+            "opponent": "Las Vegas Raiders",
+            "opponentAbbr": "LV",
+            "kcScore": 30,
+            "oppScore": 27,
+            "date": "2026-10-04T20:25:00Z",
+        }
+        accept = [
+            "Kansas City just allowed 28 first downs and 35:42.",
+            "Kansas City allowed 28 first downs.",
+            "Kansas City allowed 35:42 of possession.",
+            "Third down 5-of-13, zero sacks on Cousins, 10 hits.",
+            "Zero sacks on Cousins.",
+            "Ten quarterback hits and zero sacks is a coverage defense.",
+            "Las Vegas posted 437 yards with zero sacks allowed.",
+        ]
+        for sentence in accept:
+            issues = facts.check_review(
+                {"lastGameReview": {"lede": sentence, "opponent": "Las Vegas Raiders"}},
+                last,
+                recap,
+            )
+            self.assertEqual(issues, [], f"should accept {sentence!r}: {issues}")
+        reject = [
+            "Kansas City had 28 first downs and 35:42.",
+            "Kansas City just posted 28 first downs and 35:42.",
+            "Mahomes had zero sacks.",
+            "Patrick was sacked zero times.",
+        ]
+        for sentence in reject:
+            issues = facts.check_review(
+                {"lastGameReview": {"lede": sentence, "opponent": "Las Vegas Raiders"}},
+                last,
+                recap,
+            )
+            self.assertTrue(issues, f"should reject {sentence!r}")
+        pinned = pinned_edition_names()
+        slugs = [slug for slug, _ in salvage_all_editions()]
+        self.assertEqual(set(slugs), pinned)
+        self.assertNotIn("2026-10-08-1657.json", pinned)
 
     def test_private_night_guidance_is_not_in_the_user_prompt(self):
         self.assertIn("[PRIVATE WRITER INSTRUCTION", prompts.SYSTEM_PROMPT)
