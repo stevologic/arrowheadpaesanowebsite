@@ -3749,14 +3749,16 @@ class FactCheck(unittest.TestCase):
         )
 
     def test_run_37812217166_allowed_lv_box_and_cousins_sacks_pass(self):
-        """Run 37812217166: KC allowed LV's 28/35:42; zero sacks is Cousins.
+        """Run 37812217166: KC allowed LV's 28/35:42; sacks follow the subject.
 
         ESPN 401872976: LV 28 first downs and 35:42 TOP, Cousins 0 sacks
-        taken, KC recorded 10 hits. 'Kansas City just allowed …' is the
-        opponent column, not KC's 18 / 24:18. Wrong-subject copy still
-        fails, and a held leftover overlay must not fail the frozen net.
+        taken, Mahomes 2 sacks / 8 hits, KC recorded 10 hits. 'Kansas City
+        just allowed …' is the opponent column, not KC's 18 / 24:18.
+        KC / Mahomes / line / protection bind to Mahomes. Cousins or LV
+        bind to Cousins. A held leftover overlay is untracked and skipped.
         """
         from tools.tests.archive_replay import (
+            committed_edition_names,
             pinned_edition_names,
             salvage_all_editions,
         )
@@ -3771,39 +3773,142 @@ class FactCheck(unittest.TestCase):
             "oppScore": 27,
             "date": "2026-10-04T20:25:00Z",
         }
+
+        def issues_for(sentence, extra=None):
+            payload = {
+                "lastGameReview": {
+                    "lede": sentence,
+                    "opponent": "Las Vegas Raiders",
+                }
+            }
+            if extra:
+                payload.update(extra)
+            return facts.check_review(payload, last, recap)
+
         accept = [
             "Kansas City just allowed 28 first downs and 35:42.",
             "Kansas City allowed 28 first downs.",
             "Kansas City allowed 35:42 of possession.",
+            "Kansas City allowed 2 sacks.",
             "Third down 5-of-13, zero sacks on Cousins, 10 hits.",
             "Zero sacks on Cousins.",
             "Ten quarterback hits and zero sacks is a coverage defense.",
             "Las Vegas posted 437 yards with zero sacks allowed.",
+            (
+                "Patrick Mahomes at 15-of-30 for 225 yards, and a Las Vegas "
+                "offense that posted 437 yards and 365 net passing with "
+                "zero sacks allowed."
+            ),
         ]
         for sentence in accept:
-            issues = facts.check_review(
-                {"lastGameReview": {"lede": sentence, "opponent": "Las Vegas Raiders"}},
-                last,
-                recap,
-            )
+            issues = issues_for(sentence)
             self.assertEqual(issues, [], f"should accept {sentence!r}: {issues}")
+
         reject = [
-            "Kansas City had 28 first downs and 35:42.",
-            "Kansas City just posted 28 first downs and 35:42.",
-            "Mahomes had zero sacks.",
-            "Patrick was sacked zero times.",
+            (
+                "Kansas City had 28 first downs.",
+                ("first downs 28 disagrees with ESPN 18 for KC",),
+            ),
+            (
+                "Kansas City had 28 first downs and 35:42.",
+                ("first downs 28 disagrees with ESPN 18 for KC",),
+            ),
+            (
+                "Kansas City just posted 28 first downs and 35:42.",
+                ("first downs 28 disagrees with ESPN 18 for KC",),
+            ),
+            (
+                "Mahomes had zero sacks.",
+                ("sacks 0 disagrees with ESPN 2",),
+            ),
+            (
+                "Patrick was sacked zero times.",
+                ("sacks 0 disagrees with ESPN 2",),
+            ),
+            (
+                "Kansas City allowed zero sacks.",
+                ("sacks 0 disagrees with ESPN 2",),
+            ),
+            (
+                "Kansas City's offensive line allowed zero sacks.",
+                ("sacks 0 disagrees with ESPN 2",),
+            ),
+            (
+                "Mahomes' protection allowed zero sacks.",
+                ("sacks 0 disagrees with ESPN 2",),
+            ),
+            (
+                "Zero sacks despite 8 quarterback hits.",
+                ("sacks 0 disagrees with ESPN 2",),
+            ),
+            (
+                "Kansas City gave up 35:42 and 18 first downs.",
+                ("first downs 18 disagrees with ESPN 28 for LV",),
+            ),
+            (
+                "Kansas City surrendered 28 first downs while posting 28 of its own.",
+                ("first downs 28 disagrees with ESPN 18 for KC",),
+            ),
+            (
+                "Kansas City sacked Cousins twice.",
+                ("sacks 2 disagrees with ESPN 0",),
+            ),
+            (
+                "Kansas City sacked Cousins 2 times.",
+                ("sacks 2 disagrees with ESPN 0",),
+            ),
         ]
-        for sentence in reject:
-            issues = facts.check_review(
-                {"lastGameReview": {"lede": sentence, "opponent": "Las Vegas Raiders"}},
-                last,
-                recap,
-            )
+        for sentence, needles in reject:
+            issues = issues_for(sentence)
+            blob = " ".join(issues)
             self.assertTrue(issues, f"should reject {sentence!r}")
+            for needle in needles:
+                self.assertIn(needle, blob, f"{sentence!r} expected {needle!r} in {issues}")
+
+        matchup_issues = issues_for(
+            "The tape is in.",
+            extra={
+                "matchups": [
+                    {
+                        "unit": "Mahomes protection vs. the rush",
+                        "opponent": "Kirk Cousins / Justin Herbert",
+                        "note": "Mahomes' protection allowed zero sacks.",
+                    }
+                ]
+            },
+        )
+        self.assertIn(
+            "sacks 0 disagrees with ESPN 2",
+            " ".join(matchup_issues),
+            matchup_issues,
+        )
+
+        held_at_base = [
+            "Kansas City allowed 30 first downs.",
+            "Cousins was sacked 3 times.",
+            "Kansas City held the ball for 35:42.",
+            "Kansas City allowed 31:00 of possession.",
+            "Las Vegas had 18 first downs.",
+            "Las Vegas held the ball for 24:18.",
+            "Kansas City just allowed 28 first downs and 24:18.",
+            "Kansas City just allowed 18 first downs and 35:42.",
+            "Mahomes was sacked zero times.",
+            "Kansas City recorded 3 sacks.",
+            "Las Vegas finished with 18 first downs and 24:18 of possession.",
+            "Mahomes took zero sacks despite 8 hits.",
+        ]
+        for sentence in held_at_base:
+            issues = issues_for(sentence)
+            self.assertTrue(issues, f"base-held mutant must stay held: {sentence!r}")
+
         pinned = pinned_edition_names()
+        committed = committed_edition_names()
         slugs = [slug for slug, _ in salvage_all_editions()]
-        self.assertEqual(set(slugs), pinned)
-        self.assertNotIn("2026-10-08-1657.json", pinned)
+        self.assertEqual(set(slugs), committed)
+        self.assertTrue(pinned <= committed)
+        self.assertIn("2026-10-05-0747.json", committed)
+        self.assertNotIn("2026-10-08-1657.json", committed)
+        self.assertNotIn("2026-10-08-1657.json", slugs)
 
     def test_private_night_guidance_is_not_in_the_user_prompt(self):
         self.assertIn("[PRIVATE WRITER INSTRUCTION", prompts.SYSTEM_PROMPT)
@@ -9452,7 +9557,7 @@ class FactCheck(unittest.TestCase):
         self.assertEqual(misses, [], f"{name}: {len(misses)}/{len(cases)} {misses[:8]}")
 
     def test_karen_archive_replay(self):
-        """Pinned historical salvage plus strict checks on every added edition."""
+        """Pinned historical salvage plus strict checks on every committed edition."""
         from tools.tests.archive_replay import salvage_all_editions
 
         known = _load_fixture("archive_replay_known_bad.json")
@@ -9517,21 +9622,52 @@ class FactCheck(unittest.TestCase):
         self.assertEqual(drop_miss, [], drop_miss[:8])
 
     def test_karen_archive_growth(self):
-        from tools.tests.archive_replay import salvage_all_editions
+        """A bad committed, unpinned edition on disk must fail strict replay."""
+        from tools.tests.archive_replay import EDITIONS, salvage_all_editions
 
         known = _load_fixture("archive_replay_known_bad.json")
+        source = EDITIONS / "2026-10-05-0747.json"
+        dest = EDITIONS / "2026-10-12-0800.json"
+        edition = json.loads(source.read_text(encoding="utf-8"))
+        story = edition.setdefault("storyline", {})
+        story["lede"] = "Kansas City had 28 first downs. " + str(
+            story.get("lede") or ""
+        )
+        dest.write_text(json.dumps(edition, indent=2) + "\n", encoding="utf-8")
+
+        def _cleanup():
+            subprocess.run(
+                ["git", "reset", "-q", "HEAD", "--", str(dest)],
+                check=False,
+                capture_output=True,
+            )
+            if dest.is_file():
+                dest.unlink()
+
+        self.addCleanup(_cleanup)
+        subprocess.check_call(["git", "add", "--", str(dest)])
         rows = salvage_all_editions()
-        clean = next(row for _, row in rows if not row["issues"] and row["before"] == row["after"])
-        added = ("2099-01-01-0000.json", copy.deepcopy(clean))
-        self._assert_karen_archive_replay(rows + [added], known)
-        # Equal count cannot conceal removal/renaming of a clean pinned edition.
-        clean_slug = next(slug for slug, row in rows if row is clean)
+        self.assertIn(dest.name, [slug for slug, _ in rows])
+        with self.assertRaises(AssertionError) as ctx:
+            self._assert_karen_archive_replay(rows, known)
+        self.assertIn("first downs 28", str(ctx.exception))
+
+        pinned = _load_fixture("archive_replay_editions.json")
+        without_growth = [
+            (slug, row) for slug, row in rows if slug != dest.name
+        ]
+        clean_slug = next(
+            slug for slug in pinned if slug in {name for name, _ in without_growth}
+        )
         with self.assertRaisesRegex(AssertionError, "missing historical edition"):
             self._assert_karen_archive_replay(
-                [(slug, row) for slug, row in rows if slug != clean_slug] + [added], known
+                [(slug, row) for slug, row in without_growth if slug != clean_slug],
+                known,
             )
         with self.assertRaisesRegex(AssertionError, "duplicate replay edition"):
-            self._assert_karen_archive_replay(rows + [rows[0]], known)
+            self._assert_karen_archive_replay(
+                without_growth + [without_growth[0]], known
+            )
 
     def test_karen_archive_growth_rejects_issues_and_rewrites(self):
         from tools.tests.archive_replay import salvage_all_editions

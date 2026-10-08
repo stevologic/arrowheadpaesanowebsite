@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import copy
 import json
+import subprocess
 from pathlib import Path
 
 from tools.chiefs_narrative import collect, facts
@@ -32,10 +33,23 @@ def recap_path(event_id: str) -> Path:
 
 
 def pinned_edition_names() -> set[str]:
-    """Frozen replay net. Today's generate overlay is not in this list."""
+    """Known-bad allowlist. Unpinned committed editions still get strict replay."""
     return set(
         json.loads((FIXTURES / "archive_replay_editions.json").read_text(encoding="utf-8"))
     )
+
+
+def committed_edition_names() -> set[str]:
+    """Edition files tracked by git. Uncommitted generate overlays are omitted."""
+    root = Path(__file__).resolve().parents[2]
+    try:
+        raw = subprocess.check_output(
+            ["git", "ls-files", "-z", "--", "data/narrative_editions"],
+            cwd=root,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return {path.name for path in EDITIONS.glob("*.json")}
+    return {Path(item.decode()).name for item in raw.split(b"\0") if item}
 
 
 def load_recap(event_id: str) -> dict:
@@ -101,10 +115,10 @@ def replay_edition(edition: dict, schedule: list, recaps: dict) -> list[str]:
 def replay_all_editions() -> list[tuple[str, list[str]]]:
     schedule = collect.load_cached_schedule()
     recaps = recaps_by_event()
-    pinned = pinned_edition_names()
+    committed = committed_edition_names()
     rows = []
     for path in sorted(EDITIONS.glob("*.json")):
-        if path.name not in pinned:
+        if path.name not in committed:
             continue
         edition = json.loads(path.read_text(encoding="utf-8"))
         rows.append((path.name, replay_edition(edition, schedule, recaps)))
@@ -143,10 +157,10 @@ def salvage_edition(edition: dict, schedule: list, recaps: dict) -> dict:
 def salvage_all_editions() -> list[tuple[str, dict]]:
     schedule = collect.load_cached_schedule()
     recaps = recaps_by_event()
-    pinned = pinned_edition_names()
+    committed = committed_edition_names()
     rows = []
     for path in sorted(EDITIONS.glob("*.json")):
-        if path.name not in pinned:
+        if path.name not in committed:
             continue
         edition = json.loads(path.read_text(encoding="utf-8"))
         rows.append((path.name, salvage_edition(edition, schedule, recaps)))
