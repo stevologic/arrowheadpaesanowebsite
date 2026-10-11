@@ -69,6 +69,30 @@ def _hugo_bin() -> str | None:
     return None
 
 
+HOME_TITLE = (
+    "Arrowhead Paesano — The Chiefs Narrative: daily Kansas City Chiefs analysis"
+)
+
+
+def _attr_count(html: str, attr: str, value: str) -> int:
+    """Count HTML attributes, quoted or Hugo-minified unquoted."""
+    return len(
+        re.findall(
+            rf'''{re.escape(attr)}=["']?{re.escape(value)}["']?(?=[\s>/])''',
+            html,
+        )
+    )
+
+
+def _jsonld_blocks(html: str) -> list[dict]:
+    blocks = re.findall(
+        r"<script[^>]*ld\+json[^>]*>(.*?)</script>",
+        html,
+        flags=re.S | re.I,
+    )
+    return [json.loads(raw) for raw in blocks]
+
+
 def _workflow_run_scripts(parsed) -> list[tuple[str, str, str]]:
     """(job, step, run script) for every run step in every job."""
     scripts: list[tuple[str, str, str]] = []
@@ -1773,6 +1797,19 @@ class SeasonClock(unittest.TestCase):
         self.assertIn("CT</strong>", edition)
         self.assertIn("updatedAt", edition)
         self.assertIn("$stamp", edition)
+        self.assertIn("nrt-identity", edition)
+        self.assertIn("$isCurrent", edition)
+        self.assertIn("homeH1", edition)
+        jsonld = (root / "layouts" / "partials" / "seo-jsonld.html").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("NewsArticle", jsonld)
+        self.assertIn("Organization", jsonld)
+        self.assertIn("WebSite", jsonld)
+        hugo_params = (root / "hugo.yaml").read_text(encoding="utf-8")
+        self.assertIn("homeTitle:", hugo_params)
+        self.assertIn(HOME_TITLE, hugo_params)
+        self.assertIn("keepQuotes: true", hugo_params)
         ct = (root / "layouts" / "partials" / "nrt-ct.html").read_text(encoding="utf-8")
         self.assertIn('time.AsTime .t | time.In "America/Chicago"', ct)
         slate = (root / "layouts" / "partials" / "season-slate.html").read_text(encoding="utf-8")
@@ -1813,6 +1850,11 @@ class SeasonClock(unittest.TestCase):
         base = (root / "layouts" / "_default" / "baseof.html").read_text(encoding="utf-8")
         self.assertIn("The Chiefs Narrative", base)
         self.assertIn("youtubeUrl", base)
+        self.assertIn('rel="canonical"', base)
+        self.assertIn('name="description"', base)
+        self.assertIn('partial "seo-jsonld.html"', base)
+        self.assertIn("homeTitle", base)
+        self.assertIn("$isEditionPage", base)
         self.assertNotIn("social/", base)
         self.assertNotIn("sources/", base)
         self.assertNotIn("--accent:", base)
@@ -1958,6 +2000,87 @@ class NarrativeHomepage(unittest.TestCase):
             self.assertGreater(len(archived), 10)
             sample = next(iter(archived))
             self.assertIn(f"/narrative/{sample.name}/", sitemap)
+
+            featured = re.search(r"<h2[^>]*nrt-headline[^>]*>(.*?)</h2>", home, flags=re.S)
+            self.assertIsNotNone(featured)
+            headline = featured.group(1).strip()
+            self.assertTrue(headline)
+            matched_slugs = []
+            for path in archived:
+                if not re.fullmatch(r"\d{4}-\d{2}-\d{2}-\d{4}", path.name):
+                    continue
+                page = (path / "index.html").read_text(encoding="utf-8")
+                heads = re.findall(r"<h1\b[^>]*>(.*?)</h1>", page, flags=re.S)
+                if heads and headline in heads[0]:
+                    matched_slugs.append(path.name)
+            self.assertTrue(matched_slugs, f"no edition page for {headline!r}")
+            slug = matched_slugs[-1]
+            home_title = re.search(r"<title>([^<]*)</title>", home)
+            self.assertIsNotNone(home_title)
+            self.assertEqual(home_title.group(1), HOME_TITLE)
+            self.assertNotIn(headline, home_title.group(1))
+            home_h1s = re.findall(r"<h1\b[^>]*>(.*?)</h1>", home, flags=re.S)
+            self.assertEqual(len(home_h1s), 1, home_h1s)
+            self.assertIn("The Chiefs Narrative", home_h1s[0])
+            self.assertNotIn(headline, home_h1s[0])
+            self.assertIn(headline, home)
+            self.assertRegex(home, r"<h2[^>]*nrt-headline")
+            self.assertIn("Updated ", home)
+            self.assertEqual(_attr_count(home, "rel", "canonical"), 1)
+            self.assertTrue(
+                'href="https://arrowheadpaesano.com/"' in home
+                or "href=https://arrowheadpaesano.com/" in home
+            )
+            self.assertEqual(_attr_count(home, "name", "description"), 1)
+            home_ld = _jsonld_blocks(home)
+            home_types = []
+            for block in home_ld:
+                graph = block.get("@graph")
+                if isinstance(graph, list):
+                    home_types.extend(node.get("@type") for node in graph if isinstance(node, dict))
+                else:
+                    home_types.append(block.get("@type"))
+            self.assertIn("Organization", home_types)
+            self.assertIn("WebSite", home_types)
+            self.assertNotIn("NewsArticle", home_types)
+
+            desk_title = re.search(r"<title>([^<]*)</title>", narrative)
+            self.assertIsNotNone(desk_title)
+            self.assertEqual(desk_title.group(1), HOME_TITLE)
+            self.assertEqual(_attr_count(narrative, "rel", "canonical"), 1)
+            self.assertEqual(_attr_count(narrative, "name", "description"), 1)
+
+            edition_html = (dest / "narrative" / slug / "index.html").read_text(
+                encoding="utf-8"
+            )
+            self.assertEqual(_attr_count(edition_html, "rel", "canonical"), 1)
+            self.assertIn(f"https://arrowheadpaesano.com/narrative/{slug}/", edition_html)
+            self.assertEqual(_attr_count(edition_html, "name", "description"), 1)
+            ed_title = re.search(r"<title>([^<]*)</title>", edition_html)
+            self.assertIsNotNone(ed_title)
+            self.assertEqual(ed_title.group(1), f"{headline} | The Chiefs Narrative")
+            ed_h1s = re.findall(r"<h1\b[^>]*>(.*?)</h1>", edition_html, flags=re.S)
+            self.assertEqual(len(ed_h1s), 1, ed_h1s)
+            self.assertIn(headline, ed_h1s[0])
+            self.assertRegex(edition_html, r"og:type[^>]*article|property=og:type content=article")
+            article = next(
+                (block for block in _jsonld_blocks(edition_html) if block.get("@type") == "NewsArticle"),
+                None,
+            )
+            self.assertIsNotNone(article)
+            self.assertEqual(article["headline"], headline)
+            self.assertTrue(article.get("datePublished"))
+            self.assertTrue(article.get("dateModified"))
+            self.assertIn("author", article)
+            self.assertIn("publisher", article)
+            self.assertTrue(article.get("image"))
+            self.assertTrue(str(article.get("url") or "").endswith(f"/narrative/{slug}/"))
+
+            sample_html = (sample / "index.html").read_text(encoding="utf-8")
+            self.assertEqual(_attr_count(sample_html, "rel", "canonical"), 1)
+            self.assertEqual(_attr_count(sample_html, "name", "description"), 1)
+            sample_ld = _jsonld_blocks(sample_html)
+            self.assertTrue(any(block.get("@type") == "NewsArticle" for block in sample_ld))
 
 
 class HeadlineUniqueness(unittest.TestCase):

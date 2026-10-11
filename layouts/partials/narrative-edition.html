@@ -40,7 +40,13 @@
         <span class="nrt-edition">{{ .edition }}</span>
         <time class="nrt-stamp" datetime="{{ $stamp }}">Updated {{ partial "nrt-ct.html" (dict "t" $stamp "layout" "Monday, Jan 2, 2006") }}</time>
       </div>
+      {{ if $isCurrent }}
+      <h1 class="nrt-identity">{{ $site.Params.homeH1 | default "The Chiefs Narrative" }}</h1>
+      {{ with $site.Params.homeTagline }}<p class="nrt-identity__tag">{{ . }}</p>{{ end }}
+      <h2 class="nrt-headline">{{ .headline }}</h2>
+      {{ else }}
       <h1 class="nrt-headline">{{ .headline }}</h1>
+      {{ end }}
       {{ with .dek }}<p class="nrt-dek">{{ . }}</p>{{ end }}
 
       <div class="nrt-hero__grid">

@@ -4,6 +4,10 @@ title: "Arrowhead Paesano"
 timeZone: "America/Chicago"
 publishDir: "dist"
 enableRobotsTXT: true
+minify:
+  tdewolff:
+    html:
+      keepQuotes: true
 staticDir:
   - "public"
 disableKinds:
@@ -21,6 +25,9 @@ outputs:
 params:
   tagline: "The daily Chiefs Narrative: last game, current state, next opponent."
   description: "The Chiefs Narrative — daily Kansas City Chiefs analysis from Arrowhead Paesano. Last-game review, roster state, and the next-game plan."
+  homeTitle: "Arrowhead Paesano — The Chiefs Narrative: daily Kansas City Chiefs analysis"
+  homeH1: "The Chiefs Narrative"
+  homeTagline: "Daily Kansas City Chiefs analysis"
   youtubeHandle: "@arrowheadpaesano"
   youtubeUrl: "https://www.youtube.com/@arrowheadpaesano"
   subscribeUrl: "https://www.youtube.com/@arrowheadpaesano?sub_confirmation=1"
