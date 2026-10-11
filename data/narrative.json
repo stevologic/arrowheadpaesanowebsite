@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-10T21:02:29-05:00",
-  "updatedAt": "2026-10-10T21:02:29-05:00",
-  "generator": "codex:editorial",
+  "generatedAt": "2026-10-11T17:58:26+00:00",
+  "updatedAt": "2026-10-11T18:04:25+00:00",
+  "generator": "grok:grok-4.6",
   "phase": {
     "type": "regular",
     "label": "Week 6",
@@ -11,20 +11,18 @@
   },
   "edition": "2026 Week 6 · Preview",
   "record": "4-0",
-  "headline": "The bye buys time. The Chargers just lost Slater.",
-  "dek": "Kansas City stays 4-0 through its Week 5 bye. Araiza has an AFC award, Thornton has a reported surgery timetable, and Slater is on injured reserve. The next kickoff is Los Angeles at Arrowhead on Sun, Oct 18, 3:25 PM CT.",
-  "videoHook": "The Chiefs have a week to rebuild the receiver plan. The Chargers have a game to play and a left tackle to replace. That is the next chapter of 4-0.",
-  "theEdge": "Saturday evening snapshot, Oct 10: ESPN FPI gives Kansas City a 71.6 percent chance against Los Angeles; ESPN's DraftKings feed lists KC -7.5 and a 45.5 total. Polymarket shows 10.6 percent for the championship and 17.5 percent for the AFC. Those are source snapshots, not a score prediction. Our football read: make the protection stress travel to Herbert while giving Mahomes an early answer.",
+  "headline": "Walker's 177 bought 30-27. Herbert gets the thinner room.",
+  "dek": "Kansas City is 4-0 after a 30-27 win at Allegiant Stadium, and after the Week 5 bye a 189-yard run game and a receiver room without Tyquan Thornton host the Chargers on Sun Oct 18, 3:25 PM CT.",
+  "videoHook": "Four-and-oh came out of Allegiant 30-27. Walker ran for 177, Thornton went down on the 55-yarder, and Justin Herbert is next at Arrowhead.",
+  "theEdge": "ESPN FPI gives Kansas City a 71.6 percent win probability against Los Angeles, while Polymarket prices the Chiefs at 10.3 percent to win the championship and 18.5 percent to win the AFC. Favored at home is not a verdict: keep Walker's 189-yard identity and make Herbert throw into two-deep.",
+  "playerEmbeds": [],
   "storyline": {
-    "lede": "The bye has stopped the game clock, not the story. Kansas City has the undefeated record and a chance to work on the offense before the Chargers arrive. Los Angeles has Denver first, so there is another opponent game to watch before anyone declares the matchup settled. The useful Saturday question is how the Chiefs turn rest into an advantage: a cleaner receiver rotation, protection with an answer built in, and pressure that makes Herbert throw before he wants to. That is our preview, not a report from the practice field.",
+    "lede": "Kansas City is 4-0 because Kenneth Walker III just ran 22 times for 177 yards in a 30-27 win at Allegiant Stadium, and because Patrick Mahomes still found the explosives on a 15-of-30 day. The tape that actually travels is less pretty: 24:18 of possession against 35:42, 18 first downs against 28, 10 quarterback hits and zero sacks on Kirk Cousins, and Tyquan Thornton leaving with a dislocated ankle after the 55-yard catch that set up the go-ahead score. The Week 5 bye is already over as a calendar item. Week 6 is Los Angeles at GEHA Field at Arrowhead Stadium, and the receiver room that just lost Thornton (long-term) and is already without Rashee Rice (short-term) has to answer Justin Herbert without pretending 4-0 is a finished product.",
     "body": [
-      "The biggest change since Monday is on the other sideline. The Chargers announced Friday that Rashawn Slater underwent ankle surgery Thursday and was being placed on injured reserve. Their Thursday account of the Seattle game described four rookies finishing on the offensive line. That gives Spagnuolo a protection problem to study. It does not mean the same five will start at Arrowhead. Sunday against Denver is the next piece of evidence: who plays together, who makes the calls, and how Mike McDaniel moves the launch point when the edges are under stress.",
-      "Kansas City's receiver problem also needs an honest clock. Arrowhead Pride's Monday follow-up attributed a planned surgery and a 12-to-16-week recovery estimate for Thornton to NFL Network's Ian Rapoport. That is a reported estimate, not a promised return date. Rice's hamstring exit remains a separate issue; the coming practice reports must tell us what he can do. The plan should have a branch for Rice playing and a branch for Rice sitting. It should not depend on Thornton returning next Sunday or on a trade rumor walking into the huddle.",
-      "There was actual Chiefs news in the middle of the bye. The club announced Araiza's AFC Special Teams Player of the Week award on Wednesday. All five of his punts against Las Vegas landed inside the 20, and his late kick was downed at the 1. That is how a team can rescue a possession even when the offense stalls. The next-game lesson is field position: protect the coverage lanes and give Herbert a long field. A punt that makes the opponent earn every yard can be part of the winning plan without becoming an excuse for a conservative offense.",
-      "The receiver market is moving, but reporting still has boundaries. Reuters reported Saturday, citing NFL Network and ESPN, that Arizona was finalizing a Marvin Harrison Jr. trade; the destination and compensation were unreported. Arizona's own coverage also described the timing as uncertain. That is league news. It is not a Chiefs acquisition. Kansas City's official transactions page still lists the Oct 3 standard elevation of Cole Christiansen as its latest entry at this check. Build the football discussion around the players available and update it when a move is actually announced.",
-      "Our preferred offensive answer is to give the same formation several lives. Put Kelce and Gray on the field, show Walker behind Mahomes, and make the defense choose between fitting the run and covering the release. Motion can identify who travels with a receiver; a quick flat route can punish a defender who flies downhill. The important part is timing. If the pass only becomes available after Mahomes has held the ball and the pocket has collapsed, it is not a pressure answer. The throw needs to belong to the play before the snap.",
-      "On defense, the tempting response to a disrupted line is to send everyone. Resist the temptation to make that the entire plan. Herbert can beat a free runner with a quick throw if Kansas City leaves the easy receiver uncovered. Show pressure, change the picture, and make the center and quarterback agree on who is coming. Rush lanes still matter after the disguise. A defender who runs past the pocket has offered an escape route, and an escape route can erase the advantage created by the front.",
-      "The Chiefs should spend Sunday watching Denver attack Los Angeles, then revise the preview with what survives that game. Does the replacement tackle need help? Does the offense keep a tight end in protection? Which receivers can take a full workload? The answers will change the details without changing the central idea. Kansas City has the extra preparation time. Spend it on a plan that can adjust after the first series instead of a plan that needs the first series to go perfectly."
+      "The 30-27 was a field-position and takeaway win more than a control win. Las Vegas posted 437 total yards and 365 net passing yards, and Cousins still walked off 31-of-52 with zero sacks. Kansas City's 399 yards were the other kind of 399: 189 on the ground, 210 through the air, zero turnovers, and just enough chunk plays — Xavier Worthy for 41, Thornton for 42 and 55 — to outrun a defense that could not get off the field. Matt Araiza's 12-yard rush from punt formation is a real snap in that 189; it is not the identity. Walker is.",
+      "What the bye cannot restock is the perimeter. Arrowhead Pride reports Thornton dislocated the ankle on that fourth-quarter catch-and-run and that Treydan Stukes was not fined; the same shop lists Rice as short-term and Thornton as long-term, with Kansas City among several teams interested in Justin Watson. Worthy’s four catches, including the 41-yarder, are exactly the vertical the offense needs more of, and they are also a thin substitute for a 111-yard, two-score afternoon that is now off the call sheet.",
+      "Steve Spagnuolo's problem is the inverse of Eric Bieniemy's. The front knocked Cousins around for 10 hits and still let him live; the next quarterback is Herbert, who will take those same 28 first downs if the rush stays as hits instead of sacks. Cover-2 has to take the 27-yard ball off the table. The zone blitz has to be a call, not a hope. Andy Reid's staff has six days of actual practice after the bye to decide how much of Week 6 is Walker downhill and how much is manufactured touches for Travis Kelce, who finished the Las Vegas game with two catches.",
+      "Next Sunday is not a coronation check. ESPN FPI hanging 71.6 percent at home is a favorite's tax on 4-0, and Polymarket's 10.3 percent championship ticket is the market saying the sample is still a sample. Beat Herbert with the run, two-deep, and a receiver plan that does not ask Worthy to be Thornton and Rice at once, and 4-0 still means something when Kansas City visits Seattle on Sun Oct 25, 7:20 PM CT."
     ]
   },
   "lastGameReview": {
@@ -32,127 +30,130 @@
     "label": "Week 4 · Sun, Oct 4 · 3:25 PM CT",
     "result": "W",
     "score": "KC 30–27",
-    "lede": "Kansas City answered with a 2-yard touchdown, a 28-yard field goal, then a fourth-quarter burst — an 8-yard score, a 2-yard score, and Kenneth Walker III’s 22-yard touchdown — to make it 30–19 before Brock Bowers’ 20-yard touchdown and a two-point play set the final at 30–27.",
+    "lede": "Kansas City won 30-27 at Allegiant Stadium after Las Vegas went up 7-0 on a 27-yard Kirk Cousins touchdown to Ian Thomas at Q1 8:10, led 13-10 at halftime on field goals of 32 and 48 yards, and still had 28 first downs and 35:42 of the ball. The Chiefs tied it at 7-7 on a 2-yard touchdown at Q1 2:23, traded a 28-yard field goal, then took 17-13 on an 8-yard touchdown at Q4 14:50. Las Vegas answered with 44- and 48-yard field goals for 17-19. Kansas City went back in front 23-19 on a 2-yard touchdown at Q4 3:21, then Kenneth Walker III scored on a 22-yard run around right end at Q4 3:02 for 30-19 after J. Bassa forced a fumble on the kickoff and J. Cochrane recovered. Brock Bowers' 20-yard touchdown at Q4 1:46 made it 30-27; X. Nwankpa intercepted Cousins at Q4 0:10.",
     "analysis": [
       {
-        "body": "The box is a split personality. Kansas City ran for 189 yards on 26 carries and passed for 210 net, 399 total, 18 first downs, 5-of-13 on third down, 12 drives, 24:18 with the ball, no turnovers. Las Vegas ran for 72 yards on 26 carries, passed for 365 net, 437 total, 28 first downs, 5-of-14 on third down, 12 drives, 35:42 with the ball, and two turnovers. That is a defense that leaked yards and first downs and still found the two possessions that decided it: J. Bassa forced Dareke Young’s fumble on the kickoff, J. Cochrane recovered at the Las Vegas 22, and Walker walked in from the right end; later Xavier Nwankpa intercepted Cousins short left intended for Michael Mayer."
+        "body": "Mahomes' 15-of-30, 225-yard, two-touchdown tape was not a dink drive. It was a shot chart. He missed Worthy deep right on the opening series, then hit him for 41 yards to the Las Vegas 7 later in the first quarter, found Thornton for 42 yards to the 5 before halftime, and ripped Thornton again for 55 yards to the 5 at Q4 3:35 — the catch that drew Q. Walker's unnecessary-roughness flag and the play on which Thornton was injured. Two sacks and eight hits on Mahomes explain the incompletions. They do not explain the two-catch afternoons from Kelce and Noah Gray. When the intermediate game goes quiet, this offense lives on Walker and the deep middle, and that is a thin way to stay 4-0."
       },
       {
-        "body": "Walker was downhill identity, not a cameo. Twenty-two carries, one catch, 23 touches, 177 yards, two rushing scores. The complementary shot was Thornton: deep left for 42 yards in the second quarter, then deep left for 55 in the fourth before the ankle. Xavier Worthy’s 41-yard catch in the first quarter set up the tying score. Mahomes did not dink the Raiders into submission — 15-of-30 with two sacks and eight hits — but the completions that landed were explosives, and the two rushing scores plus two Thornton touchdowns were enough."
+        "body": "Walker was the entire early-down plan: 22 carries, 177 yards, two rushing touchdowns, 23 touches. The 189 team rushing yards also include Araiza's 12-yard run from punt formation and a Khyiris Tonga report-eligible snap that gained nothing. Short yardage still leaked. Kansas City turned it over on downs at Q1 10:48 when Walker was stopped for 1 yard at the Las Vegas 49, and the 5-of-13 third-down mark is how you win a game while holding the ball 24:18. Bieniemy's identity ran through Allegiant. His conversion package did not."
       },
       {
-        "body": "Steve Spagnuolo’s side lived in a long game. Ashton Jeanty handled 21 touches (15 rushes, six catches) and still the Raiders offense finished with 72 rushing yards as a team; Mike Washington Jr. added 10 touches. Michael Mayer caught eight, Bowers six, Tre Tucker four. Cousins was hit 10 times and never sacked, which is the warning clip for Justin Herbert. Nick Williams drew unnecessary roughness and defensive holding, F. Anudike-Uzomah drew roughing the passer, L. Sneed drew defensive holding, and the flag parade kept Las Vegas in a game it was losing on the ground. Matt Araiza’s 12-yard run out of punt formation was the early field-position swing; Khyiris Tonga reported eligible on separate first-quarter snaps, once with H. Nourzad and once on a Mahomes scramble."
+        "body": "Spagnuolo won the game with the run fit and the takeaways, not with the pass rush finishing. Las Vegas rushed 26 times for 72 yards; Ashton Jeanty still touched it 21 times (15 rushes, 6 catches) and Mike Washington Jr. added 10 touches, but the yards were not there. Las Vegas's yards were in the air: Cousins went 31-of-52 with 365 net passing yards and was never sacked. Kansas City logged 10 quarterback hits and never dropped him. The stop that mattered on downs came at Q3 11:37 on an incompletion to Jeanty with Drue Tranquill covering and George Karlaftis in the picture. The fumble that mattered was Bassa's force and Cochrane's recovery on the kickoff after the 23-19 score. The interception that ended it was Nwankpa, with Karlaftis on the play, at Q4 0:10."
       },
       {
-        "body": "The fourth quarter was the whole season in miniature. Kansas City trailed 17–19 after Las Vegas field goals of 44 and 48 yards, then scored twice in 19 seconds of game clock — Thornton’s 55-yarder plus a 2-yard touchdown, the Bassa-Cochrane takeaway, Walker’s 22-yarder — and still had to survive Bowers from 20 yards and a two-point play. Mansoor Delane led the defense with 10 tackles. It was a 30-point afternoon that never became comfortable, and the Chargers will see every snap of the 35:42 they were on the field."
+        "body": "The fourth quarter also showed how penalties still donate drives. F. Anudike-Uzomah's roughing-the-passer flag at Q4 2:38 wiped a deep incompletion and moved Las Vegas 15 yards; L. Sneed's defensive holding at Q4 2:10 erased a George Karlaftis sack of Cousins. Bowers scored from 20 yards at Q4 1:46. That is the same coverage stress Herbert will bring to Arrowhead if the rush remains hits without sacks and the secondary keeps playing extra snaps because the offense cannot stay on the field."
       }
     ],
     "takeaways": [
       {
-        "title": "Walker is the live identity",
-        "body": "Twenty-two carries, 177 yards, two rushing touchdowns, 23 touches. When the receiver room shrank, Bieniemy did not hunt a new passing personality — he handed the game to Walker and let Mahomes take shots off that gravity."
+        "title": "Walker is the offense when the completion chart shrinks",
+        "body": "Twenty-two carries, 177 yards, two rushing touchdowns, 23 touches. Kansas City's 189 rushing yards and 399 total yards were a run identity with explosives attached, not a balanced 15-of-30 passing game. If Thornton is out long-term, Bieniemy has to keep feeding Walker instead of asking Worthy to recreate a 111-yard afternoon by himself."
       },
       {
-        "title": "Explosives covered a 15-of-30 day",
-        "body": "Mahomes’ 225 yards sat on a handful of chunk plays: Worthy for 41, Thornton for 42 and 55. That is not a volume passing tape. It is a shot-play tape that will need 12 personnel and the run game if Rice and Thornton are limited."
+        "title": "Hits are not sacks, and 28 first downs are the warning",
+        "body": "Cousins went 31-of-52 with zero sacks against 10 quarterback hits, and Las Vegas still piled 437 yards and 35:42 of possession. The Nwankpa interception and the Bassa-Cochrane fumble won 30-27. Herbert will not donate those if the front keeps hitting and not finishing."
       },
       {
-        "title": "Yards allowed, takeaways collected",
-        "body": "Las Vegas had 28 first downs, 437 yards, and 35:42. Kansas City had the Bassa force, the Cochrane recovery, and the Nwankpa interception. Spagnuolo can live with ugly yardage for one game. He cannot live with it against Herbert if the takeaways dry up."
-      },
-      {
-        "title": "The line conversation is now public",
-        "body": "Mike Caliendo started at left guard over Kingsley Suamataia, Mahomes took two sacks and eight hits, and Reid would not explain the swap. That is a bye-week problem with a pass rusher on the other sideline in Week 6."
+        "title": "The receiver room changed on the 55-yarder",
+        "body": "Thornton's five catches, 111 yards, and two touchdowns were the passing game, and he dislocated the ankle on the 55-yard catch at Q4 3:35. Worthy’s four catches and the 41-yarder are the remaining vertical. Kelce and Gray combining for four catches is not a replacement plan for Los Angeles."
       }
     ],
     "whatWorked": [
-      "Kenneth Walker III’s 22-carry, 177-yard, two-touchdown, 23-touch day as the offense’s spine",
-      "Tyquan Thornton’s five catches, 111 yards, and two scores before the ankle",
-      "Zero Kansas City turnovers against two Las Vegas giveaways (Bassa/Cochrane fumble, Nwankpa interception)",
-      "189 team rushing yards on 26 attempts versus 72 allowed",
-      "Chunk shots to Worthy (41) and Thornton (42, 55) that flipped field position"
+      "Kenneth Walker III: 22 carries, 177 yards, two rushing touchdowns, 23 touches inside a 189-yard team rushing day",
+      "Chunk passing: Worthy 41 yards, Thornton 42 and 55 yards, on the way to Mahomes' 225 yards and two touchdown throws",
+      "Takeaways: J. Bassa forced and J. Cochrane recovered the kickoff fumble; X. Nwankpa intercepted Cousins at Q4 0:10",
+      "Run defense: Las Vegas 26 rushes, 72 yards, with Jeanty held to volume without the yards",
+      "Matt Araiza: 12-yard rush from punt formation and AFC Special Teams Player of the Week after dropping all five punts inside the 20",
+      "Zero Chiefs turnovers on 12 drives"
     ],
     "whatDidnt": [
-      "15-of-30 passing and 5-of-13 on third down",
-      "24:18 of possession against 35:42 and 28 first downs allowed",
-      "Ten hits on Cousins without a sack",
-      "The penalty list: N. Williams twice, P. Woods, N. Remigio, F. Anudike-Uzomah, L. Sneed",
-      "Losing Rashee Rice (hamstring) and Tyquan Thornton (dislocated ankle) from the starting receiver group"
+      "Possession and first downs: Kansas City 24:18 and 18 first downs against Las Vegas 35:42 and 28 first downs",
+      "Third down: 5-of-13, plus the Q1 10:48 turnover on downs at the Las Vegas 49",
+      "Pass rush finish: 10 quarterback hits, zero sacks on Cousins, 365 net passing yards allowed",
+      "Protection: two sacks and eight hits on Mahomes in a 15-of-30 day",
+      "Receiver volume behind the explosives: Kelce two catches, Gray two catches, then Thornton injured",
+      "Q4 penalties that extended Las Vegas: Anudike-Uzomah roughing, L. Sneed defensive holding, before the 20-yard Bowers touchdown"
     ]
   },
   "currentState": {
+    "lede": "The Chiefs are 4-0 through a Week 5 bye as the AFC's last unbeaten, with 1,648 yards of total offense through four weeks, and they are also a team that just won 30-27 while losing the clock, the first-down chart, and a starting receiver. The work for Week 6 is not rest. It is converting 10-hit pressure into sacks, replacing Thornton's 111 yards without pretending Worthy is a finished WR1, and keeping Walker's 22-carry identity as the thing Herbert has to solve first.",
     "record": "4-0",
-    "lede": "Saturday, Oct 10: the Chiefs are on the bye, and the next opponent still has Week 5 to play. The work list is receiver roles, protection communication, and disciplined pressure. The facts below come from the linked reports; the proposed fixes are Arrowhead Paesano's analysis. A week without a Kansas City game should make the next plan more specific, not turn Monday's game recap into today's news.",
     "workOn": [
       {
-        "title": "Give every receiver a job the play can support",
-        "body": "Start with responsibilities rather than a demand that someone become Thornton overnight. Worthy can stretch the coverage and get movement releases. Kelce and Gray can change the formation strength, block, and release into the space a run fit leaves behind. If Rice practices and is available, restore the parts of the script that depend on his timing. If he is not, move those throws to routes the replacement group has actually rehearsed. Our preference is a smaller menu executed fast over a broad menu that forces Mahomes to wait for separation."
+        "title": "Finish the rush",
+        "body": "Las Vegas held the ball for 35:42 and posted 28 first downs even though Kansas City hit Cousins 10 times without a sack. Herbert will take that same script at Arrowhead unless Karlaftis, Anudike-Uzomah, and the simulated-pressure package actually drop him."
       },
       {
-        "title": "Make the protection call visible in the plan",
-        "body": "Caliendo started at left guard in Las Vegas; Arrowhead Pride reported Reid declined to explain Suamataia's absence. That establishes last week's lineup, not next week's decision or the reason behind it. The bye should settle the assignment even if the staff keeps the personnel discussion private. Who handles a late interior exchange? Where does the back scan? Which receiver owns the hot route? A screen and a boot are useful changes, but neither substitutes for the linemen, back, and quarterback making the same call."
+        "title": "Third down and the 24:18 problem",
+        "body": "A 5-of-13 day and 18 first downs against 12 drives is how you need takeaways to survive 30-27. Bieniemy has to manufacture Kelce and Gray completions so Mahomes is not hunting another 55-yarder every series."
       },
       {
-        "title": "Pressure with a place for the ball to go",
-        "body": "The film question is whether the defense can rush aggressively while keeping the quick answer contested. Put an underneath defender where the quarterback expects the easy throw, then let the front work. If Kansas City sends a second-level rusher, the replacement coverage must arrive on time. The goal is a hurried decision into a crowded window. A pressure call that merely sends Herbert toward an uncovered receiver has solved the wrong problem, even if somebody eventually reaches the quarterback."
+        "title": "A receiver plan that survives Thornton",
+        "body": "Thornton is long-term after the dislocated ankle; Rice is already short-term. Worthy’s four catches cannot be the entire vertical answer against Los Angeles, and the Watson interest is a familiarity patch, not a scheme."
       },
       {
-        "title": "Let special teams change the field",
-        "body": "Araiza's award belongs in the bye-week conversation because possession quality matters. Our coaching priority is the coverage operation: release without a flag, force the returner toward help, and finish without touching the ball into the end zone. The offense can be ambitious and still accept a punt when the alternative is a desperate throw. The defense then has to earn the benefit by making the opponent use snaps to cross the field. Special teams and defense should function as one possession plan."
+        "title": "Short yardage",
+        "body": "Tonga reported eligible and gained nothing; Walker was stopped for 1 yard on downs at the Las Vegas 49. Arrowhead Pride's four-week short-yardage look is now a live problem if the Chargers load the box for Walker."
       }
     ],
     "thinkAbout": [
       {
-        "title": "What does the Denver film change?",
-        "body": "Los Angeles has not played its Oct 11 game yet. Watch the protection structure as closely as the score. Help from a back or tight end narrows the route distribution; a quick passing plan asks Kansas City to tackle immediately; movement passes ask the edge defenders to stay home. Those are different assignments. Build answers for each, then use Sunday's film to decide which deserves the most rehearsal. The Chargers' Saturday record is a fact about today, not a forecast of the team that arrives next week."
+        "title": "Watson reunion versus an actual wideout",
+        "body": "Arrowhead Addict frames the Justin Watson interest as familiarity over upside, while Arrowhead Pride says Kansas City is one of several teams in that mix and could revisit the offseason receiver plan. The staff has to decide whether Week 6 is a patch or a hunt."
       },
       {
-        "title": "How much two-tight-end offense is enough?",
-        "body": "The Kelce-Gray package is a sensible starting point, but it should not become a ritual. If Los Angeles matches it with a heavy box, release a tight end and attack the space behind the linebackers. If the defense stays light, let Walker make the safety participate in the run fit. The advantage comes from forcing the defense to declare and then changing the answer. A formation only helps if Kansas City can run more than one useful play from it."
+        "title": "How much Worthy can carry",
+        "body": "Arrowhead Addict wants more of Worthy's explosive Week 4; an ESPN insider on that same site questions whether he can solve the receiver crisis. The honest read is that the 41-yarder is real and that 4 catches is not a Thornton replacement."
       },
       {
-        "title": "When is the wideout discussion actually news?",
-        "body": "An announced signing or completed trade changes the depth chart. An attributed interest report changes the conversation. A projected fit is our analysis. Keep those three things clear. The Chiefs can need a receiver without every available receiver being on the way to Kansas City. Evaluate the role first: vertical speed, dependable underneath timing, blocking, and the ability to learn the calls. The next opponent still has to be prepared for with the current roster."
+        "title": "Walker volume versus a passable third down",
+        "body": "Twenty-three touches won Allegiant. If Los Angeles sells out to stop the 177-yard tape, Mahomes still has to complete something other than go balls, and Kelce's two-catch afternoon cannot repeat."
+      },
+      {
+        "title": "Two-deep or heat on Herbert",
+        "body": "The last tape allowed 365 net passing with no sacks. Spagnuolo can sit in Cover-2 and take away the 27-yard shot, or he can zone-blitz to turn 10 hits into a sack. Week 6 is which one he trusts on third down."
       }
     ]
   },
   "gamePlan": {
     "opponent": "Los Angeles Chargers",
-    "lede": "Our Week 6 plan starts with the protection stress on both sides. Kansas City should make its own pass answers quicker and make Herbert's protection calls harder. This is a proposed script for Oct 18, not a claim about what either staff will call. Rice's practice participation and the Chargers' Denver game can change the personnel details before kickoff.",
-    "howTheyMatch": "The Chargers' Friday report ruled Joe Alt, Trevor Penning, Derwin James, and Quentin Johnston out against Denver and listed Ladd McConkey questionable. Those are Week 5 designations, not Week 6 rulings. Slater's injured-reserve move is a firmer reason to study replacement protection. Our matchup read is to force that group to communicate across the front while maintaining enough coverage to contest the immediate throw. On offense, make Los Angeles defend the width of the field before asking a depleted Chiefs receiver group to win isolated routes downfield.",
+    "lede": "Week 6 is Los Angeles at GEHA Field at Arrowhead Stadium on Sun Oct 18, 3:25 PM CT (CBS). Kansas City is a 71.6 percent ESPN FPI favorite at home, which is a 4-0 price, not a Herbert tax. The assignment is to make the Chargers beat a 189-yard run identity and a two-deep shell, because the last opponent just posted 28 first downs and 365 net passing yards against hits that never became sacks.",
+    "howTheyMatch": "Styles collide in the AFC West the same way they did at Allegiant, except the visiting quarterback is better. Kansas City wants Walker on early downs and explosives off play-action looks it did not need to name last week; Los Angeles wants Herbert to live in the same 11-personnel volume Cousins just used for 31-of-52. The leverage is the box. If the Chargers load it for Walker, Worthy and Kelce have to win. If they play two-high, Walker should see the same 22-carry game. Protection is the hidden matchup: eight hits and two sacks on Mahomes is a starting point for a Chargers pass rush, and Kansas City's 10 hits with zero sacks is a starting point for Herbert if Spagnuolo does not change the math.",
     "keys": [
       {
-        "title": "Make the box declare before the handoff",
-        "body": "Use motion and formation strength to ask the defense where the extra run fitter lives. Walker's first read should follow the blocking, not the narrative that every carry needs to be an explosive. If the safety rotates down early, the pass complement becomes available. If the safeties stay deep, take the run the numbers support. The offense needs the discipline to choose the available answer instead of proving that the original call was clever."
+        "title": "Make Walker the first answer",
+        "body": "Open in inside zone and stay there until Los Angeles puts an extra hat in the box. Walker's 177 on 22 carries is the only volume the offense proved at Allegiant; 15-of-30 does not travel as a plan."
       },
       {
-        "title": "Give Mahomes a quick answer and a shot",
-        "body": "Pair an immediate completion with the deeper route. The quick throw should be clear enough to use against pressure without a long scramble drill. The shot is there if the defense overcommits to the underneath answer. Movement releases can keep Worthy from fighting through contact at the line, and a tight end can change the coverage's spacing. The desired result is decisiveness. Our plan does not require the quarterback to manufacture a highlight on every passing down."
+        "title": "Two-deep on Herbert's shots",
+        "body": "Ian Thomas' 27-yard score, Cody White's 27-yarder, Bowers' 20-yard score, and Tre Tucker's 23-yarder are the shots Cover-2 is built to erase. Take those away and make Herbert throw into the five under."
       },
       {
-        "title": "Disguise the rush without losing the edge",
-        "body": "Crowd the front, vary the rush source, and make the protection account for someone who may drop out. That can create a useful matchup without sending an extra defender. The edge rusher still has to keep Herbert inside the pocket; the interior rush must compress the space without opening a clean lane. If the ball comes out quickly, the coverage needs to tackle it short of the sticks. A disguised pressure is a team call, not an individual race to the backfield."
+        "title": "Turn 10 hits into a sack",
+        "body": "The zone blitz is the call, not a takeaway credit from last week. Drop a lineman, rush a second-level player, and do not let Herbert play the Cousins game of 52 attempts with a clean shirt."
       },
       {
-        "title": "Win the second answer after the first read",
-        "body": "Herbert will have a response to the first pressure look. Kansas City should be ready to rotate the coverage, show the same front with a different rush, or play a patient shell. On offense, Los Angeles will adjust to Walker and the tight ends. The Chiefs need the counter already rehearsed: a leak, a screen, or a route into the vacated area. The adjustment is the point of the bye. Have another answer ready before a stalled possession forces the conversation."
+        "title": "Protect Mahomes without hiding him",
+        "body": "Eight hits and two sacks are the number. Mix Walker screens and mesh to Kelce so the Chargers cannot tee off on a thinned receiver room, then still take the four-verticals shot when the safety sits on Walker."
       }
     ],
     "script": [
-      "Show a balanced Walker run look and use motion to identify the extra box defender",
-      "Carry an early flat or outlet throw alongside the deeper route so pressure has an answer",
-      "Use Kelce and Gray together, then change which one blocks and which one releases",
-      "Call a play-action boot only with an answer for the backside defender",
-      "Present a crowded defensive front, vary the rush source, and keep Herbert contained",
-      "Revise the personnel assignments after Chargers-Broncos and the Week 6 practice reports"
+      "1st-and-10, 12 personnel: Walker inside zone, Tonga as the extra body, same downhill identity that produced 189 rushing yards.",
+      "2nd-and-medium: four verticals to Worthy and a Kelce seam — replace Thornton's 42- and 55-yard shots without hunting hero ball every snap.",
+      "3rd-and-5: mesh to Kelce and Gray. They combined for four catches on 15-of-30; this is how you stop living at 5-of-13.",
+      "When the Chargers rush: Walker spacing screen off his 23-touch role, line leading in space so the eight-hit tape does not repeat.",
+      "Early downs vs Herbert: Cover-2 shell, Delane and the corners rally, safeties on top of the go ball.",
+      "3rd-and-7 vs Herbert: Spagnuolo zone blitz. Ten hits and zero sacks is the look you are correcting, not celebrating."
     ]
   },
   "nextGame": {
+    "id": "",
     "label": "Week 6 · Sun, Oct 18 · 3:25 PM CT",
     "opponent": "Los Angeles Chargers",
     "at": "Arrowhead Stadium",
     "tv": "CBS",
-    "note": "Kansas City has no game this weekend. Los Angeles is 0-4 entering its Oct 11 game against Denver; that result will shape the Week 6 opponent. Kickoff at Arrowhead is 1:25 PM Arizona time."
+    "note": "4-0 AFC West home game after the bye, with ESPN FPI at 71.6 percent and a receiver room missing Thornton."
   },
   "markets": {
     "game": {
@@ -160,38 +161,30 @@
       "label": "Sun, Oct 18 · 3:25 PM CT",
       "homeAway": "home",
       "kcWin": 71.6,
-      "spreadDetail": "KC -7.5",
-      "overUnder": 45.5,
-      "source": "ESPN FPI / DraftKings · Oct 10 snapshot",
+      "spreadDetail": "",
+      "overUnder": null,
+      "source": "ESPN FPI game projection",
       "url": "https://www.espn.com/nfl/game/_/gameId/401873006"
     },
     "model": {
       "kcWin": 71.6,
       "oppWin": 28.2,
-      "label": "ESPN FPI game projection · Oct 10 snapshot",
+      "label": "ESPN FPI game projection",
       "source": "ESPN FPI",
       "url": "https://www.espn.com/nfl/fpi"
     },
-    "vegas": {
-      "provider": "Draft Kings",
-      "spreadDetail": "KC -7.5",
-      "overUnder": 45.5,
-      "homeMoneyline": -395.0,
-      "awayMoneyline": 310.0,
-      "source": "ESPN / Draft Kings",
-      "url": "https://www.espn.com/nfl/lines"
-    },
+    "vegas": null,
     "consensus": null,
     "futures": [
       {
         "label": "Pro Football: 2027 Champion",
-        "chiefsPct": 10.6,
+        "chiefsPct": 10.3,
         "source": "Polymarket",
         "url": "https://polymarket.com/event/pro-football-2027-champion-20260729185915366"
       },
       {
         "label": "Pro Football: 2027 AFC Champion",
-        "chiefsPct": 17.5,
+        "chiefsPct": 18.5,
         "source": "Polymarket",
         "url": "https://polymarket.com/event/pro-football-2027-afc-champion"
       }
@@ -199,395 +192,325 @@
   },
   "spotlight": [
     {
-      "tag": "ST",
-      "title": "Araiza gets the Wednesday recognition",
-      "body": "Chiefs.com announced his AFC weekly award on Oct 7. The practical lesson for Arrowhead is to carry the punt coverage standard forward. Force the returner to decide under pressure, protect the ball near the goal line, and give the defense room to work. That is part of the plan for Herbert."
+      "tag": "RB",
+      "title": "Walker is the 4-0 identity",
+      "body": "Twenty-two carries, 177 yards, two rushing touchdowns, 23 touches inside a 189-yard team day. Arrowhead Pride is already putting him next to the franchise's best backfields, and Arrowhead Addict has Chiefs rushing history in view. The Chargers are the first defense that gets a full week to take it away."
     },
     {
       "tag": "WR",
-      "title": "A recovery estimate changes the planning horizon",
-      "body": "Thornton's reported timetable belongs to the longer view; Rice's availability needs the coming week's evidence. Our preference is to rehearse a reliable receiver rotation now and expand it if the health news allows. The staff cannot spend the bye waiting for the most optimistic version of the depth chart."
+      "title": "Thornton's ankle is the roster problem",
+      "body": "Five catches, 111 yards, two touchdowns, then a dislocated ankle on the 55-yarder. Arrowhead Pride reports Stukes was not fined and that Thornton could be a postseason timeline, which still leaves 13 regular-season games. Rice remains short-term. That is a live search, not a depth chart."
     },
     {
-      "tag": "OL",
-      "title": "Read the replacement protection",
-      "body": "Slater's move to injured reserve changes the Chargers' tackle picture. The Denver game should show which protection help the offense trusts. Kansas City can attack that structure, but the coverage must account for the receivers who release quickly. A missing starter creates a question to test, not a free sack to count."
+      "tag": "WR2",
+      "title": "Worthy exploded. He is not a room.",
+      "body": "The 41-yarder and four catches are the vertical Kansas City has to scale, which is why Arrowhead Addict wants more of that tape. An ESPN insider on the same site questions whether Worthy can solve the crisis. Week 6 is the first game that question is not theoretical."
     },
     {
-      "tag": "BYE",
-      "title": "Watch a division opponent while Kansas City rests",
-      "body": "There is useful work in a quiet weekend. Watch how Los Angeles handles Denver's pressure and how its receivers are used. Then compare the opening plan with the adjustments. What the Chargers change after the first series may be more useful for the Chiefs than the first call itself."
+      "tag": "ST",
+      "title": "Araiza just won AFC Player of the Week",
+      "body": "Chiefs.com notes he dropped all five punts inside the 20, and the Allegiant tape also gave him a 12-yard rush from punt formation. Field position is how you survive 24:18 of possession. He has to do it again against Los Angeles."
     },
     {
-      "tag": "ROSTER",
-      "title": "The announcement is the depth-chart change",
-      "body": "The official Chiefs transaction log supplies the confirmed moves. Receiver-market reporting belongs beside it with attribution and timing. Our analysis can discuss the type of addition that would help, but a hypothetical player gets no assignment in the Oct 18 script. The current room has to own the preparation."
+      "tag": "DL",
+      "title": "Norman-Lott can wait",
+      "body": "Arrowhead Addict's read is that Omarr Norman-Lott remains an unknown for a front that does not need to rush him back. The live issue is finishing: 10 hits, zero sacks on Cousins. Herbert will make that number look worse if the extras are not ready."
+    },
+    {
+      "tag": "Market",
+      "title": "71.6 percent is a favorite, not a bye",
+      "body": "ESPN FPI has Kansas City at 71.6 percent and Los Angeles at 28.2 percent. Polymarket's 10.3 percent championship price and 18.5 percent AFC ticket still treat 4-0 as a sample after a 30-27 win that cost Thornton. Price it like a home favorite that has to earn the clock."
     }
   ],
   "matchups": [
     {
-      "unit": "Walker versus the box count",
-      "chiefs": "Walker and the run-blocking unit",
-      "opponent": "Chargers front and rotating safety",
+      "unit": "Chiefs run game vs. Chargers front",
+      "chiefs": "Kenneth Walker III (22-177-2, 23 touches) and a 189-yard team identity",
+      "opponent": "Chargers run defense, extra hat in the box",
       "edge": "KC",
-      "note": "Our lean is toward the Chiefs if they can make the defense declare. A light box invites the handoff; a late safety creates a reason for the pass complement. Do not turn the run identity into a refusal to read the defense."
+      "note": "Walker just posted 177 on 22 carries against a Raiders front that could not make him one-dimensional. If Los Angeles loads the box, the pass game has to answer without Thornton."
     },
     {
-      "unit": "Chiefs protection versus edge pressure",
-      "chiefs": "Mahomes, the line, and the outlet receiver",
-      "opponent": "Los Angeles pass rush",
+      "unit": "Mahomes / WRs vs. Chargers coverage",
+      "chiefs": "Mahomes 15-of-30, 225 yards, 2 TD; Worthy 4 catches; Kelce 2",
+      "opponent": "Chargers secondary vs. a thinned room",
       "edge": "PUSH",
-      "note": "The answer has to be built into the call. A quick completion, a correctly scanned pressure, and a controlled launch point are preferable to assuming the quarterback can escape every problem. This edge stays even until the execution earns more."
+      "note": "Thornton’s 111 yards and two scores are out long-term and Rice is short-term. The 41-yarder to Worthy is real; four catches and a two-catch Kelce afternoon is not a finished passing game."
     },
     {
-      "unit": "Spagnuolo versus replacement protection",
-      "chiefs": "Disguised fronts and disciplined rush lanes",
-      "opponent": "Herbert and the Chargers line",
+      "unit": "Spagnuolo pass rush vs. Herbert",
+      "chiefs": "10 QB hits, 0 sacks on Cousins; Karlaftis / Anudike-Uzomah",
+      "opponent": "Justin Herbert, volume passer",
+      "edge": "PUSH",
+      "note": "Hits without sacks is how Cousins got to 52 attempts while Las Vegas held the ball 35:42. Herbert is the upgrade on that script unless the zone blitz actually lands."
+    },
+    {
+      "unit": "Chiefs run defense vs. Chargers backs",
+      "chiefs": "Held Las Vegas to 72 rushing yards on 26 carries",
+      "opponent": "Chargers run game behind Herbert play-action volume",
       "edge": "KC",
-      "note": "Our lean depends on communication stress becoming a hurried throw. Show more potential rushers than the protection can comfortably sort, then change who comes. Keep the escape lane closed and make the underneath tackle when Herbert gets the ball out."
+      "note": "Jeanty needed 21 touches to find yards that were not there. If the front stays stout, Herbert is forced into the two-deep throws Kansas City can live with."
     },
     {
-      "unit": "Kelce and Gray versus formation matching",
-      "chiefs": "Two-tight-end formations",
-      "opponent": "Los Angeles linebackers and safeties",
-      "edge": "PUSH",
-      "note": "The package is useful when the defense cannot tell run from pass by alignment. Alternate the blocker and the receiver, use motion to change the strength, and punish the defender who guesses. Its value comes from the range of answers."
-    },
-    {
-      "unit": "Worthy versus the release",
-      "chiefs": "Motion, spacing, and a vertical complement",
-      "opponent": "Chargers corners and deep help",
-      "edge": "PUSH",
-      "note": "Give the route a chance before demanding a spectacular finish. A clean release can make the quick throw available; a deeper route can keep the safety from crowding it. Availability elsewhere in the receiver room will affect how much the defense can concentrate here."
-    },
-    {
-      "unit": "Field position versus the long field",
-      "chiefs": "Araiza and the coverage unit",
-      "opponent": "Chargers return game and starting position",
+      "unit": "Kelce vs. Chargers second level",
+      "chiefs": "Travis Kelce (2 catches) and Noah Gray (2)",
+      "opponent": "Chargers linebackers and safeties in man",
       "edge": "KC",
-      "note": "Our lean follows the demonstrated punt execution, not a promise about the next return. Cover without fouling, finish the downing operation, and make the opponent earn the next field. The defense must then protect that advantage with sound tackling."
+      "note": "The talent edge is still Kelce. The usage edge is not, not after four combined catches. Mesh has to be on the call sheet so 15-of-30 does not repeat."
+    },
+    {
+      "unit": "Special teams",
+      "chiefs": "Matt Araiza (AFC ST POW, 12-yard fake-punt-look rush)",
+      "opponent": "Chargers return game",
+      "edge": "KC",
+      "note": "Araiza pinned all five inside the 20, and Bassa-Cochrane already proved a kickoff can become a touchdown drive. Field position is the 24:18 survival tool."
     }
   ],
   "xsandos": [
     {
-      "title": "Under-center inside zone",
-      "situation": "1st-and-10, opening script vs. Los Angeles, Walker in the backfield",
+      "title": "Walker downhill, extra hat attached",
+      "situation": "1st-and-10, 12 personnel, opening script vs. Los Angeles at Arrowhead",
       "concept": "inside_zone",
-      "why": "Use the run look to make the safety declare his fit, then take the answer the box allows.",
-      "coaching": "The line works the combination block, Walker reads the crease, and Mahomes carries the pass complement. This diagram is a teaching proposal for the preview.",
+      "why": "Walker just ran 22 times for 177 yards; stay downhill so Herbert never inherits a 35:42 script.",
+      "coaching": "Bieniemy: zone steps, one cut from Walker, Tonga as the extra body. Do not live in the 1-yard downs that turned it over at the Las Vegas 49.",
       "labels": {
-        "x": "stalk / cut off",
-        "z": "cut off",
-        "te": "down block to LB"
+        "x": "block/release",
+        "z": "block/release",
+        "te": "down block"
       },
-      "diagram": "images/narrative/2026-10-10-2102/xo-inside_zone.svg",
+      "diagram": "images/narrative/2026-10-11-1758/xo-inside_zone.svg",
       "side": "offense"
     },
     {
-      "title": "Play-action boot off Walker",
-      "situation": "2nd-and-6 after a Walker inside-zone look, early series vs. Chargers",
-      "concept": "play_action_boot",
-      "why": "Moving the launch point can give Mahomes a clearer early read, provided the backside defender is accounted for.",
-      "coaching": "Sell the handoff, check the edge, and layer the flat beneath the over route. If the edge stays home, use the outlet rather than forcing the boot into pressure.",
-      "labels": {
-        "x": "flat / now",
-        "z": "deep over",
-        "te": "hinge / leak"
-      },
-      "diagram": "images/narrative/2026-10-10-2102/xo-play_action_boot.svg",
-      "side": "offense"
-    },
-    {
-      "title": "Four verticals to Worthy",
-      "situation": "2nd-and-medium vs. Chargers Cover-3, 11 personnel with the available receiver group",
+      "title": "Replace Thornton with seams",
+      "situation": "2nd-and-6 vs. Chargers two-high or Cover 3",
       "concept": "four_verts",
-      "why": "A vertical complement keeps the coverage from treating every reduced-receiver look as an underneath passing call.",
-      "coaching": "Space the seams, read the safety, and keep an outlet available. Call the concept when the protection can support it; the diagram does not assume Thornton is available.",
+      "why": "Thornton is out long-term; Worthy's 41-yarder is the remaining shot that keeps a safety from sitting on Walker.",
+      "coaching": "Worthy through the deep middle, Kelce on the seam, outside receivers past the corners. Mahomes has to take the throw he missed to Worthy late against Las Vegas.",
       "labels": {
-        "x": "seam",
+        "x": "go",
         "z": "go",
         "te": "seam"
       },
-      "diagram": "images/narrative/2026-10-10-2102/xo-four_verts.svg",
+      "diagram": "images/narrative/2026-10-11-1758/xo-four_verts.svg",
       "side": "offense"
     },
     {
-      "title": "Walker spacing screen",
-      "situation": "3rd-and-5 to 3rd-and-7, obvious pass down vs. Chargers pin-the-ears rush",
+      "title": "Manufacture Kelce on third down",
+      "situation": "3rd-and-5 vs. Chargers man coverage",
+      "concept": "mesh",
+      "why": "Kelce and Gray combined for four catches on a 15-of-30 day; rubs create the completions the explosives cannot be every snap.",
+      "coaching": "Kelce over the ball, Gray as the rub, Walker as the checkdown. This is how Reid and Bieniemy stop another 5-of-13 chart before Herbert's offense gets the ball back.",
+      "labels": {
+        "x": "sit/corner",
+        "z": "crosser",
+        "te": "mesh crosser"
+      },
+      "diagram": "images/narrative/2026-10-11-1758/xo-mesh.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Easy offense when they hunt Mahomes",
+      "situation": "2nd-and-8, Chargers pin-rushing off eight hits and two sacks",
       "concept": "spacing_screen",
-      "why": "A well-timed screen can make an aggressive rush defend the space it leaves behind.",
-      "coaching": "Let the rush commit without giving up a clean hit on Mahomes, then release the blockers under control. The receiver catches with a path and waits for the escort.",
+      "why": "Los Angeles will hunt the eight hits and two sacks Mahomes just took; get Walker the ball in space off 23 touches.",
+      "coaching": "Line lead in space, Walker north after the catch, Mahomes a simple dump. Do not let the Chargers turn protection stress into the entire drive.",
       "labels": {
-        "x": "clear-out",
-        "z": "clear-out",
-        "te": "flat wall"
+        "x": "crack/block",
+        "z": "stalk",
+        "te": "release to the second level"
       },
-      "diagram": "images/narrative/2026-10-10-2102/xo-spacing_screen.svg",
+      "diagram": "images/narrative/2026-10-11-1758/xo-spacing_screen.svg",
       "side": "offense"
     },
     {
-      "title": "Spagnuolo Cover-2 shell",
-      "situation": "1st-and-10 vs. Herbert, first two series at Arrowhead",
+      "title": "Take the 27-yard ball off Herbert",
+      "situation": "2nd-and-10, Chargers 11 personnel, Herbert in shotgun",
       "concept": "cover_two",
-      "why": "A patient two-deep look can challenge Herbert to move the ball underneath without handing him a free explosive.",
-      "coaching": "Safeties hold their halves, underneath defenders reroute and rally, and the front keeps the quarterback contained. Tackle the short throw before it becomes a long gain.",
+      "why": "Las Vegas posted 365 net passing and 28 first downs; two-deep erases the 27-yard shot and makes Herbert throw into five under.",
+      "coaching": "Spagnuolo: safeties on top of the go balls, Delane and the corners rally to White/Bowers-type catches, no free access down the sideline.",
       "labels": {
-        "x": "deep half",
-        "z": "deep half",
-        "te": "hook / curl"
+        "x": "flat/corner",
+        "z": "flat/corner",
+        "te": "hook to Herbert's checkdown"
       },
-      "diagram": "images/narrative/2026-10-10-2102/xo-cover_two.svg",
+      "diagram": "images/narrative/2026-10-11-1758/xo-cover_two.svg",
       "side": "defense"
     },
     {
-      "title": "Simulated pressure / zone blitz",
-      "situation": "3rd-and-7 or longer vs. Herbert, second-half adjustment",
+      "title": "Simulated heat on third down",
+      "situation": "3rd-and-7 vs. Herbert, must-have stop after a 10-hit, 0-sack tape",
       "concept": "zone_blitz",
-      "why": "A crowded front with a changing rush source can test the Chargers' protection communication while preserving coverage.",
-      "coaching": "Show the pressure, replace the vacated zone, and keep the edge closed. Read the quick throw and finish the tackle; the design creates a question rather than guaranteeing a sack.",
+      "why": "Kansas City recorded 10 quarterback hits and zero sacks on Cousins; this is the call to make Herbert throw on time, not a takeaway claim.",
+      "coaching": "Show the extra hat, drop a lineman, rush a second-level player. Karlaftis and Anudike-Uzomah cannot both chase upfield if the throwing lane is the hole they left.",
       "labels": {
-        "x": "hot throw",
-        "z": "drop to hook",
-        "te": "underneath wall"
+        "x": "curl/flat drop",
+        "z": "deep half",
+        "te": "hook over the blitz"
       },
-      "diagram": "images/narrative/2026-10-10-2102/xo-zone_blitz.svg",
+      "diagram": "images/narrative/2026-10-11-1758/xo-zone_blitz.svg",
       "side": "defense"
     }
   ],
   "coaching": [
     {
-      "topic": "Andy Reid / Eric Bieniemy — Offensive plan",
-      "detail": "Our priority is a connected menu: the run, quick throw, and play-action answer should look related before the snap. Set the receiver jobs after the practice evidence arrives, then keep enough consistency that a late change does not break the protection call."
+      "topic": "Andy Reid / Eric Bieniemy vs. a thinned room",
+      "detail": "The 189-yard run game is the identity that survived 15-of-30. Reid's faith in Bieniemy is the early-down plan; the third-down plan has to put Kelce back on the ball so Walker is not the entire answer against Los Angeles."
     },
     {
-      "topic": "Steve Spagnuolo — Defensive plan",
-      "detail": "Test the protection with a changing picture while making the rush and coverage work together. The defender who drops has an assignment as important as the defender who comes. Herbert's first answer should encounter somebody ready to tackle."
+      "topic": "Steve Spagnuolo vs. Justin Herbert",
+      "detail": "Ten hits and zero sacks is the look Herbert will feast on if it repeats. Cover-2 on early downs and the zone blitz on third down are the corrections, not a rewrite of a defense that already held Las Vegas to 72 rushing yards."
     },
     {
-      "topic": "Dave Toub — Special teams plan",
-      "detail": "Carry the punt coverage execution into the next game. Manage the release lanes, avoid the flag that erases a useful kick, and finish the downing play. A good field-position exchange can support an aggressive offense without asking it to force a low-percentage throw."
+      "topic": "Protection answers, not hero ball",
+      "detail": "Eight hits and two sacks on Mahomes is the Chargers' invitation. Screens and mesh are the answers; four verticals is the shot. Do not ask Mahomes to recreate Thornton's 55-yarder every series."
     }
   ],
   "injuries": [
     {
       "player": "Tyquan Thornton",
-      "status": "Reported surgery plan / recovery estimate",
-      "note": "Arrowhead Pride's Oct 5 report attributes a planned surgery and 12-to-16-week estimate to NFL Network's Ian Rapoport. This is not a confirmed return date; do not plan on his availability against Los Angeles.",
-      "source": "Arrowhead Pride / NFL Network · Oct 5"
+      "status": "Long-term",
+      "note": "Dislocated his ankle on the 55-yard catch-and-run in the 30-27 win. Arrowhead Pride reports the NFL did not fine Treydan Stukes and that Thornton could be pointed at a postseason return, with 13 regular-season games still to play.",
+      "source": "Arrowhead Pride"
     },
     {
       "player": "Rashee Rice",
-      "status": "Hamstring — Week 6 availability unconfirmed",
-      "note": "The Oct 5 ESPN report describes his right-hamstring exit and being held out as a precaution. The next practice and game-status reports must establish his Oct 18 availability; no Week 6 designation is assigned here.",
-      "source": "ESPN / Nate Taylor · Oct 5"
-    },
-    {
-      "player": "Rashawn Slater (LAC)",
-      "status": "Injured reserve",
-      "note": "The Chargers announced Oct 9 that he underwent ankle surgery the previous day and would go on injured reserve. Their Friday injury report confirms the move.",
-      "source": "Chargers Communications · Oct 9"
-    },
-    {
-      "player": "Chargers Week 5 report",
-      "status": "Denver designations — recheck for Week 6",
-      "note": "Alt, Penning, James and Johnston are out against Denver; McConkey is questionable. These designations apply to Oct 11. They do not rule those players in or out at Arrowhead.",
-      "source": "Chargers.com · Oct 9"
+      "status": "Short-term",
+      "note": "Listed alongside Thornton as a reason Kansas City may add to the receiver room, with Rice framed as short-term and Thornton as long-term.",
+      "source": "Arrowhead Pride"
     }
   ],
   "personnel": [
     {
-      "move": "Latest listed Chiefs transaction: Christiansen elevation",
-      "detail": "Kansas City's official log lists Cole Christiansen's Oct 3 standard elevation as its latest entry at Saturday's check. That is a game-week elevation, not evidence of a new permanent roster addition during the bye."
+      "move": "Receiver search: Justin Watson vs. a real add",
+      "detail": "Kansas City is reportedly one of several teams interested in free agent Justin Watson. Arrowhead Addict reads it as familiarity over upside; Arrowhead Pride asks whether the club will revisit the offseason receiver plan after Thornton and Rice."
     },
     {
-      "move": "Guard assignment awaits the next lineup",
-      "detail": "Caliendo started in Las Vegas. Suamataia's next role has not been established by that single game or by Reid's postgame response. Our plan asks the staff to settle the protection responsibilities before asking the line to handle a changing front."
+      "move": "Worthy as the remaining vertical",
+      "detail": "Four catches and a 41-yarder are the live perimeter tape. That is the job until a roster add lands, not a completed WR1 transition."
     },
     {
-      "move": "Receiver-market report, not a Chiefs transaction",
-      "detail": "The Harrison reporting remains attributed league news with no confirmed Chiefs acquisition in the checked sources. Evaluate potential help by role and learning time; keep the current players responsible for next week's install."
+      "move": "Tonga as the short-yardage extra",
+      "detail": "Khyiris Tonga reported eligible twice against Las Vegas, including a no-gain at midfield. The package stays in the game plan if Walker is going to keep seeing loaded boxes."
+    },
+    {
+      "move": "Norman-Lott on ice",
+      "detail": "The defensive front does not need to rush Omarr Norman-Lott back to fix a 10-hit, zero-sack problem. That is a Spagnuolo call, not a debut."
     }
   ],
   "strategies": [
-    "Use motion to identify the run fitter and connect the handoff to an immediate pass answer",
-    "Rehearse receiver roles that work with Rice available or unavailable",
-    "Make the protection call and outlet route part of the same decision",
-    "Show Herbert pressure from several places while changing the actual rush source",
-    "Keep rush lanes intact and tackle the quick throw before the sticks",
-    "Review the Chargers-Denver film before finalizing the Week 6 personnel plan"
+    "Feed Walker early and often until Los Angeles puts an extra defender in the box; 22 carries and 177 yards is the proven math.",
+    "Play Cover-2 on Herbert's early-down shots so 27-yard completions are not the Chargers' first answer.",
+    "Zone-blitz on third down to turn the last game's 10 hits into an actual sack, without emptying the middle for Bowers-style throws.",
+    "Script mesh and sit-ins for Kelce and Gray so 15-of-30 does not become the passing identity.",
+    "Use Walker screens when the Chargers hunt the eight-hit, two-sack tape on Mahomes.",
+    "Let Araiza keep pinning inside the 20; 24:18 of possession requires field position and another takeaway opportunity on returns."
   ],
   "debates": [
-    "Which receiver role needs the most help if Rice cannot practice fully?",
-    "How should the Chiefs change the tight-end package when Los Angeles adds a run fitter?",
-    "Does the Denver film call for more disguise or more patient coverage against Herbert?",
-    "What protection assignment matters more than the identity of the next starting left guard?",
-    "Can punt coverage and disciplined tackling make the Chargers repeatedly drive a long field?"
+    "Is Justin Watson a real Week 6 answer, or is Kansas City patching the receiver room with a familiar name?",
+    "Can Worthy’s four-catch, 41-yard tape replace Thornton’s 111 yards against a Chargers secondary?",
+    "How many carries is too many for Walker if the Chargers sell out to stop 177?",
+    "Should Spagnuolo sit in two-deep or keep bringing simulated pressure after 10 hits and zero sacks?",
+    "Does 4-0 with 24:18 of the ball still count as control, or is this a takeaway team until third down is fixed?"
   ],
   "runOfShow": [
     {
-      "segment": "Cold open: the bye changes the assignment",
-      "length": "0:00–1:30",
-      "talkTrack": "Open with the Chiefs' bye and the Chargers' protection problem. Explain that Los Angeles still has Denver to play. Establish the actual next kickoff at Arrowhead. The episode is a preview with reporting underneath it, not a claim that the Week 6 lineup is already known."
+      "segment": "Cold open",
+      "length": "0:00-1:20",
+      "talkTrack": "Four-and-oh, 30-27 at Allegiant, Walker 177, Thornton down on the 55-yarder. Herbert is next at Arrowhead on Sun Oct 18, 3:25 PM CT. We are not pretending 28 first downs allowed is a finished defense."
     },
     {
-      "segment": "The Raiders context",
-      "length": "1:30–7:00",
-      "talkTrack": "Use the retained last-game review to explain why the offense needs reliable complements and why special teams mattered. Keep the team statistics attached to the right team. The earlier game supplies evidence for the plan; it does not become a new result during the bye."
+      "segment": "Last game film",
+      "length": "1:20-6:30",
+      "talkTrack": "Walk through the scoring in order: Thomas 27 yards at Q1 8:10, Kansas City ties at Q1 2:23, the field-goal half, 17-13, then 17-19. Bind the 2-yard score at Q4 3:21 to 23-19, then Bassa's force and Cochrane's recovery, then Walker right end for 22 and 30-19. Bowers 20 yards makes it 30-27. Nwankpa ends it. Separate 189 rushing and 210 net passing from Las Vegas' 72, 365, and 437."
     },
     {
-      "segment": "What changed after Monday",
-      "length": "7:00–12:00",
-      "talkTrack": "Show the dated sources for Araiza's award and Slater's injured-reserve move. Explain Thornton's attributed recovery estimate and the separate uncertainty around Rice. Treat the Denver injury report as this week's report. Put the official Chiefs transaction log next to the receiver-market reporting so the audience can see the difference."
+      "segment": "The 15-of-30 problem",
+      "length": "6:30-9:00",
+      "talkTrack": "Mahomes: 15-of-30, 225 yards, two touchdowns, two sacks, eight hits. Explosives to Worthy and Thornton. Kelce two catches, Gray two. That is the passing game the Chargers will see unless mesh is on the script."
     },
     {
-      "segment": "Offensive board",
-      "length": "12:00–18:00",
-      "talkTrack": "Draw inside zone and its pass complement, then the boot and screen. Explain the backside defender, the outlet, and which tight end releases. Show how motion can help Worthy without predicting a catch total. Discuss the version of the script that works if Rice is unavailable."
+      "segment": "Where 4-0 actually stands",
+      "length": "9:00-12:00",
+      "talkTrack": "Bye is over. Thornton long-term, Rice short-term, Watson rumors, Worthy as the remaining vertical. Walker is the identity. 24:18 of possession and 5-of-13 third down are the fixes. Cite Arrowhead Pride on the ankle and the receiver search."
     },
     {
-      "segment": "Defensive board",
-      "length": "18:00–23:00",
-      "talkTrack": "Draw the two-deep shell and the pressure disguise. Connect the rush source to the underneath replacement. Explain containment and the tackle on the quick throw. List the questions to answer by watching Chargers-Broncos before the next practice week begins."
+      "segment": "Chargers game plan",
+      "length": "12:00-16:30",
+      "talkTrack": "FPI 71.6 percent is a home favorite, not a Herbert discount. Run Walker, Cover-2 the shots, zone-blitz on third down, screen the rush. Credit Los Angeles: they can post the 28 first downs if the rush stays hits."
     },
     {
-      "segment": "Snapshot and next check",
-      "length": "23:00–26:00",
-      "talkTrack": "Identify the market numbers as Saturday snapshots from the linked feeds. Close with the next evidence: Sunday's Chargers game, Kansas City's practice participation, and any officially announced receiver move. Send the audience toward the Oct 18 game with a plan that can change when the facts change."
+      "segment": "X's and O's cards",
+      "length": "16:30-19:30",
+      "talkTrack": "Four offense: inside zone, four verts, mesh, Walker screen. Two defense: Cover-2 and the zone blitz as a call. Tie every card to Thornton being out, the 10-hit zero-sack tape, and Herbert at Arrowhead."
+    },
+    {
+      "segment": "Debates and closer",
+      "length": "19:30-22:00",
+      "talkTrack": "Watson or a real add. Worthy as WR1. Walker volume. Two-deep or heat. Send them out looking at Sun Oct 18, 3:25 PM CT, then Seattle on Sun Oct 25, 7:20 PM CT."
     }
   ],
   "sources": [
     {
-      "title": "Chiefs 2026 schedule",
-      "publisher": "Kansas City Chiefs",
-      "url": "https://www.chiefs.com/schedule/",
-      "note": "Verified Oct 10: four wins, Week 5 bye, Chargers at Arrowhead Oct 18 at 3:25 PM CT."
-    },
-    {
-      "title": "Punter Matt Araiza earns AFC Special Teams Player of the Week honors",
-      "publisher": "Kansas City Chiefs",
-      "url": "https://www.chiefs.com/news/punter-matt-araiza-earns-afc-special-teams-player-of-the-week-honors",
-      "note": "Oct 7: weekly award, all five punts inside the 20, and late punt downed at the 1."
-    },
-    {
-      "title": "Rashawn Slater injury update",
-      "publisher": "Los Angeles Chargers",
-      "url": "https://www.chargers.com/news/rashawn-slater-injury-update",
-      "note": "Oct 9 announcement: ankle surgery Oct 8 and injured-reserve move."
-    },
-    {
-      "title": "Chargers vs. Broncos injury report",
-      "publisher": "Los Angeles Chargers",
-      "url": "https://www.chargers.com/news/injury-report-mcconkey-johnston-alt-week-5-broncos",
-      "note": "Oct 9: Week 5 designations only. This does not establish Week 6 availability."
-    },
-    {
-      "title": "How Chargers rookie offensive linemen are preparing for Week 5",
-      "publisher": "Los Angeles Chargers",
-      "url": "https://www.chargers.com/news/rookie-offensive-linemen-depth-chart",
-      "note": "Oct 8: four rookies finished the Seattle game; replacement protection context."
-    },
-    {
-      "title": "Chiefs WR Thornton has dislocated ankle, sources say",
-      "publisher": "ESPN / Nate Taylor via ABC7",
-      "url": "https://abcotv.geo.hosted.abcotvs.com/post/chiefs-rule-rashee-rice-doubtful-return-injury/19908181/",
-      "note": "Oct 5: Thornton injury and Rice right-hamstring exit; no confirmed Rice Week 6 designation."
-    },
-    {
-      "title": "Tyquan Thornton surgery and reported recovery timeline",
-      "publisher": "Arrowhead Pride / NFL Network",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/212328/chiefs-tyquan-thornton-surgery-12-16-week-recovery-timeline",
-      "note": "Oct 5 follow-up: planned surgery and Rapoport-attributed 12-to-16-week estimate; not a guaranteed return."
-    },
-    {
-      "title": "Chiefs transactions",
-      "publisher": "Kansas City Chiefs",
-      "url": "https://www.chiefs.com/team/transactions/",
-      "note": "Checked Oct 10: latest listed entry is Cole Christiansen standard elevation on Oct 3."
-    },
-    {
-      "title": "Report: Cardinals finalizing Marvin Harrison Jr. trade",
-      "publisher": "Reuters / Field Level Media",
-      "url": "https://www.reuters.com/sports/report-cards-finalizing-trade-wr-marvin-harrison-jr--flm-2026-10-10/",
-      "note": "Oct 10: attributed NFL Network/ESPN report; destination and compensation unreported. No Chiefs deal established."
-    },
-    {
-      "title": "Reports: Cardinals readying to trade Marvin Harrison Jr.",
-      "publisher": "Arizona Cardinals",
-      "url": "https://www.azcardinals.com/news/reports-cardinals-readying-to-trade-marvin-harrison-jr",
-      "note": "Oct 10 club coverage: trade timing remains uncertain."
-    },
-    {
-      "title": "Chiefs defeat Raiders, 30-27, in AFC West thriller",
-      "publisher": "Kansas City Chiefs",
-      "url": "https://www.chiefs.com/news/chiefs-defeat-raiders-30-27-in-afc-west-thriller",
-      "note": "Oct 5 official recap; retained historical Raiders review also checked against ESPN event 401872976."
-    },
-    {
-      "title": "Chargers at Chiefs: ESPN game feed",
-      "publisher": "ESPN FPI / DraftKings",
-      "url": "https://www.espn.com/nfl/game/_/gameId/401873006",
-      "note": "Fetched Oct 10 evening: FPI 71.6%, DraftKings KC -7.5 / 45.5. Snapshot can move."
-    },
-    {
-      "title": "Pro Football: 2027 Champion",
-      "publisher": "Polymarket",
-      "url": "https://polymarket.com/event/pro-football-2027-champion-20260729185915366",
-      "note": "Public Gamma feed checked Oct 10 evening: Chiefs 10.6%; informational snapshot."
-    },
-    {
-      "title": "Pro Football: 2027 AFC Champion",
-      "publisher": "Polymarket",
-      "url": "https://polymarket.com/event/pro-football-2027-afc-champion",
-      "note": "Public Gamma feed checked Oct 10 evening: Chiefs 17.5%; informational snapshot."
-    },
-    {
-      "title": "8 Winners and 4 Losers from the Chiefs’ win over the Raiders",
+      "title": "Examining the Chiefs’ short-yardage offense through four weeks",
       "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/212223/8-winners-4-losers-chiefs-win-over-raiders",
-      "note": "Game texture: penalties, turnovers, fake punt, short-yardage, momentum."
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/212550/examining-chiefs-short-yardage-offense-four-weeks",
+      "note": "4-0, AFC's last unbeaten, 1,648 yards of total offense, Walker as the run identity, short-yardage live issue."
     },
     {
-      "title": "Patrick Mahomes: Tyquan Thornton ‘One of the best teammates I’ve had’",
+      "title": "Chiefs News: Raiders DB not fined for tackle on Tyquan Thornton",
       "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-injuries/212215/patrick-mahomes-tyquan-thornton-one-of-the-best-teammates-ive-had",
-      "note": "4-0 cost, two wideouts injured, Mahomes on Thornton."
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/212718/chiefs-news-raiders-db-not-fined-tackle-tyquan-thornton",
+      "note": "Thornton dislocated the ankle on the fourth-quarter catch-and-run; Stukes not fined."
     },
     {
-      "title": "Chiefs’ Tyquan Thornton carted off field, suffers dislocated ankle",
+      "title": "Xavier Worthy's Week 4 performance is exactly what the Chiefs need more of",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/xavier-worthy-week-4-performance-is-exactly-what-chiefs-need-moving-forward?utm_source=RSS",
+      "note": "Worthy's explosives as the remaining vertical after the Thornton injury."
+    },
+    {
+      "title": "Kenneth Walker has taken his game to another level with the Chiefs",
       "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-injuries/212161/chiefs-tyquan-thornton-carted-off-field-las-vegas-leg-injury",
-      "note": "Thornton’s 55-yard catch, cart, dislocated ankle."
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/212650/kenneth-walker-taken-game-another-level-chiefs",
+      "note": "Walker as the 4-0 identity next to the franchise's historic backfields."
     },
     {
-      "title": "Chiefs-Raiders: Rashee Rice (hamstring) doubtful to return",
+      "title": "The Chiefs are reportedly one of ‘several’ teams interested in Justin Watson",
       "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-injuries/212105/chiefs-raiders-rashee-rice-hamstring-questionable-return",
-      "note": "Rice hamstring on the second possession."
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/212654/chiefs-one-several-teams-interested-justin-watson",
+      "note": "Receiver add after Thornton; 13 regular-season games still to play."
     },
     {
-      "title": "Andy Reid on Chiefs’ offensive line change: ‘That’s between Kingsley and I’",
+      "title": "Chiefs may be prioritizing familiarity over upside in their WR search",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/chiefs-may-be-prioritizing-familiarity-over-upside-in-wr-search?utm_source=RSS",
+      "note": "Watson reunion framed as a patch, not an upgrade."
+    },
+    {
+      "title": "Chiefs News: Could Chiefs revisit offseason plan at wide receiver?",
       "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/212197/andy-reid-chiefs-offensive-line-change-thats-between-kingsley-i",
-      "note": "Caliendo start, Suamataia bench, Reid’s non-answer."
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/212621/chiefs-news-chiefs-could-revisit-offseason-plan-wide-receiver",
+      "note": "Thornton long-term, Rice short-term, Watson interest."
     },
     {
-      "title": "Chiefs-Raiders: Mike Caliendo starts over Kingsley Suamataia",
-      "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/212089/chiefs-raiders-mike-caliendo-starts-over-kingsley-suamataia",
-      "note": "Opening-snap confirmation of the guard swap."
-    },
-    {
-      "title": "5 things we learned from the Chiefs’ Week 4 victory over the Raiders",
-      "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/212146/5-things-learned-chiefs-week-4-victory-raiders",
-      "note": "Keeping Mahomes upright, plays left on the field, contested 30–27."
-    },
-    {
-      "title": "Ken Walker es nombrado \"Jugador Ofensivo del Mes de la AFC\" en septiembre",
+      "title": "Punter Matt Araiza Earns AFC Special Teams \"Player of the Week\" Honors",
       "publisher": "Chiefs.com",
-      "url": "https://www.chiefs.com/news/ken-walker-es-nombrado-jugador-ofensivo-del-mes-de-la-afc-en-septiembre",
-      "note": "Walker’s September honor before the 177-yard Week 4 tape."
+      "url": "https://www.chiefs.com/news/punter-matt-araiza-earns-afc-special-teams-player-of-the-week-honors",
+      "note": "All five punts inside the 20; field-position tool after a 24:18 possession day."
+    },
+    {
+      "title": "10 Quick Facts Following the Chiefs Week 4 Win Over Las Vegas | Upon Further Review",
+      "publisher": "Chiefs.com",
+      "url": "https://www.chiefs.com/news/10-quick-facts-following-the-chiefs-week-4-win-over-las-vegas-upon-further-review",
+      "note": "Official 4-0 note after the 30-27 win."
+    },
+    {
+      "title": "ESPN insider questions Xavier Worthy's ability to solve Chiefs' receiver crisis",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/espn-insider-questions-xavier-worthy-s-ability-to-solve-chiefs-receiver-crisis-01m4e2qgrmf8?utm_source=RSS",
+      "note": "Counterweight to the explosive-Worthy tape heading into Los Angeles."
     }
   ],
-  "slug": "2026-10-10-2102"
+  "slug": "2026-10-11-1758"
 }
