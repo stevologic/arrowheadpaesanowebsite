@@ -1,7 +1,11 @@
 {
   "droppedSentences": [],
-  "correctedSentences": [],
-  "leftoverIssues": [],
-  "holdAutomerge": false,
-  "note": "Manually researched editorial preview; no dropped, corrected, or leftover sentences after the existing fact and copy gates."
+  "correctedSentences": [
+    "ambiguous snippet '25:39 of possession'; holding",
+    "unverifiable opponent yards; holding"
+  ],
+  "leftoverIssues": [
+    "salvage would have dropped too much; holding for human QA"
+  ],
+  "holdAutomerge": true
 }
