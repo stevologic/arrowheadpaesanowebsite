@@ -36,6 +36,8 @@
 .nrt-phase { display: inline-flex; align-items: center; gap: 9px; font-family: var(--grotesk); font-size: 12px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: #fff; background: var(--nrt-red); padding: 7px 14px; border-radius: 999px; }
 .nrt-edition { font-family: var(--grotesk); font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--nrt-gold); }
 .nrt-stamp { font-family: var(--grotesk); font-size: 12px; color: rgba(255, 255, 255, .6); margin-left: auto; }
+.nrt-identity { font-family: var(--grotesk); font-weight: 800; font-size: clamp(20px, 2.4vw, 28px); letter-spacing: .08em; text-transform: uppercase; line-height: 1.15; margin: 0 0 8px; color: #fff; }
+.nrt-identity__tag { font-family: var(--serif); font-size: clamp(15px, 1.5vw, 18px); line-height: 1.4; color: rgba(255, 255, 255, .72); margin: 0 0 18px; max-width: 46ch; }
 .nrt-headline { font-family: var(--serif); font-weight: 800; font-size: clamp(30px, 5vw, 60px); line-height: 1.02; letter-spacing: -.025em; margin: 0 0 14px; max-width: 20ch; }
 .nrt-dek { font-size: clamp(16px, 1.6vw, 20px); line-height: 1.5; color: rgba(255, 255, 255, .82); max-width: 60ch; margin: 0 0 26px; }
 .nrt-hero__grid { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(260px, .9fr); gap: 26px; align-items: start; }

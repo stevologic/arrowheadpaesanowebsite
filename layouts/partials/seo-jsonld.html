@@ -1,0 +1,56 @@
+{{- /*
+  Structured data for crawlers.
+  Home: Organization + WebSite. Edition pages: NewsArticle.
+  Context (dict): isHome, isEdition, n, canonical, absHome, site
+*/ -}}
+{{- $absHome := .absHome -}}
+{{- $canonical := .canonical -}}
+{{- $n := .n -}}
+{{- $site := .site -}}
+{{- $og := "og.png" | absURL -}}
+{{- $logo := ($site.Params.logoUrl | default "images/channel/logo.webp") | absURL -}}
+{{- $orgID := printf "%s#organization" $absHome -}}
+{{- $siteID := printf "%s#website" $absHome -}}
+{{- if .isHome }}
+{{- $org := dict
+  "@type" "Organization"
+  "@id" $orgID
+  "name" "Arrowhead Paesano"
+  "alternateName" "The Chiefs Narrative"
+  "url" $absHome
+  "logo" (dict "@type" "ImageObject" "url" $logo)
+  "sameAs" (slice ($site.Params.youtubeUrl | default "https://www.youtube.com/@arrowheadpaesano"))
+-}}
+{{- $website := dict
+  "@type" "WebSite"
+  "@id" $siteID
+  "name" "The Chiefs Narrative"
+  "alternateName" "Arrowhead Paesano"
+  "url" $absHome
+  "description" ($site.Params.description | default "")
+  "inLanguage" "en-US"
+  "publisher" (dict "@id" $orgID)
+-}}
+<script type="application/ld+json">{{ dict "@context" "https://schema.org" "@graph" (slice $org $website) | jsonify | safeJS }}</script>
+{{- else if and .isEdition $n }}
+{{- $published := $n.generatedAt | default "" -}}
+{{- $modified := $n.updatedAt | default $published -}}
+{{- $article := dict
+  "@context" "https://schema.org"
+  "@type" "NewsArticle"
+  "headline" ($n.headline | default "")
+  "description" ($n.dek | default "")
+  "datePublished" $published
+  "dateModified" $modified
+  "url" $canonical
+  "image" $og
+  "mainEntityOfPage" (dict "@type" "WebPage" "@id" $canonical)
+  "author" (dict "@type" "Organization" "name" "Arrowhead Paesano" "url" $absHome)
+  "publisher" (dict
+    "@type" "Organization"
+    "name" "Arrowhead Paesano"
+    "url" $absHome
+    "logo" (dict "@type" "ImageObject" "url" $logo))
+-}}
+<script type="application/ld+json">{{ $article | jsonify | safeJS }}</script>
+{{- end -}}

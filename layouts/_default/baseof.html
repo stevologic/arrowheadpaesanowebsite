@@ -1,32 +1,45 @@
 {{ $n := .Site.Data.narrative }}
 {{ $isNarrativeDesk := or .IsHome (and (eq .Section "narrative") (eq .Kind "section")) }}
+{{ $isEditionPage := and (eq .Section "narrative") (eq .Kind "page") }}
+{{ if and $isEditionPage .Params.slug }}
+  {{ with index .Site.Data.narrative_editions .Params.slug }}
+    {{ $n = . }}
+  {{ end }}
+{{ end }}
 {{ $active := .Params.active | default (cond $isNarrativeDesk "narrative" "") }}
 {{ $bodyPage := .Params.active | default (cond $isNarrativeDesk "narrative" "page") }}
 {{ $homeURL := "" | relURL }}
 {{ $absHome := "" | absURL }}
 {{ $logoURL := .Site.Params.logoUrl | relURL }}
+{{ $homeTitle := .Site.Params.homeTitle | default "Arrowhead Paesano — The Chiefs Narrative: daily Kansas City Chiefs analysis" }}
 {{ $title := printf "%s | %s" .Title .Site.Title }}
-{{ $description := .Site.Params.description }}
+{{ $description := .Description | default .Site.Params.description }}
 {{ $canonical := .Permalink }}
+{{ $ogType := "website" }}
 {{ if $isNarrativeDesk }}
-  {{ $title = "The Chiefs Narrative | Arrowhead Paesano" }}
+  {{ $title = $homeTitle }}
+  {{ $description = .Site.Params.description }}
+  {{ $canonical = $absHome }}
+{{ else if $isEditionPage }}
+  {{ $ogType = "article" }}
+  {{ $canonical = .Permalink }}
   {{ with $n }}
     {{ with .headline }}{{ $title = printf "%s | The Chiefs Narrative" . }}{{ end }}
     {{ with .dek }}{{ $description = . }}{{ end }}
   {{ end }}
-  {{ $canonical = $absHome }}
 {{ end }}
+{{ $metaDescription := $description | plainify | truncate 155 }}
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>{{ $title }}</title>
-  <meta name="description" content="{{ $description | plainify }}" />
+  <meta name="description" content="{{ $metaDescription }}" />
   <link rel="canonical" href="{{ $canonical }}" />
   <meta property="og:title" content="{{ $title }}" />
-  <meta property="og:description" content="{{ $description | plainify }}" />
-  <meta property="og:type" content="website" />
+  <meta property="og:description" content="{{ $metaDescription }}" />
+  <meta property="og:type" content="{{ $ogType }}" />
   <meta property="og:url" content="{{ $canonical }}" />
   <meta property="og:image" content="{{ "og.png" | absURL }}" />
   <meta property="og:image:width" content="1200" />
@@ -34,8 +47,15 @@
   <meta property="og:image:alt" content="Chiefs News. Paesano Attitude. Watch • Read • Join the Kingdom" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="{{ $title }}" />
-  <meta name="twitter:description" content="{{ $description | plainify }}" />
+  <meta name="twitter:description" content="{{ $metaDescription }}" />
   <meta name="twitter:image" content="{{ "og.png" | absURL }}" />
+  {{ partial "seo-jsonld.html" (dict
+      "isHome" .IsHome
+      "isEdition" $isEditionPage
+      "n" $n
+      "canonical" $canonical
+      "absHome" $absHome
+      "site" .Site) }}
   <meta name="theme-color" content="#0d0c0d" />
   <link rel="icon" type="image/png" href="{{ "icon-192.png" | relURL }}" />
   <link rel="apple-touch-icon" href="{{ "icon-192.png" | relURL }}" />
