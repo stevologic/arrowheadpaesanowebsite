@@ -2,6 +2,6 @@
   "droppedSentences": [],
   "correctedSentences": [],
   "leftoverIssues": [],
-  "holdAutomerge": true,
-  "note": "Manually researched editorial preview; publish through reviewed PR and the existing Pages workflow."
+  "holdAutomerge": false,
+  "note": "Manually researched editorial preview; no dropped, corrected, or leftover sentences after the existing fact and copy gates."
 }
