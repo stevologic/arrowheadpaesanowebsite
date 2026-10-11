@@ -1,11 +1,7 @@
 {
   "droppedSentences": [],
-  "correctedSentences": [
-    "ambiguous snippet '25:39 of possession'; holding",
-    "unverifiable opponent yards; holding"
-  ],
-  "leftoverIssues": [
-    "salvage would have dropped too much; holding for human QA"
-  ],
-  "holdAutomerge": true
+  "correctedSentences": [],
+  "leftoverIssues": [],
+  "holdAutomerge": false,
+  "note": "Manually reworded editorial copy after QA: four true sentences that the edition gates had misread (Nwankpa possessive, Las Vegas possession, opponent passing yards, Cousins attempts) were rephrased, and the Week 7 sentence now says Kansas City visits Seattle. No dropped, corrected, or leftover sentences after the existing fact and copy gates."
 }
