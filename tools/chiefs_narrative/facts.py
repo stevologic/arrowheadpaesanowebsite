@@ -465,6 +465,11 @@ _FIRST_DOWN_VOLUME = re.compile(
     r"first-down volume\s*\((\d{1,2})\)",
     re.IGNORECASE,
 )
+_OWN_FIRST_DOWNS = re.compile(
+    r"\b(?:posting|posted|had|has|putting up|put up)\s+"
+    r"(\d{1,2})\s+of (?:its|their|our) own\b",
+    re.IGNORECASE,
+)
 _POSSESSION_HELD = re.compile(
     r"\b(?:held the ball|held it|sat on|had the ball for|"
     r"had the ball\s+\d{1,2}:\d{2}|had it for|"
@@ -670,7 +675,7 @@ _OWNER_VERBS = (
 _TEAM_UNIT = r"(?:\s+(?:defense|defence|front))?"
 _PROPER_NAME = r"(?-i:[A-Z][A-Za-z''-]+(?:\s+[A-Z][A-Za-z''-]+)?)"
 _SACK_COUNT = re.compile(
-    rf"\bsacked\s+(?P<sack_qb>Mahomes|Willis)\s+(once|twice|{_NUM_TOKEN})(?:\s+times)?\b|"
+    rf"\bsacked\s+(?P<sack_qb>{_PROPER_NAME})\s+(once|twice|{_NUM_TOKEN})(?:\s+times)?\b|"
     rf"\b(?:was\s+)?(?:repeatedly\s+)?sacked[,;]?\s+"
     rf"(once|twice|{_NUM_TOKEN})\s+times(?:\s+in all)?\b|"
     rf"\bsacked\s+(once|twice|{_NUM_TOKEN})(?:\s+times)?\b|"
@@ -4524,11 +4529,68 @@ def _line_at(text: str, index: int) -> str:
     return text[start:end]
 
 
+def _is_own_box_claim(text: str, match: re.Match) -> bool:
+    """True for 'posting 28 of its own' — the subject's column, not allowed."""
+    window = text[match.start() : min(len(text), match.end() + 24)]
+    return bool(re.search(r"\bof (?:its|their|our) own\b", window, re.I))
+
+
+def _claim_is_allowed_box(text: str, match: re.Match) -> bool:
+    """True when allowed/gave up governs this number or clock, not a neighbor.
+
+    'Kansas City just allowed 28 first downs and 35:42' flips. 'Gave up
+    35:42 and 18 first downs' flips both tokens. '8-of-16 allowed, which
+    handed Miami 34:21' does not — that allowed is third down. 'Posting
+    28 of its own' stays on the subject.
+    """
+    if _is_own_box_claim(text, match):
+        return False
+    token = match.group(1) if match.lastindex else match.group(0)
+    near = text[max(0, match.start() - 56) : min(len(text), match.end() + 24)]
+    token_re = re.escape(str(token))
+    verb = r"(?:allowed|gave up|yielded|surrendered|spotted)"
+    return bool(
+        re.search(
+            rf"\b{verb}\s+(?:just\s+)?"
+            rf"(?:"
+            rf"\d{{1,2}}\s+first downs?\s+and\s+"
+            rf"|"
+            rf"\d{{1,2}}:\d{{2}}\s+and\s+"
+            rf")?"
+            rf"(?:(?:of\s+)?(?:possession|clock)\s+)?"
+            rf"{token_re}\b|"
+            rf"\b{token_re}(?:\s+first downs?)?"
+            rf"(?:\s+and\s+(?:\d{{1,2}}:\d{{2}}|\d{{1,2}}\s+first downs?))?"
+            rf"(?:\s+of\s+(?:possession|clock))?"
+            rf"\s+{verb}\b",
+            near,
+            re.I,
+        )
+    )
+
+
+def _flip_allowed_box_team(team: str, sentence: str, opp_abbr: str) -> str:
+    """KC allowed X is the opponent box; the opponent allowed X is KC's."""
+    opp = (opp_abbr or "").strip().upper()
+    named = (team or "").strip().upper()
+    if not named and re.search(
+        r"\b(?:kansas city|the chiefs|\bkc\b)\b", sentence or "", re.I
+    ):
+        named = "KC"
+    if named == "KC":
+        return opp or named
+    if opp and named == opp:
+        return "KC"
+    return team
+
+
 def _kc_owns_possession_verb(
     text: str, match: re.Match, aliases: dict[str, str]
 ) -> bool:
     """whatWorked TOP lines and 'sat on the football' with a KC subject."""
     sent = _sentence_at(text, match.start())
+    if _claim_is_allowed_box(text, match):
+        return False
     line = _line_at(text, match.start()).strip()
     for blob in (sent, line):
         clipped = re.sub(
@@ -4923,6 +4985,12 @@ def _check_box_clocks(
                 )
             continue
         team = explicit or _bound_possession_in_clause(text, match, aliases)
+        if _claim_is_allowed_box(text, match):
+            team = _flip_allowed_box_team(
+                team,
+                sentence,
+                ((recap or {}).get("oppAbbr") or ""),
+            )
         after = text[match.end() : match.end() + 48]
         if (
             team == "KC"
@@ -5021,6 +5089,12 @@ def _check_box_clocks(
         if any(start <= match.start() < end for start, end in seen_fd):
             continue
         fd_hits.append(match)
+    for match in _OWN_FIRST_DOWNS.finditer(text):
+        if not _FIRST_DOWNS.search(_sentence_at(text, match.start())):
+            continue
+        if any(start <= match.start() < end for start, end in seen_fd):
+            continue
+        fd_hits.append(match)
     for match in fd_hits:
         try:
             claimed = int(match.group(1))
@@ -5044,6 +5118,18 @@ def _check_box_clocks(
             explicit = "KC"
         if explicit:
             team = explicit
+        if _is_own_box_claim(text, match):
+            lead = re.match(
+                r"\s*(?:the\s+)?([A-Z][A-Za-z'’.-]+(?:\s+[A-Z][A-Za-z'’.-]+){0,2})",
+                sentence,
+            )
+            if lead:
+                named = _alias_team(lead.group(1), aliases)
+                if named:
+                    team = named
+                    explicit = named
+        elif _claim_is_allowed_box(text, match):
+            team = _flip_allowed_box_team(team, sentence, opp_abbr)
         if (
             not explicit
             and team
@@ -5052,6 +5138,7 @@ def _check_box_clocks(
             and kc_fd is not None
             and claimed == kc_fd
             and re.search(r"\bagainst\b", sentence, re.I)
+            and not _claim_is_allowed_box(text, match)
         ):
             team = "KC"
         scope = _claim_game_scope(
@@ -5059,7 +5146,11 @@ def _check_box_clocks(
         )
         official = None
         label = team or "KC"
-        if not explicit and _kc_owned_box(clause):
+        if (
+            not explicit
+            and _kc_owned_box(clause)
+            and not _claim_is_allowed_box(text, match)
+        ):
             if scope == "prior" or any(
                 re.search(rf"\b{re.escape(lab)}\b", sentence.lower())
                 for lab in prior_labels
@@ -5863,16 +5954,85 @@ def _passer_sides(recap: dict | None) -> dict[str, str]:
     return out
 
 
+def _passer_side_name(name: str, recap: dict | None) -> str:
+    """Bind a named passer to kc_qb / opp_qb, or '' when unknown."""
+    low = (name or "").strip().lower()
+    if not low:
+        return ""
+    if low in _QB_ALIASES:
+        return _QB_ALIASES[low]
+    sides = _passer_sides(recap)
+    if low in sides:
+        return sides[low]
+    last = low.split()[-1]
+    if last in _QB_ALIASES:
+        return _QB_ALIASES[last]
+    if last in sides:
+        return sides[last]
+    return ""
+
+
+def _local_pressure_clause(sentence: str, match) -> str:
+    """Clause holding this sack/hit token, not an earlier comma-and subject.
+
+    'Patrick Mahomes at 15-of-30, and a Las Vegas offense … with zero
+    sacks allowed' binds the sack to Las Vegas, not Mahomes. 'Zero sacks
+    on Cousins' keeps the object after the token.
+    """
+    token = match.group(0) or ""
+    rel = sentence.lower().rfind(token.lower()) if token else -1
+    prefix = sentence[:rel] if rel >= 0 else sentence
+    after = sentence[rel + len(token) :] if rel >= 0 else ""
+    chunks = re.split(r";\s+|,\s+and\s+|\n", prefix)
+    head = chunks[-1] if chunks else prefix
+    tail = re.split(r";\s+|,\s+and\s+|\n", after, maxsplit=1)[0]
+    return (head + token + tail).strip()
+
+
+def _allowed_sack_subject_side(clause: str) -> str:
+    """Bind 'sacks allowed' / protection / line to the named subject.
+
+    KC / Mahomes / the KC line / KC protection → kc_qb. Cousins or the
+    LV side → opp_qb. Ambiguous allowed-sacks hold on Mahomes so a false
+    zero cannot publish.
+    """
+    low = (clause or "").lower()
+    if not re.search(
+        r"\bsacks?\s+allowed\b|\ballowed\b.{0,40}\bsacks?\b|"
+        r"\b(?:protection|(?:offensive\s+)?line)\b.{0,40}\bsacks?\b",
+        low,
+    ):
+        return ""
+    kc = bool(
+        re.search(r"\b(?:kansas city|the chiefs|\bkc\b|mahomes|patrick)\b", low)
+    )
+    opp = bool(
+        re.search(r"\b(?:las vegas|raiders|\blv\b|cousins|kirk)\b", low)
+    )
+    if kc and not opp:
+        return "kc_qb"
+    if opp and not kc:
+        return "opp_qb"
+    if re.search(r"\b(?:protection|(?:offensive\s+)?line)\b", low) and not opp:
+        return "kc_qb"
+    return "kc_qb"
+
+
 def _pressure_side(sentence: str, match, recap: dict | None = None) -> str:
     groups = match.groupdict() if getattr(match, "re", None) and match.re.groupindex else {}
     qb = (groups.get("sack_qb") or groups.get("hit_qb") or "").strip().lower()
-    if qb in _QB_ALIASES:
-        return _QB_ALIASES[qb]
+    bound = _passer_side_name(qb, recap)
+    if bound:
+        return bound
     owner = _pressure_owner_name(sentence, match)
     for token in _owner_tokens(owner):
         if token in _TEAM_SIDES:
             return _TEAM_SIDES[token]
-    low = sentence.lower()
+    clause = _local_pressure_clause(sentence, match)
+    allowed = _allowed_sack_subject_side(clause)
+    if allowed:
+        return allowed
+    low = clause.lower()
     named = [
         side
         for token, side in _passer_sides(recap).items()
@@ -5882,6 +6042,15 @@ def _pressure_side(sentence: str, match, recap: dict | None = None) -> str:
         return "opp_qb"
     if "kc_qb" in named and "opp_qb" not in named:
         return "kc_qb"
+    for token, side in _passer_sides(recap).items():
+        if side != "opp_qb" or len(token) < 4:
+            continue
+        if re.search(
+            rf"\b(?:sacked|hit)\s+{re.escape(token)}\b|"
+            rf"\b(?:sacks?|hits?)\s+(?:of|on)\s+{re.escape(token)}\b",
+            low,
+        ):
+            return "opp_qb"
     if re.search(
         r"\b(?:sacked|hit)\s+willis\b|\b(?:sacks?|hits?)\s+(?:of|on)\s+willis\b",
         low,
@@ -5890,6 +6059,59 @@ def _pressure_side(sentence: str, match, recap: dict | None = None) -> str:
     if "willis" in low and "mahomes" not in low:
         return "opp_qb"
     return "kc_qb"
+
+
+def _claimed_hit_total(sentence: str) -> int | None:
+    match = re.search(
+        rf"\b({_NUM_TOKEN})\s+(?:quarterback\s+|QB\s+)?hits?\b",
+        sentence or "",
+        re.I,
+    )
+    return _parse_count(match.group(1)) if match else None
+
+
+def _kc_allowed_sacks_subject(sentence: str) -> bool:
+    return bool(
+        re.search(
+            r"\b(?:kansas city|the chiefs|\bkc\b|mahomes|patrick)\b.{0,48}"
+            r"(?:allowed|protection|line)\b|"
+            r"\b(?:protection|(?:offensive\s+)?line|offense)\b.{0,40}"
+            r"\ballowed\b",
+            sentence or "",
+            re.I,
+        )
+    )
+
+
+def _defense_recorded_sack_skip(
+    sentence: str,
+    claimed: int | None,
+    side: str,
+    other: int | None,
+    recap: dict | None,
+) -> bool:
+    """True when a bare zero is the rush, not sacks Mahomes took."""
+    if (
+        claimed is None
+        or other is None
+        or claimed != other
+        or side != "kc_qb"
+        or re.search(r"\b(?:mahomes|patrick)\b", sentence or "", re.I)
+        or _kc_allowed_sacks_subject(sentence)
+        or _allowed_sack_subject_side(sentence) == "kc_qb"
+    ):
+        return False
+    if re.search(
+        r"\b(?:recorded|four-man|coverage|rush that|the rush|front)\b",
+        sentence or "",
+        re.I,
+    ):
+        return True
+    defense_hits = _official_qb_hits(recap, "opp_qb")
+    return (
+        defense_hits is not None
+        and _claimed_hit_total(sentence) == defense_hits
+    )
 
 
 def _official_sacks(recap: dict | None, side: str):
@@ -5927,8 +6149,17 @@ def _check_sack_counts(text: str, recap: dict | None) -> list[str]:
         if _skip_pressure_claim(sentence, match):
             continue
         claimed = _match_count(match)
-        official = _official_sacks(recap, _pressure_side(sentence, match, recap))
+        side = _pressure_side(sentence, match, recap)
+        official = _official_sacks(recap, side)
         if claimed is None or official is None or claimed == official:
+            continue
+        other = _official_sacks(
+            recap, "opp_qb" if side == "kc_qb" else "kc_qb"
+        )
+        # Bare rush/coverage "zero sacks" next to the defense's hit total
+        # is recorded pressure, not Mahomes' sacks-taken. KC / protection
+        # / line subjects and a Mahomes hit count (8, not 10) still fail.
+        if _defense_recorded_sack_skip(sentence, claimed, side, other, recap):
             continue
         issues.append(
             f"sacks {claimed} disagrees with ESPN {official} "
