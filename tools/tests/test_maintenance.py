@@ -1,9 +1,11 @@
 """Regression coverage for article routing, transport failures, and no-op slates."""
 import copy
 import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import yaml
@@ -165,6 +167,61 @@ class ScheduleIdempotency(unittest.TestCase):
 
 
 class MaintenancePolicy(unittest.TestCase):
+    @staticmethod
+    def _merge_condition(workflow, **overrides):
+        """Evaluate these trusted workflow guards against event scenarios.
+
+        The two guard expressions use only comparisons, boolean operators,
+        contains/startsWith, and JSON arrays; no runner code is executed.
+        """
+        settings = dict(base="main", actor="stevologic", author="stevologic",
+                        draft=False, labels=[], association="OWNER",
+                        head_repo="stevologic/arrowheadpaesanowebsite")
+        settings.update(overrides)
+        pr = SimpleNamespace(
+            user=SimpleNamespace(login=settings["author"]),
+            draft=settings["draft"], author_association=settings["association"],
+            head=SimpleNamespace(repo=SimpleNamespace(full_name=settings["head_repo"])),
+        )
+        event_name = "pull_request_target" if "pull_request_target" in workflow["on"] else "pull_request"
+        github = SimpleNamespace(
+            base_ref=settings["base"], actor=settings["actor"], event_name=event_name,
+            head_ref="feature/preview", repository="stevologic/arrowheadpaesanowebsite",
+            event=SimpleNamespace(pull_request=pr),
+        )
+        expression = workflow["jobs"]["automerge"]["if"].strip()[3:-2].strip()
+        expression = expression.replace("github.event.pull_request.labels.*.name", "labels")
+        expression = expression.replace("&&", " and ").replace("||", " or ")
+        expression = re.sub(r"!(?!=)", "not ", expression)
+        expression = re.sub(r"\bfalse\b", "False", expression)
+        functions = {"__builtins__": {}, "fromJSON": json.loads,
+                     "contains": lambda items, value: value in items,
+                     "startsWith": lambda value, prefix: value.startswith(prefix)}
+        return eval(" ".join(expression.split()), functions,
+                    {"github": github, "labels": settings["labels"]})
+
+    def test_both_merge_jobs_reject_integration_and_dependabot_events(self):
+        root = Path(__file__).resolve().parents[2]
+        scenarios = [
+            ({}, True),  # Eligible main publication still enters the content gate.
+            ({"base": "develop"}, False),
+            ({"actor": "dependabot[bot]"}, False),
+            ({"author": "dependabot[bot]"}, False),  # Human-triggered bot PR update.
+            ({"draft": True}, False),
+            ({"labels": ["hold"]}, False),
+            ({"head_repo": "someone/arrowheadpaesanowebsite"}, False),
+        ]
+        for filename in ("ci.yml", "edition-qa.yml"):
+            doc = yaml.load((root / ".github/workflows" / filename).read_text(), Loader=yaml.BaseLoader)
+            for event, expected in scenarios:
+                with self.subTest(workflow=filename, event=event):
+                    self.assertEqual(self._merge_condition(doc, **event), expected)
+            job = doc["jobs"]["automerge"]
+            self.assertEqual(job["needs"], "edition-gates" if filename == "edition-qa.yml" else "gates")
+            scripts = "\n".join(step.get("run", "") for step in job["steps"])
+            self.assertIn("GATE_BASE", scripts)
+            self.assertIn("review_gate --automerge", scripts)
+
     def test_integration_tests_without_deployment_or_automerge(self):
         root = Path(__file__).resolve().parents[2]
         # BaseLoader preserves the key 'on' (YAML 1.1 treats it as a boolean).
