@@ -1,6 +1,6 @@
 name: CI gates
 
-# Every pull request against main runs the merge gates:
+# Feature PRs and develop pushes validate before a reviewed promotion to main.
 #   1. Python unit tests for the Chiefs Narrative engine (offline, no keys).
 #   2. A full Hugo build with the exact production version.
 # If both gates pass and the PR is not a draft (and not labeled "hold"),
@@ -18,7 +18,7 @@ name: CI gates
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, develop]
     types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore:
       - "data/narrative.json"
@@ -28,6 +28,8 @@ on:
       - "data/wire.json"
       - "data/schedule_2026.json"
       - "public/images/narrative/**"
+  push:
+    branches: [develop]
   workflow_dispatch:
   workflow_call:
     inputs:
@@ -51,6 +53,7 @@ jobs:
   gates:
     if: ${{ github.event_name != 'pull_request' || !startsWith(github.head_ref, 'narrative/update-') }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -91,6 +94,12 @@ jobs:
 
       - name: Gate 2 — Hugo build
         run: hugo --gc --minify
+
+      - name: Validate local build dependency manifest
+        run: npm ci --ignore-scripts
+
+      - name: Reject high or critical tooling advisories
+        run: npm audit --audit-level=high
 
       - name: Pages and narrative deploy gates on the real tree
         run: |
@@ -134,6 +143,9 @@ jobs:
     # Edition PRs are merged by narrative.yml after this gates job succeeds.
     if: >-
       ${{ github.event_name == 'pull_request' &&
+          github.base_ref == 'main' &&
+          github.actor != 'dependabot[bot]' &&
+          github.event.pull_request.user.login != 'dependabot[bot]' &&
           !startsWith(github.head_ref, 'narrative/update-') &&
           github.event.pull_request.draft == false &&
           !contains(github.event.pull_request.labels.*.name, 'hold') &&
