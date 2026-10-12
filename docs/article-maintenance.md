@@ -69,21 +69,58 @@ cannot enable them without `admin:repo_hook`. No new credential or permission
 was requested. A repository administrator must enable security alerts and
 security updates through the existing GitHub settings before those updates run.
 
-The lockfile-only update raises `@xhmikosr/decompress` to 10.2.2 and
-`http-cache-semantics` to 4.3.0 within existing constraints. The npm audit
-changed from nine moderate, one high, and one critical findings to ten moderate,
-zero high, and zero critical findings. The remaining file-type/downloader
-advisories require a breaking `hugo-bin` update (audit recommends 0.165.0),
-which needs separate validation. CI now rejects high/critical tooling findings;
-production Hugo stays at 0.152.2. No dependency install scripts run in CI.
+The initial lockfile repair removed high/critical findings. The reviewed
+`hugo-bin` 0.165.0 update also removes the file-type/downloader moderate
+advisories: the combined npm audit now reports zero vulnerabilities. Local
+tooling requires Node 22.12 or newer and explicitly installs extended Hugo
+0.152.2, matching production. Read-only CI installs the manifest without
+scripts, audits at moderate severity, then explicitly exercises only the
+Hugo wrapper installer and builds with it. The upgraded download-artifact v8
+is tested against upload-artifact v4 ZIPs, including hidden publish metadata
+and exact JSON/SVG bytes. Python minimums are requests 2.34.2 and PyYAML 6.0.3;
+setup-python v7 uses its supported runner runtime without changing Python 3.11.
 
-The existing article publisher dispatches CI for bot PRs. A dispatched workflow
-does not necessarily satisfy a required PR-event status check, as documented
-in the earlier staleness investigation. This change does not bypass that rule
-or introduce a PAT. A future bot publication must satisfy main's required
-`gates`, plus any factual/human holds, before merging. No paid article generation
-or publication is needed to validate this maintenance patch.
+The publisher now opens a draft feature PR to develop. All PRs, including
+edition-only and `narrative/update-` bot heads, run the actual required
+PR-event `gates` job; neither a path filter nor a job condition skips it.
+GitHub places GITHUB_TOKEN-created PR runs in an approval-required state.
+A maintainer selects **Approve workflows to run** in the PR/Actions UI,
+reviews the edition and any holds, and promotes validated develop through a
+reviewed main PR. Karen's signed PASS remains mandatory for Review editions.
+Develop→main is excluded from both automatic merge paths so promotion uses a
+manual normal merge that preserves develop ancestry. Neither automatic path
+requests source-branch deletion. If GitHub exposes no waiting bot run, a
+maintainer may mark the draft ready or reopen it to emit a fresh eligible PR
+event; require the real `gates` check afterward, never a dispatch substitute.
+The sole deployment path is pages.yml after main integration. See
+[GitHub's bot trigger rules](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow) and
+[eligible required checks](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
 
-Shared maintenance-action adoption remains deferred until the coordinated pilot
-provides a tested immutable commit SHA. Inventory should stay read-only by
-default and preserve current providers, credentials, and repository gates.
+The publisher no longer dispatches redundant CI, polls for up to 18 minutes,
+attempts an ineligible merge, or carries an Actions write permission. An open
+publication PR to main/develop applies backpressure before collection/provider
+work, preventing repeated paid drafts and branch churn while approval or QA is
+pending. Review/merge resumes the normal unchanged daily/schedule-only cadence.
+The queue lookup fails closed on API errors, and the workflow summary links
+the queued draft. No paid article generation or fabricated sports content is
+needed to validate the workflow repair.
+
+Fresh repository API reads report Dependabot alerts disabled (HTTP 404),
+Dependabot security updates disabled, and
+`automated-security-fixes` as `enabled: false, paused: false`. This configuration
+does not activate that setting. An authorized repository administrator must
+open Settings → Security and quality → Advanced Security, confirm Dependency
+graph and Dependabot alerts are enabled, then enable **Dependabot security
+updates**. The existing dependabot.yml already groups security updates on main;
+no extra account-wide toggle or new credential is required. See
+[GitHub's setup instructions](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/configure-security-updates).
+
+Shared maintenance-action contract 1.1.0 is available at immutable pin
+`stevologic/oss-deps-explorer/actions/maintenance@1e6e9a9c4dc9f766c49a421ea268f247d1113287`
+in draft PR 32. Its owner confirms no overlap with the custom content pipeline.
+Adoption remains a separate reviewed consumer draft, read-only by default,
+preserving current providers, credentials, protected develop, and signed gates.
+Its separate merge operator requires strict required checks enforced for owners;
+Arrowhead's current main/develop rules use non-strict checks, so that operator
+would remain preview-only here unless separately reviewed protection changes
+are authorized. This change does not modify branch protection.
