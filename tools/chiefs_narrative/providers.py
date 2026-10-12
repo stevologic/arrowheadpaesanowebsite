@@ -19,6 +19,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+from functools import lru_cache
 from pathlib import Path
 
 import requests
@@ -102,22 +103,28 @@ def _chat_completions(label: str, base: str, key: str, model: str,
     }
     if stream:
         payload["stream"] = True
+        payload["stream_options"] = {"include_usage": True}
+    resp = None
     try:
         resp = _post(payload)
-        if resp.status_code == 400:
-            # Some models/endpoints do not accept response_format — retry plain.
+        if resp.status_code == 400 and "response_format" in resp.text.lower():
+            # Only retry an explicitly unsupported JSON format, never an
+            # invalid model or another unrelated 400 (another paid request).
+            resp.close()
             payload.pop("response_format", None)
             resp = _post(payload)
         if resp.status_code >= 400:
             raise ProviderError(f"{label} {resp.status_code}: {resp.text[:300]}")
         if stream:
             return _read_stream(label, resp)
+        return resp.json()["choices"][0]["message"]["content"]
     except requests.RequestException as exc:
         raise ProviderError(f"{label}: {exc}") from exc
-    try:
-        return resp.json()["choices"][0]["message"]["content"]
     except (KeyError, IndexError, ValueError) as exc:
         raise ProviderError(f"{label}: unexpected response shape ({exc})") from exc
+    finally:
+        if resp is not None:
+            resp.close()
 
 
 def llm_deadline() -> int:
@@ -138,6 +145,8 @@ def _read_stream(label: str, resp) -> str:
     """
     started = time.monotonic()
     parts: list[str] = []
+    complete = False
+    usage = None
     # text/event-stream often arrives without a charset; requests then assumes
     # ISO-8859-1 and turns UTF-8 "·" / "–" into mojibake ("Â·", "â€“").
     resp.encoding = "utf-8"
@@ -149,6 +158,7 @@ def _read_stream(label: str, resp) -> str:
             continue
         data = raw[5:].strip()
         if data == "[DONE]":
+            complete = True
             break
         try:
             chunk = json.loads(data)
@@ -156,13 +166,23 @@ def _read_stream(label: str, resp) -> str:
             continue
         if chunk.get("error"):
             raise ProviderError(f"{label}: stream error {str(chunk['error'])[:300]}")
+        if isinstance(chunk.get("usage"), dict):
+            usage = chunk["usage"]
         for choice in chunk.get("choices") or []:
+            reason = choice.get("finish_reason")
+            if reason and reason != "stop":
+                raise ProviderError(f"{label}: incomplete stream (finish_reason={reason})")
             piece = (choice.get("delta") or {}).get("content")
             if piece:
                 parts.append(piece)
     text = "".join(parts)
     if not text.strip():
         raise ProviderError(f"{label}: empty streamed reply")
+    if not complete:
+        raise ProviderError(f"{label}: stream ended before [DONE]")
+    if usage is not None:
+        # Log provider measurements only; do not estimate dollars or tokens.
+        print(f"  [writer] {label} token usage: {json.dumps(usage, sort_keys=True)}")
     return text
 
 
@@ -184,7 +204,7 @@ def openai_model() -> str:
 
 # --- Grok (xAI) -----------------------------------------------------------
 # xAI ships an OpenAI-compatible API, so it reuses the same helper.
-GROK_DEFAULT_MODEL = "grok-4.6"
+GROK_DEFAULT_MODEL = "grok-4.7"
 GROK_DEFAULT_BASE = "https://api.x.ai/v1"
 
 
@@ -203,29 +223,58 @@ def grok_key() -> str:
 
 
 def grok_model() -> str:
-    return config.env("GROK_MODEL") or config.env("XAI_MODEL") or GROK_DEFAULT_MODEL
+    model = config.env("GROK_MODEL") or config.env("XAI_MODEL") or GROK_DEFAULT_MODEL
+    if model == "latest":
+        return _latest_grok_model(grok_base(), grok_key())
+    return model
 
 
-def grok_fallback_models() -> list[str]:
-    """Optional comma-separated GROK_FALLBACK_MODELS tried after the primary."""
-    raw = config.env("GROK_FALLBACK_MODELS") or ""
-    return [m.strip() for m in raw.split(",") if m.strip() and m.strip() != grok_model()]
+def grok_base() -> str:
+    return config.env("XAI_BASE_URL") or config.env("GROK_BASE_URL") or GROK_DEFAULT_BASE
+
+
+@lru_cache(maxsize=1)
+def _latest_grok_model(base: str, key: str) -> str:
+    """Resolve account-visible stable numbered text models once per process.
+
+    Dated, reasoning, multi-agent, build, and Imagine variants are separate
+    products, not upgrades to this article writer. Never select below 4.7.
+    """
+    if not key:
+        raise ProviderError("Grok: no API key configured for latest-model discovery")
+    resp = None
+    try:
+        resp = requests.get(
+            f"{base.rstrip('/')}/models",
+            headers={"Authorization": f"Bearer {key}"}, timeout=(20, 20),
+        )
+        if resp.status_code != 200:
+            raise ProviderError(f"Grok: model discovery returned HTTP {resp.status_code}")
+        candidates = []
+        for row in resp.json().get("data", []):
+            model = str(row.get("id") or "")
+            match = re.fullmatch(r"grok-(\d+)(?:\.(\d+))?", model)
+            if match:
+                version = (int(match[1]), int(match[2] or 0))
+                if version >= (4, 7):
+                    candidates.append((version, model))
+        if not candidates:
+            raise ProviderError("Grok: no stable article model at grok-4.7 or newer is available")
+        model = max(candidates)[1]
+        print(f"  [writer] latest account-visible Grok article model = {model}")
+        return model
+    except (requests.RequestException, ValueError, TypeError, AttributeError) as exc:
+        raise ProviderError(f"Grok: model discovery failed ({exc})") from exc
+    finally:
+        if resp is not None:
+            resp.close()
 
 
 def _grok(system: str, user: str) -> str:
-    base = config.env("XAI_BASE_URL") or config.env("GROK_BASE_URL") or GROK_DEFAULT_BASE
-    errors = []
-    for model in [grok_model(), *grok_fallback_models()]:
-        try:
-            if model != grok_model():
-                print(f"  [writer] grok fallback model = {model}")
-            return _chat_completions(
-                "Grok", base, grok_key(), model, system, user, stream=True
-            )
-        except ProviderError as exc:
-            errors.append(f"{model}: {exc}")
-            print(f"  [writer] grok model {model} failed ({exc})")
-    raise ProviderError("; ".join(errors) or "Grok: no model configured")
+    # One selected model. A timeout/error must never buy an older-model draft.
+    return _chat_completions(
+        "Grok", grok_base(), grok_key(), grok_model(), system, user, stream=True
+    )
 
 
 def _anthropic(system: str, user: str) -> str:

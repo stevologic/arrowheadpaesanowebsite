@@ -368,14 +368,18 @@ def _uniqueness_retry_instruction(previous: dict, matched: list[str]) -> str:
 def _draft_raw(
     name: str, system: str, user: str, signals: dict, ph: dict, upcoming: list
 ) -> tuple[dict, str]:
-    """LLM path with the existing offline fallback. Never hard-fails on provider errors."""
+    """Grok fails closed; other providers retain their existing offline fallback."""
     raw = None
     generator_label = "offline"
     if name != "offline":
         try:
             raw, generator_label = providers.generate_via_llm(name, system, user)
             print(f"  [writer] LLM reply parsed ({generator_label})")
-        except Exception as exc:  # noqa: BLE001 - fall back, never hard-fail
+        except Exception as exc:  # noqa: BLE001 - provider failures share one policy
+            if name in ("grok", "xai"):
+                raise providers.ProviderError(
+                    f"Grok article generation failed ({exc}); refusing a substitute writer"
+                ) from exc
             print(f"  [writer] provider '{name}' failed ({exc}); using offline writer")
             raw = None
     if raw is None:
@@ -1088,6 +1092,9 @@ def main(argv=None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     except FactCheckError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    except providers.ProviderError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 

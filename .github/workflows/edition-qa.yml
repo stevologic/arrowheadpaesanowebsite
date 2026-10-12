@@ -9,7 +9,7 @@ name: Edition gates (human)
 
 on:
   pull_request_target:
-    branches: [main]
+    branches: [main, develop]
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "data/narrative.json"
