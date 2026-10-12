@@ -740,12 +740,12 @@ class EditionSlugs(unittest.TestCase):
 
 
 class GrokModelSelection(unittest.TestCase):
-    """GROK_MODEL (or XAI_MODEL) must resolve to grok-4.6 unless overridden."""
+    """GROK_MODEL (or XAI_MODEL) defaults to Grok 4.7 locally."""
 
-    def test_default_is_grok_4_6(self):
+    def test_default_is_grok_4_7(self):
         with patch.dict("os.environ", {}, clear=True):
-            self.assertEqual(providers.GROK_DEFAULT_MODEL, "grok-4.6")
-            self.assertEqual(providers.grok_model(), "grok-4.6")
+            self.assertEqual(providers.GROK_DEFAULT_MODEL, "grok-4.7")
+            self.assertEqual(providers.grok_model(), "grok-4.7")
 
     def test_grok_model_env_wins(self):
         with patch.dict("os.environ", {"GROK_MODEL": "grok-4.6", "XAI_MODEL": "ignored"}, clear=True):
@@ -757,11 +757,12 @@ class GrokModelSelection(unittest.TestCase):
 
     def test_blank_grok_model_falls_back_to_default(self):
         with patch.dict("os.environ", {"GROK_MODEL": "  ", "XAI_MODEL": ""}, clear=True):
-            self.assertEqual(providers.grok_model(), "grok-4.6")
+            self.assertEqual(providers.grok_model(), "grok-4.7")
 
-    def test_workflow_passes_repository_variable(self):
+    def test_workflow_selects_latest_without_fallback_variables(self):
         yaml = (Path(__file__).resolve().parents[2] / ".github" / "workflows" / "narrative.yml").read_text(encoding="utf-8")
-        self.assertIn("GROK_MODEL: ${{ vars.GROK_MODEL }}", yaml)
+        self.assertIn("GROK_MODEL: latest", yaml)
+        self.assertNotIn("GROK_FALLBACK_MODELS:", yaml)
 
     def test_workflow_refreshes_slate_beyond_narrative_text(self):
         yaml = (Path(__file__).resolve().parents[2] / ".github" / "workflows" / "narrative.yml").read_text(encoding="utf-8")

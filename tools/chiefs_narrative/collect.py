@@ -304,6 +304,14 @@ def write_schedule(games: list[dict]) -> bool:
     if not games:
         return False
     config.ensure_dirs()
+    try:
+        existing = json.loads(config.SCHEDULE_JSON.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        existing = None
+    if existing == games:
+        # Preserve exact bytes (including line endings/key order). A fetch of
+        # the same slate must not mint another schedule PR or deploy.
+        return True
     config.SCHEDULE_JSON.write_text(
         json.dumps(games, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )

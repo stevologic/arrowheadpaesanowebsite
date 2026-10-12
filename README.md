@@ -80,7 +80,7 @@ With **no** configuration it uses the offline writer and still ships a complete,
 cited edition. To upgrade the writing, copy `tools/.env.example` to `tools/.env`
 and set one of:
 
-- `XAI_API_KEY` (or `GROK_API_KEY`, plus optional `GROK_MODEL`, default `grok-4.6`) — **Grok/xAI**,
+- `XAI_API_KEY` (or `GROK_API_KEY`, plus optional `GROK_MODEL`, local default `grok-4.7`) - **Grok/xAI**,
 - `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`) — or run ChatGPT Codex's
   `codex` CLI locally,
 - `ANTHROPIC_API_KEY` — or run Claude Code's `claude` CLI locally.
@@ -94,18 +94,41 @@ sportsbook consensus line.
 ### Daily automation
 
 [`.github/workflows/narrative.yml`](.github/workflows/narrative.yml) runs every
-day: it regenerates the edition, opens a pull request, auto-merges it, and
+day: it regenerates the edition, opens a pull request, gates it, and
 publishes the refreshed site to the `gh-pages` branch (which serves
 arrowheadpaesano.com). The generator still writes `data/narrative.json`; Hugo
 renders that file on the homepage.
 
-Add **`XAI_API_KEY`** (or `GROK_API_KEY`) as a repository secret to have Grok
-write it, or `OPENAI_API_KEY` for OpenAI — Grok wins if both are set. With no
-secret at all the offline writer still runs. Optional repository *variables*:
-`GROK_MODEL` (defaults to `grok-4.6`), `OPENAI_MODEL`, `XAI_BASE_URL`.
+The article workflow defaults to Grok using the existing **`XAI_API_KEY`**
+(or `GROK_API_KEY`) secret. A missing key fails the article job; schedule-only
+work still runs without keys. Optional repository *variables*:
+`OPENAI_MODEL`, `XAI_BASE_URL`. The article workflow sets `GROK_MODEL=latest`:
+it queries the configured xAI account's model list once per process and selects
+the newest stable numbered text model at **Grok 4.7 or newer**. Dated,
+multi-agent, Build, and Imagine variants are excluded. Local runs can use
+`GROK_MODEL=latest` too. Model discovery or generation failure stops the article
+run and preserves the published edition; `GROK_FALLBACK_MODELS` is ignored.
+There is no older-model or offline substitution after selecting Grok.
+
+The daily full edition keeps its existing factual rewrites (two maximum),
+uniqueness retry (one maximum), and 420-second stream deadline. Successful
+streamed calls log actual provider token usage, including cached/reasoning
+tokens when supplied. A partial stream is rejected. Schedule-only evening and
+late-window jobs use no LLM or market calls. An unchanged slate keeps its exact
+bytes, avoiding formatting-only PRs and repeated deploys.
 
 Trigger it by hand any time from the **Actions** tab (**Run workflow**), where
 the *provider* input can force `grok`, `openai`, `anthropic`, or `offline`.
+
+### Maintenance and promotion
+
+Feature branches target **develop** for the complete Python, factual, SVG,
+Hugo, workflow-permission, and dependency-manifest checks. Pushes to develop
+run the same checks. Promote a validated develop commit through a reviewed PR
+to **main**; only main deploys. Integration and Dependabot PRs never auto-merge.
+Main's required `gates` check and Karen's signed Review/security holds remain
+in force. See [the maintenance notes](docs/article-maintenance.md) for cadence,
+current setup constraints, and evidence.
 
 ## Project map
 

@@ -15,13 +15,11 @@ name: Chiefs Narrative (daily)
 # Evening / late-window runs are --schedule-only so they do not mint a new
 # narrative edition.
 #
-# Providers (auto-detected in tools/chiefs_narrative/providers.py):
-#   * If the XAI_API_KEY (or GROK_API_KEY) secret exists -> Grok writes it.
-#   * Else if OPENAI_API_KEY exists -> OpenAI writes it.
-#   * Otherwise the deterministic offline writer produces a complete, cited edition.
-# Nothing is required for this to run; add XAI_API_KEY or OPENAI_API_KEY (and
-# optionally ODDS_API_KEY) as repository secrets to upgrade the writing.
-# Optional repository variable GROK_MODEL selects the xAI model (default grok-4.6).
+# Article jobs default to Grok/xAI with the existing XAI_API_KEY/GROK_API_KEY.
+# An explicitly selected manual provider retains its own existing ecosystem.
+# Schedule-only jobs do not need any provider secret.
+# Article jobs select the latest account-visible stable Grok (minimum 4.7).
+# Provider/model failures stop generation; they never downgrade the article writer.
 # Force one with the workflow_dispatch "provider" input (e.g. grok).
 
 on:
@@ -36,7 +34,7 @@ on:
   workflow_dispatch:
     inputs:
       provider:
-        description: "Force writer (blank = auto). grok|openai|anthropic|offline"
+        description: "Force writer (blank = grok). grok|openai|anthropic|offline"
         required: false
         default: ""
       mode:
@@ -54,6 +52,7 @@ concurrency:
 jobs:
   generate:
     runs-on: ubuntu-latest
+    timeout-minutes: 35
     permissions:
       contents: read
     env:
@@ -111,12 +110,12 @@ jobs:
       - name: Generate the Chiefs Narrative
         if: steps.mode.outputs.mode == 'full' && steps.live.outputs.skip != 'true'
         env:
-          CHIEFS_PROVIDER: ${{ github.event.inputs.provider }}
+          CHIEFS_PROVIDER: ${{ github.event.inputs.provider || 'grok' }}
           # Grok/xAI takes precedence over OpenAI when its key is present.
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
           GROK_API_KEY: ${{ secrets.GROK_API_KEY }}
-          GROK_MODEL: ${{ vars.GROK_MODEL }}
-          GROK_FALLBACK_MODELS: ${{ vars.GROK_FALLBACK_MODELS }}
+          # Repo variables must not silently pin old models or configure downgrades.
+          GROK_MODEL: latest
           XAI_BASE_URL: ${{ vars.XAI_BASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
@@ -124,21 +123,6 @@ jobs:
           ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
         run: |
-          python - <<'PY'
-          from tools.chiefs_narrative.providers import grok_model
-          print(f"GROK_MODEL env={__import__('os').environ.get('GROK_MODEL', '')!r}")
-          print(f"resolved grok model={grok_model()}")
-          import os, requests
-          key = os.environ.get("XAI_API_KEY") or os.environ.get("GROK_API_KEY")
-          if key:
-              try:
-                  r = requests.get("https://api.x.ai/v1/models",
-                                   headers={"Authorization": f"Bearer {key}"}, timeout=20)
-                  ids = sorted(m.get("id", "") for m in r.json().get("data", []))
-                  print(f"xai models ({r.status_code}): {', '.join(ids)}")
-              except Exception as exc:  # diagnostics only
-                  print(f"xai models probe failed: {exc}")
-          PY
           python -m tools.chiefs_narrative.generate
 
       - name: Detect changes
@@ -183,6 +167,7 @@ jobs:
     needs: generate
     if: needs.generate.outputs.changed == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     env:

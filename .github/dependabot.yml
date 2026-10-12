@@ -1,0 +1,55 @@
+version: 2
+updates:
+  # Runtime libraries: weekly grouped minor/patch updates to integration.
+  - package-ecosystem: pip
+    directory: /tools
+    target-branch: develop
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 2
+    groups:
+      runtime:
+        patterns: ["*"]
+        update-types: [minor, patch]
+  # Actions and the local Hugo wrapper change less often; keep majors separate.
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: [minor, patch]
+  - package-ecosystem: npm
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    groups:
+      tooling:
+        patterns: ["*"]
+        update-types: [minor, patch]
+  # Security updates always use the default branch and are event-driven once
+  # enabled in GitHub settings. Zero disables routine version PRs on main only.
+  - package-ecosystem: pip
+    directory: /tools
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    groups:
+      runtime-security:
+        applies-to: security-updates
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 0
+    groups:
+      tooling-security:
+        applies-to: security-updates
+        patterns: ["*"]
