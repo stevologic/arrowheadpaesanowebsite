@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "repository": "stevologic/arrowheadpaesanowebsite",
+  "mode": "dry-run",
+  "default_branch": "main",
+  "integration_branch": "develop",
+  "automation": {"merge": false, "close": false, "delete": false, "deploy": false},
+  "protected_patterns": ["main", "master", "develop*", "release*", "gh-pages", "narrative/update-*", "pr-assets"],
+  "topic_prefixes": ["codex/", "dependabot/", "cursor/", "feature/", "fix/", "chore/"],
+  "active_branches": [
+    "codex/shared-maintenance-consumer",
+    "codex/dependency-publication-cleanup",
+    "codex/grok47-maintenance",
+    "cursor/check-edition-penalty-touches-94ee",
+    "cursor/narrative-comments-54fd",
+    "dependabot/github_actions/develop/actions/download-artifact-8",
+    "dependabot/github_actions/develop/actions/setup-python-7",
+    "dependabot/npm_and_yarn/develop/tooling-fedc00f286",
+    "dependabot/pip/tools/develop/pyyaml-gte-6.0.3-and-lt-7",
+    "dependabot/pip/tools/develop/requests-gte-2.34.2-and-lt-3"
+  ],
+  "locked_prs": [96],
+  "required_checks": ["gates"],
+  "validation_commands": [
+    "python -m tools.chiefs_narrative.check_workflows",
+    "python -m unittest discover -s tools/tests -v",
+    "python -m tools.chiefs_narrative.generate --check-edition",
+    "python -m tools.chiefs_narrative.generate --diagrams-only; git diff --exit-code -- public/images/narrative",
+    "hugo --gc --minify (extended0.152.2)",
+    "npm ci --ignore-scripts",
+    "npm audit --audit-level=moderate",
+    "npm rebuild hugo-bin --foreground-scripts; npm run build",
+    "python -m tools.chiefs_narrative.review_gate --pages --dist dist (both real publication gates; signed Review PASS required)"
+  ],
+  "cadences": {"runtime": "weekly", "container_images": "not applicable: static Hugo site", "tooling": "monthly", "major_review": "quarterly", "security": "advisory-driven default-branch updates when enabled; preserve actual PR/push checks"},
+  "supported_image_tracks": [],
+  "custom_jobs": ["Chiefs narrative/article generation and schedule-only refresh", "account-visible stable xAI/Grok minimum4.7 with no silent downgrade", "Karen ed25519 signed Review/factual/SVG/edition QA", "existing Hugo/Pages publication and write-token separation"],
+  "ai": {"provider": "xai", "enabled": false, "max_output_tokens": 1000}
+}
