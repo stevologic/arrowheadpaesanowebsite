@@ -228,7 +228,7 @@ def _narrative_review_hold_wiring(parsed) -> dict:
         parsed, "test", name="Record publish metadata"
     )
     script = _job_step_script(
-        parsed, "update", name="Open pull request and wait for CI gates"
+        parsed, "update", name="Queue draft pull request for approved PR-event gates"
     ) or _job_step_script(parsed, "update", step_id="publish")
     script = meta + "\n" + script
     review_cmp = re.search(r'if \[ "\$REVIEW_HOLD" = "([^"]+)" \]', script)
@@ -238,20 +238,16 @@ def _narrative_review_hold_wiring(parsed) -> dict:
     )
     merge_cmp = re.search(r'if \[ "\$HOLD_MERGE" = "([^"]+)" \]', script)
     hold_idx = script.find('if [ "$HOLD_MERGE" = ')
-    merge_idx = script.find("gh pr merge")
-    hold_block = (
-        script[hold_idx:merge_idx] if hold_idx >= 0 and merge_idx > hold_idx else ""
-    )
+    hold_block = script[hold_idx:] if hold_idx >= 0 else ""
     return {
         "script": script,
         "uses_review_requires_human": "facts.review_requires_human" in script,
         "review_hold_equals": review_cmp.group(1) if review_cmp else "",
         "hold_merge_assign": hold_assign.group(1) if hold_assign else "",
         "hold_merge_equals": merge_cmp.group(1) if merge_cmp else "",
-        "hold_before_merge": hold_idx >= 0 and merge_idx > hold_idx,
-        "hold_sets_publish_false": 'echo "publish=false"' in hold_block,
+        "always_draft": "gh pr create --draft" in script,
+        "no_merge": "gh pr merge" not in script,
         "hold_adds_label": "--add-label hold" in hold_block,
-        "hold_exits": "exit 0" in hold_block,
     }
 
 
@@ -788,25 +784,23 @@ class GrokModelSelection(unittest.TestCase):
         self.assertNotIn("20 4 * * *", yaml)
         gate = "python -m unittest discover -s tools/tests -v"
         self.assertIn(gate, yaml)
-        self.assertLess(yaml.index(gate), yaml.index("Open pull request and wait for CI gates"))
-        self.assertLess(yaml.index("hugo --gc --minify"), yaml.index("Open pull request and wait for CI gates"))
+        self.assertLess(yaml.index(gate), yaml.index("Queue draft pull request for approved PR-event gates"))
+        self.assertLess(yaml.index("hugo --gc --minify"), yaml.index("Queue draft pull request for approved PR-event gates"))
         self.assertNotIn("gh pr checks ", yaml)
         self.assertNotIn("gh pr checks\n", yaml)
         self.assertNotIn("gh pr checks\"", yaml)
-        self.assertIn("gh workflow run ci.yml --ref", yaml)
-        self.assertIn("APPEAR_DEADLINE", yaml)
-        self.assertIn("DONE_DEADLINE", yaml)
-        self.assertLess(
-            yaml.index("gh workflow run ci.yml --ref"),
-            yaml.index('gh pr merge "$PR_URL" --squash --delete-branch'),
-        )
-        self.assertNotIn("|| gh pr merge", yaml)
-        self.assertIn("actions: write", yaml)
+        self.assertIn("gh pr create --draft", yaml)
+        self.assertIn('BASE="develop"', yaml)
+        self.assertNotIn("gh workflow run ci.yml", yaml)
+        self.assertNotIn("gh pr merge", yaml)
+        self.assertNotIn("APPEAR_DEADLINE", yaml)
+        self.assertNotIn("DONE_DEADLINE", yaml)
+        self.assertNotIn("actions: write", yaml)
         self.assertNotIn("secrets.GH_PAT", yaml)
         self.assertNotIn("secrets.PAT", yaml)
 
     def test_edition_prs_run_ci_gates_before_merge(self):
-        """#114 pull_request died with 0 jobs; skip edition heads, dispatch gates."""
+        """Edition-only and bot PRs must run the real required PR-event job."""
         ci = (
             Path(__file__).resolve().parents[2] / ".github" / "workflows" / "ci.yml"
         ).read_text(encoding="utf-8")
@@ -814,17 +808,14 @@ class GrokModelSelection(unittest.TestCase):
         concurrency = ci.split("concurrency:")[1].split("jobs:")[0]
         self.assertNotIn("inputs.checkout_ref", concurrency)
         self.assertIn("github.event.pull_request.number || github.ref", concurrency)
-        self.assertIn("narrative/update-", gates)
+        parsed = __import__("yaml").load(ci, Loader=__import__("yaml").BaseLoader)
+        self.assertNotIn("if", parsed["jobs"]["gates"])
+        self.assertNotIn("paths-ignore", parsed["on"]["pull_request"])
+        self.assertNotIn("paths", parsed["on"]["pull_request"])
         self.assertIn("workflow_dispatch:", ci)
         self.assertIn("required: false", ci)
         self.assertIn("narrative/update-", ci.split("automerge:")[1])
-        self.assertIn("paths-ignore:", ci)
-        self.assertIn("data/" + "narrative.json", ci)
-        self.assertIn("data/" + "narrative_editions/**", ci)
-        self.assertIn("data/schedule_2026.json", ci)
-        self.assertIn("public/images/" + "narrative/**", ci)
-        self.assertIn("required approval", ci)
-        self.assertIn("36446331690", ci)
+        self.assertIn("approve workflows", ci)
         self.assertNotIn("as usual", ci)
         self.assertIn('gh workflow run "Deploy Hugo site to GitHub Pages"', ci)
         self.assertIn('--repo "${GITHUB_REPOSITORY}"', ci)
@@ -842,8 +833,8 @@ class GrokModelSelection(unittest.TestCase):
             ci.index("git diff --exit-code -- public/images/narrative"),
         )
 
-    def test_edition_ci_is_dispatched_not_pr_triggered(self):
-        """GITHUB_TOKEN PRs do not start pull_request workflows (run 36360998269)."""
+    def test_edition_ci_uses_approved_pr_event_without_dispatch_merge(self):
+        """Dispatch success cannot satisfy PR checks; retain human approval."""
         root = Path(__file__).resolve().parents[2] / ".github" / "workflows"
         narrative = (root / "narrative.yml").read_text(encoding="utf-8")
         ci = (root / "ci.yml").read_text(encoding="utf-8")
@@ -854,13 +845,13 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("github.event_name == 'pull_request'", automerge)
         self.assertIn("head.repo.full_name == github.repository", automerge)
         self.assertIn("--match-head-commit", automerge)
-        self.assertIn("gh workflow run ci.yml --ref", narrative)
-        self.assertIn("workflow_dispatch", narrative)
-        self.assertNotIn("gh pr checks ", narrative)
-        self.assertNotIn("gh pr checks\n", narrative)
-        self.assertIn("sleep 5", narrative)
-        self.assertIn("sleep 10", narrative)
-        self.assertLess(narrative.index("DONE_DEADLINE"), narrative.index("gh pr merge"))
+        self.assertNotIn("gh workflow run ci.yml", narrative)
+        self.assertNotIn("gh pr merge", narrative)
+        self.assertIn("gh pr create --draft", narrative)
+        self.assertIn('BASE="develop"', narrative)
+        self.assertIn("Approve any waiting pull_request workflow", narrative)
+        self.assertNotIn("sleep 5", narrative)
+        self.assertNotIn("sleep 10", narrative)
         self.assertNotIn("git add -A data", narrative)
         self.assertIn("data/schedule_2026.json", narrative)
         self.assertIn("--check-edition", narrative)
@@ -5842,11 +5833,12 @@ class FactCheck(unittest.TestCase):
             )
             for body in _quoted_py_heredoc_bodies(script):
                 compile(body, f"{job_name}/{step_name}", "exec")
-        self.assertIn("needs.update.outputs.publish", workflow)
-        self.assertLess(workflow.index("HOLD_MERGE"), workflow.index("gh pr merge"))
-        self.assertLess(workflow.index("HOLD_MERGE"), workflow.index('echo "publish=true"'))
-        hold_block = workflow[workflow.index("HOLD_MERGE") : workflow.index("gh pr merge")]
-        self.assertIn("publish=false", hold_block)
+        self.assertNotIn("deploy", parsed["jobs"])
+        self.assertNotIn("gh pr merge", workflow)
+        self.assertNotIn('echo "publish=true"', workflow)
+        self.assertIn("gh pr create --draft", update_scripts)
+        hold_block = update_scripts[update_scripts.index('if [ "$HOLD_MERGE" = '):]
+        self.assertIn("--add-label hold", hold_block)
 
     def test_drop_body_renders_held_and_quiet_salvage(self):
         self.assertEqual(drop_body.drop_body({}), "")
@@ -5917,10 +5909,9 @@ class FactCheck(unittest.TestCase):
         self.assertEqual(wiring["review_hold_equals"], "true")
         self.assertEqual(wiring["hold_merge_assign"], "true")
         self.assertEqual(wiring["hold_merge_equals"], "true")
-        self.assertTrue(wiring["hold_before_merge"])
-        self.assertTrue(wiring["hold_sets_publish_false"])
+        self.assertTrue(wiring["always_draft"])
+        self.assertTrue(wiring["no_merge"])
         self.assertTrue(wiring["hold_adds_label"])
-        self.assertTrue(wiring["hold_exits"])
         mutated = dict(wiring)
         mutated["hold_merge_assign"] = "$HOLD_MERGE"
         self.assertNotEqual(mutated["hold_merge_assign"], "true")
@@ -6023,40 +6014,21 @@ class FactCheck(unittest.TestCase):
         )
         # G3: remove the pages Publish `if`.
         self.assertEqual(publish.get("if"), "steps.review.outputs.skip != 'true'")
-        narr_gate = _job_step_script(
-            narrative, "deploy", name="Skip unsigned Review editions"
-        ) or _job_step_script(narrative, "deploy", step_id="review")
-        self.assertIn("review_gate --pages", narr_gate)
-        self.assertIn("--dist", narr_gate)
-        self.assertIsNone(
-            re.search(r"review_gate --pages[^\n]*\|\|\s*true", narr_gate)
-        )
-        narr_blocked = narr_gate[narr_gate.find("else") :]
-        self.assertIn('echo "skip=true"', narr_blocked)
-        self.assertNotIn("skip=false", narr_blocked)
-        narr_scripts = "\n".join(
-            str(step.get("run") or "")
-            for step in ((narrative.get("jobs") or {}).get("deploy") or {}).get(
-                "steps"
-            )
-            or []
-            if isinstance(step, dict)
-        )
-        self.assertLess(
-            narr_scripts.index("hugo --gc --minify"),
-            narr_scripts.index("review_gate --pages"),
-        )
-        narr_publish = next(
-            step
-            for step in ((narrative.get("jobs") or {}).get("deploy") or {}).get(
-                "steps"
-            )
-            or []
-            if isinstance(step, dict) and step.get("name") == "Publish to gh-pages"
-        )
-        self.assertEqual(
-            narr_publish.get("if"), "steps.review.outputs.skip != 'true'"
-        )
+        # Narrative cannot deploy or merge; it keeps the trusted-base
+        # signature gate before opening a held draft, and pages.yml checks
+        # the built main tree before its only deployment.
+        self.assertNotIn("deploy", narrative["jobs"])
+        narr_gate = _job_step_script(narrative, "update", name="Refuse unsigned Review editions")
+        self.assertIn('cd "$GATE_BASE"', narr_gate)
+        self.assertIn("python -P -m tools.chiefs_narrative.review_gate --pages", narr_gate)
+        self.assertIn('if [ "$pages_rc" -eq 2 ]', narr_gate)
+        self.assertIn('elif [ "$pages_rc" -ne 0 ]', narr_gate)
+        self.assertIn('exit "$pages_rc"', narr_gate)
+        self.assertNotRegex(narr_gate, r"review_gate --pages[^\n]*\|\|\s*true")
+        generate_gate = _job_step_script(narrative, "test", name="Gate generated content")
+        self.assertLess(generate_gate.index("hugo --gc --minify"), generate_gate.index("review_gate --pages --dist dist"))
+        self.assertIn('elif [ "$pages_rc" -ne 0 ]', generate_gate)
+        self.assertIn('exit "$pages_rc"', generate_gate)
         ci_gates = "\n".join(
             str(step.get("run") or "")
             for step in ((ci.get("jobs") or {}).get("gates") or {}).get("steps")
@@ -6113,10 +6085,9 @@ class FactCheck(unittest.TestCase):
                 (step.get("with") or {}).get("persist-credentials"),
                 False,
             )
-        narr_job = (narrative.get("jobs") or {}).get("deploy") or {}
-        self.assertIn("github.ref == 'refs/heads/main'", str(narr_job.get("if")))
+        self.assertNotIn("deploy", narrative.get("jobs") or {})
         self.assertEqual(narrative.get("permissions"), {"contents": "read"})
-        for job_name in ("generate", "test", "update", "deploy"):
+        for job_name in ("generate", "test", "update"):
             narr_checkouts = [
                 step
                 for step in ((narrative.get("jobs") or {}).get(job_name) or {}).get(

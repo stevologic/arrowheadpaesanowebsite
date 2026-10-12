@@ -1,7 +1,7 @@
 name: Edition gates (human)
 
-# Human data-only PRs match ci.yml paths-ignore, so that workflow never
-# starts. Bot edition PRs stay on narrative.yml + workflow_dispatch.
+# Human data-only PRs also run ci.yml's required PR-event gates. This adds
+# a trusted-base overlay check. Bot PRs use the approval-protected PR event.
 # This workflow is pull_request_target only so github-actions[bot] does
 # not sit on first-time approval. Never execute PR code. Tools, tests,
 # fixtures, and requirements come from the base (main). Only edition
@@ -76,7 +76,7 @@ jobs:
         run: git add -A -- data public/images/narrative
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -134,7 +134,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 

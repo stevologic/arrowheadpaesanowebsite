@@ -1,7 +1,9 @@
 """Regression coverage for article routing, transport failures, and no-op slates."""
 import copy
 import json
+import os
 import re
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -207,6 +209,8 @@ class MaintenancePolicy(unittest.TestCase):
             ({"base": "develop"}, False),
             ({"actor": "dependabot[bot]"}, False),
             ({"author": "dependabot[bot]"}, False),  # Human-triggered bot PR update.
+            ({"actor": "github-actions[bot]"}, False),
+            ({"author": "github-actions[bot]"}, False),
             ({"draft": True}, False),
             ({"labels": ["hold"]}, False),
             ({"head_repo": "someone/arrowheadpaesanowebsite"}, False),
@@ -245,3 +249,125 @@ class MaintenancePolicy(unittest.TestCase):
             if "target-branch" not in row:
                 self.assertEqual(row["open-pull-requests-limit"], 0)
                 self.assertTrue(all(group["applies-to"] == "security-updates" for group in row["groups"].values()))
+
+
+class PublicationPolicy(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        root = Path(__file__).resolve().parents[2] / ".github/workflows"
+        cls.narrative = yaml.load((root / "narrative.yml").read_text(), Loader=yaml.BaseLoader)
+        cls.ci = yaml.load((root / "ci.yml").read_text(), Loader=yaml.BaseLoader)
+
+    def test_required_pr_gate_cannot_skip_bot_or_edition_events(self):
+        trigger = self.ci["on"]["pull_request"]
+        self.assertEqual(trigger["branches"], ["main", "develop"])
+        self.assertNotIn("paths-ignore", trigger)
+        self.assertNotIn("paths", trigger)
+        self.assertNotIn("if", self.ci["jobs"]["gates"])
+        self.assertEqual(self.ci["permissions"], {"contents": "read"})
+        jobs = self.narrative["jobs"]
+        self.assertNotIn("deploy", jobs)
+        self.assertEqual(jobs["update"]["permissions"], {"contents": "write", "pull-requests": "write"})
+        scripts = "\n".join(step.get("run", "") for job in jobs.values() for step in job["steps"])
+        for forbidden in ("gh workflow run", "gh pr merge", "gh run approve", "sleep 5", "--delete-branch"):
+            self.assertNotIn(forbidden, scripts)
+        self.assertIn("--draft", scripts)
+        self.assertIn('BASE="develop"', scripts)
+
+    def test_queue_blocks_provider_and_duplicate_pr_work(self):
+        steps = self.narrative["jobs"]["generate"]["steps"]
+        queue = next(step for step in steps if step.get("id") == "queue")
+        writer = next(step for step in steps if step["name"] == "Generate the Chiefs Narrative")
+        slate = next(step for step in steps if step["name"] == "Refresh the published slate")
+        self.assertLess(steps.index(queue), steps.index(writer))
+        self.assertIn("--paginate", queue["run"])
+        self.assertIn('startswith("narrative/update-")', queue["run"])
+        for pending, expected in (("true", False), ("false", True)):
+            namespace = SimpleNamespace(
+                queue=SimpleNamespace(outputs=SimpleNamespace(pending=pending)),
+                live=SimpleNamespace(outputs=SimpleNamespace(skip="false")),
+                mode=SimpleNamespace(outputs=SimpleNamespace(mode="full")))
+            for step in (writer, slate):
+                expression = step["if"].replace("&&", " and ")
+                self.assertEqual(eval(expression, {"__builtins__": {}}, {"steps": namespace}), expected)
+        detector = next(step for step in steps if step.get("id") == "diff")["run"]
+        self.assertIn('steps.queue.outputs.pending', detector)
+        self.assertLess(detector.index('echo "changed=false"'), detector.index("git add"))
+
+    @staticmethod
+    def _fake_commands(root):
+        """Run the actual workflow shell offline and record its git/gh calls."""
+        directory = root / "bin"
+        directory.mkdir()
+        program = '''#!/usr/bin/env python3
+import json, os, sys
+from pathlib import Path
+command = Path(sys.argv[0]).name
+record = {'command': command, 'args': sys.argv[1:]}
+if '--body-file' in sys.argv:
+    record['body'] = Path(sys.argv[sys.argv.index('--body-file') + 1]).read_text(encoding='utf-8')
+with open(os.environ['CALLS'], 'a', encoding='utf-8') as out:
+    out.write(json.dumps(record) + '\\n')
+if command == 'gh':
+    if sys.argv[1] == 'api':
+        print(os.environ.get('API_RESULT', ''))
+        sys.exit(int(os.environ.get('API_EXIT', '0')))
+    if sys.argv[1:3] == ['pr', 'create']:
+        print('https://github.com/example/site/pull/1')
+    elif sys.argv[1:3] != ['pr', 'edit']:
+        sys.exit(42)
+'''
+        for name in ("git", "gh"):
+            path = directory / name
+            path.write_text(program, encoding="utf-8")
+            path.chmod(0o755)
+        return dict(os.environ, PATH=f"{directory}:{os.environ['PATH']}", CALLS=str(root / "calls.jsonl"),
+                    GITHUB_REPOSITORY="example/site", GH_TOKEN="offline-fixture",
+                    GITHUB_RUN_ID="123", GITHUB_RUN_ATTEMPT="2", RUNNER_TEMP=str(root),
+                    GITHUB_OUTPUT=str(root / "output"), GITHUB_STEP_SUMMARY=str(root / "summary"))
+
+    @unittest.skipIf(os.name == "nt", "Actual Actions bash execution is covered on Linux CI")
+    def test_queue_shell_is_fail_closed_and_reports_backpressure(self):
+        script = next(step["run"] for step in self.narrative["jobs"]["generate"]["steps"] if step.get("id") == "queue")
+        for response, exit_code in (("", 0), ("12\n13", 0), ("", 42)):
+            with self.subTest(response=response, exit_code=exit_code), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                env = self._fake_commands(root)
+                env.update(API_RESULT=response, API_EXIT=str(exit_code))
+                result = subprocess.run(["bash", "-c", script], cwd=root, env=env, capture_output=True, text=True)
+                if exit_code:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertFalse((root / "output").exists())
+                else:
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertEqual((root / "output").read_text().strip(), f"pending={'true' if response else 'false'}")
+
+    @unittest.skipIf(os.name == "nt", "Actual Actions bash execution is covered on Linux CI")
+    def test_publisher_shell_always_queues_draft_and_preserves_holds(self):
+        script = next(step["run"] for step in self.narrative["jobs"]["update"]["steps"] if step.get("id") == "publish")
+        for mode in ("schedule", "full"):
+            for hold in (False, True):
+                with self.subTest(mode=mode, hold=hold), tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    env = self._fake_commands(root)
+                    env["DESK_MODE"] = mode
+                    metadata = dict(holdMerge=hold, dropBody="QA details stay visible", edition="Current edition",
+                                    headline="Chiefs 'quotes' $(touch PWNED) stay data")
+                    (root / ".narrative-publish.json").write_text(json.dumps(metadata), encoding="utf-8")
+                    (root / "data").mkdir()
+                    (root / "data/narrative.json").write_text(json.dumps(metadata), encoding="utf-8")
+                    result = subprocess.run(["bash", "-c", script], cwd=root, env=env, capture_output=True, text=True)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    calls = [json.loads(line) for line in (root / "calls.jsonl").read_text().splitlines()]
+                    create = next(row for row in calls if row["command"] == "gh" and row["args"][:2] == ["pr", "create"])
+                    self.assertIn("--draft", create["args"])
+                    self.assertEqual(create["args"][create["args"].index("--base") + 1], "develop")
+                    self.assertIn("--body-file", create["args"])
+                    self.assertIn("Karen's signed PASS", create["body"])
+                    labels = [row for row in calls if row["command"] == "gh" and "--add-label" in row["args"]]
+                    self.assertEqual(bool(labels), hold)
+                    self.assertFalse(any(row["args"][:2] == ["pr", "merge"] for row in calls))
+                    self.assertFalse((root / "PWNED").exists())
+                    if mode == "full":
+                        self.assertIn(metadata["headline"], create["body"])
+                        self.assertIn(metadata["dropBody"], create["body"])

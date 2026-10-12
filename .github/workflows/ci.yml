@@ -8,26 +8,15 @@ name: CI gates
 # does not fire pages.yml's push trigger, so automerge then dispatches
 # "Deploy Hugo site to GitHub Pages" on main.
 #
-# Edition PRs opened with GITHUB_TOKEN still emit a pull_request event,
-# but they must not queue this workflow. Runs #106, #110, #114, #118
-# (36446331690) sat on "This workflow run required approval but was not
-# approved before it expired" with 0 jobs — that is a first-time /
-# bot-approval gate, not a concurrency/workflow_call bug. Ignore
-# edition-only paths here; narrative.yml already workflow_dispatches
-# these gates against the edition branch and merges.
+# Every PR, including edition-only and bot PRs, needs the real PR-event
+# gates check. GITHUB_TOKEN-created PR runs may require a maintainer to
+# approve workflows. Dispatch checks cannot satisfy branch protection;
+# neither paths nor branch prefixes may silently skip the required job.
 
 on:
   pull_request:
     branches: [main, develop]
     types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore:
-      - "data/narrative.json"
-      - "data/narrative_archive.json"
-      - "data/narrative_repair.json"
-      - "data/narrative_editions/**"
-      - "data/wire.json"
-      - "data/schedule_2026.json"
-      - "public/images/narrative/**"
   push:
     branches: [develop]
   workflow_dispatch:
@@ -51,7 +40,6 @@ env:
 
 jobs:
   gates:
-    if: ${{ github.event_name != 'pull_request' || !startsWith(github.head_ref, 'narrative/update-') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -62,7 +50,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -95,11 +83,75 @@ jobs:
       - name: Gate 2 — Hugo build
         run: hugo --gc --minify
 
+      - name: Set up local tooling Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
       - name: Validate local build dependency manifest
         run: npm ci --ignore-scripts
 
-      - name: Reject high or critical tooling advisories
-        run: npm audit --audit-level=high
+      - name: Reject moderate or worse tooling advisories
+        run: npm audit --audit-level=moderate
+
+      - name: Verify the upgraded local Hugo installer and build
+        run: |
+          set -euo pipefail
+          npm rebuild hugo-bin --foreground-scripts
+          version="$(node_modules/.bin/hugo version)"
+          echo "$version"
+          [[ "$version" == "hugo v${HUGO_VERSION}"*+extended* ]]
+          npm run build
+
+      # Exercise the v4 ZIP -> v8 download contract used by narrative.yml,
+      # including its hidden metadata, without generating or publishing content.
+      - name: Prepare publication artifact compatibility fixture
+        run: |
+          python - <<'PY'
+          import hashlib, json, os, shutil
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP']) / 'artifact-original'
+          root.mkdir()
+          sources = [Path('data/narrative.json'), Path('data/schedule_2026.json'),
+                     next(iter(sorted(Path('public/images/narrative').rglob('*.svg'))))]
+          for source in sources:
+              target = root / source
+              target.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copyfile(source, target)
+          (root / '.narrative-publish.json').write_text(
+              json.dumps({'mode': 'schedule', 'holdMerge': True}) + '\n', encoding='utf-8')
+          manifest = {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
+                      for p in root.rglob('*') if p.is_file()}
+          (root.parent / 'artifact-hashes.json').write_text(json.dumps(manifest), encoding='utf-8')
+          PY
+
+      - name: Upload publication compatibility fixture
+        uses: actions/upload-artifact@v4
+        with:
+          name: publication-compatibility
+          include-hidden-files: true
+          retention-days: 1
+          path: ${{ runner.temp }}/artifact-original/
+
+      - name: Download publication compatibility fixture
+        uses: actions/download-artifact@v8
+        with:
+          name: publication-compatibility
+          path: ${{ runner.temp }}/artifact-roundtrip/
+
+      - name: Verify publication artifact bytes and hidden metadata
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          temp = Path(os.environ['RUNNER_TEMP'])
+          root = temp / 'artifact-roundtrip'
+          actual = {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
+                    for p in root.rglob('*') if p.is_file()}
+          expected = json.loads((temp / 'artifact-hashes.json').read_text(encoding='utf-8'))
+          assert actual == expected, f'Publication artifact changed: {actual.keys()} != {expected.keys()}'
+          assert '.narrative-publish.json' in actual
+          PY
 
       - name: Pages and narrative deploy gates on the real tree
         run: |
@@ -140,12 +192,14 @@ jobs:
       actions: write
     # Only human/PAT pull_request events. workflow_dispatch / workflow_call
     # have no pull_request payload — do not invent a merge.
-    # Edition PRs are merged by narrative.yml after this gates job succeeds.
+    # Generated edition PRs stay draft on develop for human review/promotion.
     if: >-
       ${{ github.event_name == 'pull_request' &&
           github.base_ref == 'main' &&
           github.actor != 'dependabot[bot]' &&
           github.event.pull_request.user.login != 'dependabot[bot]' &&
+          github.actor != 'github-actions[bot]' &&
+          github.event.pull_request.user.login != 'github-actions[bot]' &&
           !startsWith(github.head_ref, 'narrative/update-') &&
           github.event.pull_request.draft == false &&
           !contains(github.event.pull_request.labels.*.name, 'hold') &&
@@ -160,7 +214,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
