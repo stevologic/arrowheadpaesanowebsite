@@ -354,8 +354,10 @@ if command == 'gh':
                     metadata = dict(holdMerge=hold, dropBody="QA details stay visible", edition="Current edition",
                                     headline="Chiefs 'quotes' $(touch PWNED) stay data")
                     (root / ".narrative-publish.json").write_text(json.dumps(metadata), encoding="utf-8")
-                    (root / "data").mkdir()
-                    (root / "data/narrative.json").write_text(json.dumps(metadata), encoding="utf-8")
+                    fixture_data = root / "data"
+                    fixture_data.mkdir()
+                    # Only this disposable fixture; never read the live edition.
+                    (fixture_data / "narrative.json").write_text(json.dumps(metadata), encoding="utf-8")
                     result = subprocess.run(["bash", "-c", script], cwd=root, env=env, capture_output=True, text=True)
                     self.assertEqual(result.returncode, 0, result.stderr)
                     calls = [json.loads(line) for line in (root / "calls.jsonl").read_text().splitlines()]

@@ -7322,17 +7322,16 @@ class FactCheck(unittest.TestCase):
         narrative = yaml.safe_load((root / "narrative.yml").read_text(encoding="utf-8"))
         self.assertEqual(narrative.get("permissions"), {"contents": "read"})
         jobs = narrative.get("jobs") or {}
-        self.assertEqual((jobs.get("generate") or {}).get("permissions"), {"contents": "read"})
+        self.assertEqual((jobs.get("generate") or {}).get("permissions"), {"contents": "read", "pull-requests": "read"})
         self.assertEqual((jobs.get("test") or {}).get("permissions"), {"contents": "read"})
         self.assertEqual(
             (jobs.get("update") or {}).get("permissions"),
             {
                 "contents": "write",
                 "pull-requests": "write",
-                "actions": "write",
             },
         )
-        self.assertEqual((jobs.get("deploy") or {}).get("permissions"), {"contents": "write"})
+        self.assertNotIn("deploy", jobs)
         for job_name in ("generate", "test"):
             blob = "\n".join(
                 str(step.get("run") or "")
@@ -7340,7 +7339,7 @@ class FactCheck(unittest.TestCase):
                 if isinstance(step, dict)
             )
             self.assertIn("pip install -r", blob, job_name)
-        for job_name in ("update", "deploy"):
+        for job_name in ("update",):
             blob = "\n".join(
                 str(step.get("run") or "")
                 for step in (jobs.get(job_name) or {}).get("steps") or []
