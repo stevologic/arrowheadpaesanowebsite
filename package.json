@@ -8,7 +8,7 @@
     "dev": "hugo server --bind 127.0.0.1 --port 1515 --baseURL http://localhost:1515/ --disableFastRender --renderToMemory"
   },
   "devDependencies": {
-    "hugo-bin": "^0.149.2"
+    "hugo-bin": "^0.165.0"
   },
   "engines": {
     "node": ">=18"
