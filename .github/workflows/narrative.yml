@@ -3,15 +3,16 @@ name: Chiefs Narrative (daily)
 # Regenerates the Chiefs Narrative every morning as a three-act desk:
 # last-game review, current state / work list, then next-game plan and
 # matchup. Also refreshes the published schedule more often (evenings and
-# late game windows), opens an automated pull request, auto-merges it, and
-# deploys the refreshed site to GitHub Pages.
+# late game windows) and opens a draft PR to develop. A maintainer approves
+# any queued PR-event workflow, reviews the edition, and promotes develop
+# to main. pages.yml remains the deployment path after that reviewed merge.
 #
 # Install and tests run in a contents:read job with persist-credentials:
-# false. Only the final update/deploy jobs get contents:write; they
+# false. Only the final update job gets contents:write; it
 # commit generated data and never run unittest or pip install -r.
 #
 # Schedule freshness does not depend on narrative text changing: a score-only
-# or kickoff/network update still commits data/schedule_2026.json and deploys.
+# or kickoff/network update still queues data/schedule_2026.json for review.
 # Evening / late-window runs are --schedule-only so they do not mint a new
 # narrative edition.
 #
@@ -55,6 +56,7 @@ jobs:
     timeout-minutes: 35
     permissions:
       contents: read
+      pull-requests: read
     env:
       HUGO_VERSION: 0.152.2
     outputs:
@@ -68,7 +70,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -89,11 +91,29 @@ jobs:
           echo "mode=$MODE" >> "$GITHUB_OUTPUT"
           echo "Desk mode: $MODE"
 
+      - name: Check queued publications before provider work
+        id: queue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          PENDING="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls?state=open&per_page=100" \
+            --jq '.[] | select((.base.ref == "develop" or .base.ref == "main") and (.head.ref | startswith("narrative/update-"))) | .number')"
+          if [ -n "$PENDING" ]; then
+            echo "pending=true" >> "$GITHUB_OUTPUT"
+            echo "Publication PR(s) await review: $PENDING. Skipping repeat generation."
+            echo "Publication PR(s) $PENDING await workflow approval/review; no provider request was made." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "pending=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Refresh the published slate
+        if: steps.queue.outputs.pending != 'true'
         run: python -m tools.chiefs_narrative.generate --schedule-only
 
       - name: Skip publish while a Chiefs game is live
         id: live
+        if: steps.queue.outputs.pending != 'true'
         run: |
           python - <<'PY'
           import os
@@ -108,7 +128,7 @@ jobs:
           PY
 
       - name: Generate the Chiefs Narrative
-        if: steps.mode.outputs.mode == 'full' && steps.live.outputs.skip != 'true'
+        if: steps.queue.outputs.pending != 'true' && steps.mode.outputs.mode == 'full' && steps.live.outputs.skip != 'true'
         env:
           CHIEFS_PROVIDER: ${{ github.event.inputs.provider || 'grok' }}
           # Grok/xAI takes precedence over OpenAI when its key is present.
@@ -128,9 +148,9 @@ jobs:
       - name: Detect changes
         id: diff
         run: |
-          if [ "${{ steps.live.outputs.skip }}" = "true" ]; then
+          if [ "${{ steps.queue.outputs.pending }}" = "true" ] || [ "${{ steps.live.outputs.skip }}" = "true" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "Chiefs game in progress; skipping publish."
+            echo "Publication queued or Chiefs game in progress; skipping new PR."
             exit 0
           fi
           git add -- \
@@ -180,13 +200,13 @@ jobs:
           persist-credentials: false
 
       - name: Download generated data
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: narrative-data
           path: .
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -296,12 +316,10 @@ jobs:
     needs: [generate, test]
     if: needs.generate.outputs.changed == 'true' && needs.test.result == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: write
       pull-requests: write
-      actions: write
-    outputs:
-      publish: ${{ steps.publish.outputs.publish }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -310,13 +328,13 @@ jobs:
           persist-credentials: false
 
       - name: Download validated data
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: narrative-publish
           path: .
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
 
@@ -336,17 +354,16 @@ jobs:
             exit "$pages_rc"
           fi
 
-      - name: Open pull request and wait for CI gates
+      - name: Queue draft pull request for approved PR-event gates
         id: publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DESK_MODE: ${{ needs.generate.outputs.mode }}
         run: |
           set -euo pipefail
-          echo "publish=false" >> "$GITHUB_OUTPUT"
-          BASE="${GITHUB_REF_NAME}"
+          BASE="develop"
           STAMP="$(date -u +%Y%m%d-%H%M)"
-          BRANCH="narrative/update-${STAMP}"
+          BRANCH="narrative/update-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 
           git config user.name "arrowhead-paesano-bot"
           git config user.email "actions@github.com"
@@ -404,132 +421,19 @@ jobs:
 
           git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BRANCH"
 
-          PR_URL="$(gh pr create --base "$BASE" --head "$BRANCH" \
-            --title "$TITLE" --body "$BODY")"
+          BODY_FILE="${RUNNER_TEMP}/narrative-pr-body.md"
+          printf '%s\n\n%s\n' "$BODY" \
+            "Draft for human review. Approve any waiting pull_request workflow in Actions, then require the real gates check. Promote validated develop to main through a reviewed PR; pages.yml deploys main. Review editions still require Karen's signed PASS." > "$BODY_FILE"
+          PR_URL="$(gh pr create --draft --base "$BASE" --head "$BRANCH" \
+            --title "$TITLE" --body-file "$BODY_FILE")"
 
           echo "Opened $PR_URL"
 
           if [ "$HOLD_MERGE" = "true" ]; then
             echo "Holding automerge: review requires human QA, leftover issues, or noisy salvage (listed in the PR body)."
             gh pr edit "$PR_URL" --add-label hold || true
-            echo "publish=false" >> "$GITHUB_OUTPUT"
-            gh workflow run ci.yml --ref "$BRANCH" || true
-            exit 0
           fi
 
-          # GITHUB_TOKEN-created PRs do not trigger pull_request workflows, so
-          # a one-shot PR-check listing exits 1 with "no checks reported"
-          # (run 36360998269). Dispatch CI against this edition branch —
-          # workflow_dispatch is the documented GITHUB_TOKEN exception —
-          # then poll that run.
-          gh workflow run ci.yml --ref "$BRANCH"
-
-          RUN_ID=""
-          APPEAR_DEADLINE=$((SECONDS + 180))
-          while [ "$SECONDS" -lt "$APPEAR_DEADLINE" ]; do
-            RUN_ID="$(gh run list --workflow ci.yml --branch "$BRANCH" --limit 5 \
-              --json databaseId,event,status \
-              --jq '[.[] | select(.event=="workflow_dispatch")][0].databaseId // empty' \
-              || true)"
-            if [ -n "$RUN_ID" ]; then
-              break
-            fi
-            sleep 5
-          done
-          if [ -z "$RUN_ID" ]; then
-            echo "ERROR: workflow_dispatch of ci.yml on $BRANCH never appeared" >&2
-            exit 1
-          fi
-          echo "Waiting for CI run $RUN_ID on $BRANCH"
-
-          DONE_DEADLINE=$((SECONDS + 900))
-          CONCLUSION=""
-          while [ "$SECONDS" -lt "$DONE_DEADLINE" ]; do
-            CONCLUSION="$(gh run view "$RUN_ID" --json status,conclusion \
-              --jq '[.status, (.conclusion // "")] | join(" ")')"
-            echo "  $CONCLUSION"
-            case "$CONCLUSION" in
-              "completed success") break ;;
-              completed*)
-                echo "ERROR: CI gates $CONCLUSION" >&2
-                gh run view "$RUN_ID" --log-failed || true
-                exit 1
-                ;;
-            esac
-            sleep 10
-          done
-          if [ "$CONCLUSION" != "completed success" ]; then
-            echo "ERROR: CI gates timed out ($CONCLUSION)" >&2
-            exit 1
-          fi
-
-          gh pr merge "$PR_URL" --squash --delete-branch
-          echo "publish=true" >> "$GITHUB_OUTPUT"
-
-  deploy:
-    needs: update
-    if: needs.update.outputs.publish == 'true' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    concurrency:
-      group: pages-publish
-      cancel-in-progress: false
-    env:
-      HUGO_VERSION: 0.152.2
-    steps:
-      - name: Checkout (post-merge default branch)
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ github.ref_name }}
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Install Hugo
-        run: |
-          curl -fsSL --output "${{ runner.temp }}/hugo.tar.gz" \
-            "https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-amd64.tar.gz"
-          mkdir -p "${HOME}/.local/hugo"
-          tar -C "${HOME}/.local/hugo" -xf "${{ runner.temp }}/hugo.tar.gz"
-          echo "${HOME}/.local/hugo" >> "${GITHUB_PATH}"
-
-      - name: Build
-        run: |
-          git pull --ff-only origin "${GITHUB_REF_NAME}" || true
-          hugo --gc --minify
-          touch dist/.nojekyll
-
-      - name: Skip unsigned Review editions
-        id: review
-        run: |
-          set -euo pipefail
-          git fetch --no-tags origin "${GITHUB_REF_NAME}"
-          GATE_BASE="${RUNNER_TEMP}/gate-base"
-          git worktree add --detach "$GATE_BASE" "origin/${GITHUB_REF_NAME}"
-          cd "$GATE_BASE"
-          if PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.review_gate --pages \
-            --dist "${GITHUB_WORKSPACE}/dist" --root "${GITHUB_WORKSPACE}"; then
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          else
-            rc=$?
-            if [ "$rc" -eq 2 ]; then
-              echo "skip=true" >> "$GITHUB_OUTPUT"
-              echo "Unsigned Review edition; skipping gh-pages deploy"
-            else
-              exit "$rc"
-            fi
-          fi
-
-      - name: Publish to gh-pages
-        if: steps.review.outputs.skip != 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          cd dist
-          git init -q -b gh-pages
-          git config user.name "arrowhead-paesano-bot"
-          git config user.email "actions@github.com"
-          git add -A
-          git commit -q -m "Deploy narrative ${GITHUB_SHA::7}"
-          git push -f "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" gh-pages:gh-pages
+          echo "Queued $PR_URL for approved PR-event gates and manual develop/main promotion."
+          echo "### Publication queued" >> "$GITHUB_STEP_SUMMARY"
+          echo "$PR_URL — draft on develop. Approve any waiting PR workflow in Actions; review and promote through main before deployment." >> "$GITHUB_STEP_SUMMARY"

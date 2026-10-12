@@ -6,8 +6,11 @@ There is no application server, database, runtime API, Docker container, or secr
 
 ## Run locally
 
+Use Node 22.12 or newer. The npm wrapper installs extended Hugo 0.152.2,
+matching the production build even when the wrapper package is updated.
+
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
