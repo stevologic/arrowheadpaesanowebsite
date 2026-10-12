@@ -178,6 +178,7 @@ class MaintenancePolicy(unittest.TestCase):
         """
         settings = dict(base="main", actor="stevologic", author="stevologic",
                         draft=False, labels=[], association="OWNER",
+                        head_ref="feature/preview",
                         head_repo="stevologic/arrowheadpaesanowebsite")
         settings.update(overrides)
         pr = SimpleNamespace(
@@ -188,7 +189,7 @@ class MaintenancePolicy(unittest.TestCase):
         event_name = "pull_request_target" if "pull_request_target" in workflow["on"] else "pull_request"
         github = SimpleNamespace(
             base_ref=settings["base"], actor=settings["actor"], event_name=event_name,
-            head_ref="feature/preview", repository="stevologic/arrowheadpaesanowebsite",
+            head_ref=settings["head_ref"], repository="stevologic/arrowheadpaesanowebsite",
             event=SimpleNamespace(pull_request=pr),
         )
         expression = workflow["jobs"]["automerge"]["if"].strip()[3:-2].strip()
@@ -207,6 +208,7 @@ class MaintenancePolicy(unittest.TestCase):
         scenarios = [
             ({}, True),  # Eligible main publication still enters the content gate.
             ({"base": "develop"}, False),
+            ({"head_ref": "develop"}, False),  # Promotion preserves integration ancestry.
             ({"actor": "dependabot[bot]"}, False),
             ({"author": "dependabot[bot]"}, False),  # Human-triggered bot PR update.
             ({"actor": "github-actions[bot]"}, False),
@@ -225,6 +227,7 @@ class MaintenancePolicy(unittest.TestCase):
             scripts = "\n".join(step.get("run", "") for step in job["steps"])
             self.assertIn("GATE_BASE", scripts)
             self.assertIn("review_gate --automerge", scripts)
+            self.assertNotIn("--delete-branch", scripts)
 
     def test_integration_tests_without_deployment_or_automerge(self):
         root = Path(__file__).resolve().parents[2]

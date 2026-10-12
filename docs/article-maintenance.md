@@ -87,6 +87,11 @@ GitHub places GITHUB_TOKEN-created PR runs in an approval-required state.
 A maintainer selects **Approve workflows to run** in the PR/Actions UI,
 reviews the edition and any holds, and promotes validated develop through a
 reviewed main PR. Karen's signed PASS remains mandatory for Review editions.
+Develop→main is excluded from both automatic merge paths so promotion uses a
+manual normal merge that preserves develop ancestry. Neither automatic path
+requests source-branch deletion. If GitHub exposes no waiting bot run, a
+maintainer may mark the draft ready or reopen it to emit a fresh eligible PR
+event; require the real `gates` check afterward, never a dispatch substitute.
 The sole deployment path is pages.yml after main integration. See
 [GitHub's bot trigger rules](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow) and
 [eligible required checks](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks).
@@ -111,7 +116,11 @@ no extra account-wide toggle or new credential is required. See
 [GitHub's setup instructions](https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/configure-security-updates).
 
 Shared maintenance-action contract 1.1.0 is available at immutable pin
-`stevologic/oss-deps-explorer/actions/maintenance@01b814e47b08d3949dd8288f0c426b7ee12630ca`
+`stevologic/oss-deps-explorer/actions/maintenance@1e6e9a9c4dc9f766c49a421ea268f247d1113287`
 in draft PR 32. Its owner confirms no overlap with the custom content pipeline.
 Adoption remains a separate reviewed consumer draft, read-only by default,
 preserving current providers, credentials, protected develop, and signed gates.
+Its separate merge operator requires strict required checks enforced for owners;
+Arrowhead's current main/develop rules use non-strict checks, so that operator
+would remain preview-only here unless separately reviewed protection changes
+are authorized. This change does not modify branch protection.

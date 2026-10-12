@@ -196,6 +196,7 @@ jobs:
     if: >-
       ${{ github.event_name == 'pull_request' &&
           github.base_ref == 'main' &&
+          github.head_ref != 'develop' &&
           github.actor != 'dependabot[bot]' &&
           github.event.pull_request.user.login != 'dependabot[bot]' &&
           github.actor != 'github-actions[bot]' &&
@@ -239,10 +240,10 @@ jobs:
           set -euo pipefail
           # Prefer GitHub auto-merge; fall back to an immediate squash merge.
           gh pr merge "${{ github.event.pull_request.html_url }}" \
-            --squash --auto --delete-branch \
+            --squash --auto \
             --match-head-commit ${{ github.event.pull_request.head.sha }} \
             || gh pr merge "${{ github.event.pull_request.html_url }}" \
-              --squash --delete-branch \
+              --squash \
               --match-head-commit ${{ github.event.pull_request.head.sha }}
 
       - name: Trigger Pages deploy
