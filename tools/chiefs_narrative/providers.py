@@ -33,6 +33,39 @@ class ProviderError(RuntimeError):
     pass
 
 
+# Responses already being closed in a background thread. close() on a live
+# urllib3 stream can block until the reader's chunk buffer fills, so the
+# deadline path must never call it on the calling thread.
+_closing_ids: set[int] = set()
+
+
+def _close_response(resp, *, background: bool = False) -> None:
+    if resp is None:
+        return
+    ident = id(resp)
+    if ident in _closing_ids:
+        return
+    _closing_ids.add(ident)
+
+    def _run() -> None:
+        try:
+            resp.close()
+        except Exception:
+            pass
+        finally:
+            _closing_ids.discard(ident)
+
+    if background:
+        threading.Thread(target=_run, daemon=True, name="llm-stream-close").start()
+        return
+    _run()
+
+
+def _deadline_error(label: str, resp) -> ProviderError:
+    _close_response(resp, background=True)
+    return ProviderError(f"{label}: stream exceeded {llm_deadline()}s deadline")
+
+
 def extract_json(text: str) -> dict:
     """Pull the first balanced JSON object out of a model reply."""
     if not text:
@@ -119,12 +152,12 @@ def _chat_completions(label: str, base: str, key: str, model: str,
         if resp.status_code == 400 and "response_format" in resp.text.lower():
             # Only retry an explicitly unsupported JSON format, never an
             # invalid model or another unrelated 400 (another paid request).
-            resp.close()
+            _close_response(resp)
             payload.pop("response_format", None)
             resp = _post(payload)
         if resp.status_code == 400 and "reasoning_effort" in resp.text.lower():
             # Same gate as response_format: drop only this rejected field.
-            resp.close()
+            _close_response(resp)
             payload.pop("reasoning_effort", None)
             resp = _post(payload)
         if resp.status_code >= 400:
@@ -137,8 +170,7 @@ def _chat_completions(label: str, base: str, key: str, model: str,
     except (KeyError, IndexError, ValueError) as exc:
         raise ProviderError(f"{label}: unexpected response shape ({exc})") from exc
     finally:
-        if resp is not None:
-            resp.close()
+        _close_response(resp)
 
 
 def llm_deadline() -> int:
@@ -155,20 +187,26 @@ def _log_stream_stats(label: str, started: float, ttft: float | None, nbytes: in
     print(f"  [writer] {label} stream: ttft={ttft_part} elapsed={elapsed:.1f}s bytes={nbytes}")
 
 
-def _iter_lines_until_deadline(label: str, resp, started: float):
+def _iter_lines_until_deadline(label: str, resp, started: float, nbytes: list[int]):
     """Yield SSE lines; abort when the wall-clock deadline expires.
 
-    ``requests.iter_lines`` blocks until the next byte or the HTTP read
-    timeout. A reader thread plus a timed queue wait lets the deadline
-    fire during silence, not only when a line arrives.
+    ``iter_lines`` defaults to a 512-byte chunk, so small keep-alives sit in
+    the buffer and ``resp.close()`` blocks until it fills. Read one byte at
+    a time, count bytes as they arrive, and close in the background so the
+    deadline can raise immediately even while keep-alives trickle.
     """
+    if time.monotonic() - started > llm_deadline():
+        raise _deadline_error(label, resp)
     pending: queue.Queue = queue.Queue()
     done = object()
     errors: list[BaseException] = []
 
     def reader() -> None:
         try:
-            for raw in resp.iter_lines(decode_unicode=True):
+            # chunk_size=1: do not buffer keep-alives until 512 bytes accumulate.
+            for raw in resp.iter_lines(chunk_size=1, decode_unicode=True):
+                if raw:
+                    nbytes[0] += len(raw.encode("utf-8") if isinstance(raw, str) else raw)
                 pending.put(raw)
         except Exception as exc:
             errors.append(exc)
@@ -180,8 +218,7 @@ def _iter_lines_until_deadline(label: str, resp, started: float):
     while True:
         remaining = llm_deadline() - (time.monotonic() - started)
         if remaining <= 0:
-            resp.close()
-            raise ProviderError(f"{label}: stream exceeded {llm_deadline()}s deadline")
+            raise _deadline_error(label, resp)
         try:
             item = pending.get(timeout=min(remaining, 0.25))
         except queue.Empty:
@@ -190,9 +227,7 @@ def _iter_lines_until_deadline(label: str, resp, started: float):
             thread.join(timeout=1)
             if errors:
                 if time.monotonic() - started > llm_deadline():
-                    raise ProviderError(
-                        f"{label}: stream exceeded {llm_deadline()}s deadline"
-                    ) from errors[0]
+                    raise _deadline_error(label, resp) from errors[0]
                 raise errors[0]
             return
         yield item
@@ -211,17 +246,14 @@ def _read_stream(label: str, resp) -> str:
     complete = False
     usage = None
     ttft: float | None = None
-    nbytes = 0
+    nbytes = [0]
     # text/event-stream often arrives without a charset; requests then assumes
     # ISO-8859-1 and turns UTF-8 "·" / "–" into mojibake ("Â·", "â€“").
     resp.encoding = "utf-8"
     try:
-        for raw in _iter_lines_until_deadline(label, resp, started):
-            if raw:
-                nbytes += len(raw.encode("utf-8"))
+        for raw in _iter_lines_until_deadline(label, resp, started, nbytes):
             if time.monotonic() - started > llm_deadline():
-                resp.close()
-                raise ProviderError(f"{label}: stream exceeded {llm_deadline()}s deadline")
+                raise _deadline_error(label, resp)
             if not raw or not raw.startswith("data:"):
                 continue
             data = raw[5:].strip()
@@ -257,7 +289,7 @@ def _read_stream(label: str, resp) -> str:
             print(f"  [writer] {label} token usage: {json.dumps(usage, sort_keys=True)}")
         return text
     finally:
-        _log_stream_stats(label, started, ttft, nbytes)
+        _log_stream_stats(label, started, ttft, nbytes[0])
 
 
 # --- OpenAI ---------------------------------------------------------------

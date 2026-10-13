@@ -10390,7 +10390,7 @@ class StreamingAndOfflineDekTests(unittest.TestCase):
         class FakeResp:
             encoding = None
 
-            def iter_lines(self, decode_unicode=True):
+            def iter_lines(self, decode_unicode=True, chunk_size=512):
                 assert self.encoding == "utf-8"
                 yield ": keep-alive"
                 yield 'data: {"choices":[{"delta":{"content":"{\\"a\\":"}}]}'
@@ -10409,7 +10409,7 @@ class StreamingAndOfflineDekTests(unittest.TestCase):
         class FakeResp:
             encoding = None
 
-            def iter_lines(self, decode_unicode=True):
+            def iter_lines(self, decode_unicode=True, chunk_size=512):
                 yield "data: [DONE]"
 
             def close(self):

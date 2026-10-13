@@ -6,7 +6,9 @@ import re
 import subprocess
 import tempfile
 import threading
+import time
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -220,7 +222,7 @@ class WriterTransport(unittest.TestCase):
             def __init__(self):
                 self.closed = threading.Event()
 
-            def iter_lines(self, decode_unicode=True):
+            def iter_lines(self, decode_unicode=True, chunk_size=512):
                 self.closed.wait(timeout=30)
                 return
                 yield
@@ -237,6 +239,77 @@ class WriterTransport(unittest.TestCase):
         self.assertIn("ttft=none", logged)
         self.assertIn("elapsed=", logged)
         self.assertIn("bytes=0", logged)
+
+    def test_deadline_fires_on_real_keepalive_socket(self):
+        """Keep-alives must not let close() or a 512-byte buffer outrun the cap."""
+        for interval in (0.5, 2.0):
+            with self.subTest(interval=interval):
+                self._assert_deadline_on_keepalive_socket(interval)
+
+    def _assert_deadline_on_keepalive_socket(self, interval: float) -> None:
+        stop = threading.Event()
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                length = int(self.headers.get("Content-Length") or 0)
+                if length:
+                    self.rfile.read(length)
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+                try:
+                    while not stop.is_set():
+                        self.wfile.write(b": keepalive\n\n")
+                        self.wfile.flush()
+                        if stop.wait(interval):
+                            return
+                except (BrokenPipeError, ConnectionResetError, OSError):
+                    return
+
+            def log_message(self, format, *args):
+                pass
+
+        httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        server = threading.Thread(target=httpd.serve_forever, daemon=True)
+        server.start()
+        deadline = 3
+        box: dict = {}
+
+        def run() -> None:
+            try:
+                providers._chat_completions(
+                    "Grok",
+                    f"http://127.0.0.1:{httpd.server_address[1]}/v1",
+                    "test",
+                    "grok-4.7",
+                    "s",
+                    "u",
+                    stream=True,
+                )
+            except Exception as exc:
+                box["exc"] = exc
+
+        try:
+            with patch.dict("os.environ", {"LLM_DEADLINE": str(deadline), "LLM_TIMEOUT": "25"}, clear=False), \
+                 patch("builtins.print") as log:
+                started = time.monotonic()
+                worker = threading.Thread(target=run, daemon=True)
+                worker.start()
+                worker.join(timeout=deadline + 1)
+                elapsed = time.monotonic() - started
+                self.assertFalse(worker.is_alive(), f"deadline overshot ({elapsed:.1f}s) at interval={interval}")
+                self.assertLess(elapsed, deadline + 1)
+                self.assertIsInstance(box.get("exc"), providers.ProviderError)
+                self.assertIn("deadline", str(box["exc"]))
+                logged = " ".join(str(call.args[0]) for call in log.call_args_list if call.args)
+                match = re.search(r"bytes=(\d+)", logged)
+                self.assertIsNotNone(match, logged)
+                self.assertGreater(int(match.group(1)), 0, logged)
+        finally:
+            stop.set()
+            httpd.shutdown()
+            httpd.server_close()
 
 
 class ScheduleIdempotency(unittest.TestCase):
