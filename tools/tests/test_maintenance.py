@@ -311,6 +311,69 @@ class WriterTransport(unittest.TestCase):
             httpd.shutdown()
             httpd.server_close()
 
+    def test_deadline_includes_connect_and_header_wait(self):
+        """Header delay plus keep-alives share one deadline, not deadline+deadline."""
+        stop = threading.Event()
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                length = int(self.headers.get("Content-Length") or 0)
+                if length:
+                    self.rfile.read(length)
+                time.sleep(2)
+                if stop.is_set():
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+                try:
+                    while not stop.is_set():
+                        self.wfile.write(b": keepalive\n\n")
+                        self.wfile.flush()
+                        if stop.wait(0.5):
+                            return
+                except (BrokenPipeError, ConnectionResetError, OSError):
+                    return
+
+            def log_message(self, format, *args):
+                pass
+
+        httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        deadline = 3
+        box: dict = {}
+
+        def run() -> None:
+            try:
+                providers._chat_completions(
+                    "Grok",
+                    f"http://127.0.0.1:{httpd.server_address[1]}/v1",
+                    "test",
+                    "grok-4.7",
+                    "s",
+                    "u",
+                    stream=True,
+                )
+            except Exception as exc:
+                box["exc"] = exc
+
+        try:
+            with patch.dict("os.environ", {"LLM_DEADLINE": str(deadline), "LLM_TIMEOUT": "25"}, clear=False):
+                started = time.monotonic()
+                worker = threading.Thread(target=run, daemon=True)
+                worker.start()
+                worker.join(timeout=deadline + 1)
+                elapsed = time.monotonic() - started
+                self.assertFalse(worker.is_alive(), f"header wait stacked another deadline ({elapsed:.1f}s)")
+                self.assertLess(elapsed, deadline + 1)
+                self.assertIsInstance(box.get("exc"), providers.ProviderError)
+                self.assertIn("deadline", str(box["exc"]))
+        finally:
+            stop.set()
+            httpd.shutdown()
+            httpd.server_close()
+
 
 class ScheduleIdempotency(unittest.TestCase):
     def test_same_data_preserves_bytes_and_real_changes_are_written(self):

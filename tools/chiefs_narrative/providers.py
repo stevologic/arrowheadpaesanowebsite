@@ -116,15 +116,20 @@ def _chat_completions(label: str, base: str, key: str, model: str,
     if not key:
         raise ProviderError(f"{label}: no API key configured")
 
+    started = time.monotonic()
+
     def _post(payload):
+        remaining = llm_deadline() - (time.monotonic() - started)
+        if remaining <= 0:
+            raise ProviderError(f"{label}: stream exceeded {llm_deadline()}s deadline")
         return requests.post(
             f"{base.rstrip('/')}/chat/completions",
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
             json=payload,
-            # (connect, read-between-bytes). Streaming keeps bytes flowing, so the
-            # read timeout is an idle limit, not a whole-generation limit. Cap it
-            # to the remaining stream deadline so silence cannot outrun that cap.
-            timeout=(20, min(llm_timeout(), max(llm_deadline(), 1))),
+            # Connect and first-byte/header wait share the same wall clock as
+            # the stream. Cap both to remaining deadline so they cannot stack
+            # a second full budget on top of generation.
+            timeout=(min(20.0, remaining), min(float(llm_timeout()), remaining)),
             stream=bool(payload.get("stream")),
         )
 
@@ -163,9 +168,13 @@ def _chat_completions(label: str, base: str, key: str, model: str,
         if resp.status_code >= 400:
             raise ProviderError(f"{label} {resp.status_code}: {resp.text[:300]}")
         if stream:
-            return _read_stream(label, resp)
+            return _read_stream(label, resp, started=started)
         return resp.json()["choices"][0]["message"]["content"]
     except requests.RequestException as exc:
+        if time.monotonic() - started > llm_deadline():
+            raise ProviderError(
+                f"{label}: stream exceeded {llm_deadline()}s deadline"
+            ) from exc
         raise ProviderError(f"{label}: {exc}") from exc
     except (KeyError, IndexError, ValueError) as exc:
         raise ProviderError(f"{label}: unexpected response shape ({exc})") from exc
@@ -233,7 +242,7 @@ def _iter_lines_until_deadline(label: str, resp, started: float, nbytes: list[in
         yield item
 
 
-def _read_stream(label: str, resp) -> str:
+def _read_stream(label: str, resp, started: float | None = None) -> str:
     """Accumulate an OpenAI-compatible SSE stream into the final content string.
 
     A non-streamed frontier-model call can sit silent for minutes while it
@@ -241,7 +250,8 @@ def _read_stream(label: str, resp) -> str:
     ("Remote end closed connection" / 300s read timeout). Streaming keeps the
     socket busy and lets us enforce a wall-clock deadline ourselves.
     """
-    started = time.monotonic()
+    if started is None:
+        started = time.monotonic()
     parts: list[str] = []
     complete = False
     usage = None
