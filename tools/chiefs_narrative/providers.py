@@ -104,6 +104,8 @@ def _chat_completions(label: str, base: str, key: str, model: str,
     if stream:
         payload["stream"] = True
         payload["stream_options"] = {"include_usage": True}
+        # Bound Grok-4.7 think time. Default "low"; override via env.
+        payload["reasoning_effort"] = config.env("GROK_REASONING_EFFORT") or "low"
     resp = None
     try:
         resp = _post(payload)
@@ -112,6 +114,11 @@ def _chat_completions(label: str, base: str, key: str, model: str,
             # invalid model or another unrelated 400 (another paid request).
             resp.close()
             payload.pop("response_format", None)
+            resp = _post(payload)
+        if resp.status_code == 400 and "reasoning_effort" in resp.text.lower():
+            # Same gate as response_format: drop only this rejected field.
+            resp.close()
+            payload.pop("reasoning_effort", None)
             resp = _post(payload)
         if resp.status_code >= 400:
             raise ProviderError(f"{label} {resp.status_code}: {resp.text[:300]}")

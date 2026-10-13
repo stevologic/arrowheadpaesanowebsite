@@ -122,6 +122,55 @@ class WriterTransport(unittest.TestCase):
         rejected.close.assert_called_once()
         accepted.close.assert_called_once()
 
+    def test_stream_payload_sends_reasoning_effort(self):
+        payloads = []
+
+        def post(*args, **kwargs):
+            payloads.append(copy.deepcopy(kwargs["json"]))
+            return self.response(['data: {"choices":[{"delta":{"content":"{}"}}]}', 'data: [DONE]'])
+
+        with patch.dict("os.environ", {"GROK_REASONING_EFFORT": ""}, clear=False), \
+             patch.object(providers.requests, "post", side_effect=post):
+            self.assertEqual(
+                providers._chat_completions(
+                    "Grok", "https://example.test/v1", "test", "grok-4.7", "s", "u", stream=True
+                ),
+                "{}",
+            )
+        self.assertEqual(len(payloads), 1)
+        self.assertEqual(payloads[0]["reasoning_effort"], "low")
+
+        payloads.clear()
+        with patch.dict("os.environ", {"GROK_REASONING_EFFORT": "medium"}, clear=False), \
+             patch.object(providers.requests, "post", side_effect=post):
+            providers._chat_completions(
+                "Grok", "https://example.test/v1", "test", "grok-4.7", "s", "u", stream=True
+            )
+        self.assertEqual(payloads[0]["reasoning_effort"], "medium")
+
+    def test_reasoning_effort_400_retries_without_it(self):
+        rejected = self.response([], status=400, text="reasoning_effort is not supported")
+        accepted = self.response(['data: {"choices":[{"delta":{"content":"{}"}}]}', 'data: [DONE]'])
+        payloads = []
+
+        def post(*args, **kwargs):
+            payloads.append(copy.deepcopy(kwargs["json"]))
+            return rejected if len(payloads) == 1 else accepted
+
+        with patch.object(providers.requests, "post", side_effect=post):
+            self.assertEqual(
+                providers._chat_completions(
+                    "Grok", "https://example.test/v1", "test", "grok-4.7", "s", "u", stream=True
+                ),
+                "{}",
+            )
+        self.assertEqual(len(payloads), 2)
+        self.assertEqual(payloads[0]["reasoning_effort"], "low")
+        self.assertNotIn("reasoning_effort", payloads[1])
+        self.assertIn("response_format", payloads[1])
+        rejected.close.assert_called_once()
+        accepted.close.assert_called_once()
+
     def test_partial_or_truncated_stream_is_rejected_and_closed(self):
         content = 'data: {"choices":[{"delta":{"content":"{}"}}]}'
         for ending in ([], ['data: {"choices":[{"finish_reason":"length"}]}', 'data: [DONE]'],
