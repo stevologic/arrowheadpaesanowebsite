@@ -5,7 +5,10 @@ import os
 import re
 import subprocess
 import tempfile
+import threading
+import time
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -122,6 +125,73 @@ class WriterTransport(unittest.TestCase):
         rejected.close.assert_called_once()
         accepted.close.assert_called_once()
 
+    def test_stream_payload_sends_reasoning_effort(self):
+        payloads = []
+
+        def post(*args, **kwargs):
+            payloads.append(copy.deepcopy(kwargs["json"]))
+            return self.response(['data: {"choices":[{"delta":{"content":"{}"}}]}', 'data: [DONE]'])
+
+        with patch.dict("os.environ", {"GROK_REASONING_EFFORT": ""}, clear=False), \
+             patch.object(providers.requests, "post", side_effect=post):
+            self.assertEqual(
+                providers._chat_completions(
+                    "Grok", "https://example.test/v1", "test", "grok-4.7", "s", "u", stream=True
+                ),
+                "{}",
+            )
+        self.assertEqual(len(payloads), 1)
+        self.assertEqual(payloads[0]["reasoning_effort"], "low")
+
+        payloads.clear()
+        with patch.dict("os.environ", {"GROK_REASONING_EFFORT": "medium"}, clear=False), \
+             patch.object(providers.requests, "post", side_effect=post):
+            providers._chat_completions(
+                "Grok", "https://example.test/v1", "test", "grok-4.7", "s", "u", stream=True
+            )
+        self.assertEqual(payloads[0]["reasoning_effort"], "medium")
+
+    def test_stream_payload_includes_max_tokens(self):
+        payloads = []
+
+        def post(*args, **kwargs):
+            payloads.append(copy.deepcopy(kwargs["json"]))
+            return self.response(['data: {"choices":[{"delta":{"content":"{}"}}]}', 'data: [DONE]'])
+
+        with patch.dict("os.environ", {"LLM_MAX_TOKENS": ""}, clear=False), \
+             patch.object(providers.requests, "post", side_effect=post):
+            self.assertEqual(
+                providers._chat_completions(
+                    "Grok", "https://example.test/v1", "test", "grok-4.7", "s", "u", stream=True
+                ),
+                "{}",
+            )
+        self.assertEqual(payloads[0]["max_tokens"], 16384)
+        self.assertIn("stream", payloads[0])
+
+    def test_reasoning_effort_400_retries_without_it(self):
+        rejected = self.response([], status=400, text="reasoning_effort is not supported")
+        accepted = self.response(['data: {"choices":[{"delta":{"content":"{}"}}]}', 'data: [DONE]'])
+        payloads = []
+
+        def post(*args, **kwargs):
+            payloads.append(copy.deepcopy(kwargs["json"]))
+            return rejected if len(payloads) == 1 else accepted
+
+        with patch.object(providers.requests, "post", side_effect=post):
+            self.assertEqual(
+                providers._chat_completions(
+                    "Grok", "https://example.test/v1", "test", "grok-4.7", "s", "u", stream=True
+                ),
+                "{}",
+            )
+        self.assertEqual(len(payloads), 2)
+        self.assertEqual(payloads[0]["reasoning_effort"], "low")
+        self.assertNotIn("reasoning_effort", payloads[1])
+        self.assertIn("response_format", payloads[1])
+        rejected.close.assert_called_once()
+        accepted.close.assert_called_once()
+
     def test_partial_or_truncated_stream_is_rejected_and_closed(self):
         content = 'data: {"choices":[{"delta":{"content":"{}"}}]}'
         for ending in ([], ['data: {"choices":[{"finish_reason":"length"}]}', 'data: [DONE]'],
@@ -141,7 +211,168 @@ class WriterTransport(unittest.TestCase):
              patch("builtins.print") as log:
             self.assertEqual(providers._chat_completions("Grok", "https://example.test/v1", "test", "grok-4.7", "s", "u", stream=True), "{}")
         self.assertEqual(post.call_count, 1)
-        self.assertIn('"total_tokens": 30', log.call_args.args[0])
+        logged = " ".join(str(call.args[0]) for call in log.call_args_list if call.args)
+        self.assertIn('"total_tokens": 30', logged)
+        self.assertIn("ttft=", logged)
+        self.assertIn("elapsed=", logged)
+        self.assertIn("bytes=", logged)
+
+    def test_deadline_fires_during_silent_stream(self):
+        class SilentResp:
+            def __init__(self):
+                self.closed = threading.Event()
+
+            def iter_lines(self, decode_unicode=True, chunk_size=512):
+                self.closed.wait(timeout=30)
+                return
+                yield
+
+            def close(self):
+                self.closed.set()
+
+        with patch.object(providers, "llm_deadline", return_value=0.3), \
+             patch("builtins.print") as log, \
+             self.assertRaises(providers.ProviderError) as ctx:
+            providers._read_stream("Grok", SilentResp())
+        self.assertIn("deadline", str(ctx.exception))
+        logged = " ".join(str(call.args[0]) for call in log.call_args_list if call.args)
+        self.assertIn("ttft=none", logged)
+        self.assertIn("elapsed=", logged)
+        self.assertIn("bytes=0", logged)
+
+    def test_deadline_fires_on_real_keepalive_socket(self):
+        """Keep-alives must not let close() or a 512-byte buffer outrun the cap."""
+        for interval in (0.5, 2.0):
+            with self.subTest(interval=interval):
+                self._assert_deadline_on_keepalive_socket(interval)
+
+    def _assert_deadline_on_keepalive_socket(self, interval: float) -> None:
+        stop = threading.Event()
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                length = int(self.headers.get("Content-Length") or 0)
+                if length:
+                    self.rfile.read(length)
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+                try:
+                    while not stop.is_set():
+                        self.wfile.write(b": keepalive\n\n")
+                        self.wfile.flush()
+                        if stop.wait(interval):
+                            return
+                except (BrokenPipeError, ConnectionResetError, OSError):
+                    return
+
+            def log_message(self, format, *args):
+                pass
+
+        httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        server = threading.Thread(target=httpd.serve_forever, daemon=True)
+        server.start()
+        deadline = 3
+        box: dict = {}
+
+        def run() -> None:
+            try:
+                providers._chat_completions(
+                    "Grok",
+                    f"http://127.0.0.1:{httpd.server_address[1]}/v1",
+                    "test",
+                    "grok-4.7",
+                    "s",
+                    "u",
+                    stream=True,
+                )
+            except Exception as exc:
+                box["exc"] = exc
+
+        try:
+            with patch.dict("os.environ", {"LLM_DEADLINE": str(deadline), "LLM_TIMEOUT": "25"}, clear=False), \
+                 patch("builtins.print") as log:
+                started = time.monotonic()
+                worker = threading.Thread(target=run, daemon=True)
+                worker.start()
+                worker.join(timeout=deadline + 1)
+                elapsed = time.monotonic() - started
+                self.assertFalse(worker.is_alive(), f"deadline overshot ({elapsed:.1f}s) at interval={interval}")
+                self.assertLess(elapsed, deadline + 1)
+                self.assertIsInstance(box.get("exc"), providers.ProviderError)
+                self.assertIn("deadline", str(box["exc"]))
+                logged = " ".join(str(call.args[0]) for call in log.call_args_list if call.args)
+                match = re.search(r"bytes=(\d+)", logged)
+                self.assertIsNotNone(match, logged)
+                self.assertGreater(int(match.group(1)), 0, logged)
+        finally:
+            stop.set()
+            httpd.shutdown()
+            httpd.server_close()
+
+    def test_deadline_includes_connect_and_header_wait(self):
+        """Header delay plus keep-alives share one deadline, not deadline+deadline."""
+        stop = threading.Event()
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                length = int(self.headers.get("Content-Length") or 0)
+                if length:
+                    self.rfile.read(length)
+                time.sleep(2)
+                if stop.is_set():
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+                try:
+                    while not stop.is_set():
+                        self.wfile.write(b": keepalive\n\n")
+                        self.wfile.flush()
+                        if stop.wait(0.5):
+                            return
+                except (BrokenPipeError, ConnectionResetError, OSError):
+                    return
+
+            def log_message(self, format, *args):
+                pass
+
+        httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        deadline = 3
+        box: dict = {}
+
+        def run() -> None:
+            try:
+                providers._chat_completions(
+                    "Grok",
+                    f"http://127.0.0.1:{httpd.server_address[1]}/v1",
+                    "test",
+                    "grok-4.7",
+                    "s",
+                    "u",
+                    stream=True,
+                )
+            except Exception as exc:
+                box["exc"] = exc
+
+        try:
+            with patch.dict("os.environ", {"LLM_DEADLINE": str(deadline), "LLM_TIMEOUT": "25"}, clear=False):
+                started = time.monotonic()
+                worker = threading.Thread(target=run, daemon=True)
+                worker.start()
+                worker.join(timeout=deadline + 1)
+                elapsed = time.monotonic() - started
+                self.assertFalse(worker.is_alive(), f"header wait stacked another deadline ({elapsed:.1f}s)")
+                self.assertLess(elapsed, deadline + 1)
+                self.assertIsInstance(box.get("exc"), providers.ProviderError)
+                self.assertIn("deadline", str(box["exc"]))
+        finally:
+            stop.set()
+            httpd.shutdown()
+            httpd.server_close()
 
 
 class ScheduleIdempotency(unittest.TestCase):

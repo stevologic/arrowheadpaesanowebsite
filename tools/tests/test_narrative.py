@@ -755,10 +755,13 @@ class GrokModelSelection(unittest.TestCase):
         with patch.dict("os.environ", {"GROK_MODEL": "  ", "XAI_MODEL": ""}, clear=True):
             self.assertEqual(providers.grok_model(), "grok-4.7")
 
-    def test_workflow_selects_latest_without_fallback_variables(self):
+    def test_workflow_pins_grok_4_7_without_fallback_variables(self):
         yaml = (Path(__file__).resolve().parents[2] / ".github" / "workflows" / "narrative.yml").read_text(encoding="utf-8")
-        self.assertIn("GROK_MODEL: latest", yaml)
+        self.assertIn("GROK_MODEL: grok-4.7", yaml)
+        self.assertNotIn("GROK_MODEL: latest", yaml)
         self.assertNotIn("GROK_FALLBACK_MODELS:", yaml)
+        self.assertIn('GROK_REASONING_EFFORT: ${{ vars.GROK_REASONING_EFFORT || \'low\' }}', yaml)
+        self.assertIn('PYTHONUNBUFFERED: "1"', yaml)
 
     def test_workflow_refreshes_slate_beyond_narrative_text(self):
         yaml = (Path(__file__).resolve().parents[2] / ".github" / "workflows" / "narrative.yml").read_text(encoding="utf-8")
@@ -10387,7 +10390,7 @@ class StreamingAndOfflineDekTests(unittest.TestCase):
         class FakeResp:
             encoding = None
 
-            def iter_lines(self, decode_unicode=True):
+            def iter_lines(self, decode_unicode=True, chunk_size=512):
                 assert self.encoding == "utf-8"
                 yield ": keep-alive"
                 yield 'data: {"choices":[{"delta":{"content":"{\\"a\\":"}}]}'
@@ -10406,7 +10409,7 @@ class StreamingAndOfflineDekTests(unittest.TestCase):
         class FakeResp:
             encoding = None
 
-            def iter_lines(self, decode_unicode=True):
+            def iter_lines(self, decode_unicode=True, chunk_size=512):
                 yield "data: [DONE]"
 
             def close(self):
