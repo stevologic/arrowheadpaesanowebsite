@@ -759,6 +759,8 @@ class GrokModelSelection(unittest.TestCase):
         yaml = (Path(__file__).resolve().parents[2] / ".github" / "workflows" / "narrative.yml").read_text(encoding="utf-8")
         self.assertIn("GROK_MODEL: latest", yaml)
         self.assertNotIn("GROK_FALLBACK_MODELS:", yaml)
+        self.assertIn('GROK_REASONING_EFFORT: ${{ vars.GROK_REASONING_EFFORT || \'low\' }}', yaml)
+        self.assertIn('PYTHONUNBUFFERED: "1"', yaml)
 
     def test_workflow_refreshes_slate_beyond_narrative_text(self):
         yaml = (Path(__file__).resolve().parents[2] / ".github" / "workflows" / "narrative.yml").read_text(encoding="utf-8")

@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -208,7 +209,34 @@ class WriterTransport(unittest.TestCase):
              patch("builtins.print") as log:
             self.assertEqual(providers._chat_completions("Grok", "https://example.test/v1", "test", "grok-4.7", "s", "u", stream=True), "{}")
         self.assertEqual(post.call_count, 1)
-        self.assertIn('"total_tokens": 30', log.call_args.args[0])
+        logged = " ".join(str(call.args[0]) for call in log.call_args_list if call.args)
+        self.assertIn('"total_tokens": 30', logged)
+        self.assertIn("ttft=", logged)
+        self.assertIn("elapsed=", logged)
+        self.assertIn("bytes=", logged)
+
+    def test_deadline_fires_during_silent_stream(self):
+        class SilentResp:
+            def __init__(self):
+                self.closed = threading.Event()
+
+            def iter_lines(self, decode_unicode=True):
+                self.closed.wait(timeout=30)
+                return
+                yield
+
+            def close(self):
+                self.closed.set()
+
+        with patch.object(providers, "llm_deadline", return_value=0.3), \
+             patch("builtins.print") as log, \
+             self.assertRaises(providers.ProviderError) as ctx:
+            providers._read_stream("Grok", SilentResp())
+        self.assertIn("deadline", str(ctx.exception))
+        logged = " ".join(str(call.args[0]) for call in log.call_args_list if call.args)
+        self.assertIn("ttft=none", logged)
+        self.assertIn("elapsed=", logged)
+        self.assertIn("bytes=0", logged)
 
 
 class ScheduleIdempotency(unittest.TestCase):

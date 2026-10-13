@@ -14,11 +14,13 @@ providers use plain ``requests`` so there is no SDK to install in CI.
 from __future__ import annotations
 
 import json
-import time
+import queue
 import re
 import shutil
 import subprocess
 import tempfile
+import threading
+import time
 from functools import lru_cache
 from pathlib import Path
 
@@ -87,8 +89,9 @@ def _chat_completions(label: str, base: str, key: str, model: str,
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
             json=payload,
             # (connect, read-between-bytes). Streaming keeps bytes flowing, so the
-            # read timeout is an idle limit, not a whole-generation limit.
-            timeout=(20, llm_timeout()),
+            # read timeout is an idle limit, not a whole-generation limit. Cap it
+            # to the remaining stream deadline so silence cannot outrun that cap.
+            timeout=(20, min(llm_timeout(), max(llm_deadline(), 1))),
             stream=bool(payload.get("stream")),
         )
 
@@ -146,6 +149,55 @@ def llm_deadline() -> int:
         return 420
 
 
+def _log_stream_stats(label: str, started: float, ttft: float | None, nbytes: int) -> None:
+    elapsed = time.monotonic() - started
+    ttft_part = f"{ttft:.1f}s" if ttft is not None else "none"
+    print(f"  [writer] {label} stream: ttft={ttft_part} elapsed={elapsed:.1f}s bytes={nbytes}")
+
+
+def _iter_lines_until_deadline(label: str, resp, started: float):
+    """Yield SSE lines; abort when the wall-clock deadline expires.
+
+    ``requests.iter_lines`` blocks until the next byte or the HTTP read
+    timeout. A reader thread plus a timed queue wait lets the deadline
+    fire during silence, not only when a line arrives.
+    """
+    pending: queue.Queue = queue.Queue()
+    done = object()
+    errors: list[BaseException] = []
+
+    def reader() -> None:
+        try:
+            for raw in resp.iter_lines(decode_unicode=True):
+                pending.put(raw)
+        except Exception as exc:
+            errors.append(exc)
+        finally:
+            pending.put(done)
+
+    thread = threading.Thread(target=reader, daemon=True, name=f"{label}-sse-reader")
+    thread.start()
+    while True:
+        remaining = llm_deadline() - (time.monotonic() - started)
+        if remaining <= 0:
+            resp.close()
+            raise ProviderError(f"{label}: stream exceeded {llm_deadline()}s deadline")
+        try:
+            item = pending.get(timeout=min(remaining, 0.25))
+        except queue.Empty:
+            continue
+        if item is done:
+            thread.join(timeout=1)
+            if errors:
+                if time.monotonic() - started > llm_deadline():
+                    raise ProviderError(
+                        f"{label}: stream exceeded {llm_deadline()}s deadline"
+                    ) from errors[0]
+                raise errors[0]
+            return
+        yield item
+
+
 def _read_stream(label: str, resp) -> str:
     """Accumulate an OpenAI-compatible SSE stream into the final content string.
 
@@ -158,43 +210,54 @@ def _read_stream(label: str, resp) -> str:
     parts: list[str] = []
     complete = False
     usage = None
+    ttft: float | None = None
+    nbytes = 0
     # text/event-stream often arrives without a charset; requests then assumes
     # ISO-8859-1 and turns UTF-8 "·" / "–" into mojibake ("Â·", "â€“").
     resp.encoding = "utf-8"
-    for raw in resp.iter_lines(decode_unicode=True):
-        if time.monotonic() - started > llm_deadline():
-            resp.close()
-            raise ProviderError(f"{label}: stream exceeded {llm_deadline()}s deadline")
-        if not raw or not raw.startswith("data:"):
-            continue
-        data = raw[5:].strip()
-        if data == "[DONE]":
-            complete = True
-            break
-        try:
-            chunk = json.loads(data)
-        except ValueError:
-            continue
-        if chunk.get("error"):
-            raise ProviderError(f"{label}: stream error {str(chunk['error'])[:300]}")
-        if isinstance(chunk.get("usage"), dict):
-            usage = chunk["usage"]
-        for choice in chunk.get("choices") or []:
-            reason = choice.get("finish_reason")
-            if reason and reason != "stop":
-                raise ProviderError(f"{label}: incomplete stream (finish_reason={reason})")
-            piece = (choice.get("delta") or {}).get("content")
-            if piece:
-                parts.append(piece)
-    text = "".join(parts)
-    if not text.strip():
-        raise ProviderError(f"{label}: empty streamed reply")
-    if not complete:
-        raise ProviderError(f"{label}: stream ended before [DONE]")
-    if usage is not None:
-        # Log provider measurements only; do not estimate dollars or tokens.
-        print(f"  [writer] {label} token usage: {json.dumps(usage, sort_keys=True)}")
-    return text
+    try:
+        for raw in _iter_lines_until_deadline(label, resp, started):
+            if raw:
+                nbytes += len(raw.encode("utf-8"))
+            if time.monotonic() - started > llm_deadline():
+                resp.close()
+                raise ProviderError(f"{label}: stream exceeded {llm_deadline()}s deadline")
+            if not raw or not raw.startswith("data:"):
+                continue
+            data = raw[5:].strip()
+            if data == "[DONE]":
+                complete = True
+                break
+            try:
+                chunk = json.loads(data)
+            except ValueError:
+                continue
+            if chunk.get("error"):
+                raise ProviderError(f"{label}: stream error {str(chunk['error'])[:300]}")
+            if isinstance(chunk.get("usage"), dict):
+                usage = chunk["usage"]
+            for choice in chunk.get("choices") or []:
+                reason = choice.get("finish_reason")
+                if reason and reason != "stop":
+                    raise ProviderError(f"{label}: incomplete stream (finish_reason={reason})")
+                delta = choice.get("delta") or {}
+                piece = delta.get("content")
+                reasoning = delta.get("reasoning_content")
+                if ttft is None and (piece or reasoning):
+                    ttft = time.monotonic() - started
+                if piece:
+                    parts.append(piece)
+        text = "".join(parts)
+        if not text.strip():
+            raise ProviderError(f"{label}: empty streamed reply")
+        if not complete:
+            raise ProviderError(f"{label}: stream ended before [DONE]")
+        if usage is not None:
+            # Log provider measurements only; do not estimate dollars or tokens.
+            print(f"  [writer] {label} token usage: {json.dumps(usage, sort_keys=True)}")
+        return text
+    finally:
+        _log_stream_stats(label, started, ttft, nbytes)
 
 
 # --- OpenAI ---------------------------------------------------------------
