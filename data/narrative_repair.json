@@ -1,7 +1,18 @@
 {
-  "droppedSentences": [],
-  "correctedSentences": [],
-  "leftoverIssues": [],
-  "holdAutomerge": false,
-  "note": "Manually reworded editorial copy after QA: four true sentences that the edition gates had misread (Nwankpa possessive, Las Vegas possession, opponent passing yards, Cousins attempts) were rephrased, and the Week 7 sentence now says Kansas City visits Seattle. No dropped, corrected, or leftover sentences after the existing fact and copy gates."
+  "droppedSentences": [
+    "Los Angeles brings Justin Herbert and a chance to copy the Raiders' air script: 31-of-52, 0 sacks, 365 net passing yards, 28 first downs, possession time 35:42."
+  ],
+  "correctedSentences": [
+    "unverifiable opponent prior game at Hard Rock; holding",
+    "ambiguous snippet \"Nwankpa's interception\"; holding",
+    "unverifiable opponent prior game at Hard Rock; holding",
+    "unverifiable opponent None of those numbers; holding",
+    "ambiguous snippet 'one Kansas City field goal'; holding",
+    "ambiguous snippet 'one Kansas City field goal'; holding"
+  ],
+  "leftoverIssues": [
+    "LV field-goal count 4 disagrees with ESPN 0 ('Four Las Vegas field goals')",
+    "KC field-goal count 1 disagrees with ESPN 0 ('one Kansas City field goal')"
+  ],
+  "holdAutomerge": true
 }
