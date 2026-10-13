@@ -148,6 +148,24 @@ class WriterTransport(unittest.TestCase):
             )
         self.assertEqual(payloads[0]["reasoning_effort"], "medium")
 
+    def test_stream_payload_includes_max_tokens(self):
+        payloads = []
+
+        def post(*args, **kwargs):
+            payloads.append(copy.deepcopy(kwargs["json"]))
+            return self.response(['data: {"choices":[{"delta":{"content":"{}"}}]}', 'data: [DONE]'])
+
+        with patch.dict("os.environ", {"LLM_MAX_TOKENS": ""}, clear=False), \
+             patch.object(providers.requests, "post", side_effect=post):
+            self.assertEqual(
+                providers._chat_completions(
+                    "Grok", "https://example.test/v1", "test", "grok-4.7", "s", "u", stream=True
+                ),
+                "{}",
+            )
+        self.assertEqual(payloads[0]["max_tokens"], 8192)
+        self.assertIn("stream", payloads[0])
+
     def test_reasoning_effort_400_retries_without_it(self):
         rejected = self.response([], status=400, text="reasoning_effort is not supported")
         accepted = self.response(['data: {"choices":[{"delta":{"content":"{}"}}]}', 'data: [DONE]'])
