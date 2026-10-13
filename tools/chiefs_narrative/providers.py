@@ -143,9 +143,9 @@ def _chat_completions(label: str, base: str, key: str, model: str,
         # Bound Grok-4.7 think time. Default "low"; override via env.
         payload["reasoning_effort"] = config.env("GROK_REASONING_EFFORT") or "low"
         try:
-            payload["max_tokens"] = int(config.env("LLM_MAX_TOKENS") or 8192)
+            payload["max_tokens"] = int(config.env("LLM_MAX_TOKENS") or 16384)
         except ValueError:
-            payload["max_tokens"] = 8192
+            payload["max_tokens"] = 16384
     resp = None
     try:
         resp = _post(payload)

@@ -166,7 +166,7 @@ class WriterTransport(unittest.TestCase):
                 ),
                 "{}",
             )
-        self.assertEqual(payloads[0]["max_tokens"], 8192)
+        self.assertEqual(payloads[0]["max_tokens"], 16384)
         self.assertIn("stream", payloads[0])
 
     def test_reasoning_effort_400_retries_without_it(self):
