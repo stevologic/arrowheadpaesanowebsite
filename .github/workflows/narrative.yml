@@ -53,7 +53,7 @@ concurrency:
 jobs:
   generate:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 65
     permissions:
       contents: read
       pull-requests: read
