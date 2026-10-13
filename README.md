@@ -105,11 +105,11 @@ renders that file on the homepage.
 The article workflow defaults to Grok using the existing **`XAI_API_KEY`**
 (or `GROK_API_KEY`) secret. A missing key fails the article job; schedule-only
 work still runs without keys. Optional repository *variables*:
-`OPENAI_MODEL`, `XAI_BASE_URL`. The article workflow sets `GROK_MODEL=latest`:
-it queries the configured xAI account's model list once per process and selects
-the newest stable numbered text model at **Grok 4.7 or newer**. Dated,
-multi-agent, Build, and Imagine variants are excluded. Local runs can use
-`GROK_MODEL=latest` too. Model discovery or generation failure stops the article
+`OPENAI_MODEL`, `XAI_BASE_URL`. The article workflow pins `GROK_MODEL=grok-4.7`
+so a future model bump goes through a PR with a latency check. Local runs can
+still set `GROK_MODEL=latest` to discover the newest stable numbered text
+model at **Grok 4.7 or newer**. Dated, multi-agent, Build, and Imagine
+variants are excluded. Model discovery or generation failure stops the article
 run and preserves the published edition; `GROK_FALLBACK_MODELS` is ignored.
 There is no older-model or offline substitution after selecting Grok.
 

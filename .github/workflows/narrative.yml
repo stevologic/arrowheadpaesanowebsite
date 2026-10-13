@@ -19,7 +19,7 @@ name: Chiefs Narrative (daily)
 # Article jobs default to Grok/xAI with the existing XAI_API_KEY/GROK_API_KEY.
 # An explicitly selected manual provider retains its own existing ecosystem.
 # Schedule-only jobs do not need any provider secret.
-# Article jobs select the latest account-visible stable Grok (minimum 4.7).
+# Article jobs pin grok-4.7. Bumps go through a PR so latency can be checked.
 # Provider/model failures stop generation; they never downgrade the article writer.
 # Force one with the workflow_dispatch "provider" input (e.g. grok).
 
@@ -135,7 +135,8 @@ jobs:
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
           GROK_API_KEY: ${{ secrets.GROK_API_KEY }}
           # Repo variables must not silently pin old models or configure downgrades.
-          GROK_MODEL: latest
+          GROK_MODEL: grok-4.7
+          GROK_REASONING_EFFORT: ${{ vars.GROK_REASONING_EFFORT || 'low' }}
           XAI_BASE_URL: ${{ vars.XAI_BASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
@@ -144,6 +145,7 @@ jobs:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
           # Stream cap in seconds. Default 900 so grok-4.7 full editions can finish; tune via repo var.
           LLM_DEADLINE: ${{ vars.LLM_DEADLINE || '900' }}
+          PYTHONUNBUFFERED: "1"
         run: |
           python -m tools.chiefs_narrative.generate
 
