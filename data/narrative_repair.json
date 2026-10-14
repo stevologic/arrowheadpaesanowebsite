@@ -1,20 +1,16 @@
 {
-  "droppedSentences": [
-    "Cover-2 takes the shot.",
-    "Arrowhead Addict notes a preseason experiment that could return if interior depth is the question once Josh Simmons is back in the building."
-  ],
+  "droppedSentences": [],
   "correctedSentences": [
-    "Chiefs.com named him AFC Special Teams Player of the Week after five punts inside the 20. → The NFL named him AFC Special Teams Player of the Week after five punts inside the 20, per Chiefs.com.",
-    "Kansas City needing a third-and-long instead of another 14-play drive → Kansas City needing a third-and-long",
-    "Kansas City’s best recent offense was a 189-yard rush game attached to selective explosives, not a 30-attempt volume day. → Kansas City’s best recent offense was a 189-yard rush game attached to selective explosives, and Mahomes still went 15-of-30 in that win.",
-    "the defense creates the two takeaways → the two takeaways are the interception by Nwankpa plus the kickoff-coverage fumble Bassa forced and Cochrane recovered",
-    "do not tell the room the Las Vegas interception was a blitz. → do not tell the room the interception by Nwankpa of a Las Vegas pass was a blitz.",
-    "The zone blitz is a call to steal a down, not a story about how the interception happened. → The zone blitz is a call to steal a down. It is not a story about how Nwankpa intercepted a Las Vegas pass.",
-    "Kirk Cousins finished 31-of-52 with a 85.8 rating, zero sacks, and 365 net passing yards. → Kirk Cousins was sacked zero times, finishing 31-of-52 with an 85.8 rating and 365 net passing yards.",
-    "3rd-and-5, the down Kansas City converted on 5 of 13 at Allegiant → 3rd-and-5, a third-down distance from Kansas City's 5-of-13 afternoon at Allegiant",
-    "Keep Walker at a 20-carry pace so the 189-yard identity, not a 30-attempt passing day, sets the Chargers’ front. → Keep Walker at a 20-carry pace so the 189-yard identity sets the Chargers’ front.",
-    "Twenty-two carries, 177 yards, two touchdowns, 23 touches. The team rush line is 189. Arrowhead Pride’s all-time comparison starts from 621 scrimmage yards and a 6.2 average. That is the lever Bieniemy should pull before he asks the receiver room to replace Thornton. → Walker’s Allegiant line was 22 rushes for 177 yards and two scores on 23 touches, inside the team’s 189 on the ground. Arrowhead Pride’s comparison uses 621 scrimmage yards and 6.2 per carry. Bieniemy should keep that lever in his hand before he asks the receiver room to replace Thornton.",
-    "No return date is in the wire. → No return date is in the wire for Josh Simmons."
+    "Led Chiefs wideouts in receiving yards and had two touchdowns on the season ledger cited by Arrowhead Pride. → Led Chiefs wideouts in receiving yards and scored twice on the season ledger cited by Arrowhead Pride.",
+    "It is a call for this Sunday, not a story about the Allegiant interception. → It is a call for this Sunday, not a story about the Nwankpa interception.",
+    "Start Herbert in Cover-2 and change to a zone blitz on third down without treating that call as the story of the Nwankpa interception. → Start Herbert in Cover-2 and change to a zone blitz on third down.",
+    "Do not read the 225-yard passer line as the team total, and do not import the Miami game’s 246 net passing yards into this box. → Do not read the 225-yard passer line as the team total, and do not import Miami’s passing box into this one.",
+    "The Miami game is a separate box: 88 rushing yards, 246 net passing yards, 25:39 of possession. → The Miami game is a separate box: 88 rushing yards, a 246-yard passing day, 25:39 of possession.",
+    "Separate the Miami box so nobody blends 88 rush yards or 246 net passing into this game. → Separate the Miami box so nobody blends 88 rush yards or that passing day into this game.",
+    "with Thornton injured on the play and Quinton Walker flagged for unnecessary roughness. → with Thornton injured on the play and Quay Walker flagged for unnecessary roughness.",
+    "Chiefs.com named Araiza AFC Special Teams Player of the Week after five punts inside the 20. → The NFL named Araiza AFC Special Teams Player of the Week after five punts inside the 20, per Chiefs.com.",
+    "Penalties on N. Williams, P. Woods, N. Remigio, Felix Anudike-Uzomah, and L. Sneed that wiped plays → Penalties on N. Williams, P. Woods, Felix Anudike-Uzomah, and L. Sneed that wiped plays",
+    "Kirk Cousins was 31-of-52 for a 85.8 rating → Kirk Cousins was 31-of-52 for an 85.8 rating"
   ],
   "leftoverIssues": [],
   "holdAutomerge": true
