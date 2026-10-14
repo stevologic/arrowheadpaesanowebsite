@@ -1,11 +1,13 @@
 {
   "droppedSentences": [],
   "correctedSentences": [
-    "ambiguous snippet 'Allegiant interception'; holding",
-    "ambiguous snippet '246 net passing yards'; holding"
+    "Led Chiefs wideouts in receiving yards and had two touchdowns on the season ledger cited by Arrowhead Pride. → Led Chiefs wideouts in receiving yards and scored twice on the season ledger cited by Arrowhead Pride.",
+    "It is a call for this Sunday, not a story about the Allegiant interception. → It is a call for this Sunday, not a story about the Nwankpa interception.",
+    "Start Herbert in Cover-2 and change to a zone blitz on third down without treating that call as the story of the Nwankpa interception. → Start Herbert in Cover-2 and change to a zone blitz on third down.",
+    "Do not read the 225-yard passer line as the team total, and do not import the Miami game’s 246 net passing yards into this box. → Do not read the 225-yard passer line as the team total, and do not import Miami’s passing box into this one.",
+    "The Miami game is a separate box: 88 rushing yards, 246 net passing yards, 25:39 of possession. → The Miami game is a separate box: 88 rushing yards, a 246-yard passing day, 25:39 of possession.",
+    "Separate the Miami box so nobody blends 88 rush yards or 246 net passing into this game. → Separate the Miami box so nobody blends 88 rush yards or that passing day into this game."
   ],
-  "leftoverIssues": [
-    "salvage would have dropped too much; holding for human QA"
-  ],
+  "leftoverIssues": [],
   "holdAutomerge": true
 }
