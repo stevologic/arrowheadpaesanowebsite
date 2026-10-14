@@ -107,9 +107,8 @@ def last_game_for_edition(edition: dict, schedule: list) -> dict | None:
 def replay_edition(edition: dict, schedule: list, recaps: dict) -> list[str]:
     last = last_game_for_edition(edition, schedule)
     recap = recaps.get(str((last or {}).get("id") or "")) if last else None
-    return facts.check_review(
-        edition, last, recap or {}, schedule=schedule
-    )
+    recap = recap or {}
+    return facts.check_review(edition, last, recap, schedule=schedule)
 
 
 def replay_all_editions() -> list[tuple[str, list[str]]]:

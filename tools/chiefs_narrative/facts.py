@@ -11,7 +11,7 @@ from __future__ import annotations
 import copy
 import re
 
-from . import collect, config, diagrams, phase as phase_mod
+from . import collect, config, diagrams, known_errors, phase as phase_mod
 
 # Completions and similar "X-of-Y" / "X/Y" lines must not be read as scores.
 _OF_LINE = re.compile(r"\d+\s*[-–]?\s*of\s*[-–]?\s*\d+", re.IGNORECASE)
@@ -793,6 +793,31 @@ _INT_CREDIT = re.compile(
     r"\b([A-Z][A-Za-z''-]+)\s+(?i:intercept(?:ed|ion)|INT)\b"
     r"|\b(?i:intercept(?:ed|ion)|INT)\s+by\s+([A-Z][A-Za-z''-]+)",
 )
+_VENUE_CREDIT_TOKENS = frozenset(
+    {
+        "allegiant",
+        "arrowhead",
+        "geha",
+        "sofi",
+        "lambeau",
+        "empower",
+        "highmark",
+        "hard",
+        "rock",
+        "stadium",
+        "field",
+        "coliseum",
+        "dome",
+    }
+)
+_INTERCEPTED_BY_TEXT = re.compile(
+    r"intercepted by\s+([A-Z]\.?[A-Za-z''-]+)",
+    re.IGNORECASE,
+)
+_SEASON_TD_LEDGER = re.compile(
+    r"\bon the season\b|\bseason ledger\b|\bcareer\b|\bthis year\b",
+    re.IGNORECASE,
+)
 _NOT_PLAYER_TOKENS = frozenset(
     {
         "then",
@@ -823,6 +848,7 @@ _NOT_PLAYER_TOKENS = frozenset(
         "when",
         "after",
         "before",
+        "arrowhead",
     }
 )
 _GARBLED_INITIAL = re.compile(r"\b([A-Z])['’]([A-Z][a-z]{3,})\b")
@@ -3671,6 +3697,40 @@ def _plays(recap: dict | None) -> list[dict]:
     return out
 
 
+def _unique_official_interceptor(recap: dict | None) -> str:
+    """Last name ESPN credits on interceptions, or '' when it is not unique."""
+    names: list[str] = []
+    seen: set[str] = set()
+    for play in _plays(recap):
+        text = play.get("text") or ""
+        if (play.get("kind") or "").lower() != "int" and "intercept" not in text.lower():
+            continue
+        raw = (play.get("interceptedBy") or "").strip()
+        if not raw:
+            hit = _INTERCEPTED_BY_TEXT.search(text)
+            raw = (hit.group(1) if hit else "").strip()
+        last = _last_name_token(raw)
+        if not last or last in _VENUE_CREDIT_TOKENS or last in _NOT_PLAYER_TOKENS:
+            continue
+        if last not in seen:
+            seen.add(last)
+            names.append(raw.split()[-1] if raw else last)
+    if len(seen) != 1:
+        return ""
+    token = names[0]
+    if "." in token:
+        return token.split(".")[-1]
+    return token[:1].upper() + token[1:] if token else ""
+
+
+def _swap_credit_name(sentence: str, bad: str, official: str) -> str | None:
+    if not sentence or not bad or not official:
+        return None
+    if not re.search(rf"\b{re.escape(bad)}\b", sentence):
+        return None
+    return re.sub(rf"\b{re.escape(bad)}\b", official, sentence, count=1)
+
+
 def _official_names(plays: list[dict], *fields: str) -> set[str]:
     names: set[str] = set()
     for play in plays:
@@ -3813,6 +3873,13 @@ def _check_turnover_credit(text: str, recap: dict | None) -> list[str]:
             or last in passers
             or last in _NOT_PLAYER_TOKENS
         ):
+            return
+        if last in _VENUE_CREDIT_TOKENS:
+            issues.append(
+                f"turnover credit: {name} is not who ESPN lists as "
+                f"{'forcing/recovering the fumble' if role == 'fumble' else 'the interceptor'} "
+                f"({snippet!r})"
+            )
             return
         key = f"{role}:{last}:{snippet.lower()}"
         if key in seen:
@@ -6667,6 +6734,7 @@ def check_review(
                 issues.extend(_check_pass_touchdowns(text, recap))
     issues.extend(_check_offseason_slate(narrative, schedule))
     issues.extend(_check_playoff_next_unknown(narrative, schedule))
+    issues.extend(known_errors.check_payload(narrative, recap or {}))
     if copy_gates:
         issues.extend(check_copy_gates(narrative, schedule))
     # Dedup while keeping order.
@@ -7338,8 +7406,12 @@ def safe_score_lede(last_game: dict | None) -> str:
 
 _STAT_DISAGREE = re.compile(
     r"(?P<kind>touches|sacks|pass attempts|rush attempts|team rushing|"
-    r"game yards|total drives|QB hits|first downs)\s+"
+    r"game yards|total drives|QB hits|first downs|touchdown count)\s+"
     r"(?P<claimed>\d+)\s+disagrees with ESPN\s+(?P<official>\d+)",
+    re.IGNORECASE,
+)
+_TURNOVER_CREDIT_VIOLATION = re.compile(
+    r"turnover credit:\s+(?P<name>[A-Za-z][A-Za-z''.-]*)\s+is not",
     re.IGNORECASE,
 )
 _ILLEGAL_USE_NOT_SNEED = re.compile(
@@ -7914,6 +7986,28 @@ def _reword_misattributed_box(
     return f"Against {phrase}, Kansas City had {rest}."
 
 
+def _flagged_sentences(
+    blob: str,
+    violation: str,
+    last_game: dict | None = None,
+    recap: dict | None = None,
+    schedule=None,
+) -> list[str]:
+    """Every sentence that still fails for this violation snippet."""
+    one = _flagged_sentence(blob, violation, last_game, recap, schedule)
+    if one:
+        return [one]
+    snippet = _quoted_violation(violation)
+    if not snippet:
+        return []
+    return [
+        part
+        for part in _split_sentences(blob)
+        if snippet in part
+        and sentence_fails_review(part, last_game, recap, schedule)
+    ]
+
+
 def _flagged_sentence(
     blob: str,
     violation: str,
@@ -7997,7 +8091,9 @@ def _refuse_rush_swap(
     return False
 
 
-_REWRITE_BOX_KINDS = frozenset({"first downs", "team rushing", "team passing"})
+_REWRITE_BOX_KINDS = frozenset(
+    {"first downs", "team rushing", "team passing", "touchdown count"}
+)
 _REWRITE_PLAYER_KINDS = frozenset(
     {"pass attempts", "rush attempts", "sacks", "touches"}
 )
@@ -8024,11 +8120,27 @@ def _correct_sentence(
     """
     if not sentence:
         return None
+    credit = _TURNOVER_CREDIT_VIOLATION.search(violation or "")
+    if credit:
+        official = _unique_official_interceptor(recap)
+        if not official:
+            return None
+        return _swap_credit_name(sentence, credit.group("name"), official)
     num = _STAT_DISAGREE.search(violation or "")
     if num:
         kind = (num.group("kind") or "").lower()
         claimed = int(num.group("claimed"))
         official = int(num.group("official"))
+        if kind == "touchdown count":
+            if _SEASON_TD_LEDGER.search(sentence or ""):
+                return None
+            if re.search(
+                r"\b(?:mahomes|walker|thornton|kelce|rice|worthy|butker)\b",
+                sentence or "",
+                re.I,
+            ):
+                return None
+            return _swap_count_in_sentence(sentence, claimed, official)
         if kind == "touches":
             named = re.search(
                 r"\sfor\s+([A-Za-z. '’-]+?)\s+\(",
@@ -8174,43 +8286,46 @@ def apply_fact_corrections(
 
     A snippet like '29 first downs' must not retarget an earlier correct
     line. Multi-stat box lines are reworded as a whole or left for HOLD.
-    An ambiguous snippet that hits two clean sentences is skipped + held.
+    When one snippet hits several failing sentences, correct or leave
+    each one for drop — do not hold the whole claim.
     """
-    payload = copy.deepcopy(narrative or {})
-    logs: list[str] = []
+    payload, logs = known_errors.apply_known_errors(narrative, recap)
     blob = edition_text(payload)
     for item in violations or []:
-        sentence = _flagged_sentence(
+        if known_errors.is_hold_only_issue(item):
+            continue
+        targets = _flagged_sentences(
             blob, item, last_game, recap, schedule
         )
-        if sentence is None:
+        if not targets:
             snippet = _quoted_violation(item)
             logs.append(f"ambiguous snippet {snippet!r}; holding")
             continue
-        unknown = _unknown_was_opponent(sentence, last_game, recap, schedule)
-        if unknown:
-            logs.append(f"unverifiable opponent {unknown}; holding")
-            continue
-        rewritten = _reword_misattributed_box(
-            sentence, recap, last_game, schedule
-        )
-        if not rewritten:
-            rewritten = _correct_sentence(sentence, item, recap, last_game)
-        if not rewritten or rewritten == sentence:
-            continue
-        if sentence_fails_review(rewritten, last_game, recap, schedule):
-            continue
-        next_payload = copy.deepcopy(payload)
-        for key in _EDITION_KEYS:
-            if key in next_payload:
-                next_payload[key] = _replace_sentence_value(
-                    next_payload[key], sentence, rewritten
-                )
-        if edition_text(next_payload) == blob:
-            continue
-        payload = next_payload
-        blob = edition_text(payload)
-        logs.append(f"{sentence} → {rewritten}")
+        for sentence in targets:
+            unknown = _unknown_was_opponent(sentence, last_game, recap, schedule)
+            if unknown:
+                logs.append(f"unverifiable opponent {unknown}; holding")
+                continue
+            rewritten = _reword_misattributed_box(
+                sentence, recap, last_game, schedule
+            )
+            if not rewritten:
+                rewritten = _correct_sentence(sentence, item, recap, last_game)
+            if not rewritten or rewritten == sentence:
+                continue
+            if sentence_fails_review(rewritten, last_game, recap, schedule):
+                continue
+            next_payload = copy.deepcopy(payload)
+            for key in _EDITION_KEYS:
+                if key in next_payload:
+                    next_payload[key] = _replace_sentence_value(
+                        next_payload[key], sentence, rewritten
+                    )
+            if edition_text(next_payload) == blob:
+                continue
+            payload = next_payload
+            blob = edition_text(payload)
+            logs.append(f"{sentence} → {rewritten}")
     return payload, logs
 
 
@@ -8222,7 +8337,13 @@ def repair_offending_copy(
 ) -> dict:
     """Drop offending sentences, then leftover fragments in every section."""
     payload = copy.deepcopy(narrative or {})
-    snippets = violation_snippets(violations)
+    snippets = violation_snippets(
+        [
+            item
+            for item in violations or []
+            if not known_errors.is_hold_only_issue(item)
+        ]
+    )
     if snippets:
         for key in _EDITION_KEYS:
             if key in payload:

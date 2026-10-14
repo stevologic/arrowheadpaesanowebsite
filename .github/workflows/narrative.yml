@@ -97,15 +97,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          PENDING="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls?state=open&per_page=100" \
-            --jq '.[] | select((.base.ref == "develop" or .base.ref == "main") and (.head.ref | startswith("narrative/update-"))) | .number')"
-          if [ -n "$PENDING" ]; then
-            echo "pending=true" >> "$GITHUB_OUTPUT"
-            echo "Publication PR(s) await review: $PENDING. Skipping repeat generation."
-            echo "Publication PR(s) $PENDING await workflow approval/review; no provider request was made." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "pending=false" >> "$GITHUB_OUTPUT"
-          fi
+          python -m tools.chiefs_narrative.publication_queue
 
       - name: Refresh the published slate
         if: steps.queue.outputs.pending != 'true'
@@ -143,8 +135,8 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           ANTHROPIC_MODEL: ${{ vars.ANTHROPIC_MODEL }}
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-          # Stream cap in seconds. Default 900 so grok-4.7 full editions can finish; tune via repo var.
-          LLM_DEADLINE: ${{ vars.LLM_DEADLINE || '900' }}
+          # Stream cap in seconds. Default 600; the run-wide LLM budget is 6 calls.
+          LLM_DEADLINE: ${{ vars.LLM_DEADLINE || '600' }}
           PYTHONUNBUFFERED: "1"
         run: |
           python -m tools.chiefs_narrative.generate
@@ -229,6 +221,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m unittest discover -s tools/tests -v
+          python -m tools.chiefs_narrative.generate --gate-replay
           check_rc=0
           python -m tools.chiefs_narrative.generate --check-edition || check_rc=$?
           if [ "$check_rc" -ne 0 ]; then
