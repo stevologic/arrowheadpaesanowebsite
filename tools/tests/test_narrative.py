@@ -9825,6 +9825,11 @@ class FactCheck(unittest.TestCase):
         for slug, row in rows:
             allowed = list(known["issues"].get(slug) or [])
             for item in row["issues"]:
+                # Hold-only pins (list-form wipe) stay in the edition on
+                # purpose. PR #215's 2026-10-14-1745 sentence must not
+                # fail archive replay or be rewritten.
+                if known_errors.is_hold_only_issue(item):
+                    continue
                 if item not in allowed:
                     unexpected.append(f"{slug}: {item}")
             for item in allowed:
