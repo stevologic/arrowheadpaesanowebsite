@@ -1,21 +1,11 @@
 {
-  "droppedSentences": [
-    "Cover-2 takes the shot.",
-    "Arrowhead Addict notes a preseason experiment that could return if interior depth is the question once Josh Simmons is back in the building."
-  ],
+  "droppedSentences": [],
   "correctedSentences": [
-    "Chiefs.com named him AFC Special Teams Player of the Week after five punts inside the 20. → The NFL named him AFC Special Teams Player of the Week after five punts inside the 20, per Chiefs.com.",
-    "Kansas City needing a third-and-long instead of another 14-play drive → Kansas City needing a third-and-long",
-    "Kansas City’s best recent offense was a 189-yard rush game attached to selective explosives, not a 30-attempt volume day. → Kansas City’s best recent offense was a 189-yard rush game attached to selective explosives, and Mahomes still went 15-of-30 in that win.",
-    "the defense creates the two takeaways → the two takeaways are the interception by Nwankpa plus the kickoff-coverage fumble Bassa forced and Cochrane recovered",
-    "do not tell the room the Las Vegas interception was a blitz. → do not tell the room the interception by Nwankpa of a Las Vegas pass was a blitz.",
-    "The zone blitz is a call to steal a down, not a story about how the interception happened. → The zone blitz is a call to steal a down. It is not a story about how Nwankpa intercepted a Las Vegas pass.",
-    "Kirk Cousins finished 31-of-52 with a 85.8 rating, zero sacks, and 365 net passing yards. → Kirk Cousins was sacked zero times, finishing 31-of-52 with an 85.8 rating and 365 net passing yards.",
-    "3rd-and-5, the down Kansas City converted on 5 of 13 at Allegiant → 3rd-and-5, a third-down distance from Kansas City's 5-of-13 afternoon at Allegiant",
-    "Keep Walker at a 20-carry pace so the 189-yard identity, not a 30-attempt passing day, sets the Chargers’ front. → Keep Walker at a 20-carry pace so the 189-yard identity sets the Chargers’ front.",
-    "Twenty-two carries, 177 yards, two touchdowns, 23 touches. The team rush line is 189. Arrowhead Pride’s all-time comparison starts from 621 scrimmage yards and a 6.2 average. That is the lever Bieniemy should pull before he asks the receiver room to replace Thornton. → Walker’s Allegiant line was 22 rushes for 177 yards and two scores on 23 touches, inside the team’s 189 on the ground. Arrowhead Pride’s comparison uses 621 scrimmage yards and 6.2 per carry. Bieniemy should keep that lever in his hand before he asks the receiver room to replace Thornton.",
-    "No return date is in the wire. → No return date is in the wire for Josh Simmons."
+    "ambiguous snippet 'Allegiant interception'; holding",
+    "ambiguous snippet '246 net passing yards'; holding"
   ],
-  "leftoverIssues": [],
+  "leftoverIssues": [
+    "salvage would have dropped too much; holding for human QA"
+  ],
   "holdAutomerge": true
 }
