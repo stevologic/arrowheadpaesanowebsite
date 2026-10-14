@@ -8,7 +8,7 @@ Run it directly::
     python -m tools.chiefs_narrative.generate --schedule-only  # slate only
     python -m tools.chiefs_narrative.generate --diagrams-only  # SVG from JSON
     python -m tools.chiefs_narrative.generate --check-edition  # review + SVG gate
-    python -m tools.chiefs_narrative.generate --gate-replay  # refuse CI-failing leftovers
+    python -m tools.chiefs_narrative.generate --gate-replay  # hold-only leftover vs refuse real issues
     python -m tools.chiefs_narrative.generate --dry-run  # print, don't write
 
 Environment (all optional):
@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import os
 import re
 import sys
 from datetime import datetime, timezone
@@ -1107,17 +1108,23 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
     else:
         narrative["updatedAt"] = narrative.get("generatedAt") or config.iso_now()
 
+    leftover_issues = list(leftover_issues or [])
     if replay_fixture_missing(narrative):
         print(f"  [writer] {REPLAY_NOT_RUN}")
-        leftover_issues = list(leftover_issues or [])
         if REPLAY_NOT_RUN not in leftover_issues:
             leftover_issues.append(REPLAY_NOT_RUN)
+        emit_held([REPLAY_NOT_RUN])
     else:
-        replay_issues = archive_replay_issues(narrative, schedule)
-        if replay_issues:
+        held, hard = split_replay_issues(archive_replay_issues(narrative, schedule))
+        for item in held:
+            if item not in leftover_issues:
+                leftover_issues.append(item)
+        if held:
+            emit_held(held)
+        if hard:
             raise FactCheckError(
                 "edition would fail archive replay; refusing to publish: "
-                + "; ".join(replay_issues)
+                + "; ".join(hard)
             )
 
     # 6. Render diagrams only after uniqueness and fact-check have passed.
@@ -1256,14 +1263,46 @@ def replay_fixture_missing(narrative: dict | None) -> bool:
 def archive_replay_issues(narrative: dict, schedule=None) -> list[str]:
     """Same ESPN checks ``test_karen_archive_replay`` runs on a new edition.
 
-    A non-empty result is an unpinned leftover: CI would fail
-    ``test_karen_archive_replay`` and this run must not open a PR.
+    Hold-only leftovers go to the hold list. Hard leftovers refuse publish.
     """
     last = _last_game_from_edition(narrative)
     recap = _recap_for_edition(narrative)
     if schedule is None:
         schedule = collect.load_cached_schedule()
     return facts.check_review(narrative, last, recap, schedule=schedule)
+
+
+def split_replay_issues(issues: list[str] | None) -> tuple[list[str], list[str]]:
+    """Partition archive leftovers into hold-only vs real publish blockers."""
+    held: list[str] = []
+    hard: list[str] = []
+    for item in issues or []:
+        if known_errors.is_hold_only_issue(item):
+            held.append(item)
+        else:
+            hard.append(item)
+    return held, hard
+
+
+def emit_held(items: list[str], *, stream=None) -> None:
+    """Print a held line and, in Actions, a warning annotation."""
+    if not items:
+        return
+    out = stream or sys.stdout
+    print(f"  held: {'; '.join(items)}", file=out)
+    if os.environ.get("GITHUB_ACTIONS"):
+        for item in items:
+            safe = item.replace("\r", " ").replace("\n", " ")
+            print(f"::warning title=held edition::{safe}", file=out)
+        summary = os.environ.get("GITHUB_STEP_SUMMARY")
+        if summary:
+            try:
+                with open(summary, "a", encoding="utf-8") as fh:
+                    fh.write("\n### Held edition\n")
+                    for item in items:
+                        fh.write(f"- {item}\n")
+            except OSError:
+                pass
 
 
 def check_published_edition() -> list[str]:
@@ -1304,7 +1343,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--gate-replay",
         action="store_true",
-        help="fail if data/narrative.json would fail test_karen_archive_replay",
+        help="fail on hard archive leftovers; print held and exit 0 for hold-only",
     )
     args = parser.parse_args(argv)
 
@@ -1327,16 +1366,20 @@ def main(argv=None) -> int:
         narrative = json.loads(config.NARRATIVE_JSON.read_text(encoding="utf-8"))
         if replay_fixture_missing(narrative):
             print(f"  {REPLAY_NOT_RUN}")
+            emit_held([REPLAY_NOT_RUN])
             return 0
-        issues = archive_replay_issues(narrative)
-        if issues:
+        held, hard = split_replay_issues(archive_replay_issues(narrative))
+        if hard:
             print(
                 "ERROR: generated edition would fail archive replay:",
                 file=sys.stderr,
             )
-            for item in issues:
+            for item in hard:
                 print(f"  - {item}", file=sys.stderr)
             return 1
+        if held:
+            emit_held(held)
+            return 0
         print("  archive replay gate: ok")
         return 0
 

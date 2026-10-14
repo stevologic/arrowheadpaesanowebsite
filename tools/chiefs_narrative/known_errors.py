@@ -50,9 +50,13 @@ _WIPE_CLAIM = re.compile(
     re.IGNORECASE,
 )
 _LIST_WIPED_PLAYS = re.compile(
-    r"\bPenalties\s+on\b(?:[A-Z]\.|[^.!?]){0,240}?"
-    r"\b(?:that\s+)?wiped\s+plays\b",
+    r"\b(?:Penalties|Flags)\s+on\b"
+    r"(?P<names>(?:[A-Z]\.|[^.!?]){0,240}?)"
+    r"\b(?:that\s+)?(?:wiped(?:\s+out)?|erased)\s+plays\b",
     re.IGNORECASE,
+)
+_LIST_PLAYER = re.compile(
+    r"(?:[A-Z]\.\s*)?[A-Z][A-Za-z''-]+(?:\s+[A-Z][A-Za-z''-]+)*"
 )
 _WS_IN_PATTERN = re.compile(r"(?:\\[sS][+*?]|\s)+")
 _EDITION_KEYS = (
@@ -127,7 +131,12 @@ def flex_literal(find: str) -> str:
 
 def is_hold_only_issue(item: str) -> bool:
     raw = item or ""
-    return raw == "replay not run" or "must hold, not be rewritten" in raw
+    return (
+        raw == "replay not run"
+        or "must hold, not be rewritten" in raw
+        or "no ESPN penalty data" in raw
+        or "no ESPN play-by-play" in raw
+    )
 
 
 def list_wipe_holds(text: str) -> bool:
@@ -212,6 +221,60 @@ def _penalty_wiped(row: dict) -> bool:
     return bool(str(row.get("wiped") or "").strip())
 
 
+def _list_named_lasts(chunk: str) -> list[str]:
+    seen: list[str] = []
+    for match in _LIST_PLAYER.finditer(chunk or ""):
+        last = _last_name(match.group(0))
+        if last and last not in seen:
+            seen.append(last)
+    return seen
+
+
+def _enforced_not_wipe_lasts(names: list[str], recap: dict | None) -> list[str] | None:
+    """Last names whose ESPN penalty was enforced but did not wipe.
+
+    None means there is no penalty table to check.
+    """
+    rows = _penalties(recap)
+    if not rows:
+        return None
+    bad: list[str] = []
+    for who in names:
+        hits = [
+            row
+            for row in rows
+            if _last_name(row.get("player") or "") == who
+        ]
+        if hits and any(not _penalty_wiped(row) for row in hits):
+            bad.append(who)
+    return bad
+
+
+def _list_wipe_issues(text: str, recap: dict | None) -> list[str]:
+    """List-form wipe claims: flag only a named enforced-not-wipe; hold if no PBP."""
+    issues: list[str] = []
+    hold = rule_issue(
+        "penalty-wipe-list",
+        "pinned fact: list-form wipe claim has no ESPN play-by-play; must hold, not be rewritten",
+    )
+    wipe = rule_issue(
+        "penalty-wipe",
+        "pinned fact: an enforced penalty that did not wipe a play must not be described as wiping one",
+    )
+    for match in _LIST_WIPED_PLAYS.finditer(text):
+        sentence = _sentence_at(text, match.start())
+        names = _list_named_lasts(match.group("names") or "")
+        bad = _enforced_not_wipe_lasts(names, recap)
+        if bad is None or not names:
+            issues.append(hold + f" ({match.group(0)!r})")
+            continue
+        if bad:
+            issues.append(
+                wipe + f" ({', '.join(name.title() for name in bad)}: {sentence!r})"
+            )
+    return issues
+
+
 def check_text(text: str, recap: dict | None = None) -> list[str]:
     """Flag pinned-fact violations in edition prose."""
     issues: list[str] = []
@@ -236,14 +299,7 @@ def check_text(text: str, recap: dict | None = None) -> list[str]:
                 str(row.get("issue") or "pinned fact: pattern")
                 + f" ({hit.group(0)!r})"
             )
-    for match in _LIST_WIPED_PLAYS.finditer(text):
-        issues.append(
-            rule_issue(
-                "penalty-wipe-list",
-                "pinned fact: list-form 'Penalties on … that wiped plays' must hold, not be rewritten",
-            )
-            + f" ({match.group(0)!r})"
-        )
+    issues.extend(_list_wipe_issues(text, recap))
     for match in _A_NUMBER.finditer(text):
         article, number = match.group(1), match.group(2)
         if _skip_a_an(number):

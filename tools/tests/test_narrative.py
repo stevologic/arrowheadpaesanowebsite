@@ -9825,11 +9825,6 @@ class FactCheck(unittest.TestCase):
         for slug, row in rows:
             allowed = list(known["issues"].get(slug) or [])
             for item in row["issues"]:
-                # Hold-only pins (list-form wipe) stay in the edition on
-                # purpose. PR #215's 2026-10-14-1745 sentence must not
-                # fail archive replay or be rewritten.
-                if known_errors.is_hold_only_issue(item):
-                    continue
                 if item not in allowed:
                     unexpected.append(f"{slug}: {item}")
             for item in allowed:
@@ -11678,30 +11673,93 @@ class Oct14EditionGates(unittest.TestCase):
             fixed, _logs = known_errors.apply_known_errors({"dek": raw})
             self.assertEqual(fixed["dek"], "Quay Walker")
 
-    def test_list_form_wiped_plays_holds_instead_of_rewrite(self):
-        sentence = (
-            "Penalties on N. Williams, P. Woods, N. Remigio, "
-            "Felix Anudike-Uzomah, and L. Sneed that wiped plays"
+    def test_list_form_215_without_remigio_passes(self):
+        catalog = _load_fixture("edition_run_38582366273.json")
+        sentence = catalog["pinned"]["wipe_list_215"]
+        recap = _load_fixture("espn_401872976_recap.json")
+        narrative = self._dirty_review(sentence)
+        self.assertEqual(known_errors.check_payload(narrative, recap), [])
+        flagged = facts.check_review(narrative, self.LAST, recap)
+        self.assertFalse(
+            any("wipe" in item.lower() or "Remigio" in item for item in flagged),
+            flagged,
         )
+        held, hard = generate.split_replay_issues(
+            generate.archive_replay_issues(narrative)
+        )
+        self.assertEqual(held, [])
+        self.assertEqual(hard, [])
+
+    def test_list_form_with_remigio_flags_enforced_not_wipe(self):
+        catalog = _load_fixture("edition_run_38582366273.json")
+        sentence = catalog["pinned"]["wipe_list_remigio"]
         recap = _load_fixture("espn_401872976_recap.json")
         narrative = self._dirty_review(sentence)
         issues = known_errors.check_payload(narrative, recap)
         self.assertTrue(
-            any("must hold, not be rewritten" in item for item in issues),
+            any("Remigio" in item and "did not wipe" in item for item in issues),
             issues,
         )
+        self.assertFalse(any(known_errors.is_hold_only_issue(item) for item in issues), issues)
         fixed, logs = known_errors.apply_known_errors(narrative, recap)
         self.assertIn(sentence, facts.edition_text(fixed))
         self.assertNotIn("drew a flag on", facts.edition_text(fixed))
         self.assertFalse(any("drew a flag on" in line for line in logs), logs)
         flagged = facts.check_review(fixed, self.LAST, recap)
-        leftover = [item for item in flagged if known_errors.is_hold_only_issue(item)]
-        self.assertTrue(leftover, flagged)
-        repaired = facts.repair_offending_copy(fixed, flagged, self.LAST, recap)
-        self.assertIn(sentence, facts.edition_text(repaired))
         self.assertTrue(
-            facts.should_hold_automerge([], repaired, leftover=leftover)
+            any("Remigio" in item and "did not wipe" in item for item in flagged),
+            flagged,
         )
+
+    def test_list_form_wipe_variants_and_missing_pbp_hold(self):
+        catalog = _load_fixture("edition_run_38582366273.json")
+        remigio = catalog["pinned"]["wipe_list_remigio"]
+        recap = _load_fixture("espn_401872976_recap.json")
+        variants = (
+            remigio.replace("Penalties on", "Flags on"),
+            remigio.replace("that wiped plays", "that erased plays"),
+            remigio.replace("that wiped plays", "that wiped out plays"),
+        )
+        for sentence in variants:
+            issues = known_errors.check_text(sentence, recap)
+            self.assertTrue(
+                any("Remigio" in item and "did not wipe" in item for item in issues),
+                (sentence, issues),
+            )
+        hold = known_errors.check_text(catalog["pinned"]["wipe_list_215"])
+        self.assertTrue(
+            any("must hold, not be rewritten" in item for item in hold),
+            hold,
+        )
+        self.assertTrue(all(known_errors.is_hold_only_issue(item) for item in hold), hold)
+
+    def test_gate_replay_hold_only_prints_held_and_exits_zero(self):
+        catalog = _load_fixture("edition_run_38582366273.json")
+        narrative = {
+            "headline": "A hold-only list-form wipe with no ESPN table.",
+            "dek": catalog["fresh_dek"],
+            "theEdge": "Hold until the box is on disk.",
+            "lastGameReview": {
+                "opponent": "Las Vegas Raiders",
+                "result": "W",
+                "score": "KC 30–27",
+                "lede": catalog["pinned"]["wipe_list_215"],
+            },
+        }
+        held, hard = generate.split_replay_issues(
+            known_errors.check_payload(narrative, None)
+        )
+        self.assertTrue(held)
+        self.assertEqual(hard, [])
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "narrative.json"
+            path.write_text(json.dumps(narrative) + "\n", encoding="utf-8")
+            with patch.object(generate.config, "NARRATIVE_JSON", path):
+                with patch.object(generate, "archive_replay_issues", return_value=held):
+                    with redirect_stdout(io.StringIO()) as out:
+                        rc = generate.main(["--gate-replay"])
+            self.assertEqual(rc, 0)
+            self.assertIn("held", out.getvalue())
 
     def test_arrowhead_interception_is_not_a_venue_credit(self):
         recap = _load_fixture("espn_401872976_recap.json")
@@ -11753,6 +11811,7 @@ class Oct14EditionGates(unittest.TestCase):
                     rc = generate.main(["--gate-replay"])
             self.assertEqual(rc, 0)
             self.assertIn("replay not run", out.getvalue())
+            self.assertIn("held", out.getvalue())
         self.assertTrue(
             facts.should_hold_automerge(
                 [], narrative, leftover=[generate.REPLAY_NOT_RUN]

@@ -28,7 +28,7 @@
     },
     {
       "id": "penalty-wipe-list",
-      "issue": "pinned fact: list-form 'Penalties on … that wiped plays' must hold, not be rewritten"
+      "issue": "pinned fact: list-form wipe claim has no ESPN play-by-play; must hold, not be rewritten"
     },
     {
       "id": "a-an-number",

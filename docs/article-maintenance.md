@@ -114,10 +114,18 @@ open for human review. The queue lookup fails closed on API errors, and the
 workflow summary links the queued draft. No paid article generation or
 fabricated sports content is needed to validate the workflow repair. The
 generate job also refuses to persist an edition that would fail
-`test_karen_archive_replay`, and the test job runs `--gate-replay` before the
-draft PR is opened. If ESPN data or the replay fixture is missing (only
+`test_karen_archive_replay` on a hard leftover, and the test job runs
+`--gate-replay` before the draft PR is opened. Hold-only leftovers (missing
+ESPN play-by-play for a list-form wipe claim, or a missing replay fixture)
+go to the hold list: `--gate-replay` prints a `held` line and exits 0 so
+the run still produces an edition. In GitHub Actions that line is also a
+`::warning` annotation. If ESPN data or the replay fixture is missing (only
 Miami and Las Vegas recaps are wired, so a Chargers review has none), the
-run logs `replay not run` and holds automerge instead of passing silently. Fact-check and salvage apply
+run logs `replay not run` and holds automerge instead of passing silently. A
+list-form `Penalties on` / `Flags on` wipe claim is checked against ESPN
+play-by-play: it passes when every named player wiped a play, flags a named
+player whose penalty was enforced but did not wipe, and holds when there is
+no penalty table. Fact-check and salvage apply
 `tools/chiefs_narrative/known_errors.json` on every run so earlier-edition
 corrections (wrong names, Player of the Week namer, venue INT credit, false
 wipe claims, a/an before vowel-sound numbers) cannot be reprinted. `updatedAt`

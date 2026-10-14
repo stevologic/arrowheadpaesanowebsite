@@ -16,7 +16,9 @@
     "a_an": "Kirk Cousins finished 31-of-52 with a 85.8 rating and 365 net passing yards.",
     "a_an_fixed": "Kirk Cousins finished 31-of-52 with an 85.8 rating and 365 net passing yards.",
     "wipe": "Quay Walker's unnecessary roughness wiped a play in the fourth.",
-    "wipe_ok": "Quay Walker's unnecessary roughness was enforced in the fourth and did not wipe the catch."
+    "wipe_ok": "Quay Walker's unnecessary roughness was enforced in the fourth and did not wipe the catch.",
+    "wipe_list_215": "Penalties on N. Williams, P. Woods, Felix Anudike-Uzomah, and L. Sneed that wiped plays",
+    "wipe_list_remigio": "Penalties on N. Williams, P. Woods, N. Remigio, Felix Anudike-Uzomah, and L. Sneed that wiped plays"
   },
   "keep": [
     "Walker ran for 177 yards and two rushing touchdowns on 22 carries.",
