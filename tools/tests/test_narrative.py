@@ -33,6 +33,7 @@ from tools.chiefs_narrative import (
     edition_overlay,
     facts,
     generate,
+    known_errors,
     odds,
     offline,
     phase,
@@ -787,7 +788,12 @@ class GrokModelSelection(unittest.TestCase):
         self.assertNotIn("20 4 * * *", yaml)
         gate = "python -m unittest discover -s tools/tests -v"
         self.assertIn(gate, yaml)
+        self.assertIn("--gate-replay", yaml)
         self.assertLess(yaml.index(gate), yaml.index("Queue draft pull request for approved PR-event gates"))
+        self.assertLess(
+            yaml.index("--gate-replay"),
+            yaml.index("Queue draft pull request for approved PR-event gates"),
+        )
         self.assertLess(yaml.index("hugo --gc --minify"), yaml.index("Queue draft pull request for approved PR-event gates"))
         self.assertNotIn("gh pr checks ", yaml)
         self.assertNotIn("gh pr checks\n", yaml)
@@ -2479,6 +2485,92 @@ class HeadlineUniqueness(unittest.TestCase):
                     generate.build("grok", persist_schedule=False)
             self.assertIn("2026-09-28-1547", str(ctx.exception))
             self.assertNotIn(today_slug, str(ctx.exception))
+
+    def test_fact_check_retry_cloned_dek_is_regenerated(self):
+        """Run 38582366273: a cloned dek after fact-check retry is rewritten."""
+        catalog = _load_fixture("edition_run_38582366273.json")
+        yesterday_dek = catalog["yesterday_dek"]
+        unique = self._unique_raw()
+        clone_dek = dict(unique)
+        clone_dek["dek"] = yesterday_dek
+        fresh = {"dek": catalog["fresh_dek"]}
+
+        def fake_check(narrative, *args, **kwargs):
+            dek = generate.normalize_copy(narrative.get("dek"))
+            if dek == generate.normalize_copy(unique["dek"]):
+                return ["echoed writer instruction ('Do not invent')"]
+            return []
+
+        llm = Mock(
+            side_effect=[(unique, "grok"), (clone_dek, "grok"), (fresh, "grok")]
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            archive, editions = self._seed_archive(Path(tmp))
+            (editions / f"{catalog['yesterday_slug']}.json").write_text(
+                json.dumps(
+                    self._edition_payload(
+                        dek=yesterday_dek,
+                        slug=catalog["yesterday_slug"],
+                        generatedAt="2026-10-13T19:01:26+00:00",
+                    )
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            extra = [patch.object(facts, "check_review", side_effect=fake_check)]
+            with self._generation_stack(
+                llm=llm, archive=archive, editions=editions, extra=extra
+            ):
+                result = generate.build("grok", persist_schedule=False)
+        self.assertEqual(llm.call_count, 3)
+        self.assertIn("DEK-ONLY RETRY", llm.call_args_list[2].args[2])
+        self.assertIn(yesterday_dek, llm.call_args_list[2].args[2])
+        self.assertEqual(result["narrative"]["dek"], catalog["fresh_dek"])
+        self.assertEqual(result["narrative"]["headline"], unique["headline"])
+
+    def test_cloned_dek_still_fails_after_bounded_attempts(self):
+        catalog = _load_fixture("edition_run_38582366273.json")
+        yesterday_dek = catalog["yesterday_dek"]
+        unique = self._unique_raw()
+        clone_dek = dict(unique)
+        clone_dek["dek"] = yesterday_dek
+
+        def fake_check(narrative, *args, **kwargs):
+            dek = generate.normalize_copy(narrative.get("dek"))
+            if dek == generate.normalize_copy(unique["dek"]):
+                return ["echoed writer instruction ('Do not invent')"]
+            return []
+
+        llm = Mock(
+            side_effect=[
+                (unique, "grok"),
+                (clone_dek, "grok"),
+                ({"dek": yesterday_dek}, "grok"),
+                ({"dek": yesterday_dek}, "grok"),
+                ({"dek": yesterday_dek}, "grok"),
+            ]
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            archive, editions = self._seed_archive(Path(tmp))
+            (editions / f"{catalog['yesterday_slug']}.json").write_text(
+                json.dumps(
+                    self._edition_payload(
+                        dek=yesterday_dek,
+                        slug=catalog["yesterday_slug"],
+                        generatedAt="2026-10-13T19:01:26+00:00",
+                    )
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            extra = [patch.object(facts, "check_review", side_effect=fake_check)]
+            with self._generation_stack(
+                llm=llm, archive=archive, editions=editions, extra=extra
+            ):
+                with self.assertRaises(generate.DuplicateNarrativeError) as ctx:
+                    generate.build("grok", persist_schedule=False)
+        self.assertIn("cloned dek", str(ctx.exception))
+        self.assertEqual(llm.call_count, 2 + generate.DEK_CLONE_ATTEMPTS)
 
 
 class ScheduleScores(unittest.TestCase):
@@ -11277,3 +11369,225 @@ class Week3MiamiWeek4Raiders(unittest.TestCase):
         self.assertEqual(recap["drives"]["OPP"], 1)
         self.assertEqual(recap["passing"][0]["rating"], "119.8")
         self.assertEqual(recap["passing"][0]["sacks"], 0)
+
+
+class Oct14EditionGates(unittest.TestCase):
+    """Run 38582366273 / PR #215 salvage, replay gate, and Karen pinned facts."""
+
+    LAST = {
+        "id": "401872976",
+        "week": 4,
+        "seasonType": "reg",
+        "completed": True,
+        "kcScore": 30,
+        "oppScore": 27,
+        "opponent": "Las Vegas Raiders",
+        "date": "2026-10-04T20:25:00Z",
+    }
+
+    def _dirty_review(self, *sentences):
+        catalog = _load_fixture("edition_run_38582366273.json")
+        claims = catalog["claims"]
+        body = list(sentences) or [
+            claims["td_count"],
+            claims["allegiant_int"],
+            claims["zone_blitz"],
+        ]
+        return {
+            "headline": "23 touches carried a 15-of-30 afternoon.",
+            "dek": catalog["fresh_dek"],
+            "theEdge": "Home number, not a finished season.",
+            "lastGameReview": {
+                "opponent": "Las Vegas Raiders",
+                "result": "W",
+                "score": "KC 30–27",
+                "lede": "Kansas City beat Las Vegas 30-27.",
+                "analysis": [{"body": sentence} for sentence in body],
+            },
+        }
+
+    def test_oct14_claims_flag_against_espn_box_and_pbp(self):
+        catalog = _load_fixture("edition_run_38582366273.json")
+        recap = _load_fixture("espn_401872976_recap.json")
+        issues = facts.check_review(self._dirty_review(), self.LAST, recap)
+        blob = " ".join(issues)
+        self.assertIn("touchdown count 2 disagrees with ESPN 4", blob)
+        self.assertIn("Allegiant", blob)
+        self.assertIn("interceptor", blob)
+        self.assertIn("zone blitz producing the interception", blob)
+        self.assertIn("'two touchdowns'", blob)
+
+    def test_oct14_salvage_corrects_or_drops_and_logs_repair(self):
+        recap = _load_fixture("espn_401872976_recap.json")
+        dirty = self._dirty_review()
+        issues = facts.check_review(dirty, self.LAST, recap)
+        fixed, logs = facts.apply_fact_corrections(dirty, issues, recap, self.LAST)
+        leftover = facts.check_review(fixed, self.LAST, recap)
+        repaired = (
+            facts.repair_offending_copy(fixed, leftover, self.LAST, recap)
+            if leftover
+            else fixed
+        )
+        blob = facts.edition_text(repaired)
+        self.assertNotIn("two touchdowns on the season ledger", blob)
+        self.assertNotIn("Allegiant interception", blob)
+        self.assertNotIn("zone blitz on third down without treating", blob)
+        self.assertEqual(facts.check_review(repaired, self.LAST, recap), [])
+        self.assertTrue(
+            any("Allegiant" in line and "Nwankpa" in line for line in logs)
+            or "Allegiant interception" not in blob,
+            logs,
+        )
+
+    def test_gate_replay_refuses_oct14_edition_that_would_fail_ci(self):
+        dirty = self._dirty_review()
+        issues = generate.archive_replay_issues(dirty)
+        self.assertTrue(issues)
+        self.assertTrue(any("touchdown count" in item for item in issues), issues)
+        self.assertTrue(any("Allegiant" in item for item in issues), issues)
+        self.assertTrue(any("zone blitz" in item for item in issues), issues)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "narrative.json"
+            path.write_text(json.dumps(dirty) + "\n", encoding="utf-8")
+            with patch.object(generate.config, "NARRATIVE_JSON", path):
+                rc = generate.main(["--gate-replay"])
+            self.assertEqual(rc, 1)
+
+    def test_fact_check_enforces_pins_without_espn_recap(self):
+        catalog = _load_fixture("edition_run_38582366273.json")
+        narrative = self._dirty_review(
+            catalog["pinned"]["quinton"],
+            catalog["pinned"]["potw"],
+            catalog["pinned"]["a_an"],
+        )
+        issues = facts.check_review(narrative, None, None)
+        blob = " ".join(issues)
+        self.assertIn("Quinton Walker must be Quay Walker", blob)
+        self.assertIn("Player of the Week is an NFL honor", blob)
+        self.assertIn("a 85.8", blob)
+
+    def test_quinton_walker_is_pinned_to_quay(self):
+        catalog = _load_fixture("edition_run_38582366273.json")
+        narrative = self._dirty_review(catalog["pinned"]["quinton"])
+        recap = _load_fixture("espn_401872976_recap.json")
+        issues = known_errors.check_payload(narrative, recap)
+        self.assertTrue(any("Quinton Walker must be Quay Walker" in item for item in issues), issues)
+        fixed, logs = known_errors.apply_known_errors(narrative, recap)
+        self.assertIn(catalog["pinned"]["quay"], facts.edition_text(fixed))
+        self.assertNotIn("Quinton Walker", facts.edition_text(fixed))
+        self.assertTrue(any("Quay Walker" in line for line in logs), logs)
+        self.assertEqual(known_errors.check_payload(fixed, recap), [])
+
+    def test_player_of_the_week_is_nfl_honor_per_chiefscom(self):
+        catalog = _load_fixture("edition_run_38582366273.json")
+        narrative = self._dirty_review(catalog["pinned"]["potw"])
+        issues = known_errors.check_payload(narrative)
+        self.assertTrue(
+            any("Player of the Week is an NFL honor" in item for item in issues),
+            issues,
+        )
+        fixed, logs = known_errors.apply_known_errors(narrative)
+        self.assertIn(catalog["pinned"]["potw_fixed"], facts.edition_text(fixed))
+        self.assertNotIn("Chiefs.com named him", facts.edition_text(fixed))
+        self.assertTrue(logs)
+
+    def test_a_an_before_vowel_sound_number(self):
+        catalog = _load_fixture("edition_run_38582366273.json")
+        self.assertTrue(known_errors.number_needs_an("85.8"))
+        self.assertTrue(known_errors.number_needs_an("11"))
+        self.assertFalse(known_errors.number_needs_an("70.0"))
+        self.assertFalse(known_errors.number_needs_an("0"))
+        self.assertFalse(known_errors.number_needs_an("0.5"))
+        self.assertEqual(
+            known_errors.check_text("an 0-2 start after a 0-for-3 night."),
+            [],
+        )
+        narrative = self._dirty_review(catalog["pinned"]["a_an"])
+        issues = known_errors.check_payload(narrative)
+        self.assertTrue(any("a 85.8" in item for item in issues), issues)
+        fixed, _logs = known_errors.apply_known_errors(narrative)
+        self.assertIn(catalog["pinned"]["a_an_fixed"], facts.edition_text(fixed))
+        self.assertNotIn("a 85.8", facts.edition_text(fixed))
+
+    def test_venue_interception_credit_is_never_a_player(self):
+        catalog = _load_fixture("edition_run_38582366273.json")
+        narrative = self._dirty_review(catalog["claims"]["allegiant_int"])
+        issues = known_errors.check_payload(narrative)
+        self.assertTrue(any("venue" in item and "Allegiant" in item for item in issues), issues)
+        recap = _load_fixture("espn_401872976_recap.json")
+        flagged = facts.check_review(narrative, self.LAST, recap)
+        self.assertTrue(any("Allegiant" in item and "interceptor" in item for item in flagged), flagged)
+        fixed, logs = facts.apply_fact_corrections(narrative, flagged, recap, self.LAST)
+        leftover = facts.check_review(fixed, self.LAST, recap)
+        repaired = (
+            facts.repair_offending_copy(fixed, leftover, self.LAST, recap)
+            if leftover
+            else fixed
+        )
+        blob = facts.edition_text(repaired)
+        self.assertNotIn("Allegiant interception", blob)
+        self.assertTrue(
+            "Nwankpa" in blob or "Allegiant interception" not in blob,
+            logs,
+        )
+
+    def test_enforced_penalty_that_did_not_wipe_is_not_a_wipe(self):
+        catalog = _load_fixture("edition_run_38582366273.json")
+        recap = _load_fixture("espn_401872976_recap.json")
+        narrative = self._dirty_review(catalog["pinned"]["wipe"])
+        issues = known_errors.check_payload(narrative, recap)
+        self.assertTrue(any("did not wipe" in item for item in issues), issues)
+        ok = self._dirty_review(catalog["pinned"]["wipe_ok"])
+        self.assertEqual(known_errors.check_payload(ok, recap), [])
+        fixed, logs = known_errors.apply_known_errors(narrative, recap)
+        self.assertNotIn("wiped a play", facts.edition_text(fixed))
+        self.assertTrue(logs)
+
+    def test_updated_at_is_last_copy_correction_not_generation(self):
+        generated = "2026-10-14T17:00:00+00:00"
+        later = "2026-10-14T17:12:00+00:00"
+        catalog = _load_fixture("edition_run_38582366273.json")
+        unique = {
+            "headline": "A new camp clock: PUP math, the slot job, and Denver on the horizon",
+            "dek": catalog["pinned"]["quinton"],
+            "theEdge": "Win the slot and the right tackle job this week or Week 1 starts behind.",
+            "edition": "2026 Training Camp",
+        }
+        stamps = iter([generated, generated, later, later, later, later, later, later])
+
+        def now():
+            try:
+                return next(stamps)
+            except StopIteration:
+                return later
+
+        llm = Mock(return_value=(unique, "grok"))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "narrative_archive.json"
+            editions = root / "narrative_editions"
+            editions.mkdir()
+            archive.write_text("[]\n", encoding="utf-8")
+            extra = [
+                patch.object(generate.config, "iso_now", side_effect=now),
+                patch.object(facts, "check_review", return_value=[]),
+            ]
+            with HeadlineUniqueness()._generation_stack(
+                llm=llm, archive=archive, editions=editions, extra=extra
+            ):
+                result = generate.build("grok", persist_schedule=False)
+        self.assertTrue(result["correctedSentences"])
+        self.assertEqual(result["narrative"]["generatedAt"], generated)
+        self.assertEqual(result["narrative"]["updatedAt"], later)
+        self.assertIn("Quay Walker", result["narrative"]["dek"])
+
+    def test_known_errors_catalog_lists_oct14_pins(self):
+        catalog = known_errors.load_known_errors()
+        ids = {row.get("id") for row in catalog.get("replacements") or []}
+        ids.update(row.get("id") for row in catalog.get("patterns") or [])
+        ids.update(row.get("id") for row in catalog.get("rules") or [])
+        self.assertIn("quay-walker", ids)
+        self.assertIn("potw-nfl-not-chiefscom", ids)
+        self.assertIn("venue-int-credit", ids)
+        self.assertIn("penalty-wipe", ids)
+        self.assertIn("a-an-number", ids)

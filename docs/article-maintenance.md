@@ -17,7 +17,8 @@ the independent slate before the writer fails. Other explicitly selected
 providers keep their existing behavior and keys.
 
 The existing 420-second stream deadline, 300-second idle timeout, one uniqueness
-retry, and two factual rewrites remain. There is no provider transport retry
+retry (plus up to three dek-only regenerations when only the dek is a clone),
+and two factual rewrites remain. There is no provider transport retry
 except one retry when the API explicitly rejects `response_format` or
 `reasoning_effort`. Responses
 are closed on success and failure. Partial and truncated streams are rejected.
@@ -102,10 +103,22 @@ The publisher no longer dispatches redundant CI, polls for up to 18 minutes,
 attempts an ineligible merge, or carries an Actions write permission. An open
 publication PR to main/develop applies backpressure before collection/provider
 work, preventing repeated paid drafts and branch churn while approval or QA is
-pending. Review/merge resumes the normal unchanged daily/schedule-only cadence.
-The queue lookup fails closed on API errors, and the workflow summary links
-the queued draft. No paid article generation or fabricated sports content is
-needed to validate the workflow repair.
+pending the same day. A held `narrative/update-*` draft older than 24 hours, or
+from a previous America/Chicago calendar day, is ignored by the queue check so
+the next scheduled desk is not silently skipped. Automation still does not
+close, merge, or delete those heads (`maintenance.json` forbids
+`close/merge/delete` and protects `narrative/update-*`); the older PR stays
+open for human review. The queue lookup fails closed on API errors, and the
+workflow summary links the queued draft. No paid article generation or
+fabricated sports content is needed to validate the workflow repair. The
+generate job also refuses to persist an edition that would fail
+`test_karen_archive_replay`, and the test job runs `--gate-replay` before the
+draft PR is opened. Fact-check and salvage apply
+`tools/chiefs_narrative/known_errors.json` on every run so earlier-edition
+corrections (wrong names, Player of the Week namer, venue INT credit, false
+wipe claims, a/an before vowel-sound numbers) cannot be reprinted. `updatedAt`
+is the time of the last copy correction; `generatedAt` stays the original
+draft stamp.
 
 Fresh repository API reads report Dependabot alerts disabled (HTTP 404),
 Dependabot security updates disabled, and

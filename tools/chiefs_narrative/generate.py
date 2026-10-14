@@ -8,6 +8,7 @@ Run it directly::
     python -m tools.chiefs_narrative.generate --schedule-only  # slate only
     python -m tools.chiefs_narrative.generate --diagrams-only  # SVG from JSON
     python -m tools.chiefs_narrative.generate --check-edition  # review + SVG gate
+    python -m tools.chiefs_narrative.generate --gate-replay  # refuse CI-failing leftovers
     python -m tools.chiefs_narrative.generate --dry-run  # print, don't write
 
 Environment (all optional):
@@ -27,7 +28,7 @@ import sys
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
-from . import collect, config, diagrams, facts, odds, offline, phase as phase_mod
+from . import collect, config, diagrams, facts, known_errors, odds, offline, phase as phase_mod
 from . import prompts, providers, review_gate, schema, x_embeds
 
 _CT = ZoneInfo("America/Chicago")
@@ -37,6 +38,9 @@ RECENT_HEADLINE_LIMIT = 8
 # Initial draft plus this many fact-check rewrites. The failed daily run
 # 36358665975 died after one retry on mixed-team sentences.
 FACT_CHECK_RETRIES = 2
+# After a full-article uniqueness or fact-check rewrite, a cloned dek is
+# regenerated in place this many times before the run fails.
+DEK_CLONE_ATTEMPTS = 3
 
 
 class DuplicateNarrativeError(RuntimeError):
@@ -365,6 +369,107 @@ def _uniqueness_retry_instruction(previous: dict, matched: list[str]) -> str:
     )
 
 
+def _dek_only_retry_instruction(previous: dict, attempt: int) -> str:
+    return (
+        f"DEK-ONLY RETRY {attempt}/{DEK_CLONE_ATTEMPTS}: "
+        f"yesterday's dek was {previous.get('dek')}. "
+        'Reply with JSON {"dek": "..."} only. Write a new dek. '
+        "Do not reprint yesterday. Leave headline and theEdge untouched."
+    )
+
+
+def _offline_unique_dek(ph: dict, previous: dict | None, attempt: int) -> str:
+    nxt = (ph or {}).get("nextGame") or {}
+    return offline.unique_dek(
+        avoid=(previous or {}).get("dek") or "",
+        attempt=attempt,
+        opp=nxt.get("opponent") or "",
+    )
+
+
+def _refresh_cloned_dek(
+    narrative: dict,
+    previous: dict | None,
+    name: str,
+    generator_label: str,
+    ph: dict,
+) -> tuple[dict, str]:
+    """Replace a cloned dek only. Headline, theEdge, and body stay put."""
+    if not previous:
+        return narrative, generator_label
+    payload = dict(narrative)
+    for attempt in range(1, DEK_CLONE_ATTEMPTS + 1):
+        if "dek" not in _matched_copy_fields(payload, previous):
+            return payload, generator_label
+        slug = previous.get("slug") or "the most recent edition"
+        print(
+            f"  [writer] uniqueness: cloned dek from {slug}; "
+            f"regenerating dek {attempt}/{DEK_CLONE_ATTEMPTS}"
+        )
+        retry_name = name if generator_label != "offline" else "offline"
+        raw = None
+        if retry_name != "offline":
+            try:
+                raw, generator_label = providers.generate_via_llm(
+                    retry_name,
+                    prompts.SYSTEM_PROMPT,
+                    _dek_only_retry_instruction(previous, attempt),
+                )
+            except Exception as exc:  # noqa: BLE001 - same fail-closed as _draft_raw
+                if name in ("grok", "xai"):
+                    raise providers.ProviderError(
+                        f"Grok dek regeneration failed ({exc}); "
+                        "refusing a substitute writer"
+                    ) from exc
+                print(
+                    f"  [writer] dek retry provider failed ({exc}); using offline dek"
+                )
+                raw = None
+        if raw is None:
+            raw = {"dek": _offline_unique_dek(ph, previous, attempt)}
+            generator_label = "offline"
+        new_dek = str((raw or {}).get("dek") or "").strip()
+        if new_dek:
+            payload["dek"] = new_dek
+    return payload, generator_label
+
+
+def _clone_error(
+    previous: dict | None, matched: list[str], *, after: str
+) -> DuplicateNarrativeError:
+    slug = (previous or {}).get("slug") or ""
+    where = f" from {slug}" if slug else " from the most recent edition"
+    return DuplicateNarrativeError(
+        f"Chiefs Narrative uniqueness failed after {after}: cloned "
+        + ", ".join(matched)
+        + where
+        + ". Refusing to publish a clone."
+    )
+
+
+def _dedupe_dek_or_raise(
+    narrative: dict,
+    previous: dict | None,
+    name: str,
+    generator_label: str,
+    ph: dict,
+    *,
+    after: str,
+) -> tuple[dict, str]:
+    """If only the dek is a clone, regenerate it. Fail if a clone remains."""
+    matched = _matched_copy_fields(narrative, previous)
+    if not matched:
+        return narrative, generator_label
+    if matched == ["dek"]:
+        narrative, generator_label = _refresh_cloned_dek(
+            narrative, previous, name, generator_label, ph
+        )
+        matched = _matched_copy_fields(narrative, previous)
+    if matched:
+        raise _clone_error(previous, matched, after=after)
+    return narrative, generator_label
+
+
 def _draft_raw(
     name: str, system: str, user: str, signals: dict, ph: dict, upcoming: list
 ) -> tuple[dict, str]:
@@ -585,7 +690,16 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         narrative["record"] = slate_record
     _reuse_same_day_slug(narrative, recent)
     matched = _matched_copy_fields(narrative, previous)
-    if matched:
+    if matched == ["dek"]:
+        narrative, generator_label = _dedupe_dek_or_raise(
+            narrative,
+            previous,
+            name,
+            generator_label,
+            ph,
+            after="retry",
+        )
+    elif matched:
         print(
             "  [writer] uniqueness: cloned "
             + ", ".join(matched)
@@ -605,15 +719,14 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         if slate_record:
             narrative["record"] = slate_record
         _reuse_same_day_slug(narrative, recent)
-        matched = _matched_copy_fields(narrative, previous)
-        if matched:
-            slug = (previous or {}).get("slug") or ""
-            raise DuplicateNarrativeError(
-                "Chiefs Narrative uniqueness failed after retry: cloned "
-                + ", ".join(matched)
-                + (f" from {slug}" if slug else " from the most recent edition")
-                + ". Refusing to publish a clone."
-            )
+        narrative, generator_label = _dedupe_dek_or_raise(
+            narrative,
+            previous,
+            retry_name,
+            generator_label,
+            ph,
+            after="retry",
+        )
 
     # 5b. ESPN fact-check on every generated section. Feed the exact
     # violations back for up to FACT_CHECK_RETRIES rewrites, then fail loud.
@@ -644,6 +757,15 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         )
         return ranked[0]["narrative"]
 
+    leftover_issues: list[str] = []
+    corrections: list[str] = []
+    known_fixed, known_logs = known_errors.apply_known_errors(narrative, recap)
+    if known_logs:
+        narrative = known_fixed
+        corrections.extend(known_logs)
+        for line in known_logs:
+            print(f"  [writer] corrected: {line}")
+
     violations = facts.check_review(
         narrative, last, recap, schedule=schedule, copy_gates=True
     )
@@ -668,15 +790,20 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         if slate_record:
             narrative["record"] = slate_record
         _reuse_same_day_slug(narrative, recent)
-        matched = _matched_copy_fields(narrative, previous)
-        if matched:
-            slug = (previous or {}).get("slug") or ""
-            raise DuplicateNarrativeError(
-                "Chiefs Narrative uniqueness failed after fact-check retry: cloned "
-                + ", ".join(matched)
-                + (f" from {slug}" if slug else " from the most recent edition")
-                + ". Refusing to publish a clone."
-            )
+        narrative, generator_label = _dedupe_dek_or_raise(
+            narrative,
+            previous,
+            retry_name,
+            generator_label,
+            ph,
+            after="fact-check retry",
+        )
+        known_fixed, known_logs = known_errors.apply_known_errors(narrative, recap)
+        if known_logs:
+            narrative = known_fixed
+            corrections.extend(known_logs)
+            for line in known_logs:
+                print(f"  [writer] corrected: {line}")
         violations = facts.check_review(
             narrative, last, recap, schedule=schedule, copy_gates=True
         )
@@ -776,8 +903,6 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             )
         return repaired, gone_all, leftover, logs_all
 
-    leftover_issues: list[str] = []
-    corrections: list[str] = []
     if violations:
         print(
             "  [writer] fact-check still failing after retries; "
@@ -806,8 +931,21 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             )
         )
         if too_noisy:
-            best = _best_attempt()
-            if best:
+            salvaged_espn = facts.check_review(
+                narrative, last, recap, schedule=schedule
+            )
+            best = None
+            if not salvaged_espn:
+                leftover_issues = leftover_issues or [
+                    "salvage dropped enough to hold automerge"
+                ]
+                print(
+                    "  [writer] salvage noisy but ESPN-clean; keeping "
+                    "corrections and drops"
+                )
+            else:
+                best = _best_attempt()
+            if salvaged_espn and best:
                 print(
                     "  [writer] salvage too noisy; keeping the best complete "
                     "retry and holding automerge"
@@ -825,7 +963,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
                     "salvage would have dropped too much; holding for human QA"
                 ]
                 gone = []
-            else:
+            elif salvaged_espn:
                 offline_raw = offline.write(signals, ph, upcoming)
                 fallback = _assemble_narrative(
                     offline_raw, ph, meta, signals, upcoming
@@ -849,7 +987,6 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             recap=recap,
             schedule=schedule,
         )
-        narrative["updatedAt"] = config.iso_now()
         print("  [writer] fact-check: corrections and drops logged")
 
     # --check-edition uses the checkout fixture recap, not the live ESPN
@@ -873,19 +1010,29 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             before=narrative,
         )
         corrections.extend(logs)
-        if (
+        gate_noisy = (
             len(gone) > facts.HOLD_REPAIR_DROPS
             or facts.missing_required_copy(narrative)
             or (
                 facts.edition_word_count(gate_before) >= facts.PUBLISH_WORD_FLOOR
                 and facts.edition_word_count(narrative) < facts.PUBLISH_WORD_FLOOR
             )
-        ):
-            narrative = copy.deepcopy(gate_before)
-            leftover_issues = leftover_issues or [
-                "salvage would have dropped too much; holding for human QA"
-            ]
-            gone = []
+        )
+        if gate_noisy:
+            if facts.check_review(narrative, gate_last, gate_recap):
+                narrative = copy.deepcopy(gate_before)
+                leftover_issues = leftover_issues or [
+                    "salvage would have dropped too much; holding for human QA"
+                ]
+                gone = []
+            else:
+                leftover_issues = leftover_issues or [
+                    "salvage dropped enough to hold automerge"
+                ]
+                print(
+                    "  [writer] published-edition salvage noisy but "
+                    "ESPN-clean; keeping corrections and drops"
+                )
         dropped.extend(gone)
         narrative = facts.restore_required_copy(
             narrative,
@@ -894,8 +1041,19 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             last_game=gate_last,
             recap=gate_recap,
         )
-        narrative["updatedAt"] = config.iso_now()
         print("  [writer] published-edition gate: corrections and drops logged")
+
+    if corrections or dropped:
+        narrative["updatedAt"] = config.iso_now()
+    else:
+        narrative["updatedAt"] = narrative.get("generatedAt") or config.iso_now()
+
+    replay_issues = archive_replay_issues(narrative, schedule)
+    if replay_issues:
+        raise FactCheckError(
+            "edition would fail archive replay; refusing to publish: "
+            + "; ".join(replay_issues)
+        )
 
     # 6. Render diagrams only after uniqueness and fact-check have passed.
     _render_diagrams(narrative)
@@ -1005,6 +1163,19 @@ def _recap_for_edition(narrative: dict) -> dict:
     return {}
 
 
+def archive_replay_issues(narrative: dict, schedule=None) -> list[str]:
+    """Same ESPN checks ``test_karen_archive_replay`` runs on a new edition.
+
+    A non-empty result is an unpinned leftover: CI would fail
+    ``test_karen_archive_replay`` and this run must not open a PR.
+    """
+    last = _last_game_from_edition(narrative)
+    recap = _recap_for_edition(narrative)
+    if schedule is None:
+        schedule = collect.load_cached_schedule()
+    return facts.check_review(narrative, last, recap, schedule=schedule)
+
+
 def check_published_edition() -> list[str]:
     """Fact-check data/narrative.json plus visible XO captions."""
     narrative = json.loads(config.NARRATIVE_JSON.read_text(encoding="utf-8"))
@@ -1040,6 +1211,11 @@ def main(argv=None) -> int:
         action="store_true",
         help="run check_review and the SVG/why gate on data/narrative.json",
     )
+    parser.add_argument(
+        "--gate-replay",
+        action="store_true",
+        help="fail if data/narrative.json would fail test_karen_archive_replay",
+    )
     args = parser.parse_args(argv)
 
     if args.schedule_only:
@@ -1055,6 +1231,20 @@ def main(argv=None) -> int:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
         print(f"  diagrams: {len(narrative.get('xsandos', []))}")
+        return 0
+
+    if args.gate_replay:
+        narrative = json.loads(config.NARRATIVE_JSON.read_text(encoding="utf-8"))
+        issues = archive_replay_issues(narrative)
+        if issues:
+            print(
+                "ERROR: generated edition would fail archive replay:",
+                file=sys.stderr,
+            )
+            for item in issues:
+                print(f"  - {item}", file=sys.stderr)
+            return 1
+        print("  archive replay gate: ok")
         return 0
 
     if args.check_edition:

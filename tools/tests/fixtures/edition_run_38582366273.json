@@ -1,0 +1,25 @@
+{
+  "_note": "Oct 14 2026: scheduled run 38582366273 hard-failed on a cloned dek after fact-check retry. The re-run opened draft PR #215, which failed test_karen_archive_replay on ESPN-contradicted claims. Fixtures only — do not write these into data/narrative_editions.",
+  "yesterday_slug": "2026-10-13-1901",
+  "yesterday_dek": "Kansas City is 4-0 after a 30-27 win at Allegiant Stadium, and a receiver room without Tyquan Thornton hosts the Chargers on Sun Oct 18, 3:25 PM CT.",
+  "fresh_dek": "A new Oct 14 stand-up after refusing yesterday's Allegiant dek.",
+  "claims": {
+    "td_count": "Led Chiefs wideouts in receiving yards and had two touchdowns on the season ledger cited by Arrowhead Pride.",
+    "allegiant_int": "It is a call for this Sunday, not a story about the Allegiant interception.",
+    "zone_blitz": "Start Herbert in Cover-2 and change to a zone blitz on third down without treating that call as the story of the Nwankpa interception."
+  },
+  "pinned": {
+    "quinton": "Quinton Walker drew unnecessary roughness on Thornton's 55-yard catch.",
+    "quay": "Quay Walker drew unnecessary roughness on Thornton's 55-yard catch.",
+    "potw": "Chiefs.com named him AFC Special Teams Player of the Week after five punts inside the 20.",
+    "potw_fixed": "The NFL named him AFC Special Teams Player of the Week after five punts inside the 20, per Chiefs.com.",
+    "a_an": "Kirk Cousins finished 31-of-52 with a 85.8 rating and 365 net passing yards.",
+    "a_an_fixed": "Kirk Cousins finished 31-of-52 with an 85.8 rating and 365 net passing yards.",
+    "wipe": "Quay Walker's unnecessary roughness wiped a play in the fourth.",
+    "wipe_ok": "Quay Walker's unnecessary roughness was enforced in the fourth and did not wipe the catch."
+  },
+  "keep": [
+    "Walker ran for 177 yards and two rushing touchdowns on 22 carries.",
+    "Patrick Mahomes was 15-of-30 for 225 yards and two touchdowns."
+  ]
+}
