@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-10-14T17:45:12+00:00",
-  "updatedAt": "2026-10-14T17:48:09+00:00",
+  "updatedAt": "2026-10-14T19:05:36+00:00",
   "generator": "grok:grok-4.7",
   "phase": {
     "type": "regular",
@@ -20,7 +20,7 @@
     "lede": "The 4-0 Chiefs did not own Allegiant Stadium’s clock and did not need a clean passing line to leave with a 30-27 win. Kenneth Walker III carried the afternoon, Tyquan Thornton scored through the air and then came off injured, and the next assignment is a home date with Justin Herbert on Sun Oct 18, 3:25 PM CT.",
     "body": [
       "Kansas City’s box at Las Vegas was 18 first downs, 189 rushing yards on 26 attempts, 210 net passing yards, 399 total yards, 5-of-13 on third down, 12 drives, zero turnovers, and 24:18 of possession. Las Vegas posted its own line: 28 first downs, 72 rushing yards, 365 net passing yards, 437 total yards, 5-of-14 on third down, 12 drives, two turnovers, and 35:42 of possession. Those clocks stay with the teams on the box. The scoreboard still flipped late because Walker and the return unit turned a kick into points.",
-      "Patrick Mahomes was 15-of-30 for 225 yards and two touchdowns, with two sacks and a 97.2 rating. The opponent recorded eight quarterback hits on him. Kirk Cousins was 31-of-52 for a 85.8 rating and was not sacked, while Kansas City recorded 10 quarterback hits. That is the Steve Spagnuolo problem walking into Arrowhead: heat that has to finish, and a shell that has to take the deep shot away from Herbert the way it eventually squeezed Cousins.",
+      "Patrick Mahomes was 15-of-30 for 225 yards and two touchdowns, with two sacks and a 97.2 rating. The opponent recorded eight quarterback hits on him. Kirk Cousins was 31-of-52 for an 85.8 rating and was not sacked, while Kansas City recorded 10 quarterback hits. That is the Steve Spagnuolo problem walking into Arrowhead: heat that has to finish, and a shell that has to take the deep shot away from Herbert the way it eventually squeezed Cousins.",
       "The bye already sat between Allegiant and this Chargers date. Andy Reid said Josh Simmons (back) will practice ahead of Week 6. Thornton’s dislocated ankle carries a 12-to-16-week timeline, and the receiver rotation has to be redrawn around Xavier Worthy, Travis Kelce, Noah Gray, and a practice-squad signing in Justin Watson. Favored at home is the market. Replacing 111 yards and two touchdowns from Thornton is the football."
     ]
   },
@@ -38,7 +38,7 @@
         "body": "Kansas City took the lead on an 8-yard touchdown at Q4 14:50 (17-13). Las Vegas answered with field goals of 44 yards at Q4 11:12 (17-16) and 48 yards at Q4 4:53 (17-19). A 2-yard Kansas City touchdown at Q4 3:21 made it 23-19. On the ensuing kickoff, Dareke Young fumbled; J. Bassa forced it and Jack Cochrane recovered at the Las Vegas 22. Walker then ran right end for 22 yards and a touchdown at Q4 3:02, and Butker’s extra point made it 30-19. Cousins found Brock Bowers for a 20-yard touchdown at Q4 1:46, and the two-point pass to Cody White cut it to 30-27."
       },
       {
-        "body": "The listed throws that traveled were not a volume parade. Mahomes hit Worthy on a 41-yard deep middle in the first quarter and Thornton on a 42-yard deep left before halftime, then a 55-yard deep left to Thornton at Q4 3:35, with Thornton injured on the play and Quinton Walker flagged for unnecessary roughness. Incompletions went deep to Worthy, C. Allen, and Thornton. Team net passing stayed at 210. Do not read the 225-yard passer line as the team total, and do not import Miami’s passing box into this one."
+        "body": "The listed throws that traveled were not a volume parade. Mahomes hit Worthy on a 41-yard deep middle in the first quarter and Thornton on a 42-yard deep left before halftime, then a 55-yard deep left to Thornton at Q4 3:35, with Thornton injured on the play and Quay Walker flagged for unnecessary roughness. Incompletions went deep to Worthy, C. Allen, and Thornton. Team net passing stayed at 210. Do not read the 225-yard passer line as the team total, and do not import Miami’s passing box into this one."
       },
       {
         "body": "Las Vegas lived on touches and clock. Ashton Jeanty had 21 touches (15 rushes, six catches). Michael Mayer caught eight. Bowers caught six, including the late touchdown. Mike Washington Jr. had 10 touches. Kansas City’s tackle chart was led by Mansoor Delane with 10. The two Las Vegas turnovers were the kickoff fumble — forced by J. Bassa, recovered by Jack Cochrane — and the short-left interception by X. Nwankpa, with George Karlaftis in on the play, at Q4 0:10. Kansas City turnovers on the box: zero. A late Creed Humphrey fumble was recovered by Mahomes."
@@ -68,7 +68,7 @@
       "Third down at 5-of-13 and a 15-of-30 passing line",
       "Two sacks and eight quarterback hits on Mahomes",
       "Las Vegas holding 35:42 and stacking 28 first downs while Kansas City sat at 24:18 and 18 first downs",
-      "Penalties on N. Williams, P. Woods, N. Remigio, Felix Anudike-Uzomah, and L. Sneed that wiped plays",
+      "Penalties on N. Williams, P. Woods, Felix Anudike-Uzomah, and L. Sneed that wiped plays",
       "Thornton injured on the 55-yard catch, which now reshapes the receiver rotation"
     ]
   },
@@ -206,7 +206,7 @@
     {
       "tag": "Special teams",
       "title": "Araiza’s week and Butker’s short kick",
-      "body": "Chiefs.com named Araiza AFC Special Teams Player of the Week after five punts inside the 20. Butker made the 28-yard field goal and the extra point on Walker’s 22-yard score, and his kickoff started the fumble sequence Bassa forced and Cochrane recovered."
+      "body": "The NFL named Araiza AFC Special Teams Player of the Week after five punts inside the 20, per Chiefs.com. Butker made the 28-yard field goal and the extra point on Walker’s 22-yard score, and his kickoff started the fumble sequence Bassa forced and Cochrane recovered."
     },
     {
       "tag": "Standings noise",
