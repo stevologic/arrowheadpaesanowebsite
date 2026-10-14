@@ -848,6 +848,7 @@ _NOT_PLAYER_TOKENS = frozenset(
         "when",
         "after",
         "before",
+        "arrowhead",
     }
 )
 _GARBLED_INITIAL = re.compile(r"\b([A-Z])['’]([A-Z][a-z]{3,})\b")
@@ -8291,6 +8292,8 @@ def apply_fact_corrections(
     payload, logs = known_errors.apply_known_errors(narrative, recap)
     blob = edition_text(payload)
     for item in violations or []:
+        if known_errors.is_hold_only_issue(item):
+            continue
         targets = _flagged_sentences(
             blob, item, last_game, recap, schedule
         )
@@ -8334,7 +8337,13 @@ def repair_offending_copy(
 ) -> dict:
     """Drop offending sentences, then leftover fragments in every section."""
     payload = copy.deepcopy(narrative or {})
-    snippets = violation_snippets(violations)
+    snippets = violation_snippets(
+        [
+            item
+            for item in violations or []
+            if not known_errors.is_hold_only_issue(item)
+        ]
+    )
     if snippets:
         for key in _EDITION_KEYS:
             if key in payload:

@@ -961,22 +961,6 @@ def _dated_dek(last_review: dict, opp: str, phase: dict) -> str:
     )
 
 
-def unique_dek(avoid: str = "", attempt: int = 1, opp: str = "") -> str:
-    """Dek-only uniqueness retry. Must not reprint ``avoid``."""
-    day = _desk_day()
-    team = _the_team(opp)
-    candidate = (
-        f"{day}: a new stand-up after refusing yesterday's dek. "
-        f"Where the Chiefs stand now, and the plan for {team}. "
-        "The live slate is the standing; last season stays history."
-    )
-    left = " ".join((avoid or "").lower().split())
-    right = " ".join(candidate.lower().split())
-    if left and left == right:
-        candidate = f"{candidate} Desk rewrite {attempt}."
-    return candidate
-
-
 def _kc_touch_rows(recap: dict | None) -> list[dict]:
     """KC usage rows, highest game-total touches first.
 

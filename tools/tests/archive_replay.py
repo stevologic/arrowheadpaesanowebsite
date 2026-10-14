@@ -107,9 +107,12 @@ def last_game_for_edition(edition: dict, schedule: list) -> dict | None:
 def replay_edition(edition: dict, schedule: list, recaps: dict) -> list[str]:
     last = last_game_for_edition(edition, schedule)
     recap = recaps.get(str((last or {}).get("id") or "")) if last else None
-    return facts.check_review(
-        edition, last, recap or {}, schedule=schedule
-    )
+    recap = recap or {}
+    if last and last.get("completed") and not (
+        recap.get("plays") or recap.get("scoringPlays") or recap.get("kc")
+    ):
+        return ["replay not run"]
+    return facts.check_review(edition, last, recap, schedule=schedule)
 
 
 def replay_all_editions() -> list[tuple[str, list[str]]]:
@@ -129,6 +132,21 @@ def salvage_edition(edition: dict, schedule: list, recaps: dict) -> dict:
     last = last_game_for_edition(edition, schedule)
     recap = recaps.get(str((last or {}).get("id") or "")) if last else None
     recap = recap or {}
+    if last and last.get("completed") and not (
+        recap.get("plays") or recap.get("scoringPlays") or recap.get("kc")
+    ):
+        before = facts.edition_text(edition)
+        return {
+            "issues": ["replay not run"],
+            "logs": [],
+            "leftover": ["replay not run"],
+            "drops": [],
+            "changed": [],
+            "before": before,
+            "after": before,
+            "before_sents": facts._split_sentences(before),
+            "after_sents": facts._split_sentences(before),
+        }
     issues = facts.check_review(edition, last, recap, schedule=schedule)
     fixed, logs = facts.apply_fact_corrections(
         copy.deepcopy(edition), issues, recap, last, schedule

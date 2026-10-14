@@ -16,9 +16,11 @@ archive, and repair file are retained. Schedule collection can still refresh
 the independent slate before the writer fails. Other explicitly selected
 providers keep their existing behavior and keys.
 
-The existing 420-second stream deadline, 300-second idle timeout, one uniqueness
-retry (plus up to three dek-only regenerations when only the dek is a clone),
-and two factual rewrites remain. There is no provider transport retry
+The generate job default stream deadline is 600 seconds (override with
+`LLM_DEADLINE`). One run-wide budget of 6 LLM calls covers the initial draft,
+one uniqueness rewrite, two factual rewrites, and any dek-only regenerations.
+A cloned dek is retried from that budget only; there is no offline
+"refusing yesterday's dek" substitute. The 300-second idle timeout remains. There is no provider transport retry
 except one retry when the API explicitly rejects `response_format` or
 `reasoning_effort`. Responses
 are closed on success and failure. Partial and truncated streams are rejected.
@@ -113,7 +115,9 @@ workflow summary links the queued draft. No paid article generation or
 fabricated sports content is needed to validate the workflow repair. The
 generate job also refuses to persist an edition that would fail
 `test_karen_archive_replay`, and the test job runs `--gate-replay` before the
-draft PR is opened. Fact-check and salvage apply
+draft PR is opened. If ESPN data or the replay fixture is missing (only
+Miami and Las Vegas recaps are wired, so a Chargers review has none), the
+run logs `replay not run` and holds automerge instead of passing silently. Fact-check and salvage apply
 `tools/chiefs_narrative/known_errors.json` on every run so earlier-edition
 corrections (wrong names, Player of the Week namer, venue INT credit, false
 wipe claims, a/an before vowel-sound numbers) cannot be reprinted. `updatedAt`

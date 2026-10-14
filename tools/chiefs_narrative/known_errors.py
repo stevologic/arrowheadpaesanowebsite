@@ -19,7 +19,6 @@ KNOWN_ERRORS_JSON = Path(__file__).with_name("known_errors.json")
 _VENUE_CREDIT = frozenset(
     {
         "allegiant",
-        "arrowhead",
         "geha",
         "sofi",
         "lambeau",
@@ -33,6 +32,9 @@ _VENUE_CREDIT = frozenset(
         "dome",
     }
 )
+# Home-stadium metonym. "Arrowhead interception" is a takeaway at home,
+# not a venue credited as the interceptor (the Allegiant bug).
+_HOME_METONYM = frozenset({"arrowhead"})
 _INT_CREDIT = re.compile(
     r"\b([A-Z][A-Za-z''-]+)\s+(?i:intercept(?:ed|ion)|INT)\b"
     r"|\b(?i:intercept(?:ed|ion)|INT)\s+by\s+([A-Z][A-Za-z''-]+)"
@@ -43,10 +45,16 @@ _WIPED_BY_NAME = re.compile(
     r"([^.]{0,64}?)(?P<verb>wiped|nullified)\b",
     re.IGNORECASE,
 )
-_WIPED_A_PLAY = re.compile(
-    r"\b(?P<verb>wiped|nullified)\s+a\s+play\b",
+_WIPE_CLAIM = re.compile(
+    r"\b(?P<verb>wiped|nullified)\s+(?:a\s+play|the\s+play|plays)\b",
     re.IGNORECASE,
 )
+_LIST_WIPED_PLAYS = re.compile(
+    r"\bPenalties\s+on\b(?:[A-Z]\.|[^.!?]){0,240}?"
+    r"\b(?:that\s+)?wiped\s+plays\b",
+    re.IGNORECASE,
+)
+_WS_IN_PATTERN = re.compile(r"(?:\\[sS][+*?]|\s)+")
 _EDITION_KEYS = (
     "headline",
     "dek",
@@ -104,6 +112,26 @@ def _skip_a_an(number: str) -> bool:
     """0 / 0-2 records are spoken as both 'oh' and 'zero'."""
     raw = (number or "").strip()
     return bool(raw) and raw.startswith("0") and "." not in raw
+
+
+def flex_whitespace(pattern: str) -> str:
+    """Treat any whitespace run in a pattern (spaces, NBSP, newlines) as \\s+."""
+    return _WS_IN_PATTERN.sub(r"\\s+", pattern or "")
+
+
+def flex_literal(find: str) -> str:
+    """Escape a literal pin so 'Quinton  Walker' / NBSP still match."""
+    parts = re.split(r"\s+", (find or "").strip())
+    return r"\s+".join(re.escape(part) for part in parts if part)
+
+
+def is_hold_only_issue(item: str) -> bool:
+    raw = item or ""
+    return raw == "replay not run" or "must hold, not be rewritten" in raw
+
+
+def list_wipe_holds(text: str) -> bool:
+    return bool(text and _LIST_WIPED_PLAYS.search(text))
 
 
 def _last_name(raw: str) -> str:
@@ -193,13 +221,13 @@ def check_text(text: str, recap: dict | None = None) -> list[str]:
     for row in catalog.get("replacements") or []:
         if not isinstance(row, dict):
             continue
-        find = str(row.get("find") or "")
-        if find and re.search(re.escape(find), text, re.I):
-            issues.append(str(row.get("issue") or f"pinned fact: {find}"))
+        find = flex_literal(str(row.get("find") or ""))
+        if find and re.search(find, text, re.I):
+            issues.append(str(row.get("issue") or f"pinned fact: {row.get('find')}"))
     for row in catalog.get("patterns") or []:
         if not isinstance(row, dict):
             continue
-        raw = str(row.get("match") or "")
+        raw = flex_whitespace(str(row.get("match") or ""))
         if not raw:
             continue
         hit = re.search(raw, text, re.I)
@@ -208,6 +236,14 @@ def check_text(text: str, recap: dict | None = None) -> list[str]:
                 str(row.get("issue") or "pinned fact: pattern")
                 + f" ({hit.group(0)!r})"
             )
+    for match in _LIST_WIPED_PLAYS.finditer(text):
+        issues.append(
+            rule_issue(
+                "penalty-wipe-list",
+                "pinned fact: list-form 'Penalties on … that wiped plays' must hold, not be rewritten",
+            )
+            + f" ({match.group(0)!r})"
+        )
     for match in _A_NUMBER.finditer(text):
         article, number = match.group(1), match.group(2)
         if _skip_a_an(number):
@@ -225,7 +261,10 @@ def check_text(text: str, recap: dict | None = None) -> list[str]:
             )
     for match in _INT_CREDIT.finditer(text):
         name = match.group(1) or match.group(2) or ""
-        if _last_name(name) in _VENUE_CREDIT:
+        last = _last_name(name)
+        if last in _HOME_METONYM:
+            continue
+        if last in _VENUE_CREDIT:
             issues.append(
                 rule_issue(
                     "venue-int-credit",
@@ -258,9 +297,11 @@ def check_text(text: str, recap: dict | None = None) -> list[str]:
         bound = type_hit or rows
         if bound and not any(_penalty_wiped(row) for row in bound):
             issues.append(wipe_issue + f" ({_sentence_at(text, match.start())!r})")
-    if recap and _WIPED_A_PLAY.search(text):
-        for match in _WIPED_A_PLAY.finditer(text):
+    if recap and _WIPE_CLAIM.search(text):
+        for match in _WIPE_CLAIM.finditer(text):
             sentence = _sentence_at(text, match.start())
+            if list_wipe_holds(sentence):
+                continue
             named = [
                 row
                 for row in _penalties(recap)
@@ -305,36 +346,25 @@ def apply_known_errors(
         for row in catalog.get("replacements") or []:
             if not isinstance(row, dict):
                 continue
-            find = str(row.get("find") or "")
+            find = flex_literal(str(row.get("find") or ""))
             repl = str(row.get("replace") or "")
             if not find:
                 continue
-            text = re.sub(re.escape(find), repl, text, flags=re.I)
+            text = re.sub(find, repl, text, flags=re.I)
         for row in catalog.get("patterns") or []:
             if not isinstance(row, dict):
                 continue
-            raw = str(row.get("match") or "")
+            raw = flex_whitespace(str(row.get("match") or ""))
             template = str(row.get("replace") or "")
             if not raw:
                 continue
             text = _potw_replace(text, re.compile(raw, re.I), template)
         text = _fix_a_an(text)
-        if recap:
-            def _wipe_reword(match: re.Match) -> str:
-                who = _last_name(match.group(1))
-                rows = [
-                    row
-                    for row in _penalties(recap)
-                    if _last_name(row.get("player") or "") == who
-                ]
-                if rows and not any(_penalty_wiped(row) for row in rows):
-                    return match.group(0).replace(match.group("verb"), "drew a flag on")
-                return match.group(0)
-
-            text = _WIPED_BY_NAME.sub(_wipe_reword, text)
-
-            def _wipe_play(match: re.Match) -> str:
+        if recap and not list_wipe_holds(text):
+            def _wipe_claim(match: re.Match) -> str:
                 sentence = _sentence_at(text, match.start())
+                if list_wipe_holds(sentence):
+                    return match.group(0)
                 named = [
                     row
                     for row in _penalties(recap)
@@ -345,11 +375,23 @@ def apply_known_errors(
                         re.I,
                     )
                 ]
+                possessive = _WIPED_BY_NAME.search(sentence)
+                if possessive:
+                    who = _last_name(possessive.group(1))
+                    named = named or [
+                        row
+                        for row in _penalties(recap)
+                        if _last_name(row.get("player") or "") == who
+                    ]
                 if named and not any(_penalty_wiped(row) for row in named):
-                    return match.group(0).replace(match.group("verb"), "drew a flag on")
+                    return (
+                        "were enforced"
+                        if match.group(0).lower().endswith("plays")
+                        else "was enforced"
+                    )
                 return match.group(0)
 
-            text = _WIPED_A_PLAY.sub(_wipe_play, text)
+            text = _WIPE_CLAIM.sub(_wipe_claim, text)
         if text != original:
             logs.append(f"{original} → {text}")
         return text
