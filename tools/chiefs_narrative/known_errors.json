@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "notes": "Persistent copy pins. Fact-check and salvage apply these on every run so a regenerated edition cannot reprint errors an earlier salvage already fixed.",
+  "replacements": [
+    {
+      "id": "quay-walker",
+      "find": "Quinton Walker",
+      "replace": "Quay Walker",
+      "issue": "pinned fact: Quinton Walker must be Quay Walker"
+    }
+  ],
+  "patterns": [
+    {
+      "id": "potw-nfl-not-chiefscom",
+      "match": "Chiefs\\.com\\s+named\\s+([^.!?]+?)\\s+Player of the Week([^.!?]*)",
+      "replace": "the NFL named \\1 Player of the Week\\2, per Chiefs.com",
+      "issue": "pinned fact: Player of the Week is an NFL honor; cite Chiefs.com as the source, not the namer"
+    }
+  ],
+  "rules": [
+    {
+      "id": "venue-int-credit",
+      "issue": "pinned fact: never credit a venue such as Allegiant with an interception"
+    },
+    {
+      "id": "penalty-wipe",
+      "issue": "pinned fact: an enforced penalty that did not wipe a play must not be described as wiping one"
+    },
+    {
+      "id": "penalty-wipe-list",
+      "issue": "pinned fact: list-form wipe claim has no ESPN play-by-play; must hold, not be rewritten"
+    },
+    {
+      "id": "a-an-number",
+      "issue": "pinned fact: use an, not a, before a number that starts with a vowel sound"
+    }
+  ]
+}

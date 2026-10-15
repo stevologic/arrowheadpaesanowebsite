@@ -16,8 +16,11 @@ archive, and repair file are retained. Schedule collection can still refresh
 the independent slate before the writer fails. Other explicitly selected
 providers keep their existing behavior and keys.
 
-The existing 420-second stream deadline, 300-second idle timeout, one uniqueness
-retry, and two factual rewrites remain. There is no provider transport retry
+The generate job default stream deadline is 600 seconds (override with
+`LLM_DEADLINE`). One run-wide budget of 6 LLM calls covers the initial draft,
+one uniqueness rewrite, two factual rewrites, and any dek-only regenerations.
+A cloned dek is retried from that budget only; there is no offline
+"refusing yesterday's dek" substitute. The 300-second idle timeout remains. There is no provider transport retry
 except one retry when the API explicitly rejects `response_format` or
 `reasoning_effort`. Responses
 are closed on success and failure. Partial and truncated streams are rejected.
@@ -102,10 +105,32 @@ The publisher no longer dispatches redundant CI, polls for up to 18 minutes,
 attempts an ineligible merge, or carries an Actions write permission. An open
 publication PR to main/develop applies backpressure before collection/provider
 work, preventing repeated paid drafts and branch churn while approval or QA is
-pending. Review/merge resumes the normal unchanged daily/schedule-only cadence.
-The queue lookup fails closed on API errors, and the workflow summary links
-the queued draft. No paid article generation or fabricated sports content is
-needed to validate the workflow repair.
+pending the same day. A held `narrative/update-*` draft older than 24 hours, or
+from a previous America/Chicago calendar day, is ignored by the queue check so
+the next scheduled desk is not silently skipped. Automation still does not
+close, merge, or delete those heads (`maintenance.json` forbids
+`close/merge/delete` and protects `narrative/update-*`); the older PR stays
+open for human review. The queue lookup fails closed on API errors, and the
+workflow summary links the queued draft. No paid article generation or
+fabricated sports content is needed to validate the workflow repair. The
+generate job also refuses to persist an edition that would fail
+`test_karen_archive_replay` on a hard leftover, and the test job runs
+`--gate-replay` before the draft PR is opened. Hold-only leftovers (missing
+ESPN play-by-play for a list-form wipe claim, or a missing replay fixture)
+go to the hold list: `--gate-replay` prints a `held` line and exits 0 so
+the run still produces an edition. In GitHub Actions that line is also a
+`::warning` annotation. If ESPN data or the replay fixture is missing (only
+Miami and Las Vegas recaps are wired, so a Chargers review has none), the
+run logs `replay not run` and holds automerge instead of passing silently. A
+list-form `Penalties on` / `Flags on` wipe claim is checked against ESPN
+play-by-play: it passes when every named player wiped a play, flags a named
+player whose penalty was enforced but did not wipe, and holds when there is
+no penalty table. Fact-check and salvage apply
+`tools/chiefs_narrative/known_errors.json` on every run so earlier-edition
+corrections (wrong names, Player of the Week namer, venue INT credit, false
+wipe claims, a/an before vowel-sound numbers) cannot be reprinted. `updatedAt`
+is the time of the last copy correction; `generatedAt` stays the original
+draft stamp.
 
 Fresh repository API reads report Dependabot alerts disabled (HTTP 404),
 Dependabot security updates disabled, and

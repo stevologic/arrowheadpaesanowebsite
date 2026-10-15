@@ -8,14 +8,16 @@ import tempfile
 import threading
 import time
 import unittest
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
+from zoneinfo import ZoneInfo
 
 import yaml
 
-from tools.chiefs_narrative import collect, generate, providers
+from tools.chiefs_narrative import collect, generate, publication_queue, providers
 
 
 class ArticleRouting(unittest.TestCase):
@@ -514,8 +516,7 @@ class PublicationPolicy(unittest.TestCase):
         writer = next(step for step in steps if step["name"] == "Generate the Chiefs Narrative")
         slate = next(step for step in steps if step["name"] == "Refresh the published slate")
         self.assertLess(steps.index(queue), steps.index(writer))
-        self.assertIn("--paginate", queue["run"])
-        self.assertIn('startswith("narrative/update-")', queue["run"])
+        self.assertIn("publication_queue", queue["run"])
         for pending, expected in (("true", False), ("false", True)):
             namespace = SimpleNamespace(
                 queue=SimpleNamespace(outputs=SimpleNamespace(pending=pending)),
@@ -555,26 +556,122 @@ if command == 'gh':
             path = directory / name
             path.write_text(program, encoding="utf-8")
             path.chmod(0o755)
+        import shutil
+        real_python = shutil.which("python3") or shutil.which("python")
+        if real_python:
+            for name in ("python", "python3"):
+                alias = directory / name
+                if not alias.exists():
+                    alias.symlink_to(real_python)
         return dict(os.environ, PATH=f"{directory}:{os.environ['PATH']}", CALLS=str(root / "calls.jsonl"),
                     GITHUB_REPOSITORY="example/site", GH_TOKEN="offline-fixture",
                     GITHUB_RUN_ID="123", GITHUB_RUN_ATTEMPT="2", RUNNER_TEMP=str(root),
                     GITHUB_OUTPUT=str(root / "output"), GITHUB_STEP_SUMMARY=str(root / "summary"))
 
+    def test_stale_held_publication_pr_does_not_block_next_desk(self):
+        """24h / previous CT day PRs stay open but do not skip generation.
+
+        Closing narrative/update-* would violate maintenance.json
+        (close/merge/delete: false). Ignoring stale drafts is the safe option.
+        """
+        now = datetime(2026, 10, 15, 9, 37, tzinfo=timezone.utc)
+        fresh = {
+            "number": 215,
+            "created_at": "2026-10-14T17:50:29Z",
+            "head": {"ref": "narrative/update-38608196264-1"},
+            "base": {"ref": "develop"},
+        }
+        stale_hours = {
+            "number": 214,
+            "created_at": "2026-10-13T09:00:00Z",
+            "head": {"ref": "narrative/update-38500000000-1"},
+            "base": {"ref": "develop"},
+        }
+        yesterday_evening = {
+            "number": 213,
+            "created_at": "2026-10-14T02:00:00Z",
+            "head": {"ref": "narrative/update-38400000000-1"},
+            "base": {"ref": "develop"},
+        }
+        other = {
+            "number": 96,
+            "created_at": "2026-10-15T08:00:00Z",
+            "head": {"ref": "codex/other"},
+            "base": {"ref": "develop"},
+        }
+        self.assertFalse(publication_queue.is_blocking_publication_pr(fresh, now=now))
+        self.assertFalse(publication_queue.is_blocking_publication_pr(stale_hours, now=now))
+        self.assertFalse(
+            publication_queue.is_blocking_publication_pr(yesterday_evening, now=now)
+        )
+        self.assertFalse(publication_queue.is_blocking_publication_pr(other, now=now))
+        self.assertEqual(
+            publication_queue.pending_publication_numbers(
+                [fresh, stale_hours, yesterday_evening, other], now=now
+            ),
+            [],
+        )
+        same_afternoon = datetime(2026, 10, 14, 18, 0, tzinfo=timezone.utc)
+        self.assertEqual(
+            publication_queue.pending_publication_numbers([fresh], now=same_afternoon),
+            [215],
+        )
+
     @unittest.skipIf(os.name == "nt", "Actual Actions bash execution is covered on Linux CI")
     def test_queue_shell_is_fail_closed_and_reports_backpressure(self):
         script = next(step["run"] for step in self.narrative["jobs"]["generate"]["steps"] if step.get("id") == "queue")
-        for response, exit_code in (("", 0), ("12\n13", 0), ("", 42)):
+        now = datetime.now(timezone.utc)
+        chicago = ZoneInfo("America/Chicago")
+        today_ct = datetime.now(chicago).replace(hour=0, minute=0, second=0, microsecond=0)
+        fresh = [{
+            "number": 215,
+            "created_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "head": {"ref": "narrative/update-38608196264-1"},
+            "base": {"ref": "develop"},
+        }]
+        stale_hours = [{
+            "number": 214,
+            "created_at": (now - timedelta(hours=25)).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "head": {"ref": "narrative/update-38500000000-1"},
+            "base": {"ref": "develop"},
+        }]
+        stale_previous_ct_day = [{
+            "number": 213,
+            "created_at": (today_ct - timedelta(seconds=1)).astimezone(timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            ),
+            "head": {"ref": "narrative/update-38400000000-1"},
+            "base": {"ref": "develop"},
+        }]
+        cases = (
+            ("[]", 0, False),
+            (json.dumps(fresh), 0, True),
+            (json.dumps(stale_hours), 0, False),
+            (json.dumps(stale_previous_ct_day), 0, False),
+            ("", 42, None),
+        )
+        for response, exit_code, pending in cases:
             with self.subTest(response=response, exit_code=exit_code), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
                 env = self._fake_commands(root)
                 env.update(API_RESULT=response, API_EXIT=str(exit_code))
-                result = subprocess.run(["bash", "-c", script], cwd=root, env=env, capture_output=True, text=True)
+                result = subprocess.run(
+                    ["bash", "-c", script],
+                    cwd=Path(__file__).resolve().parents[2],
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                )
                 if exit_code:
                     self.assertNotEqual(result.returncode, 0)
-                    self.assertFalse((root / "output").exists())
+                    output = root / "output"
+                    self.assertFalse(output.exists() and "pending=false" in output.read_text())
                 else:
                     self.assertEqual(result.returncode, 0, result.stderr)
-                    self.assertEqual((root / "output").read_text().strip(), f"pending={'true' if response else 'false'}")
+                    self.assertEqual(
+                        (root / "output").read_text().strip(),
+                        f"pending={'true' if pending else 'false'}",
+                    )
 
     @unittest.skipIf(os.name == "nt", "Actual Actions bash execution is covered on Linux CI")
     def test_publisher_shell_always_queues_draft_and_preserves_holds(self):
