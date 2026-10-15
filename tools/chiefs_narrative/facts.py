@@ -168,8 +168,9 @@ _FG_COUNT = re.compile(
     r"([A-Za-z][A-Za-z ]{1,24}?)?[ \t]*field goals?\b",
     re.IGNORECASE,
 )
+# `(?<!:)` keeps "8:10 Las Vegas touchdown" as a clock, not 10 TDs.
 _TD_COUNT = re.compile(
-    r"\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)[ \t]+"
+    r"(?<!:)\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)[ \t]+"
     r"([A-Za-z][A-Za-z ]{1,24}?)?[ \t]*touchdowns?\b",
     re.IGNORECASE,
 )
@@ -862,6 +863,8 @@ _SCHEME_NOTE = re.compile(
     r"\bdo not (?:call|write|invent|include)\b"
     r"|\bdoes not back\b"
     r"|\bmay not write\b"
+    r"|\bnot a claim that\b"
+    r"|\bnot a receipt for\b"
     r"|\bSCHEME LIMITS\b"
     r"|\bFACT CHECK RETRY\b"
     r"|\bSENTENCE REPAIR\b",
@@ -3797,15 +3800,20 @@ def _is_initial_dot(text: str, pos: int) -> bool:
 
 
 def _sentence_span(text: str, index: int) -> tuple[int, int]:
+    """Skip initials and decimals so '85.8 rating and zero sacks' keeps Cousins."""
     start = 0
     pos = text.rfind(".", 0, index)
-    while pos >= 0 and _is_initial_dot(text, pos):
+    while pos >= 0 and (
+        _is_initial_dot(text, pos) or _is_decimal_dot(text, pos)
+    ):
         pos = text.rfind(".", 0, pos)
     if pos >= 0:
         start = pos + 1
     end = len(text)
     pos = text.find(".", index)
-    while 0 <= pos < len(text) and _is_initial_dot(text, pos):
+    while 0 <= pos < len(text) and (
+        _is_initial_dot(text, pos) or _is_decimal_dot(text, pos)
+    ):
         pos = text.find(".", pos + 1)
     if pos >= 0:
         end = pos
@@ -5719,7 +5727,8 @@ def _check_attempt_counts(
             r"\b(?:first\s+two|first\s+ten|if the first|when the first|"
             r"pass-set for|instead of \d+|need \d+ attempts|"
             r"will need \d+|dropback script|dropback game|"
-            r"not a\s+\d+-?dropback|dropback scramble)\b",
+            r"not a\s+\d+-?dropback|dropback scramble|"
+            r"not a\s+\d+-?attempts?|attempt fantasy)\b",
             sentence,
             re.I,
         ):
@@ -5925,13 +5934,21 @@ def _clause_at(text: str, start: int, end: int) -> str:
     left_start = 0
     for idx in range(start - 1, -1, -1):
         char = text[idx]
-        if char in "\n!?;" or (char == "." and not _is_initial_dot(text, idx)):
+        if char in "\n!?;" or (
+            char == "."
+            and not _is_initial_dot(text, idx)
+            and not _is_decimal_dot(text, idx)
+        ):
             left_start = idx + 1
             break
     right_end = len(text)
     for idx in range(end, len(text)):
         char = text[idx]
-        if char in "\n!?;" or (char == "." and not _is_initial_dot(text, idx)):
+        if char in "\n!?;" or (
+            char == "."
+            and not _is_initial_dot(text, idx)
+            and not _is_decimal_dot(text, idx)
+        ):
             right_end = idx
             break
     return text[left_start:right_end]

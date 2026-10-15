@@ -11817,3 +11817,101 @@ class Oct14EditionGates(unittest.TestCase):
                 [], narrative, leftover=[generate.REPLAY_NOT_RUN]
             )
         )
+
+
+class Oct15EditionGates(unittest.TestCase):
+    """Run 38750820619 / PR #218: clock-as-TD, disclaimer, 85.8 span, fantasy."""
+
+    LAST = Oct14EditionGates.LAST
+
+    def _review(self, *sentences):
+        return {
+            "lastGameReview": {
+                "opponent": "Las Vegas Raiders",
+                "result": "W",
+                "score": "KC 30–27",
+                "lede": "Kansas City beat Las Vegas 30-27.",
+                "analysis": [{"body": sentence} for sentence in sentences],
+            }
+        }
+
+    def test_oct15_false_positives_pass_and_real_claims_still_fail(self):
+        recap = _load_fixture("espn_401872976_recap.json")
+
+        accept = [
+            (
+                "Walk the scoring order from the Q1 8:10 Las Vegas touchdown "
+                "through Walker's 22-yard right-end score."
+            ),
+            (
+                "Spagnuolo's zone blitz is a call to change the picture, not "
+                "a claim that pressure created the interception."
+            ),
+            "The next step is third-down stays, not a 40-attempt fantasy.",
+            (
+                "Cousins at 31-of-52 with an 85.8 rating and zero sacks is "
+                "the warning for any quarterback who can stretch the field."
+            ),
+            (
+                "Should Spagnuolo heat Herbert more after 10 hits and zero "
+                "sacks on Cousins, or live in Cover-2 and rally?"
+            ),
+        ]
+        for sentence in accept:
+            issues = facts.check_review(self._review(sentence), self.LAST, recap)
+            self.assertEqual(issues, [], f"should accept {sentence!r}: {issues}")
+
+        reject = [
+            (
+                "Las Vegas scored 10 touchdowns.",
+                "touchdown count 10 disagrees with ESPN 2",
+            ),
+            (
+                "A zone blitz produced Nwankpa's interception.",
+                "zone blitz producing the interception",
+            ),
+            (
+                "Mahomes finished a 40-attempt afternoon.",
+                "pass attempts 40 disagrees with ESPN 30",
+            ),
+            (
+                "Mahomes had zero sacks.",
+                "sacks 0 disagrees with ESPN 2",
+            ),
+            (
+                "Mahomes took 10 hits.",
+                "QB hits 10 disagrees with ESPN 8",
+            ),
+            (
+                "Cousins at 31-of-52 with a 85.8 rating.",
+                "a 85.8",
+            ),
+        ]
+        for sentence, needle in reject:
+            issues = facts.check_review(self._review(sentence), self.LAST, recap)
+            blob = " ".join(issues)
+            self.assertTrue(issues, f"should reject {sentence!r}")
+            self.assertIn(needle, blob, f"{sentence!r} expected {needle!r} in {issues}")
+
+    def test_oct15_salvage_corrects_a_an_and_does_not_hold_clean_copy(self):
+        recap = _load_fixture("espn_401872976_recap.json")
+        dirty = self._review(
+            "Cousins at 31-of-52 with a 85.8 rating and zero sacks is "
+            "the warning for any quarterback who can stretch the field.",
+            "The next step is third-down stays, not a 40-attempt fantasy.",
+        )
+        issues = facts.check_review(dirty, self.LAST, recap)
+        self.assertTrue(any("a 85.8" in item for item in issues), issues)
+        fixed, logs = facts.apply_fact_corrections(dirty, issues, recap, self.LAST)
+        leftover = facts.check_review(fixed, self.LAST, recap)
+        repaired = (
+            facts.repair_offending_copy(fixed, leftover, self.LAST, recap)
+            if leftover
+            else fixed
+        )
+        blob = facts.edition_text(repaired)
+        self.assertIn("an 85.8", blob)
+        self.assertNotIn("a 85.8", blob)
+        self.assertIn("40-attempt fantasy", blob)
+        self.assertEqual(facts.check_review(repaired, self.LAST, recap), [])
+        self.assertTrue(any("an 85.8" in line for line in logs), logs)

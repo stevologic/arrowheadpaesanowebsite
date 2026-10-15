@@ -615,6 +615,10 @@ if command == 'gh':
             publication_queue.pending_publication_numbers([fresh], now=same_afternoon),
             [215],
         )
+        with patch.dict(os.environ, {"PUBLICATION_QUEUE_NOW": "2026-10-14T18:00:00Z"}):
+            self.assertEqual(publication_queue.pending_publication_numbers([fresh]), [215])
+        with patch.dict(os.environ, {"PUBLICATION_QUEUE_NOW": "2026-10-15T09:37:00Z"}):
+            self.assertEqual(publication_queue.pending_publication_numbers([fresh]), [])
 
     @unittest.skipIf(os.name == "nt", "Actual Actions bash execution is covered on Linux CI")
     def test_queue_shell_is_fail_closed_and_reports_backpressure(self):
@@ -641,7 +645,13 @@ if command == 'gh':
             with self.subTest(response=response, exit_code=exit_code), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
                 env = self._fake_commands(root)
-                env.update(API_RESULT=response, API_EXIT=str(exit_code))
+                env.update(
+                    API_RESULT=response,
+                    API_EXIT=str(exit_code),
+                    # Same CT afternoon as fixture PR #215. Without a frozen
+                    # clock the previous-day / 24h stale rule ages it out.
+                    PUBLICATION_QUEUE_NOW="2026-10-14T18:00:00Z",
+                )
                 result = subprocess.run(
                     ["bash", "-c", script],
                     cwd=Path(__file__).resolve().parents[2],

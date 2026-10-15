@@ -1,17 +1,12 @@
 {
   "droppedSentences": [],
   "correctedSentences": [
-    "Led Chiefs wideouts in receiving yards and had two touchdowns on the season ledger cited by Arrowhead Pride. → Led Chiefs wideouts in receiving yards and scored twice on the season ledger cited by Arrowhead Pride.",
-    "It is a call for this Sunday, not a story about the Allegiant interception. → It is a call for this Sunday, not a story about the Nwankpa interception.",
-    "Start Herbert in Cover-2 and change to a zone blitz on third down without treating that call as the story of the Nwankpa interception. → Start Herbert in Cover-2 and change to a zone blitz on third down.",
-    "Do not read the 225-yard passer line as the team total, and do not import the Miami game’s 246 net passing yards into this box. → Do not read the 225-yard passer line as the team total, and do not import Miami’s passing box into this one.",
-    "The Miami game is a separate box: 88 rushing yards, 246 net passing yards, 25:39 of possession. → The Miami game is a separate box: 88 rushing yards, a 246-yard passing day, 25:39 of possession.",
-    "Separate the Miami box so nobody blends 88 rush yards or 246 net passing into this game. → Separate the Miami box so nobody blends 88 rush yards or that passing day into this game.",
-    "with Thornton injured on the play and Quinton Walker flagged for unnecessary roughness. → with Thornton injured on the play and Quay Walker flagged for unnecessary roughness.",
-    "Chiefs.com named Araiza AFC Special Teams Player of the Week after five punts inside the 20. → The NFL named Araiza AFC Special Teams Player of the Week after five punts inside the 20, per Chiefs.com.",
-    "Penalties on N. Williams, P. Woods, N. Remigio, Felix Anudike-Uzomah, and L. Sneed that wiped plays → Penalties on N. Williams, P. Woods, Felix Anudike-Uzomah, and L. Sneed that wiped plays",
-    "Kirk Cousins was 31-of-52 for a 85.8 rating → Kirk Cousins was 31-of-52 for an 85.8 rating"
+    "Walk the scoring order from the Q1 8:10 Las Vegas touchdown through Walker’s 22-yard right-end score and Nwankpa’s interception. → Walk the scoring order from Las Vegas’s 27-yard touchdown with 8:10 left in the first quarter through Walker’s 22-yard right-end score and Nwankpa’s interception.",
+    "Spagnuolo’s zone blitz is a call to change the picture, not a claim that pressure created Nwankpa’s interception. → Spagnuolo’s zone blitz is a call to change the picture; play-by-play does not back a zone blitz producing Nwankpa’s interception.",
+    "The next step is third-down stays, not a 40-attempt fantasy. → The next step is third-down stays, not a 40-dropback fantasy.",
+    "Cousins at 31-of-52 with a 85.8 rating and zero sacks is the warning for any quarterback who can stretch the field. → Cousins at 31-of-52 with an 85.8 rating and zero sacks on Cousins is the warning for any quarterback who can stretch the field.",
+    "Should Spagnuolo heat Herbert more after 10 hits and zero sacks, or live in Cover-2 and rally? → Should Spagnuolo heat Herbert more after 10 hits and zero sacks on Cousins, or live in Cover-2 and rally?"
   ],
   "leftoverIssues": [],
-  "holdAutomerge": true
+  "holdAutomerge": false
 }

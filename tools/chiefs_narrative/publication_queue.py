@@ -28,6 +28,13 @@ class QueueLookupError(RuntimeError):
     """GitHub API failed; the workflow must fail closed."""
 
 
+def _now() -> datetime:
+    """Wall clock, or PUBLICATION_QUEUE_NOW when tests freeze time."""
+    raw = (os.environ.get("PUBLICATION_QUEUE_NOW") or "").strip()
+    parsed = _parse_iso(raw) if raw else None
+    return parsed or datetime.now(timezone.utc)
+
+
 def _parse_iso(stamp: str | None) -> datetime | None:
     raw = (stamp or "").strip()
     if not raw:
@@ -46,7 +53,7 @@ def is_stale_publication_pr(pr: dict, *, now: datetime | None = None) -> bool:
     created = _parse_iso((pr or {}).get("created_at"))
     if created is None:
         return False
-    now = now or datetime.now(timezone.utc)
+    now = now or _now()
     if now - created >= STALE_AFTER:
         return True
     return created.astimezone(_CT).date() < now.astimezone(_CT).date()
