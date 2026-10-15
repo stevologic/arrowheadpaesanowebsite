@@ -11817,3 +11817,71 @@ class Oct14EditionGates(unittest.TestCase):
                 [], narrative, leftover=[generate.REPLAY_NOT_RUN]
             )
         )
+
+
+class Oct15CheckerGates(unittest.TestCase):
+    """Clock-as-TD and 85.8 sentence-span fixes; no attempt/scheme exemptions."""
+
+    LAST = Oct14EditionGates.LAST
+
+    def _review(self, *sentences):
+        return {
+            "lastGameReview": {
+                "opponent": "Las Vegas Raiders",
+                "result": "W",
+                "score": "KC 30–27",
+                "lede": "Kansas City beat Las Vegas 30-27.",
+                "analysis": [{"body": sentence} for sentence in sentences],
+            }
+        }
+
+    def test_clock_8_10_is_not_a_touchdown_count(self):
+        recap = _load_fixture("espn_401872976_recap.json")
+        clock = (
+            "Walk the scoring order from the Q1 8:10 Las Vegas touchdown "
+            "through Walker's 22-yard right-end score."
+        )
+        self.assertEqual(
+            facts.check_review(self._review(clock), self.LAST, recap),
+            [],
+            clock,
+        )
+        issues = facts.check_review(
+            self._review("Las Vegas scored 10 touchdowns."), self.LAST, recap
+        )
+        blob = " ".join(issues)
+        self.assertTrue(issues, "10 TDs must fail")
+        self.assertIn("touchdown count 10 disagrees with ESPN 2", blob)
+
+    def test_decimal_85_8_does_not_split_a_sentence(self):
+        recap = _load_fixture("espn_401872976_recap.json")
+        sentence = (
+            "Cousins at 31-of-52 with an 85.8 rating and zero sacks is "
+            "the warning for any quarterback who can stretch the field."
+        )
+        sack_at = sentence.index("zero sacks")
+        span = facts._sentence_at(sentence, sack_at)
+        self.assertIn("Cousins", span)
+        self.assertIn("85.8", span)
+        self.assertIn("zero sacks", span)
+        self.assertEqual(
+            facts.check_review(self._review(sentence), self.LAST, recap),
+            [],
+            sentence,
+        )
+
+    def test_attempt_contrast_and_false_zone_blitz_int_still_fail(self):
+        recap = _load_fixture("espn_401872976_recap.json")
+        contrast = (
+            "Mahomes finished a 40-attempt afternoon, not a 30-attempt fantasy."
+        )
+        issues = facts.check_review(self._review(contrast), self.LAST, recap)
+        blob = " ".join(issues)
+        self.assertTrue(issues, contrast)
+        self.assertIn("pass attempts 40 disagrees with ESPN 30", blob)
+
+        fake = "A zone blitz produced Nwankpa's interception."
+        issues = facts.check_review(self._review(fake), self.LAST, recap)
+        blob = " ".join(issues)
+        self.assertTrue(issues, fake)
+        self.assertIn("zone blitz producing the interception", blob)
