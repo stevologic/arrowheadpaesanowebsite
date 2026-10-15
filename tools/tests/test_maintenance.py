@@ -8,11 +8,12 @@ import tempfile
 import threading
 import time
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
+from zoneinfo import ZoneInfo
 
 import yaml
 
@@ -619,22 +620,34 @@ if command == 'gh':
     @unittest.skipIf(os.name == "nt", "Actual Actions bash execution is covered on Linux CI")
     def test_queue_shell_is_fail_closed_and_reports_backpressure(self):
         script = next(step["run"] for step in self.narrative["jobs"]["generate"]["steps"] if step.get("id") == "queue")
+        now = datetime.now(timezone.utc)
+        chicago = ZoneInfo("America/Chicago")
+        today_ct = datetime.now(chicago).replace(hour=0, minute=0, second=0, microsecond=0)
         fresh = [{
             "number": 215,
-            "created_at": "2026-10-14T17:50:29Z",
+            "created_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "head": {"ref": "narrative/update-38608196264-1"},
             "base": {"ref": "develop"},
         }]
-        stale = [{
+        stale_hours = [{
             "number": 214,
-            "created_at": "2026-10-13T09:00:00Z",
+            "created_at": (now - timedelta(hours=25)).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "head": {"ref": "narrative/update-38500000000-1"},
+            "base": {"ref": "develop"},
+        }]
+        stale_previous_ct_day = [{
+            "number": 213,
+            "created_at": (today_ct - timedelta(seconds=1)).astimezone(timezone.utc).strftime(
+                "%Y-%m-%dT%H:%M:%SZ"
+            ),
+            "head": {"ref": "narrative/update-38400000000-1"},
             "base": {"ref": "develop"},
         }]
         cases = (
             ("[]", 0, False),
             (json.dumps(fresh), 0, True),
-            (json.dumps(stale), 0, False),
+            (json.dumps(stale_hours), 0, False),
+            (json.dumps(stale_previous_ct_day), 0, False),
             ("", 42, None),
         )
         for response, exit_code, pending in cases:
