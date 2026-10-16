@@ -1189,6 +1189,43 @@ _RECAP_FIXTURES = (
     (("miami",), "espn_401872952_recap.json"),
     (("las vegas", "raiders"), "espn_401872976_recap.json"),
 )
+# Same chain archive_replay uses: last-game fixture + prior-game fixture.
+_PRIOR_RECAP_FIXTURE = {
+    "espn_401872976_recap.json": "espn_401872952_recap.json",
+    "espn_401872952_recap.json": "espn_401872945_recap.json",
+}
+_FIXTURE_OPPONENT = {
+    "espn_401872952_recap.json": ("Miami Dolphins", "MIA"),
+    "espn_401872945_recap.json": ("Indianapolis Colts", "IND"),
+    "espn_401872976_recap.json": ("Las Vegas Raiders", "LV"),
+}
+
+
+def _attach_prior_recap(recap: dict, fixture_name: str, fixtures) -> dict:
+    """Attach the prior-game ESPN box so Miami 88 / 25:39 still bind.
+
+    Live generate fetches prior. --check-edition used to load only the
+    last-game fixture, so salvage dropped a true Miami-road sentence.
+    """
+    prior_name = _PRIOR_RECAP_FIXTURE.get(fixture_name)
+    if not prior_name or (recap or {}).get("prior"):
+        return recap
+    path = fixtures / prior_name
+    if not path.is_file():
+        return recap
+    try:
+        prior = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return recap
+    if not isinstance(prior, dict) or not prior:
+        return recap
+    attached = dict(prior)
+    opp_name, opp_abbr = _FIXTURE_OPPONENT.get(prior_name, ("", ""))
+    attached.setdefault("opponent", attached.get("opponent") or opp_name)
+    attached.setdefault("oppAbbr", attached.get("oppAbbr") or opp_abbr)
+    payload = dict(recap)
+    payload["prior"] = attached
+    return payload
 
 
 def _signed_review_already_published(ph: dict | None) -> bool:
@@ -1231,7 +1268,8 @@ def _recap_for_edition(narrative: dict) -> dict:
         if any(token in opponent for token in tokens):
             path = fixtures / name
             if path.is_file():
-                return json.loads(path.read_text(encoding="utf-8"))
+                recap = json.loads(path.read_text(encoding="utf-8"))
+                return _attach_prior_recap(recap, name, fixtures)
     return {}
 
 
