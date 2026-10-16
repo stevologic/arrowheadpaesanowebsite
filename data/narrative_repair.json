@@ -1,11 +1,6 @@
 {
   "droppedSentences": [],
-  "correctedSentences": [
-    "Walk the scoring order from the Q1 8:10 Las Vegas touchdown through Walker’s 22-yard right-end score and Nwankpa’s interception. → Walk the scoring order from Las Vegas’s 27-yard touchdown with 8:10 left in the first quarter through Walker’s 22-yard right-end score and Nwankpa’s interception.",
-    "Spagnuolo’s zone blitz is a call to change the picture, not a claim that pressure created Nwankpa’s interception. → Spagnuolo’s zone blitz is a call to change the picture for Herbert.",
-    "The next step is third-down stays, not a 40-attempt fantasy. → The next step is third-down stays, not a 40-dropback fantasy.",
-    "Cousins at 31-of-52 with a 85.8 rating and zero sacks is the warning for any quarterback who can stretch the field. → Cousins at 31-of-52 with zero sacks and an 85.8 rating is the warning for any quarterback who can stretch the field."
-  ],
+  "correctedSentences": [],
   "leftoverIssues": [],
   "holdAutomerge": false
 }
