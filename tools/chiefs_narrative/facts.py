@@ -182,7 +182,7 @@ _FINISHED_NIGHT = re.compile(r"\bfinished the night\b", re.IGNORECASE)
 _QB_NIGHT = re.compile(r"\bquarterback night\b", re.IGNORECASE)
 _NIGHT_WORD = re.compile(r"\bnights?\b", re.IGNORECASE)
 _ECHO_INSTRUCTION = re.compile(
-    r"\bdo not (?:call|write|invent|include)\b"
+    r"\bdo not (?:call|write|invent|include|swap|substitute)\b"
     r"|this was not a night game"
     r"|never state a kickoff"
     r"|FACT CHECK RETRY"
@@ -216,7 +216,8 @@ _RAN_FOR_YARDS = re.compile(
 )
 _RUSH_SUBJECT_LEAD = re.compile(
     r"^(?:the\s+)?([A-Za-z][A-Za-z .’-]+?)\s+"
-    r"(?:had|finished with|was|were|ran for|rushed for|managed)\b",
+    r"(?:had|finished with|ran for|rushed for|managed|"
+    r"was(?=\s+\d)|were(?=\s+\d))\b",
     re.IGNORECASE,
 )
 _PLAYER_ALONE = re.compile(
@@ -577,7 +578,7 @@ _AGAINST_OTHER_TEAM = re.compile(
 )
 _GAME_LABEL_TEAM = re.compile(
     r"\b(?:the\s+)?[A-Za-z][A-Za-z '’-]{1,24}?\s+"
-    r"(?:tape|film|box|finale|game|night)\b",
+    r"(?:tape|film|box|finale|game|night|win|loss|victory)\b",
     re.IGNORECASE,
 )
 # Proper-noun score labels only ("Indianapolis 33-30"). Do not strip
@@ -700,8 +701,13 @@ _QB_HIT_COUNT = re.compile(
 )
 _SEASON_SPAN = re.compile(
     r"\b(?:this year|last year|this season|last season|"
-    r"a year ago|on the year|for the season|"
-    rf"through\s+(?:{_NUM_TOKEN})\s+games?|so far|in\s+20\d{{2}})\b",
+    r"a year ago|on the year|for the season|on the season|"
+    rf"through\s+(?:{_NUM_TOKEN})\s+games?|"
+    r"through\s+week\s+\d+|so far|in\s+20\d{2})\b",
+    re.IGNORECASE,
+)
+_PERCENT_SACK_RATE = re.compile(
+    r"\d+(?:\.\d+)?\s+percent(?:age)?\s+sack(?:s|\s+rate)\b",
     re.IGNORECASE,
 )
 _PRESSURE_OWNER = re.compile(
@@ -1768,6 +1774,19 @@ def _is_clock_colon(text: str, pos: int) -> bool:
     return text[pos - 1].isdigit() and text[pos + 1].isdigit()
 
 
+_WIN_AGAINST_LEAD = re.compile(
+    r"\b(?:win|won|loss|lost|victory|beat|defeated)\s+$",
+    re.IGNORECASE,
+)
+
+
+def _is_win_against(text: str, pos: int) -> bool:
+    """True for 'win against Las Vegas built on …', not a second-box pivot."""
+    if pos <= 0:
+        return False
+    return bool(_WIN_AGAINST_LEAD.search((text or "")[max(0, pos - 32) : pos]))
+
+
 def _stat_clause_span(text: str, index: int) -> tuple[int, int]:
     """Clause holding this index, split on sentence/comparison pivots only."""
     start, end = 0, len(text or "")
@@ -1778,6 +1797,8 @@ def _stat_clause_span(text: str, index: int) -> tuple[int, int]:
         ):
             continue
         if token == ":" and _is_clock_colon(text, hit.start()):
+            continue
+        if token.lower() == "against" and _is_win_against(text, hit.start()):
             continue
         if hit.end() <= index:
             start = hit.end()
@@ -6003,7 +6024,8 @@ def _owner_tokens(owner: str) -> set[str]:
 
 
 def _skip_pressure_claim(sentence: str, match) -> bool:
-    if _SEASON_SPAN.search(sentence):
+    clause = _local_pressure_clause(sentence, match)
+    if _SEASON_SPAN.search(clause) or _PERCENT_SACK_RATE.search(clause):
         return True
     if _PRESSURE_WINDOW.search(sentence):
         return True
@@ -6053,6 +6075,12 @@ def _passer_side_name(name: str, recap: dict | None) -> str:
     return ""
 
 
+_PRESSURE_CLAUSE_SPLIT = re.compile(
+    r";\s+|,\s+and\s+|\n|\s+while\s+|\s+whereas\s+",
+    re.IGNORECASE,
+)
+
+
 def _local_pressure_clause(sentence: str, match) -> str:
     """Clause holding this sack/hit token, not an earlier comma-and subject.
 
@@ -6064,9 +6092,9 @@ def _local_pressure_clause(sentence: str, match) -> str:
     rel = sentence.lower().rfind(token.lower()) if token else -1
     prefix = sentence[:rel] if rel >= 0 else sentence
     after = sentence[rel + len(token) :] if rel >= 0 else ""
-    chunks = re.split(r";\s+|,\s+and\s+|\n", prefix)
+    chunks = _PRESSURE_CLAUSE_SPLIT.split(prefix)
     head = chunks[-1] if chunks else prefix
-    tail = re.split(r";\s+|,\s+and\s+|\n", after, maxsplit=1)[0]
+    tail = _PRESSURE_CLAUSE_SPLIT.split(after, maxsplit=1)[0]
     return (head + token + tail).strip()
 
 
@@ -7239,6 +7267,10 @@ def _check_scheme_claims(text: str, recap: dict | None) -> list[str]:
         for match in _ZONE_BLITZ_INT.finditer(text):
             sentence = _sentence_at(text, match.start())
             if _SCHEME_NOTE.search(sentence):
+                continue
+            # "not by last week's interception" / "not a claim that … INT"
+            # is a refusal, not a producing-the-takeaway claim.
+            if re.search(r"\bnot\b", match.group(0) or "", re.I):
                 continue
             issues.append(
                 "play-by-play does not back a zone blitz producing the "

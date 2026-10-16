@@ -11885,3 +11885,138 @@ class Oct15CheckerGates(unittest.TestCase):
         blob = " ".join(issues)
         self.assertTrue(issues, fake)
         self.assertIn("zone blitz producing the interception", blob)
+
+
+class Oct16CheckerGates(unittest.TestCase):
+    """Run 38913707954 false-positive drops: records, while-clauses, season sacks."""
+
+    LAST = Oct14EditionGates.LAST
+
+    def _review(self, *sentences):
+        return {
+            "phase": {"type": "regular"},
+            "lastGameReview": {
+                "opponent": "Las Vegas Raiders",
+                "result": "W",
+                "score": "KC 30–27",
+                "lede": "Kansas City beat Las Vegas 30-27.",
+                "analysis": [{"body": sentence} for sentence in sentences],
+            },
+        }
+
+    def _issues(self, sentence, recap=None):
+        recap = recap or _load_fixture("espn_401872976_recap.json")
+        return facts.check_review(self._review(sentence), self.LAST, recap)
+
+    def test_win_against_does_not_give_kc_possession_to_lv(self):
+        sentence = (
+            "Kansas City is 4-0 after a 30-27 win against Las Vegas built on "
+            "189 rushing yards, 210 net passing yards, and a 24:18 possession "
+            "line, and the Chargers visit GEHA Field at Arrowhead Stadium on "
+            "Sun Oct 18, 3:25 PM CT with Tyquan Thornton sidelined."
+        )
+        self.assertEqual(self._issues(sentence), [], sentence)
+
+    def test_las_vegas_win_opener_does_not_steal_kc_rushing(self):
+        sentence = (
+            "The Las Vegas win was real, and it was narrow: Kansas City had "
+            "189 rushing yards and 210 net passing yards, Las Vegas had 365 "
+            "net passing yards and 35:42 of possession, and the scoreboard "
+            "finished 30-27."
+        )
+        self.assertEqual(self._issues(sentence), [], sentence)
+
+    def test_while_clause_keeps_mahomes_sacks_off_cousins(self):
+        sentence = (
+            "Zero sacks on Cousins despite 10 quarterback hits, while "
+            "Mahomes absorbed 8 hits and 2 sacks"
+        )
+        self.assertEqual(self._issues(sentence), [], sentence)
+
+    def test_season_sack_rate_and_on_the_season_are_not_game_sacks(self):
+        rate = (
+            "Spagnuolo’s own line, via Arrowhead Pride, is that the rush is "
+            "a step away: 4 sacks and a 2.6 percent sack rate."
+        )
+        self.assertEqual(self._issues(rate), [], rate)
+        mixed = (
+            "10 quarterback hits and zero sacks against Cousins; 4 sacks on "
+            "the season per Arrowhead Pride"
+        )
+        self.assertEqual(self._issues(mixed), [], mixed)
+        through_week = (
+            "Arrowhead Pride has him calling the pass rush a step away, with "
+            "4 sacks and a 2.6 percent sack rate through Week 5."
+        )
+        self.assertEqual(self._issues(through_week), [], through_week)
+
+    def test_zone_blitz_negation_is_not_a_producing_claim(self):
+        sentence = (
+            "Call a zone blitz on a Chargers third down: drop a lineman, "
+            "rush a linebacker, and judge it by whether Herbert has to "
+            "throw hot, not by last week’s interception."
+        )
+        self.assertEqual(self._issues(sentence), [], sentence)
+        still_fake = "A zone blitz produced Nwankpa's interception."
+        issues = self._issues(still_fake)
+        blob = " ".join(issues)
+        self.assertTrue(issues, still_fake)
+        self.assertIn("zone blitz producing the interception", blob)
+
+    def test_miami_road_win_binds_when_published_edition_loads_prior(self):
+        sentence = (
+            "Separate the Miami road win if it comes up: 88 rushing yards, "
+            "246 net passing yards, 25:39."
+        )
+        bare = _load_fixture("espn_401872976_recap.json")
+        self.assertTrue(
+            self._issues(sentence, recap=bare),
+            "without prior, Miami yards must not pass as the LV box",
+        )
+        recap = generate._recap_for_edition(
+            {
+                "lastGameReview": {
+                    "opponent": "Las Vegas Raiders",
+                    "score": "KC 30–27",
+                }
+            }
+        )
+        self.assertEqual((recap.get("prior") or {}).get("oppAbbr"), "MIA")
+        self.assertEqual(self._issues(sentence, recap=recap), [], sentence)
+
+    def test_do_not_swap_instruction_is_echoed_and_dropped(self):
+        leak = (
+            "Walker’s listed line is 22 carries, 177 yards, and 2 rushing "
+            "touchdowns, on 23 touches. Team rushing was 189 on 26 attempts. "
+            "Do not swap 177 for 189."
+        )
+        issues = self._issues(leak)
+        blob = " ".join(issues)
+        self.assertTrue(issues, leak)
+        self.assertIn("echoed writer instruction", blob)
+        self.assertIn("Do not swap", blob)
+        coaching = "Do not let Herbert sit in a clean pocket on third down."
+        self.assertEqual(self._issues(coaching), [], coaching)
+        narrative = self._review(leak)
+        recap = _load_fixture("espn_401872976_recap.json")
+        repaired = facts.repair_offending_copy(
+            narrative, issues, self.LAST, recap
+        )
+        blob = facts.edition_text(repaired)
+        self.assertNotIn("Do not swap", blob)
+        self.assertIn("177 yards", blob)
+        self.assertIn("189 on 26 attempts", blob)
+
+    def test_false_game_sacks_and_wrong_rush_still_fail(self):
+        mahomes_zero = "Mahomes had zero sacks."
+        issues = self._issues(mahomes_zero)
+        self.assertTrue(issues, mahomes_zero)
+        self.assertIn("sacks 0 disagrees with ESPN 2", " ".join(issues))
+        four_game = "Kansas City recorded 4 sacks."
+        issues = self._issues(four_game)
+        self.assertTrue(issues, four_game)
+        self.assertIn("sacks 4 disagrees with ESPN", " ".join(issues))
+        lv_rush = "Las Vegas had 189 rushing yards."
+        issues = self._issues(lv_rush)
+        self.assertTrue(issues, lv_rush)
+        self.assertIn("team rushing 189 disagrees with ESPN 72", " ".join(issues))
