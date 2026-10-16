@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-10-16T14:20:11+00:00",
-  "updatedAt": "2026-10-16T17:50:00+00:00",
+  "updatedAt": "2026-10-16T18:15:00+00:00",
   "generator": "grok:grok-4.7",
   "phase": {
     "type": "regular",
@@ -20,7 +20,7 @@
     "body": [
       "Eric Bieniemy’s group won the math that shows up in the rushing column and lost the math that shows up on third down. Kansas City was 5-of-13, posted 18 first downs, and ran 12 drives. Las Vegas matched the 12 drives, added 28 first downs, and was 5-of-14. Kirk Cousins was 31-of-52 with a rating of 85.8 and zero sacks. Mahomes finished 15-of-30 for 225 yards and 2 touchdowns, took 2 sacks, and posted a 97.2 rating. Kansas City recorded 10 quarterback hits; Las Vegas recorded 8 hits on Mahomes.",
       "The receiver room that hosted that stat line is not the room that hosts Justin Herbert. Tyquan Thornton’s line was 5 catches, 111 yards, and 2 touchdowns, then an ankle injury on the 55-yard catch. Arrowhead Pride reports he is out for the foreseeable future. Arrowhead Addict reports Rashee Rice has missed two straight practices out of the bye. Travis Kelce and Noah Gray, at 2 catches each in Las Vegas, are the sturdy answers while Mahomes tests younger wideouts.",
-      "Steve Spagnuolo’s problem is finishing. Arrowhead Pride has him calling the pass rush a step away, with 4 sacks and a 2.6 percent sack rate through Week 5. Cousins absorbed 10 hits and was not sacked. The interception belongs to X. Nwankpa, on a short left throw intended for Michael Mayer at Q4 0:10. The fumble on the kickoff belongs to J. Bassa as the forcer and J. Cochrane as the recoverer. Those are player credits, not a blitz story.",
+      "Steve Spagnuolo’s problem is finishing. Arrowhead Pride has him calling the pass rush a step away, with 4 sacks and a 2.6 percent sack rate through Week 5. Cousins absorbed 10 hits and was not sacked. The interception belongs to X. Nwankpa, on a short left throw intended for Michael Mayer at Q4 0:10. The fumble on the kickoff belongs to J. Bassa as the forcer and J. Cochrane as the recoverer. Those are player credits.",
       "Sunday’s assignment at GEHA Field at Arrowhead Stadium is to keep Walker’s identity, give Mahomes easier answers than 15-of-30, and make Herbert throw into two-deep shells with simulated pressure behind them. The 41.5 total is a lower-scoring price than the 30-27 tape. Treat 4-0 as a sample, then go win the division game."
     ]
   },
@@ -35,7 +35,7 @@
         "body": "The second half of the scoreboard was a Kansas City surge that still leaked points. A Kansas City touchdown of 8 yards at Q4 14:50 made it 17-13. Las Vegas answered with a 44-yard field goal at Q4 11:12 (17-16) and a 48-yard field goal at Q4 4:53 (17-19). A Kansas City touchdown of 2 yards at Q4 3:21 moved the board to 23-19. Kenneth Walker III’s 22-yard rush, right end, at Q4 3:02 made it 30-19. Brock Bowers caught a 20-yard touchdown at Q4 1:46, and the two-point throw to Cody White succeeded, leaving 30-27. X. Nwankpa intercepted Kirk Cousins at Q4 0:10."
       },
       {
-        "body": "Play-by-play supports the explosives without inventing the unknown scoring rows. Cousins hit Ian Thomas on a 27-yard touchdown, deep left, at Q1 8:10. Mahomes hit Xavier Worthy for 41 yards to the Las Vegas 7, then Tyquan Thornton for 42 to the Las Vegas 5 and, later, 55 to the Las Vegas 5, with Quay Walker flagged for unnecessary roughness on that last catch. Walker’s listed line is 22 carries, 177 yards, and 2 rushing touchdowns, on 23 touches. Team rushing was 189 on 26 attempts. Both numbers belong in the story."
+        "body": "Cousins hit Ian Thomas on a 27-yard touchdown, deep left, at Q1 8:10. Mahomes hit Xavier Worthy for 41 yards to the Las Vegas 7, then Tyquan Thornton for 42 to the Las Vegas 5 and, later, 55 to the Las Vegas 5, with Quay Walker flagged for unnecessary roughness on that last catch. Walker’s listed line is 22 carries, 177 yards, and 2 rushing touchdowns, on 23 touches. Team rushing was 189 on 26 attempts."
       },
       {
         "body": "The win was real, and it was narrow. Las Vegas won the clock and the down chart. Possession was 35:42 for Las Vegas and 24:18 for Kansas City. Las Vegas had 72 rushing yards on 26 attempts, 437 total yards, and 28 first downs. Ashton Jeanty had 21 touches. Michael Mayer had 8 catches, Bowers 6. Kansas City had 399 total yards, 18 first downs, 12 drives, and zero turnovers. A Creed Humphrey fumble at Q4 1:35 was recovered by Mahomes, so it stayed off the turnover line. Las Vegas also turned it over on downs at Q3 11:37 and lost the kickoff fumble forced by J. Bassa and recovered by J. Cochrane."
@@ -67,7 +67,7 @@
     "whatDidnt": [
       "5-of-13 on third down and 18 first downs against a defense that allowed 399 yards anyway",
       "24:18 of possession against 35:42 for Las Vegas",
-      "Penalties on Nick Bolton’s teammates that wiped plays: N. Williams twice, P. Woods illegal formation, F. Anudike-Uzomah roughing, and L. Sneed holding"
+      "Kansas City penalties that wiped plays: N. Williams twice, P. Woods illegal formation, F. Anudike-Uzomah roughing, and L. Sneed holding"
     ]
   },
   "currentState": {
@@ -94,15 +94,15 @@
       },
       {
         "title": "Short yardage versus the Walker identity",
-        "body": "The team rush total is healthy. A separate short-yardage question is floating in the Arrowhead Addict reunion chatter. Weigh it against what Walker already did on 22 carries, and do not treat a rumor as a signing."
+        "body": "The team rush total is healthy. A separate short-yardage question is floating in the Arrowhead Addict reunion chatter. Weigh it against what Walker already did on 22 carries. Reunion chatter is not a signing."
       },
       {
         "title": "What 4-0 is worth",
-        "body": "Polymarket still prices the championship at 9.8 percent and the AFC at 17.5 percent. Last year’s 6-11 is history. This year’s sample includes a 30-27 in which the opponent had 28 first downs."
+        "body": "Polymarket still prices the championship at 9.8 percent and the AFC at 17.5 percent. This year’s sample includes a 30-27 in which the opponent had 28 first downs."
       },
       {
-        "title": "Keep the Miami tape separate",
-        "body": "Separate the Miami road win if it comes up: that tape is not this 30-27 box. The 189, 210, and 24:18 in this edition are Kansas City's Las Vegas line, not Miami."
+        "title": "Can the rush finish against Herbert",
+        "body": "Kansas City recorded 10 quarterback hits and Cousins was sacked zero times. Herbert will see the same unfinished pocket unless those hits become sacks."
       }
     ]
   },
@@ -185,7 +185,7 @@
     {
       "tag": "Run game",
       "title": "Walker is the identity, 189 is the team number",
-      "body": "Walker had 22 carries, 177 yards, 2 rushing touchdowns, and 23 touches. The box still says 189 rushing yards on 26 attempts. Both numbers belong in the story. One is not a substitute for the other."
+      "body": "Walker had 22 carries, 177 yards, 2 rushing touchdowns, and 23 touches. The box still says 189 rushing yards on 26 attempts."
     },
     {
       "tag": "Receiver room",
@@ -205,7 +205,7 @@
     {
       "tag": "Takeaways",
       "title": "Nwankpa, Bassa, Cochrane",
-      "body": "Nwankpa intercepted Cousins, intended for Mayer, at Q4 0:10. Bassa forced the kickoff fumble and Cochrane recovered it. Those are the credits. The zone blitz is a call for this week, not a caption on those plays."
+      "body": "Nwankpa intercepted Cousins, intended for Mayer, at Q4 0:10. Bassa forced the kickoff fumble and Cochrane recovered it. Those are the credits. The zone blitz is a call for this week."
     },
     {
       "tag": "Kingdom",
@@ -239,7 +239,7 @@
       "chiefs": "Multiple tight-end rate, Kelce fresh off the bye",
       "opponent": "Linebackers who have to sort mesh and extra eligibles",
       "edge": "KC",
-      "note": "This is the replacement value for Thornton’s 5 targets, not a luxury package."
+      "note": "This is the replacement value for Thornton’s 8 targets, not a luxury package."
     },
     {
       "unit": "Young wideouts vs. Chargers coverage",
@@ -297,7 +297,7 @@
       "situation": "After Walker has drawn the second level, against a Chargers coverage that spins a single deep middle",
       "concept": "four_verts",
       "why": "Worthy already won a 41-yard deep middle against Las Vegas, and the thinner receiver room still has that outside speed if the seams bend.",
-      "coaching": "Worthy and a young outside receiver run past the corners. A tight end bends to the hash. Mahomes throws the open vertical. The call is four verts, not a play-fake label the last tape did not stamp on those throws.",
+      "coaching": "Worthy and a young outside receiver run past the corners. A tight end bends to the hash. Mahomes throws the open vertical. The call is four verts.",
       "labels": {
         "x": "go",
         "z": "go",
@@ -324,7 +324,7 @@
       "title": "Zone blitz as a Herbert call",
       "situation": "Chargers third down, when four rushers have been a step away and Cousins just survived 10 hits with zero sacks",
       "concept": "zone_blitz",
-      "why": "This is a call to use against Herbert: show heat, drop a defensive lineman, and rush a second-level player so the pocket has to move. It is not a story about Nwankpa’s interception.",
+      "why": "This is a call to use against Herbert: show heat, drop a defensive lineman, and rush a second-level player so the pocket has to move.",
       "coaching": "Spagnuolo picks the dropper before the snap and tells the rusher to come from the second level. Karlaftis can still be the finisher on the edge. Judge the call by a hurried Herbert throw, not by a takeaway from a different game.",
       "labels": {
         "x": "drop",
@@ -412,7 +412,7 @@
     {
       "segment": "State of the season",
       "length": "6:00-9:00",
-      "talkTrack": "Third down was 5-of-13. Thornton is out. Rice missed two practices. Woods was limited. Spagnuolo says the rush is a step away. Do not blend those clocks with 24:18."
+      "talkTrack": "Third down was 5-of-13. Thornton is out. Rice missed two practices. Woods was limited. Spagnuolo says the rush is a step away. Kansas City held the ball 24:18; Las Vegas held it 35:42."
     },
     {
       "segment": "Chargers plan",
