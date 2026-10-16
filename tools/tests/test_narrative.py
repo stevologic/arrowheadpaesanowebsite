@@ -12020,3 +12020,41 @@ class Oct16CheckerGates(unittest.TestCase):
         issues = self._issues(lv_rush)
         self.assertTrue(issues, lv_rush)
         self.assertIn("team rushing 189 disagrees with ESPN 72", " ".join(issues))
+
+    def test_false_sacks_and_hits_must_fail(self):
+        """Rate, season-high, through-week, and while-clause hits stay game facts."""
+        rate_swallow = "Mahomes took zero sacks and a 2.6 percent sack rate."
+        issues = self._issues(rate_swallow)
+        self.assertTrue(issues, rate_swallow)
+        self.assertIn("sacks 0 disagrees with ESPN 2", " ".join(issues))
+
+        season_high = "Mahomes took zero sacks on the season-high 30 throws."
+        issues = self._issues(season_high)
+        self.assertTrue(issues, season_high)
+        self.assertIn("sacks 0 disagrees with ESPN 2", " ".join(issues))
+
+        through_week = "Mahomes was sacked zero times through Week 5."
+        issues = self._issues(through_week)
+        self.assertTrue(issues, through_week)
+        self.assertIn("sacks 0 disagrees with ESPN 2", " ".join(issues))
+
+        twelve_hits = (
+            "Zero sacks on Cousins despite 12 quarterback hits, while "
+            "Mahomes absorbed 8 hits and 2 sacks."
+        )
+        issues = self._issues(twelve_hits)
+        self.assertTrue(issues, twelve_hits)
+        self.assertIn("QB hits 12 disagrees with ESPN 10", " ".join(issues))
+
+        lv_which = "Las Vegas, which had 189 rushing"
+        issues = self._issues(lv_which)
+        self.assertTrue(issues, lv_which)
+        self.assertTrue(
+            any("rushing 189" in item for item in issues),
+            issues,
+        )
+
+        walker_yards = "Walker had 199 yards"
+        issues = self._issues(walker_yards)
+        self.assertTrue(issues, walker_yards)
+        self.assertIn("player rushing 199 disagrees with ESPN 177", " ".join(issues))

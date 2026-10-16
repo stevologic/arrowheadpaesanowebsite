@@ -207,7 +207,8 @@ _TEAM_GROUND = re.compile(
 _GROUND_COPULA = frozenset({"is", "are", "was", "were", "be", "been", "am"})
 _TEAM_RUSH_YARDS = re.compile(
     r"\b(\d{2,3})\s+(?:(?:team\s+)?rush(?:ing)?\s+yards|"
-    r"yards on the ground|on the ground)\b",
+    r"yards on the ground|on the ground|"
+    r"rushing(?!\s+attempts?))\b",
     re.IGNORECASE,
 )
 _RAN_FOR_YARDS = re.compile(
@@ -215,7 +216,7 @@ _RAN_FOR_YARDS = re.compile(
     re.IGNORECASE,
 )
 _RUSH_SUBJECT_LEAD = re.compile(
-    r"^(?:the\s+)?([A-Za-z][A-Za-z .’-]+?)\s+"
+    r"^(?:the\s+)?([A-Za-z][A-Za-z .’-]+?)(?:,\s+which)?\s+"
     r"(?:had|finished with|ran for|rushed for|managed|"
     r"was(?=\s+\d)|were(?=\s+\d))\b",
     re.IGNORECASE,
@@ -392,7 +393,8 @@ _QUARTER_CLOCK = re.compile(
 )
 _PLAYER_RUSH_YARDS = re.compile(
     r"\b([A-Za-z][A-Za-z .’-]+?)\s+(?:ran|rushed)\s+for\s+(\d{2,3})\s+yards\b"
-    r"|\b([A-Za-z][A-Za-z .’-]+?)\s+had\s+(\d{2,3})\s+rushing yards\b",
+    r"|\b([A-Za-z][A-Za-z .’-]+?)\s+had\s+(\d{2,3})\s+rushing yards\b"
+    r"|\b([A-Za-z][A-Za-z .’-]+?)\s+had\s+(\d{2,3})\s+yards\b",
     re.IGNORECASE,
 )
 _PLAYER_CARRY_LINE = re.compile(
@@ -694,16 +696,16 @@ _QB_HIT_COUNT = re.compile(
     rf"\bhit\s+(?:\w+\s+){{0,2}}({_NUM_TOKEN})\s+times\b|"
     rf"\b(?:The\s+)?(?P<hit_owner>{_PROPER_NAME})"
     rf"{_TEAM_UNIT}\s+{_OWNER_VERBS}\s+"
-    rf"({_NUM_TOKEN})\s+(?:QB\s+)?hits\b|"
-    rf"\b({_NUM_TOKEN})\s+QB hits\b|"
-    rf"\b({_NUM_TOKEN})\s+hits\b",
+    rf"({_NUM_TOKEN})\s+(?:quarterback\s+|QB\s+)?hits\b|"
+    rf"\b({_NUM_TOKEN})\s+(?:quarterback\s+|QB\s+)?hits\b",
     re.IGNORECASE,
 )
 _SEASON_SPAN = re.compile(
     r"\b(?:this year|last year|this season|last season|"
-    r"a year ago|on the year|for the season|on the season|"
+    r"a year ago|on the year|for the season|"
+    r"on the season(?!-)|"
     rf"through\s+(?:{_NUM_TOKEN})\s+games?|"
-    r"through\s+week\s+\d+|so far|in\s+20\d{2})\b",
+    r"so far|in\s+20\d{2})\b",
     re.IGNORECASE,
 )
 _PERCENT_SACK_RATE = re.compile(
@@ -822,7 +824,7 @@ _INTERCEPTED_BY_TEXT = re.compile(
     re.IGNORECASE,
 )
 _SEASON_TD_LEDGER = re.compile(
-    r"\bon the season\b|\bseason ledger\b|\bcareer\b|\bthis year\b",
+    r"\bon the season(?!-)\b|\bseason ledger\b|\bcareer\b|\bthis year\b",
     re.IGNORECASE,
 )
 _NOT_PLAYER_TOKENS = frozenset(
@@ -4446,8 +4448,8 @@ def _check_team_yards(
         )
 
     for match in _PLAYER_RUSH_YARDS.finditer(text):
-        name = match.group(1) or match.group(3) or ""
-        raw = match.group(2) or match.group(4) or ""
+        name = match.group(1) or match.group(3) or match.group(5) or ""
+        raw = match.group(2) or match.group(4) or match.group(6) or ""
         try:
             yards = int(raw)
         except (TypeError, ValueError):
@@ -6023,13 +6025,55 @@ def _owner_tokens(owner: str) -> set[str]:
     return {part.lower() for part in re.split(r"[^A-Za-z]+", owner) if part}
 
 
+def _percent_sack_rate_skip(clause: str, match) -> bool:
+    """Skip only when this match's number is the percent sack rate.
+
+    'Mahomes took zero sacks and a 2.6 percent sack rate' still checks
+    the zero. The rate phrase itself is not a game sack count.
+    """
+    token = match.group(0) or ""
+    rel = (clause or "").lower().rfind(token.lower()) if token else -1
+    if rel < 0:
+        return False
+    tok_end = rel + len(token)
+    for rate in _PERCENT_SACK_RATE.finditer(clause or ""):
+        if rel < rate.end() and tok_end > rate.start():
+            return True
+    return False
+
+
+def _season_rate_companion_skip(clause: str) -> bool:
+    """'4 sacks and a 2.6 percent sack rate' is a season line.
+
+    A named QB taking or being sacked in the same clause is a game claim.
+    """
+    if not _PERCENT_SACK_RATE.search(clause or ""):
+        return False
+    if re.search(
+        r"\b(?:mahomes|patrick|cousins|kirk|willis|malik)\b",
+        clause or "",
+        re.I,
+    ) and re.search(
+        r"\b(?:took|taken|absorbed|was\s+sacked|sacked|allowed)\b",
+        clause or "",
+        re.I,
+    ):
+        return False
+    return True
+
+
 def _skip_pressure_claim(sentence: str, match) -> bool:
     clause = _local_pressure_clause(sentence, match)
-    if _SEASON_SPAN.search(clause) or _PERCENT_SACK_RATE.search(clause):
+    if _SEASON_SPAN.search(clause):
+        return True
+    if _percent_sack_rate_skip(clause, match):
+        return True
+    token = (match.group(0) or "").lower()
+    if "sack" in token and _season_rate_companion_skip(clause):
         return True
     if _PRESSURE_WINDOW.search(sentence):
         return True
-    owner = _pressure_owner_name(sentence, match)
+    owner = _pressure_owner_name(clause, match)
     if not owner:
         return False
     tokens = _owner_tokens(owner)
@@ -6295,11 +6339,14 @@ def _check_qb_hit_counts(text: str, recap: dict | None) -> list[str]:
         )
         # Bare "10 hits" that matches KC's recorded total is the defense, not
         # an invented Mahomes-hit line. Name Mahomes and the other total fails.
+        # Use the while-split clause so a later Mahomes clause cannot hide a
+        # false hit count on Cousins.
+        clause = _local_pressure_clause(sentence, match)
         if (
             other is not None
             and claimed == other
             and side == "kc_qb"
-            and not re.search(r"\b(?:mahomes|patrick)\b", sentence, re.I)
+            and not re.search(r"\b(?:mahomes|patrick)\b", clause, re.I)
         ):
             continue
         issues.append(
@@ -7538,7 +7585,7 @@ _WAS_BOX_LEAD = re.compile(
     re.IGNORECASE,
 )
 _HAD_BOX_LEAD = re.compile(
-    rf"^{_TEAM_LEAD}\s+(?:had|finished with)\s+(?P<rest>.+)$",
+    rf"^{_TEAM_LEAD}(?:,\s+which)?\s+(?:had|finished with)\s+(?P<rest>.+)$",
     re.IGNORECASE,
 )
 _HELD_BOX_LEAD = re.compile(
