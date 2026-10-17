@@ -42,6 +42,13 @@ _SCORE_PATTERNS = (
         r"\b(?:up|ahead|leading|lead)\s+(\d{1,2})\s*[–-]\s*(\d{1,2})\b",
         re.IGNORECASE,
     ),
+    # Bare leading "31-27, 189 on the ground…" is a box-score final.
+    re.compile(
+        r"(?:^|(?<=[.!?]\s))(\d{1,2})\s*[–-]\s*(\d{1,2})\s*,"
+        r"(?=\s+\d{2,3}\s+on the ground|\s+\d{2,3}\s+(?:team\s+)?rush|"
+        r"\s+\d{1,2}:\d{2})",
+        re.IGNORECASE | re.MULTILINE,
+    ),
 )
 
 # Bare "won 24-10" / "lost 18-19" — check only when the pair is a known score
@@ -212,7 +219,7 @@ _TEAM_RUSH_YARDS = re.compile(
     re.IGNORECASE,
 )
 _RAN_FOR_YARDS = re.compile(
-    r"\b(?:ran|rushed) for (\d{2,3}) yards\b",
+    r"\b(?:ran|rushed) for (\d{2,3})(?:\s+yards)?\b",
     re.IGNORECASE,
 )
 _RUSH_SUBJECT_LEAD = re.compile(
@@ -2031,13 +2038,16 @@ def _scrub_box_labels(span: str) -> str:
 
 
 def _possession_local_span(text: str, match: re.Match) -> tuple[int, int]:
-    """Clause holding this clock, split on 'to' when it separates two TOPs.
+    """Clause holding this clock, split when two TOPs are listed.
 
-    '25:39 to Miami's 34:21' is two claims. 'squeezed that offense to 88
-    and 25:39' is one claim — only one side has a clock, so do not split.
+    '25:39 to Miami's 34:21' is two claims. '24:18 on the clock, and a
+    Raiders team that still had 35:42' is two claims — do not let the
+    later club own the earlier clock. 'squeezed that offense to 88 and
+    25:39' is one claim: only one side has a clock, so do not split.
     """
     start, end = _stat_clause_span(text, match.start())
-    for hit in re.finditer(r"\bto\b", text[start:end], re.I):
+    fragment = text[start:end]
+    for hit in re.finditer(r"\b(?:to|and)\b", fragment, re.I):
         abs_at = start + hit.start()
         left = text[start:abs_at]
         right = text[start + hit.end() : end]
@@ -4240,6 +4250,20 @@ def _check_team_yards(
                 re.I,
             ) and yards == last_rush.get("KC"):
                 continue
+        # "ran for 12" without yards is a play gain (Araiza's punt-formation
+        # snap). Only treat the yardless form as a team total when a club
+        # is named: "a Raiders team that ran for 189".
+        if (
+            re.search(r"\b(?:ran|rushed) for\b", match.group(0), re.I)
+            and not re.search(r"yards", match.group(0), re.I)
+            and not (
+                _explicit_box_subject(
+                    _box_clause_at(text, match.start()), aliases
+                )
+                or _bound_box_team(text, match.start(), aliases)
+            )
+        ):
+            continue
         scope = _claim_game_scope(
             text, match.start(), recap, last_game, schedule
         )
@@ -5712,6 +5736,44 @@ def _check_touch_counts(text: str, recap: dict | None) -> list[str]:
     return issues
 
 
+def _attempt_passer_row(
+    passing: list,
+    kc: dict,
+    by_last: dict,
+    owner: str,
+    team: str,
+    claimed: int,
+    match: re.Match,
+):
+    """Team-owned attempt counts bind to that club's passer first.
+
+    A player owns the number only when that player is named and no team
+    is. Unnamed adjectival 'N-attempt' falls back to the unique matching
+    passer so Cousins' 52 is not read as Mahomes' 30. A number nobody
+    threw still falls through to KC so a false 40-attempt fails.
+    """
+    if team:
+        for row in passing:
+            if (row.get("team") or "").upper() == team:
+                return row
+        return kc
+    if owner:
+        return by_last.get(owner) or kc
+    token = match.group(0) or ""
+    if re.search(r"\d+[-\s]attempts?\b", token, re.I):
+        matches = []
+        for cand in passing:
+            try:
+                att = int(cand["attempts"])
+            except (TypeError, ValueError):
+                continue
+            if att == claimed:
+                matches.append(cand)
+        if len(matches) == 1:
+            return matches[0]
+    return kc
+
+
 def _check_attempt_counts(
     text: str, recap: dict | None, last_game: dict | None = None
 ) -> list[str]:
@@ -5792,7 +5854,10 @@ def _check_attempt_counts(
             text[_stat_clause_span(text, match.start())[0] : match.start()],
             {last: last for last in by_last},
         )
-        row = by_last.get(owner) or kc
+        team = _bound_box_team(text, match.start(), aliases)
+        row = _attempt_passer_row(
+            passing, kc, by_last, owner, team, claimed, match
+        )
         if kind == "pass" and not _explicit_pass_attempt(match):
             try:
                 completions = int(row.get("completions"))
@@ -7598,7 +7663,7 @@ _BOX_CLAUSE_SPLIT = re.compile(
     r"(?i:\bwhile\b)|"
     r"(?i:\beven though\b)|"
     r"(?i:\bbut\b)|"
-    r"\band\s+(?=[A-Z][a-z])|"
+    r"\band\s+(?:the\s+)?(?=[A-Z][a-z])|"
     r"\bto\s+(?:the\s+)?(?=[A-Z])|"
     r",\s*(?=[A-Z][a-z])"
 )

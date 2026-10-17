@@ -12058,3 +12058,216 @@ class Oct16CheckerGates(unittest.TestCase):
         issues = self._issues(walker_yards)
         self.assertTrue(issues, walker_yards)
         self.assertIn("player rushing 199 disagrees with ESPN 177", " ".join(issues))
+
+
+class Oct17CheckerGates(unittest.TestCase):
+    """Run 39035343003: score + rush + both TOPs, and unnamed 52-attempt."""
+
+    LAST = Oct14EditionGates.LAST
+    BOX = (
+        "30-27, 189 on the ground, 24:18 on the clock, and a Raiders team "
+        "that still had 35:42."
+    )
+    ATTEMPT = (
+        "Do not ask a line without Simmons to win a 52-attempt track meet."
+    )
+    FILM = "That is the film."
+
+    def _review(self, *sentences):
+        return {
+            "phase": {"type": "regular"},
+            "lastGameReview": {
+                "opponent": "Las Vegas Raiders",
+                "result": "W",
+                "score": "KC 30–27",
+                "lede": "Kansas City beat Las Vegas 30-27.",
+                "analysis": [{"body": sentence} for sentence in sentences],
+            },
+        }
+
+    def _issues(self, sentence, recap=None):
+        recap = recap or _load_fixture("espn_401872976_recap.json")
+        return facts.check_review(self._review(sentence), self.LAST, recap)
+
+    def _salvage(self, *sentences):
+        recap = _load_fixture("espn_401872976_recap.json")
+        narrative = self._review(*sentences)
+        issues = facts.check_review(narrative, self.LAST, recap)
+        fixed, _logs = facts.apply_fact_corrections(
+            narrative, issues, recap, self.LAST
+        )
+        leftover = facts.check_review(fixed, self.LAST, recap)
+        repaired = facts.repair_offending_copy(
+            fixed, leftover, self.LAST, recap
+        )
+        return facts.dropped_sentences(narrative, repaired), leftover, repaired
+
+    def test_score_rush_and_both_possession_clocks_pass(self):
+        self.assertEqual(self._issues(self.BOX), [], self.BOX)
+        drops, leftover, _repaired = self._salvage(self.BOX)
+        self.assertEqual(leftover, [], leftover)
+        self.assertEqual(drops, [], drops)
+
+    def test_wrong_top_or_rush_in_same_construction_still_fails(self):
+        swapped = (
+            "30-27, 189 on the ground, 35:42 on the clock, and a Raiders "
+            "team that still had 24:18."
+        )
+        issues = self._issues(swapped)
+        blob = " ".join(issues)
+        self.assertTrue(issues, swapped)
+        self.assertTrue(
+            "possession 24:18 is KC clock, not LV" in blob
+            or "possession 35:42 is LV clock, not KC" in blob,
+            issues,
+        )
+        wrong_rush = (
+            "Kansas City had 72 on the ground, 24:18 on the clock, and a "
+            "Raiders team that still had 35:42."
+        )
+        issues = self._issues(wrong_rush)
+        self.assertTrue(issues, wrong_rush)
+        self.assertIn(
+            "team rushing 72 disagrees with ESPN 189",
+            " ".join(issues),
+        )
+        invented = (
+            "30-27, 150 on the ground, 24:18 on the clock, and a Raiders "
+            "team that still had 35:42."
+        )
+        issues = self._issues(invented)
+        self.assertTrue(issues, invented)
+        self.assertIn(
+            "team rushing 150 disagrees with ESPN 189",
+            " ".join(issues),
+        )
+        drops, leftover, repaired = self._salvage(swapped, wrong_rush, invented)
+        blob = facts.edition_text(repaired)
+        self.assertTrue(drops or leftover, "false box lines must not survive")
+        self.assertNotIn(swapped, blob)
+        self.assertNotIn(wrong_rush, blob)
+        self.assertNotIn(invented, blob)
+
+    def test_unnamed_52_attempt_track_meet_is_cousins_volume(self):
+        self.assertEqual(self._issues(self.ATTEMPT), [], self.ATTEMPT)
+        drops, leftover, _repaired = self._salvage(self.ATTEMPT)
+        self.assertEqual(leftover, [], leftover)
+        self.assertEqual(drops, [], drops)
+        forty = (
+            "Do not ask a line without Simmons to win a 40-attempt track meet."
+        )
+        issues = self._issues(forty)
+        self.assertTrue(issues, forty)
+        self.assertIn(
+            "pass attempts 40 disagrees with ESPN 30",
+            " ".join(issues),
+        )
+        mahomes_52 = "Mahomes finished a 52-attempt afternoon."
+        issues = self._issues(mahomes_52)
+        self.assertTrue(issues, mahomes_52)
+        self.assertIn(
+            "pass attempts 52 disagrees with ESPN 30",
+            " ".join(issues),
+        )
+
+    def test_that_is_the_film_stays_with_its_box_line(self):
+        """Flourish is not a box claim. Orphan-drop only if the antecedent goes."""
+        self.assertEqual(self._issues(self.FILM), [], self.FILM)
+        drops, leftover, repaired = self._salvage(self.BOX, self.FILM)
+        self.assertEqual(leftover, [], leftover)
+        self.assertEqual(drops, [], drops)
+        blob = facts.edition_text(repaired)
+        self.assertIn(self.BOX, blob)
+        self.assertIn(self.FILM, blob)
+
+    def test_oct17_rewrites_are_article_and_possessive_credit(self):
+        recap = _load_fixture("espn_401872976_recap.json")
+        a_an = (
+            "Kirk Cousins was 31-of-52 with a 85.8 rating and zero sacks."
+        )
+        issues = facts.check_review(self._review(a_an), self.LAST, recap)
+        self.assertTrue(any("a 85.8" in item for item in issues), issues)
+        fixed, logs = facts.apply_fact_corrections(
+            self._review(a_an), issues, recap, self.LAST
+        )
+        self.assertIn("an 85.8", facts.edition_text(fixed))
+        self.assertTrue(any("a 85.8" in line and "an 85.8" in line for line in logs), logs)
+        possessive = (
+            "Nwankpa's interception at Q4 0:10, and Mansoor Delane's 10 "
+            "tackles in a secondary that had to tackle after the catch all "
+            "afternoon."
+        )
+        issues = facts.check_review(
+            self._review(possessive), self.LAST, recap
+        )
+        self.assertTrue(
+            any("Nwankpa's" in item and "interceptor" in item for item in issues),
+            issues,
+        )
+        fixed, logs = facts.apply_fact_corrections(
+            self._review(possessive), issues, recap, self.LAST
+        )
+        blob = facts.edition_text(fixed)
+        self.assertIn("Nwankpa interception", blob)
+        self.assertNotIn("Nwankpa's interception", blob)
+        self.assertEqual(facts.check_review(fixed, self.LAST, recap), [])
+
+    TEAM_OWNED_52_MUST_FAIL = (
+        "Kansas City threw 52 passes.",
+        "Kansas City attempted 52 passes.",
+        "Kansas City needed a 52-attempt day.",
+        "The Chiefs' 52-attempt plan worked.",
+        "Kansas City's 52-attempt afternoon was a track meet.",
+        "Kansas City won a 52-attempt track meet through the air.",
+        "The Chiefs needed a 52-attempt day from their quarterback.",
+    )
+
+    def test_team_owned_52_attempts_fail_when_kc_threw_30(self):
+        for sentence in self.TEAM_OWNED_52_MUST_FAIL:
+            issues = self._issues(sentence)
+            self.assertTrue(issues, sentence)
+            self.assertIn(
+                "pass attempts 52 disagrees with ESPN 30",
+                " ".join(issues),
+            )
+
+    def test_raiders_52_attempt_plan_passes(self):
+        sentence = "The Raiders' 52-attempt plan failed."
+        self.assertEqual(self._issues(sentence), [], sentence)
+
+    def test_wrong_leading_box_score_fails(self):
+        wrong = (
+            "31-27, 189 on the ground, 24:18 on the clock, and a Raiders "
+            "team that still had 35:42."
+        )
+        issues = self._issues(wrong)
+        self.assertTrue(issues, wrong)
+        self.assertIn("score 31-27", " ".join(issues))
+        also = (
+            "30-24, 189 on the ground, 24:18 on the clock, and a Raiders "
+            "team that still had 35:42."
+        )
+        issues = self._issues(also)
+        self.assertTrue(issues, also)
+        self.assertIn("score 30-24", " ".join(issues))
+
+    def test_raiders_ran_for_189_fails(self):
+        sentence = "a Raiders team that ran for 189"
+        issues = self._issues(sentence)
+        self.assertTrue(issues, sentence)
+        self.assertIn("team rushing 189", " ".join(issues))
+
+    def test_held_the_ball_for_both_clocks_passes_and_stays(self):
+        sentence = (
+            "Kansas City held the ball for 24:18, and the Raiders held it "
+            "for 35:42."
+        )
+        self.assertEqual(self._issues(sentence), [], sentence)
+        drops, leftover, repaired = self._salvage(sentence)
+        self.assertEqual(leftover, [], leftover)
+        self.assertEqual(drops, [], drops)
+        self.assertIn(sentence, facts.edition_text(repaired))
+
+    def test_araiza_ran_for_12_is_not_team_rushing(self):
+        sentence = "He also ran for 12 on a punt-formation snap."
+        self.assertEqual(self._issues(sentence), [], sentence)
