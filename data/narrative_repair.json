@@ -1,6 +1,13 @@
 {
-  "droppedSentences": [],
-  "correctedSentences": [],
+  "droppedSentences": [
+    "Do not ask a line without Simmons to win a 52-attempt track meet.",
+    "30-27, 189 on the ground, 24:18 on the clock, and a Raiders team that still had 35:42.",
+    "That is the film."
+  ],
+  "correctedSentences": [
+    "Steve Spagnuolo\u2019s group bent and then closed. Kirk Cousins was 31-of-52 with a 85.8 rating and zero sacks, but Kansas City recorded 10 quarterback hits, Mansoor Delane finished with 10 tackles, Jack Cochrane recovered a fumble forced by J. Bassa, and Xavier Nwankpa intercepted Cousins on the final drive. Las Vegas still earned the statistical edge. The turnovers decided the margin. \u2192 Steve Spagnuolo\u2019s group bent and then closed. Kirk Cousins was 31-of-52 with an 85.8 rating and zero sacks, but Kansas City recorded 10 quarterback hits, Mansoor Delane finished with 10 tackles, Jack Cochrane recovered a fumble forced by J. Bassa, and Xavier Nwankpa intercepted Cousins on the final drive. Las Vegas still earned the statistical edge. The turnovers decided the margin.",
+    "Nwankpa's interception at Q4 0:10, and Mansoor Delane's 10 tackles in a secondary that had to tackle after the catch all afternoon. \u2192 Nwankpa interception at Q4 0:10, and Mansoor Delane's 10 tackles in a secondary that had to tackle after the catch all afternoon."
+  ],
   "leftoverIssues": [],
-  "holdAutomerge": false
+  "holdAutomerge": true
 }
