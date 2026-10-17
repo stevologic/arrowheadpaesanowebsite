@@ -2031,13 +2031,16 @@ def _scrub_box_labels(span: str) -> str:
 
 
 def _possession_local_span(text: str, match: re.Match) -> tuple[int, int]:
-    """Clause holding this clock, split on 'to' when it separates two TOPs.
+    """Clause holding this clock, split when two TOPs are listed.
 
-    '25:39 to Miami's 34:21' is two claims. 'squeezed that offense to 88
-    and 25:39' is one claim — only one side has a clock, so do not split.
+    '25:39 to Miami's 34:21' is two claims. '24:18 on the clock, and a
+    Raiders team that still had 35:42' is two claims — do not let the
+    later club own the earlier clock. 'squeezed that offense to 88 and
+    25:39' is one claim: only one side has a clock, so do not split.
     """
     start, end = _stat_clause_span(text, match.start())
-    for hit in re.finditer(r"\bto\b", text[start:end], re.I):
+    fragment = text[start:end]
+    for hit in re.finditer(r"\b(?:to|and)\b", fragment, re.I):
         abs_at = start + hit.start()
         left = text[start:abs_at]
         right = text[start + hit.end() : end]
@@ -5792,7 +5795,20 @@ def _check_attempt_counts(
             text[_stat_clause_span(text, match.start())[0] : match.start()],
             {last: last for last in by_last},
         )
-        row = by_last.get(owner) or kc
+        row = by_last.get(owner)
+        if row is None:
+            # Unnamed "52-attempt track meet" is Cousins' 52, not Mahomes'
+            # 30. Bind to a unique matching passer; a number nobody threw
+            # still falls through to KC so a false 40-attempt fails.
+            matches = []
+            for cand in passing:
+                try:
+                    att = int(cand["attempts"])
+                except (TypeError, ValueError):
+                    continue
+                if att == claimed:
+                    matches.append(cand)
+            row = matches[0] if len(matches) == 1 else kc
         if kind == "pass" and not _explicit_pass_attempt(match):
             try:
                 completions = int(row.get("completions"))
