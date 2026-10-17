@@ -12211,3 +12211,63 @@ class Oct17CheckerGates(unittest.TestCase):
         self.assertIn("Nwankpa interception", blob)
         self.assertNotIn("Nwankpa's interception", blob)
         self.assertEqual(facts.check_review(fixed, self.LAST, recap), [])
+
+    TEAM_OWNED_52_MUST_FAIL = (
+        "Kansas City threw 52 passes.",
+        "Kansas City attempted 52 passes.",
+        "Kansas City needed a 52-attempt day.",
+        "The Chiefs' 52-attempt plan worked.",
+        "Kansas City's 52-attempt afternoon was a track meet.",
+        "Kansas City won a 52-attempt track meet through the air.",
+        "The Chiefs needed a 52-attempt day from their quarterback.",
+    )
+
+    def test_team_owned_52_attempts_fail_when_kc_threw_30(self):
+        for sentence in self.TEAM_OWNED_52_MUST_FAIL:
+            issues = self._issues(sentence)
+            self.assertTrue(issues, sentence)
+            self.assertIn(
+                "pass attempts 52 disagrees with ESPN 30",
+                " ".join(issues),
+            )
+
+    def test_raiders_52_attempt_plan_passes(self):
+        sentence = "The Raiders' 52-attempt plan failed."
+        self.assertEqual(self._issues(sentence), [], sentence)
+
+    def test_wrong_leading_box_score_fails(self):
+        wrong = (
+            "31-27, 189 on the ground, 24:18 on the clock, and a Raiders "
+            "team that still had 35:42."
+        )
+        issues = self._issues(wrong)
+        self.assertTrue(issues, wrong)
+        self.assertIn("score 31-27", " ".join(issues))
+        also = (
+            "30-24, 189 on the ground, 24:18 on the clock, and a Raiders "
+            "team that still had 35:42."
+        )
+        issues = self._issues(also)
+        self.assertTrue(issues, also)
+        self.assertIn("score 30-24", " ".join(issues))
+
+    def test_raiders_ran_for_189_fails(self):
+        sentence = "a Raiders team that ran for 189"
+        issues = self._issues(sentence)
+        self.assertTrue(issues, sentence)
+        self.assertIn("team rushing 189", " ".join(issues))
+
+    def test_held_the_ball_for_both_clocks_passes_and_stays(self):
+        sentence = (
+            "Kansas City held the ball for 24:18, and the Raiders held it "
+            "for 35:42."
+        )
+        self.assertEqual(self._issues(sentence), [], sentence)
+        drops, leftover, repaired = self._salvage(sentence)
+        self.assertEqual(leftover, [], leftover)
+        self.assertEqual(drops, [], drops)
+        self.assertIn(sentence, facts.edition_text(repaired))
+
+    def test_araiza_ran_for_12_is_not_team_rushing(self):
+        sentence = "He also ran for 12 on a punt-formation snap."
+        self.assertEqual(self._issues(sentence), [], sentence)
