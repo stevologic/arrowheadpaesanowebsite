@@ -12195,25 +12195,16 @@ class Oct17CheckerGates(unittest.TestCase):
         )
         self.assertIn("an 85.8", facts.edition_text(fixed))
         self.assertTrue(any("a 85.8" in line and "an 85.8" in line for line in logs), logs)
-        possessive = (
-            "Nwankpa's interception at Q4 0:10, and Mansoor Delane's 10 "
-            "tackles in a secondary that had to tackle after the catch all "
-            "afternoon."
-        )
-        issues = facts.check_review(
-            self._review(possessive), self.LAST, recap
-        )
-        self.assertTrue(
-            any("Nwankpa's" in item and "interceptor" in item for item in issues),
-            issues,
-        )
-        fixed, logs = facts.apply_fact_corrections(
-            self._review(possessive), issues, recap, self.LAST
-        )
-        blob = facts.edition_text(fixed)
-        self.assertIn("Nwankpa interception", blob)
-        self.assertNotIn("Nwankpa's interception", blob)
-        self.assertEqual(facts.check_review(fixed, self.LAST, recap), [])
+        for mark in ("'", "’"):
+            possessive = (
+                f"Nwankpa{mark}s interception at Q4 0:10, and Mansoor "
+                "Delane's 10 tackles in a secondary that had to tackle "
+                "after the catch all afternoon."
+            )
+            issues = facts.check_review(
+                self._review(possessive), self.LAST, recap
+            )
+            self.assertEqual(issues, [], possessive)
 
     TEAM_OWNED_52_MUST_FAIL = (
         "Kansas City threw 52 passes.",
@@ -12534,3 +12525,64 @@ class Oct18CheckerGates(unittest.TestCase):
         self.assertNotIn("Nwankpa Nwankpa", blob)
         self.assertNotIn("Xavier Worthy", blob)
         self.assertFalse(any("Nwankpa Nwankpa" in line for line in logs), logs)
+
+    LV_SAME_LOOK_MUST_FLAG = (
+        "Nourzad and Tonga reported eligible together on both Las Vegas snaps.",
+        "The Las Vegas snaps were the same look: Nourzad and Tonga reported together on both.",
+        "Not once but twice, Nourzad and Tonga reported together in the same look.",
+    )
+
+    def test_lv_same_look_false_claims_must_flag(self):
+        for sentence in self.LV_SAME_LOOK_MUST_FLAG:
+            issues = self._issues(sentence)
+            blob = " ".join(issues)
+            self.assertTrue(issues, sentence)
+            self.assertIn("11:29", blob)
+            self.assertIn("6:01", blob)
+            self.assertIn("Nourzad reported only", blob)
+            self.assertIn("Tonga alone", blob)
+
+    def test_zero_las_vegas_turnovers_must_flag(self):
+        for sentence in (
+            "zero Las Vegas turnovers",
+            "Four Las Vegas field goals, zero Las Vegas turnovers.",
+        ):
+            issues = self._issues(sentence)
+            self.assertTrue(issues, sentence)
+            self.assertIn(
+                "turnovers 0 disagrees with ESPN 2",
+                " ".join(issues),
+            )
+        self.assertEqual(self._issues(self.BOX_399), [], self.BOX_399)
+
+    def test_kenneth_walker_unnecessary_roughness_must_flag(self):
+        sentence = (
+            "Kenneth Walker flagged for unnecessary roughness on Thornton's 55"
+        )
+        issues = self._issues(sentence)
+        blob = " ".join(issues)
+        self.assertTrue(issues, sentence)
+        self.assertIn("Q.Walker", blob)
+        self.assertIn("Kenneth Walker", blob)
+        quay = (
+            "Quay Walker was flagged for unnecessary roughness on "
+            "Thornton's 55-yard catch."
+        )
+        self.assertEqual(self._issues(quay), [], quay)
+
+    def test_nwankpa_apostrophe_forms_are_the_same(self):
+        straight = (
+            "Walk the scoring order, the 24:18 possession line, the zero "
+            "sacks, the Bassa force, the Cochrane recovery, and "
+            "Nwankpa's interception."
+        )
+        curly = (
+            "Walk the scoring order, the 24:18 possession line, the zero "
+            "sacks, the Bassa force, the Cochrane recovery, and "
+            "Nwankpa’s interception."
+        )
+        straight_issues = self._issues(straight)
+        curly_issues = self._issues(curly)
+        self.assertEqual(straight_issues, [], straight)
+        self.assertEqual(curly_issues, [], curly)
+        self.assertEqual(straight_issues, curly_issues)
