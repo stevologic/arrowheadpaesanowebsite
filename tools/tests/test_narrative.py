@@ -12633,6 +12633,16 @@ class Oct18CheckerGates(unittest.TestCase):
             self.assertIn("Tonga alone", blob)
         tonga = "Tonga reported eligible twice in Las Vegas."
         self.assertEqual(self._issues(tonga), [], tonga)
+        edition = (
+            "Tonga reported eligible twice in Las Vegas: Nourzad and Tonga "
+            "reported together on the no-gain to the 50, and Tonga reported "
+            "on the later Mahomes scramble."
+        )
+        self.assertEqual(self._issues(edition), [], edition)
+        drops, leftover, repaired, _logs = self._salvage(edition)
+        self.assertEqual(leftover, [], leftover)
+        self.assertEqual(drops, [], drops)
+        self.assertIn(edition, facts.edition_text(repaired))
 
     def test_int_credit_messages_name_only_the_player(self):
         cases = (

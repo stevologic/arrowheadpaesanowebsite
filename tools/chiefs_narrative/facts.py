@@ -6251,7 +6251,7 @@ def _check_same_look_snaps(text: str, recap: dict | None) -> list[str]:
     seen: set[str] = set()
     for match in _SAME_LOOK.finditer(text):
         sentence = _sentence_at(text, match.start())
-        clause = _clause_at(text, match.start(), match.end())
+        clause = _same_look_clause(text, match.start(), match.end())
         low = clause.lower()
         if not re.search(r"\b(?:nourzad|tonga|eligible|jumbo)\b", low):
             continue
@@ -6402,9 +6402,8 @@ def _first_score_elapsed(recap: dict | None):
     return 15 * 60 - remaining
 
 
-def _clause_at(text: str, start: int, end: int) -> str:
-    """One claim: stop at newlines and sentence punctuation so later fields
-    cannot turn a kickoff-clock note into an opening-score claim."""
+def _clause_span(text: str, start: int, end: int) -> tuple[int, int]:
+    """Bounds of one claim: stop at newlines and sentence punctuation."""
     left_start = 0
     for idx in range(start - 1, -1, -1):
         char = text[idx]
@@ -6423,6 +6422,32 @@ def _clause_at(text: str, start: int, end: int) -> str:
             and not _is_initial_dot(text, idx)
             and not _is_decimal_dot(text, idx)
         ):
+            right_end = idx
+            break
+    return left_start, right_end
+
+
+def _clause_at(text: str, start: int, end: int) -> str:
+    """One claim: stop at newlines and sentence punctuation so later fields
+    cannot turn a kickoff-clock note into an opening-score claim."""
+    left_start, right_end = _clause_span(text, start, end)
+    return text[left_start:right_end]
+
+
+def _same_look_clause(text: str, start: int, end: int) -> str:
+    """Keep twice/both names on this claim, not a colon-led explanation.
+
+    'Tonga reported eligible twice in Las Vegas: Nourzad and Tonga
+    reported together on the no-gain…' is two claims. Binding Nourzad
+    to twice falsely flags the #238 edition line.
+    """
+    left_start, right_end = _clause_span(text, start, end)
+    for idx in range(start - 1, left_start - 1, -1):
+        if text[idx] in ":—":
+            left_start = idx + 1
+            break
+    for idx in range(end, right_end):
+        if text[idx] in ":—":
             right_end = idx
             break
     return text[left_start:right_end]
