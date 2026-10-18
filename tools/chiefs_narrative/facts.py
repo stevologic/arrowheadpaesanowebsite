@@ -755,8 +755,8 @@ _ILLEGAL_USE = re.compile(
     re.IGNORECASE,
 )
 _ROUGHNESS_CREDIT = re.compile(
-    r"\b(?P<name>[A-Z](?:\.[A-Za-z]+|[A-Za-z''’-]+)"
-    r"(?:\s+[A-Z](?:\.[A-Za-z]+|[A-Za-z''’-]+)){0,2})"
+    r"\b(?P<name>[A-Z](?:\.\s*[A-Za-z]+|[A-Za-z''’-]+)"
+    r"(?:\s+[A-Z](?:\.\s*[A-Za-z]+|[A-Za-z''’-]+)){0,2})"
     r"(?:['’]s)?"
     r"(?:\s+[Ww]as|\s+[Ww]ere)?"
     r"\s+(?i:flagged(?:\s+for)?|drew|called for)\s+"
@@ -770,7 +770,8 @@ _SAME_LOOK = re.compile(
     r"\bboth\s+(?:\w+\s+){0,2}snaps\b|"
     r"\bboth\s+(?:\w+\s+){0,2}runs\b|"
     r"\beach\s+(?:\w+\s+){0,2}snaps?\b|"
-    r"\btogether on both\b",
+    r"\btogether on both\b|"
+    r"\btwice\b",
     re.IGNORECASE,
 )
 _REPORTED_ELIGIBLE = re.compile(
@@ -779,7 +780,12 @@ _REPORTED_ELIGIBLE = re.compile(
 )
 _ELIGIBLE_NAME = re.compile(r"[A-Z]\.[A-Za-z.\-']+")
 _TO_COUNT = re.compile(
-    rf"\b({_NUM_TOKEN})\s+(?:([A-Za-z][A-Za-z ]{{1,24}}?)\s+)?turnovers?\b",
+    rf"(?<![\d:\-–—])\b({_NUM_TOKEN})\s+"
+    rf"(?:([A-Za-z][A-Za-z ]{{1,24}}?)\s+)?turnovers?\b",
+    re.IGNORECASE,
+)
+_FORCED_TURNOVER = re.compile(
+    r"\b(?:forced|took\s+away|created)\b",
     re.IGNORECASE,
 )
 _APOSTROPHE_TRANSLATE = str.maketrans(
@@ -893,6 +899,35 @@ _NOT_PLAYER_TOKENS = frozenset(
         "after",
         "before",
         "arrowhead",
+    }
+)
+# Leading junk that _INT_CREDIT can glue onto a real last name
+# ("Then Bolton", "City's Bolton", "Later Bolton").
+_CREDIT_NAME_PREFIX = _NOT_PLAYER_TOKENS | frozenset(
+    {
+        "later",
+        "next",
+        "first",
+        "finally",
+        "afterward",
+        "afterwards",
+        "meanwhile",
+        "previously",
+        "eventually",
+        "subsequently",
+        "also",
+        "still",
+        "now",
+        "once",
+        "city",
+        "kansas",
+        "chiefs",
+        "las",
+        "vegas",
+        "raiders",
+        "miami",
+        "dolphins",
+        "defense",
     }
 )
 _GARBLED_INITIAL = re.compile(r"\b([A-Z])['’]([A-Z][a-z]{3,})\b")
@@ -3765,6 +3800,18 @@ def _strip_possessive(token: str) -> str:
     return re.sub(r"'s\b", "", _normalize_apostrophes(token or ""), flags=re.I)
 
 
+def _clean_credit_name(name: str) -> str:
+    """Keep the player. Strip leading adverbs, team fragments, possessives."""
+    cleaned = _strip_possessive(name or "")
+    parts = [part for part in re.split(r"\s+", cleaned) if part]
+    while parts and parts[0].lower().strip(".,;:") in _CREDIT_NAME_PREFIX:
+        parts.pop(0)
+    if parts:
+        return " ".join(parts)
+    leftover = [part for part in re.split(r"\s+", cleaned) if part]
+    return leftover[-1] if leftover else ""
+
+
 def _last_name_token(raw: str) -> str:
     token = _strip_possessive(raw).strip()
     if not token:
@@ -4016,7 +4063,7 @@ def _check_turnover_credit(text: str, recap: dict | None) -> list[str]:
         _reject(name, "fumble", match.group(0))
     credit_text = _normalize_apostrophes(text)
     for match in _INT_CREDIT.finditer(credit_text):
-        name = _strip_possessive(match.group(1) or match.group(2) or "")
+        name = _clean_credit_name(match.group(1) or match.group(2) or "")
         if name.lower() in {"int", "interception", "intercepted"}:
             continue
         sentence = _sentence_at(credit_text, match.start())
@@ -6253,12 +6300,13 @@ def _check_same_look_snaps(text: str, recap: dict | None) -> list[str]:
             )
         elif both_claim:
             should_flag = any(
-                sum(1 for names in covered.values() if name in names) < 2
+                sum(1 for names in snaps.values() if name in names) < 2
                 for name in named
             )
         if not should_flag:
             continue
-        msg = _same_look_message(named, covered, sentence)
+        msg_covered = snaps if both_claim else covered
+        msg = _same_look_message(named, msg_covered, sentence)
         if msg in seen:
             continue
         seen.add(msg)
@@ -6289,9 +6337,13 @@ def _check_turnover_counts(
         if claimed is None:
             continue
         team_phrase = (match.group(2) or "").strip()
+        owner = ""
         if team_phrase:
             first = team_phrase.split()[0]
             if _parse_count(first) is not None:
+                continue
+            owner = _alias_team(team_phrase, aliases)
+            if not owner:
                 continue
         sentence = _sentence_at(text, match.start())
         if _SEASON_SPAN.search(sentence):
@@ -6301,7 +6353,21 @@ def _check_turnover_counts(
         ):
             continue
         clause = _box_clause_at(text, match.start())
-        team = _alias_team(team_phrase, aliases) if team_phrase else ""
+        window = text[max(0, match.start() - 48) : match.start()]
+        forced = bool(_FORCED_TURNOVER.search(window))
+        team = owner
+        if not team and forced:
+            forcer = (
+                _explicit_box_subject(clause, aliases)
+                or _bound_box_team(text, match.start(), aliases)
+                or "KC"
+            )
+            if forcer == "KC":
+                team = opp_abbr
+            elif opp_abbr and forcer == opp_abbr:
+                team = "KC"
+            else:
+                team = opp_abbr
         if not team:
             team = _explicit_box_subject(clause, aliases)
         if not team:

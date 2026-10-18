@@ -12569,6 +12569,15 @@ class Oct18CheckerGates(unittest.TestCase):
             "Thornton's 55-yard catch."
         )
         self.assertEqual(self._issues(quay), [], quay)
+        k_space = (
+            "K. Walker was flagged for unnecessary roughness on "
+            "Thornton's 55-yard catch."
+        )
+        space_issues = self._issues(k_space)
+        space_blob = " ".join(space_issues)
+        self.assertTrue(space_issues, k_space)
+        self.assertIn("Q.Walker", space_blob)
+        self.assertIn("K. Walker", space_blob)
 
     def test_nwankpa_apostrophe_forms_are_the_same(self):
         straight = (
@@ -12586,3 +12595,60 @@ class Oct18CheckerGates(unittest.TestCase):
         self.assertEqual(straight_issues, [], straight)
         self.assertEqual(curly_issues, [], curly)
         self.assertEqual(straight_issues, curly_issues)
+
+    TO_MUST_PASS = (
+        "Kansas City’s 24:18 was enough because the turnovers were 0 to 2.",
+        "Kansas City held the ball for 24:18 and had zero turnovers.",
+        "The Chiefs won 30-27 on two Raiders turnovers.",
+        "Kansas City forced two turnovers.",
+        "The Chiefs defense forced two turnovers.",
+    )
+
+    def test_true_turnover_lines_must_pass_and_survive_repair(self):
+        for sentence in self.TO_MUST_PASS:
+            self.assertEqual(self._issues(sentence), [], sentence)
+            drops, leftover, repaired, _logs = self._salvage(sentence)
+            self.assertEqual(leftover, [], leftover)
+            self.assertEqual(drops, [], drops)
+            self.assertIn(sentence, facts.edition_text(repaired))
+        zero_lv = "zero Las Vegas turnovers"
+        issues = self._issues(zero_lv)
+        self.assertTrue(issues, zero_lv)
+        self.assertIn("turnovers 0 disagrees with ESPN 2", " ".join(issues))
+
+    TWICE_MUST_FLAG = (
+        "Nourzad and Tonga reported in as eligible twice in Las Vegas.",
+        "Twice in Las Vegas, Nourzad and Tonga reported eligible together.",
+        "Nourzad reported in as eligible twice.",
+    )
+
+    def test_twice_eligible_false_claims_must_flag(self):
+        for sentence in self.TWICE_MUST_FLAG:
+            issues = self._issues(sentence)
+            blob = " ".join(issues)
+            self.assertTrue(issues, sentence)
+            self.assertIn("11:29", blob)
+            self.assertIn("6:01", blob)
+            self.assertIn("Nourzad reported only", blob)
+            self.assertIn("Tonga alone", blob)
+        tonga = "Tonga reported eligible twice in Las Vegas."
+        self.assertEqual(self._issues(tonga), [], tonga)
+
+    def test_int_credit_messages_name_only_the_player(self):
+        cases = (
+            "Then Bolton intercepted Cousins at Q4 0:10.",
+            "Kansas City's Bolton intercepted Cousins.",
+            "Kansas City’s Bolton intercepted Cousins.",
+            "Later Bolton intercepted Cousins.",
+        )
+        for sentence in cases:
+            issues = self._issues(sentence)
+            blob = " ".join(issues)
+            self.assertTrue(issues, sentence)
+            self.assertIn(
+                "turnover credit: Bolton is not who ESPN lists as the interceptor",
+                blob,
+            )
+            self.assertNotIn("turnover credit: Then Bolton", blob)
+            self.assertNotIn("turnover credit: Later Bolton", blob)
+            self.assertNotIn("turnover credit: City Bolton", blob)
