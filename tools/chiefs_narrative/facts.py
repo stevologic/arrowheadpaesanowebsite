@@ -806,8 +806,10 @@ _FUMBLE_FORCED = re.compile(
     r"([A-Z][A-Za-z''-]+)",
 )
 _INT_CREDIT = re.compile(
-    r"\b([A-Z][A-Za-z''-]+)\s+(?i:intercept(?:ed|ion)|INT)\b"
-    r"|\b(?i:intercept(?:ed|ion)|INT)\s+by\s+([A-Z][A-Za-z''-]+)",
+    r"\b([A-Z][A-Za-z''-]+(?:\s+[A-Z][A-Za-z''-]+)?)\s+"
+    r"(?i:intercept(?:ed|ion)|INT)\b"
+    r"|\b(?i:intercept(?:ed|ion)|INT)\s+by\s+"
+    r"([A-Z][A-Za-z''-]+(?:\s+[A-Z][A-Za-z''-]+)?)",
 )
 _VENUE_CREDIT_TOKENS = frozenset(
     {
@@ -2377,9 +2379,25 @@ def _normalize_scope_token(raw: str) -> str:
     return token
 
 
+_COUNT_CLAUSE_BREAK = re.compile(r"\bplus\b|;|—", re.IGNORECASE)
+
+
 def _count_scope(text: str, start: int, end: int):
     """Return None (whole game), a quarter frozenset, or 'skip'."""
-    window = text[max(0, start - 72) : min(len(text), end + 72)]
+    sent_start, sent_end = _sentence_span(text, start)
+    sentence = text[sent_start:sent_end]
+    clause_lo, clause_hi = sent_start, sent_end
+    for brk in _COUNT_CLAUSE_BREAK.finditer(sentence):
+        abs_end = sent_start + brk.end()
+        abs_start = sent_start + brk.start()
+        if abs_end <= start:
+            clause_lo = abs_end
+        elif abs_start >= end:
+            clause_hi = abs_start
+            break
+    window = text[
+        max(clause_lo, start - 72) : min(clause_hi, end + 72)
+    ]
     match = _COUNT_SCOPE.search(window)
     if not match:
         return None
@@ -3758,11 +3776,26 @@ def _unique_official_interceptor(recap: dict | None) -> str:
 
 
 def _swap_credit_name(sentence: str, bad: str, official: str) -> str | None:
+    """Replace a false interceptor credit. Never emit 'Nwankpa Nwankpa'."""
     if not sentence or not bad or not official:
         return None
     if not re.search(rf"\b{re.escape(bad)}\b", sentence):
         return None
-    return re.sub(rf"\b{re.escape(bad)}\b", official, sentence, count=1)
+    # 'Xavier Nwankpa' already ends with the official last name.
+    if re.search(
+        rf"\b{re.escape(bad)}\s+{re.escape(official)}\b",
+        sentence,
+        re.I,
+    ):
+        return None
+    rewritten = re.sub(rf"\b{re.escape(bad)}\b", official, sentence, count=1)
+    if re.search(
+        rf"\b{re.escape(official)}\s+{re.escape(official)}\b",
+        rewritten,
+        re.I,
+    ):
+        return None
+    return rewritten
 
 
 def _official_names(plays: list[dict], *fields: str) -> set[str]:
@@ -5979,6 +6012,13 @@ def _check_same_look_snaps(text: str, recap: dict | None) -> list[str]:
     ]
     if not text or not eligible:
         return []
+    recap_clocks = {
+        (row.get("quarter"), row.get("clock"))
+        for row in list(eligible) + _plays(recap)
+    }
+    # Miami leftover: only the Hard Rock stuffed snaps used 6:58 / 6:15.
+    if not recap_clocks & {(2, "6:58"), (2, "6:15")}:
+        return []
     nourzad_clocks = {
         (row.get("quarter"), row.get("clock"))
         for row in eligible
@@ -5989,6 +6029,12 @@ def _check_same_look_snaps(text: str, recap: dict | None) -> list[str]:
         sentence = _sentence_at(text, match.start())
         low = sentence.lower()
         if "nourzad" not in low and "eligible" not in low and "jumbo" not in low:
+            continue
+        if re.search(
+            r"\b(?:not|never)\b.{0,32}\bsame\b|"
+            r"\bweren['’]?t\b.{0,24}\bsame\b",
+            low,
+        ):
             continue
         # The two Walker stuffs at the Miami 12 were Q2 6:58 (no report)
         # and Q2 6:15 (Nourzad). Same-look / both-snaps claims are false.
@@ -6185,7 +6231,7 @@ def _passer_side_name(name: str, recap: dict | None) -> str:
 
 
 _PRESSURE_CLAUSE_SPLIT = re.compile(
-    r";\s+|,\s+and\s+|\n|\s+while\s+|\s+whereas\s+",
+    r";\s+|,\s+and\s+|,\s+with\s+|\n|\s+while\s+|\s+whereas\s+",
     re.IGNORECASE,
 )
 
@@ -6217,7 +6263,9 @@ def _allowed_sack_subject_side(clause: str) -> str:
     low = (clause or "").lower()
     if not re.search(
         r"\bsacks?\s+allowed\b|\ballowed\b.{0,40}\bsacks?\b|"
-        r"\b(?:protection|(?:offensive\s+)?line)\b.{0,40}\bsacks?\b",
+        r"\bprotection\b.{0,40}\bsacks?\b|"
+        r"\boffensive\s+line\b.{0,40}\bsacks?\b|"
+        r"(?<!possession )\bline\b.{0,40}\bsacks?\b",
         low,
     ):
         return ""
@@ -6265,7 +6313,8 @@ def _pressure_side(sentence: str, match, recap: dict | None = None) -> str:
             continue
         if re.search(
             rf"\b(?:sacked|hit)\s+{re.escape(token)}\b|"
-            rf"\b(?:sacks?|hits?)\s+(?:of|on)\s+{re.escape(token)}\b",
+            rf"\b(?:sacks?|hits?)\s+(?:of|on|against)\s+{re.escape(token)}\b|"
+            rf"\bsacks?\s+against\b.{{0,48}}\b{re.escape(token)}\b",
             low,
         ):
             return "opp_qb"
@@ -6320,7 +6369,14 @@ def _defense_recorded_sack_skip(
     ):
         return False
     if re.search(
-        r"\b(?:recorded|four-man|coverage|rush that|the rush|front)\b",
+        r"\b(?:took|absorbed|allowed|given up)\b",
+        sentence or "",
+        re.I,
+    ):
+        return False
+    if re.search(
+        r"\b(?:recorded|four-man|coverage|rush that|the rush|front|"
+        r"bassa|cochrane|nwankpa|scoring order)\b",
         sentence or "",
         re.I,
     ):
@@ -7569,7 +7625,8 @@ _STAT_DISAGREE = re.compile(
     re.IGNORECASE,
 )
 _TURNOVER_CREDIT_VIOLATION = re.compile(
-    r"turnover credit:\s+(?P<name>[A-Za-z][A-Za-z''.-]*)\s+is not",
+    r"turnover credit:\s+(?P<name>[A-Za-z][A-Za-z''.-]*"
+    r"(?:\s+[A-Z][A-Za-z''.-]*)?)\s+is not",
     re.IGNORECASE,
 )
 _ILLEGAL_USE_NOT_SNEED = re.compile(

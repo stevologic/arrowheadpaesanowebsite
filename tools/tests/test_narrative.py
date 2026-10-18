@@ -11702,11 +11702,14 @@ class Oct14EditionGates(unittest.TestCase):
         )
         self.assertFalse(any(known_errors.is_hold_only_issue(item) for item in issues), issues)
         fixed, logs = known_errors.apply_known_errors(narrative, recap)
-        self.assertIn(sentence, facts.edition_text(fixed))
-        self.assertNotIn("drew a flag on", facts.edition_text(fixed))
+        blob = facts.edition_text(fixed)
+        self.assertIn("were enforced", blob)
+        self.assertNotIn("wiped plays", blob)
+        self.assertIn("N. Remigio", blob)
+        self.assertNotIn("drew a flag on", blob)
         self.assertFalse(any("drew a flag on" in line for line in logs), logs)
         flagged = facts.check_review(fixed, self.LAST, recap)
-        self.assertTrue(
+        self.assertFalse(
             any("Remigio" in item and "did not wipe" in item for item in flagged),
             flagged,
         )
@@ -12271,3 +12274,263 @@ class Oct17CheckerGates(unittest.TestCase):
     def test_araiza_ran_for_12_is_not_team_rushing(self):
         sentence = "He also ran for 12 on a punt-formation snap."
         self.assertEqual(self._issues(sentence), [], sentence)
+
+
+class Oct18CheckerGates(unittest.TestCase):
+    """Run 39131849361 / PR #235: no mangled names, no ESPN-true drops."""
+
+    LAST = Oct14EditionGates.LAST
+    FOUR_FG = (
+        "That is four Las Vegas field goals on the day once the 44- and "
+        "48-yard kicks in the fourth quarter are counted, plus one Kansas "
+        "City field goal."
+    )
+    BOX_399 = "Zero turnovers and 399 total yards despite 24:18 of possession"
+    ZERO_SACKS = (
+        "Zero sacks against a 31-of-52 Cousins day, with 8 hits allowed on "
+        "Mahomes and two sacks"
+    )
+    PENALTIES = (
+        "Penalties on N. Williams, P. Woods, N. Remigio, F. Anudike-Uzomah, "
+        "and L. Sneed that wiped plays, including roughing and defensive "
+        "holding on the late drive"
+    )
+    TONGA = (
+        "Tonga can report eligible, but the Las Vegas snaps were not the "
+        "same look: Nourzad and Tonga reported together on the no-gain to "
+        "the 50, and Tonga reported on the later Mahomes scramble."
+    )
+    WALK = (
+        "Walk the scoring order, the 24:18 possession line, the zero sacks, "
+        "the Bassa force, the Cochrane recovery, and Nwankpa’s interception."
+    )
+    XAVIER = (
+        "At Allegiant Stadium, Las Vegas led 13-10 at the half behind a "
+        "27-yard touchdown at Q1 8:10 and field goals of 32 and 48 yards, "
+        "then Kansas City closed 30-27 after Walker’s 22-yard touchdown and "
+        "an interception by Xavier Nwankpa."
+    )
+    QUINTON = (
+        "Thornton’s deep catches are on the tape without a play-action tag: "
+        "42 yards to the Las Vegas 5 in the second quarter, then 55 yards "
+        "to the Las Vegas 5 at Q4 3:35, with a Quinton Walker "
+        "unnecessary-roughness flag tacked on."
+    )
+    A_AN = (
+        "Mahomes finished 15-of-30 for 225 yards, two touchdown passes, a "
+        "97.2 rating, two sacks, and eight quarterback hits. Net passing "
+        "was 210. Cousins was 31-of-52 with a 85.8 rating and was not "
+        "sacked; Kansas City still posted 10 quarterback hits."
+    )
+
+    def _review(self, *sentences):
+        return {
+            "phase": {"type": "regular"},
+            "lastGameReview": {
+                "opponent": "Las Vegas Raiders",
+                "result": "W",
+                "score": "KC 30–27",
+                "lede": "Kansas City beat Las Vegas 30-27.",
+                "analysis": [{"body": sentence} for sentence in sentences],
+            },
+        }
+
+    def _issues(self, sentence, recap=None):
+        recap = recap or _load_fixture("espn_401872976_recap.json")
+        return facts.check_review(self._review(sentence), self.LAST, recap)
+
+    def _salvage(self, *sentences):
+        recap = _load_fixture("espn_401872976_recap.json")
+        narrative = self._review(*sentences)
+        issues = facts.check_review(narrative, self.LAST, recap)
+        fixed, logs = facts.apply_fact_corrections(
+            narrative, issues, recap, self.LAST
+        )
+        leftover = facts.check_review(fixed, self.LAST, recap)
+        repaired = facts.repair_offending_copy(
+            fixed, leftover, self.LAST, recap
+        )
+        return (
+            facts.dropped_sentences(narrative, repaired),
+            leftover,
+            repaired,
+            logs,
+        )
+
+    def test_xavier_nwankpa_is_not_mangled_to_nwankpa_nwankpa(self):
+        recap = _load_fixture("espn_401872976_recap.json")
+        self.assertEqual(self._issues(self.XAVIER), [], self.XAVIER)
+        drops, leftover, repaired, logs = self._salvage(self.XAVIER)
+        blob = facts.edition_text(repaired)
+        self.assertEqual(leftover, [], leftover)
+        self.assertEqual(drops, [], drops)
+        self.assertIn("Xavier Nwankpa", blob)
+        self.assertNotIn("Nwankpa Nwankpa", blob)
+        self.assertFalse(
+            any("Nwankpa Nwankpa" in line for line in logs),
+            logs,
+        )
+        swapped = facts._swap_credit_name(self.XAVIER, "Xavier", "Nwankpa")
+        self.assertIsNone(swapped)
+        self.assertNotIn(
+            "Nwankpa Nwankpa",
+            facts._swap_credit_name(
+                "an interception by Allegiant", "Allegiant", "Nwankpa"
+            )
+            or "",
+        )
+
+    def test_quinton_walker_still_becomes_quay(self):
+        issues = self._issues(self.QUINTON)
+        self.assertTrue(
+            any("Quinton Walker must be Quay Walker" in item for item in issues),
+            issues,
+        )
+        _drops, leftover, repaired, logs = self._salvage(self.QUINTON)
+        blob = facts.edition_text(repaired)
+        self.assertEqual(leftover, [], leftover)
+        self.assertIn("Quay Walker", blob)
+        self.assertNotIn("Quinton Walker", blob)
+        self.assertNotIn("Quay Quay", blob)
+        self.assertTrue(any("Quay Walker" in line for line in logs), logs)
+
+    def test_a_85_8_still_becomes_an(self):
+        issues = self._issues(self.A_AN)
+        self.assertTrue(any("a 85.8" in item for item in issues), issues)
+        _drops, leftover, repaired, logs = self._salvage(self.A_AN)
+        blob = facts.edition_text(repaired)
+        self.assertEqual(leftover, [], leftover)
+        self.assertIn("an 85.8", blob)
+        self.assertNotIn("a 85.8", blob)
+        self.assertTrue(
+            any("a 85.8" in line and "an 85.8" in line for line in logs),
+            logs,
+        )
+
+    def test_four_lv_field_goals_plus_kc_fg_passes_and_stays(self):
+        self.assertEqual(self._issues(self.FOUR_FG), [], self.FOUR_FG)
+        drops, leftover, repaired, _logs = self._salvage(self.FOUR_FG)
+        self.assertEqual(leftover, [], leftover)
+        self.assertEqual(drops, [], drops)
+        self.assertIn(self.FOUR_FG, facts.edition_text(repaired))
+
+    def test_zero_turnovers_399_yards_passes_and_stays(self):
+        self.assertEqual(self._issues(self.BOX_399), [], self.BOX_399)
+        drops, leftover, repaired, _logs = self._salvage(self.BOX_399)
+        self.assertEqual(leftover, [], leftover)
+        self.assertEqual(drops, [], drops)
+        self.assertIn(self.BOX_399, facts.edition_text(repaired))
+
+    def test_zero_sacks_against_cousins_with_mahomes_hits_stays(self):
+        self.assertEqual(self._issues(self.ZERO_SACKS), [], self.ZERO_SACKS)
+        drops, leftover, repaired, _logs = self._salvage(self.ZERO_SACKS)
+        self.assertEqual(leftover, [], leftover)
+        self.assertEqual(drops, [], drops)
+        self.assertIn(self.ZERO_SACKS, facts.edition_text(repaired))
+
+    def test_penalty_list_rewrites_wiped_instead_of_dropping(self):
+        issues = self._issues(self.PENALTIES)
+        self.assertTrue(
+            any("did not wipe" in item and "Remigio" in item for item in issues),
+            issues,
+        )
+        _drops, leftover, repaired, logs = self._salvage(self.PENALTIES)
+        blob = facts.edition_text(repaired)
+        self.assertEqual(leftover, [], leftover)
+        self.assertIn("were enforced", blob)
+        self.assertNotIn("wiped plays", blob)
+        self.assertIn("N. Remigio", blob)
+        self.assertIn("N. Williams", blob)
+        self.assertTrue(any("were enforced" in line for line in logs), logs)
+
+    def test_tonga_not_same_look_passes_and_stays(self):
+        self.assertEqual(self._issues(self.TONGA), [], self.TONGA)
+        drops, leftover, repaired, _logs = self._salvage(self.TONGA)
+        self.assertEqual(leftover, [], leftover)
+        self.assertEqual(drops, [], drops)
+        self.assertIn(self.TONGA, facts.edition_text(repaired))
+
+    def test_walk_the_scoring_order_zero_sacks_stays(self):
+        self.assertEqual(self._issues(self.WALK), [], self.WALK)
+        drops, leftover, repaired, _logs = self._salvage(self.WALK)
+        self.assertEqual(leftover, [], leftover)
+        self.assertEqual(drops, [], drops)
+        self.assertIn(self.WALK, facts.edition_text(repaired))
+
+    def test_oct18_bundle_survives_together(self):
+        drops, leftover, repaired, logs = self._salvage(
+            self.FOUR_FG,
+            self.ZERO_SACKS,
+            self.TONGA,
+            self.WALK,
+            self.XAVIER,
+            self.QUINTON,
+            self.A_AN,
+        )
+        blob = facts.edition_text(repaired)
+        self.assertEqual(leftover, [], leftover)
+        self.assertNotIn(self.FOUR_FG, drops)
+        self.assertNotIn(self.ZERO_SACKS, drops)
+        self.assertNotIn(self.TONGA, drops)
+        self.assertNotIn(self.WALK, drops)
+        self.assertNotIn(self.XAVIER, drops)
+        self.assertIn(self.FOUR_FG, blob)
+        self.assertIn(self.ZERO_SACKS, blob)
+        self.assertIn(self.TONGA, blob)
+        self.assertIn(self.WALK, blob)
+        self.assertIn("Xavier Nwankpa", blob)
+        self.assertNotIn("Nwankpa Nwankpa", blob)
+        self.assertIn("Quay Walker", blob)
+        self.assertIn("an 85.8", blob)
+        self.assertFalse(any("Nwankpa Nwankpa" in line for line in logs), logs)
+
+    def test_false_claims_still_fail(self):
+        recap = _load_fixture("espn_401872976_recap.json")
+        five = (
+            "That is five Las Vegas field goals on the day, plus one "
+            "Kansas City field goal."
+        )
+        issues = self._issues(five)
+        self.assertTrue(issues, five)
+        self.assertIn("field-goal count 5", " ".join(issues))
+        mahomes_zero = "Mahomes had zero sacks."
+        issues = self._issues(mahomes_zero)
+        self.assertTrue(issues, mahomes_zero)
+        self.assertIn("sacks 0 disagrees with ESPN 2", " ".join(issues))
+        allegiant = "An Allegiant interception closed the game."
+        issues = self._issues(allegiant)
+        self.assertTrue(
+            any("Allegiant" in item and "interceptor" in item for item in issues),
+            issues,
+        )
+        miami = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        both = "Nourzad was eligible on both snaps."
+        issues = facts.check_review(self._review(both), last, miami)
+        self.assertTrue(issues, both)
+        lv_rush = "Las Vegas had 189 rushing yards."
+        issues = self._issues(lv_rush)
+        self.assertTrue(issues, lv_rush)
+        self.assertIn("team rushing 189 disagrees with ESPN 72", " ".join(issues))
+        worth = (
+            "Kansas City closed 30-27 after an interception by Xavier Worthy."
+        )
+        issues = self._issues(worth)
+        self.assertTrue(
+            any("interceptor" in item for item in issues),
+            issues,
+        )
+        fixed, logs = facts.apply_fact_corrections(
+            self._review(worth), issues, recap, self.LAST
+        )
+        leftover = facts.check_review(fixed, self.LAST, recap)
+        repaired = (
+            facts.repair_offending_copy(fixed, leftover, self.LAST, recap)
+            if leftover
+            else fixed
+        )
+        blob = facts.edition_text(repaired)
+        self.assertNotIn("Nwankpa Nwankpa", blob)
+        self.assertNotIn("Xavier Worthy", blob)
+        self.assertFalse(any("Nwankpa Nwankpa" in line for line in logs), logs)
