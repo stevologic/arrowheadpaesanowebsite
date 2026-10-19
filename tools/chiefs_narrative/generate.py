@@ -690,12 +690,18 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
 
     # 2. Determine phase + upcoming games.
     ph = phase_mod.detect(schedule)
-    upcoming = phase_mod.next_games(schedule, count=3)
     print(f"  [phase] {ph['label']} (type={ph['type']}, mode={ph['mode']})")
+    if _signed_review_already_published(ph) and _published_review_is_prior_ct_day():
+        print(
+            "  [phase] signed Review is from a prior CT day; advancing to Preview"
+        )
+        ph = phase_mod.detect(schedule, advance_from_review=True)
+        print(f"  [phase] {ph['label']} (type={ph['type']}, mode={ph['mode']})")
     if _signed_review_already_published(ph):
         raise LiveGameSkip(
             "signed Review edition already published; skipping new edition"
         )
+    upcoming = phase_mod.next_games(schedule, count=3)
 
     last = ph.get("lastGame") or {}
     if last.get("id"):
@@ -1256,23 +1262,46 @@ def _attach_prior_recap(recap: dict, fixture_name: str, fixtures) -> dict:
     return payload
 
 
+def _load_live_narrative() -> dict | None:
+    path = config.NARRATIVE_JSON
+    if not path.is_file():
+        return None
+    try:
+        live = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return live if isinstance(live, dict) else None
+
+
+def _published_review_is_prior_ct_day(now: datetime | None = None) -> bool:
+    """True when the live edition's America/Chicago day is already over.
+
+    A Sunday-night Review stamped 02:26 UTC Monday is still Sunday in
+    Kansas City. The next CT calendar day should mint the upcoming Preview
+    instead of skipping inside the three-day review window.
+    """
+    pub_day = _edition_calendar_day(_load_live_narrative())
+    if not pub_day:
+        return False
+    stamp = now or config.now_utc()
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=timezone.utc)
+    today = stamp.astimezone(_CT).date().isoformat()
+    return today > pub_day
+
+
 def _signed_review_already_published(ph: dict | None) -> bool:
     """True when Karen already signed the live Review for this last game.
 
     Same-day regen may still overwrite an unsigned draft. A signed Review
     must stay byte-identical; reminting it is what turned run 37358660165
-    red after Week 4 landed.
+    red after Week 4 landed. The next CT day is not a remint: detect
+    advances to Preview so generate can look at the upcoming game.
     """
     if str((ph or {}).get("mode") or "").strip().lower() != "review":
         return False
-    path = config.NARRATIVE_JSON
-    if not path.is_file():
-        return False
-    try:
-        live = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return False
-    if not isinstance(live, dict) or not facts.is_review_edition(live):
+    live = _load_live_narrative()
+    if not live or not facts.is_review_edition(live):
         return False
     if not review_gate.review_signed_off(live):
         return False

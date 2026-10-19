@@ -1465,6 +1465,48 @@ class SeasonClock(unittest.TestCase):
             self.assertTrue(phase.is_upcoming(ph["nextGame"], stamp))
             self.assertFalse(phase.is_upcoming(ph["lastGame"], stamp))
 
+    def test_published_review_next_ct_day_is_upcoming_preview(self):
+        """Monday after a published Sunday Review is Week 7 Preview, not a skip."""
+        slate = [
+            {
+                "id": "401873006",
+                "week": 6,
+                "seasonType": "reg",
+                "date": "2026-10-18T20:25:00Z",
+                "opponent": "Los Angeles Chargers",
+                "opponentAbbr": "LAC",
+                "completed": True,
+                "inProgress": False,
+                "kcScore": 22,
+                "oppScore": 6,
+            },
+            {
+                "id": "401873022",
+                "week": 7,
+                "seasonType": "reg",
+                "date": "2026-10-26T00:20:00Z",
+                "opponent": "Seattle Seahawks",
+                "opponentAbbr": "SEA",
+                "completed": False,
+                "inProgress": False,
+                "kcScore": None,
+                "oppScore": None,
+            },
+        ]
+        monday = datetime(2026, 10, 19, 9, 37, tzinfo=timezone.utc)
+        still_review = phase.detect(slate, now=monday)
+        self.assertEqual(still_review["mode"], "review")
+        self.assertEqual(still_review["edition"], "2026 Week 6 · Review")
+        self.assertEqual(still_review["week"], 6)
+        ahead = phase.detect(slate, now=monday, advance_from_review=True)
+        self.assertEqual(ahead["mode"], "preview")
+        self.assertEqual(ahead["week"], 7)
+        self.assertEqual(ahead["label"], "Week 7")
+        self.assertEqual(ahead["edition"], "2026 Week 7 · Preview")
+        self.assertEqual(ahead["nextGame"]["opponent"], "Seattle Seahawks")
+        self.assertEqual(ahead["lastGame"]["opponent"], "Los Angeles Chargers")
+        self.assertTrue(phase.is_upcoming(ahead["nextGame"], monday))
+
     def test_review_edition_holds_even_when_checker_is_clean(self):
         """Oct 5 Review never automerges; Oct 4 Preview still can."""
         fat = " ".join(["Chiefs tape review word"] * 800)
@@ -3136,6 +3178,65 @@ class LiveGamePhase(unittest.TestCase):
             )
             self.assertFalse(wire_json.exists())
             self.assertEqual(list(editions.iterdir()), [])
+
+    def test_signed_review_prior_ct_day_advances_to_preview(self):
+        """A Sunday-night signed Review must not skip Monday's upcoming Preview.
+
+        generatedAt 2026-10-19T02:26:31Z is still Sunday Oct 18 in
+        America/Chicago. Monday 09:37 UTC is the next CT day, so generate
+        looks at Seattle instead of reminting the Chargers Review.
+        """
+        monday = datetime(2026, 10, 19, 9, 37, tzinfo=timezone.utc)
+        chargers = {
+            "id": "401873006",
+            "week": 6,
+            "seasonType": "reg",
+            "date": "2026-10-18T20:25:00Z",
+            "opponent": "Los Angeles Chargers",
+            "completed": True,
+            "inProgress": False,
+            "kcScore": 22,
+            "oppScore": 6,
+        }
+        seattle = {
+            "id": "401873022",
+            "week": 7,
+            "seasonType": "reg",
+            "date": "2026-10-26T00:20:00Z",
+            "opponent": "Seattle Seahawks",
+            "completed": False,
+            "inProgress": False,
+            "kcScore": None,
+            "oppScore": None,
+        }
+        live = {
+            "generatedAt": "2026-10-19T02:26:31+00:00",
+            "slug": "2026-10-19-0226",
+            "edition": "2026 Week 6 · Review",
+            "phase": {"type": "regular", "mode": "review", "week": 6},
+            "lastGameReview": {"opponent": "Los Angeles Chargers"},
+        }
+        self.assertEqual(generate._edition_calendar_day(live), "2026-10-18")
+        review_ph = phase.detect([chargers, seattle], now=monday)
+        self.assertEqual(review_ph["mode"], "review")
+        ahead = phase.detect(
+            [chargers, seattle], now=monday, advance_from_review=True
+        )
+        self.assertEqual(ahead["mode"], "preview")
+        self.assertEqual(ahead["edition"], "2026 Week 7 · Preview")
+        with tempfile.TemporaryDirectory() as tmp:
+            narrative_json = Path(tmp) / "narrative.json"
+            narrative_json.write_text(json.dumps(live) + "\n", encoding="utf-8")
+            with patch.object(generate.config, "NARRATIVE_JSON", narrative_json), \
+                patch.object(review_gate, "review_signed_off", return_value=True), \
+                patch.object(config, "now_utc", return_value=monday):
+                self.assertTrue(generate._signed_review_already_published(review_ph))
+                self.assertTrue(generate._published_review_is_prior_ct_day())
+                self.assertFalse(generate._signed_review_already_published(ahead))
+            same_day = datetime(2026, 10, 19, 2, 40, tzinfo=timezone.utc)
+            with patch.object(generate.config, "NARRATIVE_JSON", narrative_json), \
+                patch.object(config, "now_utc", return_value=same_day):
+                self.assertFalse(generate._published_review_is_prior_ct_day())
 
     def test_review_edition_header_uses_completed_week(self):
         now = datetime(2026, 9, 28, 15, 0, tzinfo=timezone.utc)
