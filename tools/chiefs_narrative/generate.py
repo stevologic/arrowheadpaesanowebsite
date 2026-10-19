@@ -632,33 +632,24 @@ def _write_archive(narrative: dict) -> None:
         "theEdge": narrative.get("theEdge") or "",
     }
     # Replace only this slug. A same-day Preview and Review are different
-    # editions and must both stay in the archive. Count first so a later
-    # slice cannot drop a row that was already archived.
-    previous = len(archive)
+    # editions and must both stay in the archive. Unlimited growth is
+    # intended for now; do not prune.
     slug = (snapshot.get("slug") or "").strip()
     if slug:
         archive = [a for a in archive if (a.get("slug") or "").strip() != slug]
     archive.insert(0, snapshot)
-    archive = _keep_archive_rows(archive, previous)
+    archive = _keep_archive_rows(archive)
     config.ARCHIVE_JSON.write_text(
         json.dumps(archive, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
 
 
-def _keep_archive_rows(archive: list, previous_unique: int) -> list:
-    """Bound: never drop an edition that was already archived.
+def _keep_archive_rows(archive: list) -> list:
+    """Keep every archived edition. Unlimited growth is intended for now.
 
-    A 30-row cap is not a usable maximum. Same-day Preview and Review both
-    stay (#241), so the list grows, and a slice deleted 2026-09-07-1631 and
-    2026-09-06-1417. The bound is ``previous_unique`` — do not shrink.
+    Same-day Preview and Review both stay (#241). A 30-row slice deleted
+    2026-09-07-1631 and 2026-09-06-1417. Do not prune.
     """
-    if previous_unique < 0:
-        return archive
-    if len(archive) < previous_unique:
-        raise RuntimeError(
-            "Chiefs Narrative archive would drop existing editions "
-            f"({len(archive)} < {previous_unique})"
-        )
     return archive
 
 

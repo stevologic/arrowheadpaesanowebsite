@@ -194,15 +194,15 @@ class UniqueEditionSlugTests(unittest.TestCase):
         self.assertEqual(slugs[0], "2026-10-19-2156")
         self.assertIn("2026-09-07-1631", slugs)
         self.assertIn("2026-09-06-1417", slugs)
-        self.assertEqual(generate._keep_archive_rows(saved, 31), saved)
-        with self.assertRaises(RuntimeError):
-            generate._keep_archive_rows(saved[:30], 31)
+        self.assertEqual(generate._keep_archive_rows(saved), saved)
 
-    def test_keep_archive_rows_never_drops_existing_editions(self):
+    def test_keep_archive_rows_does_not_prune(self):
         rows = [{"slug": f"s{i}"} for i in range(32)]
-        self.assertEqual(generate._keep_archive_rows(rows, 32), rows)
-        with self.assertRaises(RuntimeError):
-            generate._keep_archive_rows(rows[:30], 32)
+        kept = generate._keep_archive_rows(rows)
+        self.assertIs(kept, rows)
+        self.assertEqual(len(kept), 32)
+        self.assertNotIn("Bound", generate._keep_archive_rows.__doc__ or "")
+        self.assertIn("Unlimited growth is intended for now", generate._keep_archive_rows.__doc__ or "")
 
 
 class OddsSourceTests(unittest.TestCase):
