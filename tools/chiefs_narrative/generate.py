@@ -228,17 +228,63 @@ def _ensure_desk_sections(
         narrative["nextGame"] = nxt
 
 
+_SLUG_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})-(\d{2})(\d{2})$")
+
+
 def _edition_slug(narrative: dict) -> str:
     """Stable per-edition slug from the generation timestamp, e.g. 2026-07-25-1930."""
     stamp = (narrative.get("generatedAt") or config.iso_now())[:16]  # YYYY-MM-DDTHH:MM
     return stamp.replace("T", "-").replace(":", "")
 
 
+def _bump_slug(slug: str) -> str:
+    """Advance HHMM by one minute, wrapping inside the same calendar day."""
+    match = _SLUG_RE.fullmatch(slug or "")
+    if not match:
+        raise ValueError(f"not an edition slug: {slug!r}")
+    day = match.group(1)
+    total = (int(match.group(2)) * 60 + int(match.group(3)) + 1) % (24 * 60)
+    return f"{day}-{total // 60:02d}{total % 60:02d}"
+
+
+def _slug_exists(slug: str) -> bool:
+    """True when an edition file or image directory already owns this id."""
+    if not slug:
+        return False
+    if (config.EDITIONS_DIR / f"{slug}.json").is_file():
+        return True
+    image_dir = config.DIAGRAM_DIR / slug
+    try:
+        return image_dir.is_dir() and any(image_dir.iterdir())
+    except OSError:
+        return False
+
+
+def _mint_unique_slug(narrative: dict) -> str:
+    """Mint from generatedAt / current time; bump HHMM while that id exists.
+
+    Preview and Review on the same calendar day are different editions.
+    Never reuse another edition's slug or image directory.
+    """
+    slug = _edition_slug(narrative)
+    start = slug
+    for _ in range(24 * 60):
+        if not _slug_exists(slug):
+            narrative["slug"] = slug
+            return slug
+        slug = _bump_slug(slug)
+        if slug == start:
+            break
+    raise RuntimeError(
+        f"Chiefs Narrative could not mint a free edition slug from {start}"
+    )
+
+
 def _edition_calendar_day(payload: dict | None) -> str:
     """America/Chicago calendar day for an edition (YYYY-MM-DD).
 
-    Same-day replacements must share one slug and skip uniqueness against
-    the edition they overwrite. UTC midnight is still Tuesday in Kansas City.
+    Same-day Preview and Review keep separate slugs. UTC midnight is still
+    Tuesday in Kansas City.
     """
     stamp = ((payload or {}).get("generatedAt") or "").strip()
     if stamp:
@@ -261,36 +307,6 @@ def _prior_day_editions(recent: list[dict] | None, day: str) -> list[dict]:
     if not day:
         return rows
     return [ed for ed in rows if _edition_calendar_day(ed) != day]
-
-
-def _reuse_same_day_slug(narrative: dict, recent: list[dict] | None) -> None:
-    """Keep today's published slug so a regen overwrites / and /narrative/."""
-    day = _edition_calendar_day(narrative)
-    if not day:
-        return
-    for ed in recent or []:
-        if _edition_calendar_day(ed) == day and ed.get("slug"):
-            narrative["slug"] = ed["slug"]
-            return
-
-
-def _purge_other_same_day_editions(narrative: dict) -> None:
-    """Drop extra same-day edition files so the archive has one slug."""
-    day = _edition_calendar_day(narrative)
-    keep = (narrative.get("slug") or "").strip()
-    if not day or not config.EDITIONS_DIR.is_dir():
-        return
-    for path in config.EDITIONS_DIR.glob("*.json"):
-        if path.stem == keep:
-            continue
-        try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-        except Exception:  # noqa: BLE001
-            payload = {"slug": path.stem}
-        if not isinstance(payload, dict):
-            payload = {"slug": path.stem}
-        if _edition_calendar_day(payload) == day:
-            path.unlink(missing_ok=True)
 
 
 def normalize_copy(text) -> str:
@@ -352,6 +368,17 @@ def _load_recent_editions(limit: int = RECENT_HEADLINE_LIMIT) -> list[dict]:
         rows.sort(key=lambda row: (row[0], row[1]), reverse=True)
         return [snap for _, _, snap in rows[:limit]]
     return _load_archive_snapshots(limit)
+
+
+def _first_copy_collision(
+    narrative: dict, recent: list[dict] | None
+) -> tuple[dict | None, list[str]]:
+    """First published edition whose headline, dek, or theEdge was reused."""
+    for edition in recent or []:
+        matched = _matched_copy_fields(narrative, edition)
+        if matched:
+            return edition, matched
+    return None, []
 
 
 def _matched_copy_fields(narrative: dict, previous: dict | None) -> list[str]:
@@ -604,9 +631,11 @@ def _write_archive(narrative: dict) -> None:
         ),
         "theEdge": narrative.get("theEdge") or "",
     }
-    # Replace a same-day snapshot rather than duplicating.
-    today = _edition_calendar_day(narrative)
-    archive = [a for a in archive if _edition_calendar_day(a) != today]
+    # Replace only this slug. A same-day Preview and Review are different
+    # editions and must both stay in the archive.
+    slug = (snapshot.get("slug") or "").strip()
+    if slug:
+        archive = [a for a in archive if (a.get("slug") or "").strip() != slug]
     archive.insert(0, snapshot)
     archive = archive[:30]  # keep the last ~month of editions
     config.ARCHIVE_JSON.write_text(
@@ -707,12 +736,9 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         print(f"  [writer] model = {providers.grok_model()}")
 
     recent = _load_recent_editions()
-    today = _edition_calendar_day({"generatedAt": config.iso_now()})
-    prior_days = _prior_day_editions(recent, today)
-    previous = prior_days[0] if prior_days else None
     system = prompts.SYSTEM_PROMPT
     user = prompts.build_user_prompt(
-        signals, ph, upcoming, prior_editions=prior_days
+        signals, ph, upcoming, prior_editions=recent
     )
 
     budget = LlmCallBudget()
@@ -738,8 +764,8 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
     narrative = _assemble_narrative(raw, ph, meta, signals, upcoming)
     if slate_record:
         narrative["record"] = slate_record
-    _reuse_same_day_slug(narrative, recent)
-    matched = _matched_copy_fields(narrative, previous)
+    _mint_unique_slug(narrative)
+    previous, matched = _first_copy_collision(narrative, recent)
     if matched == ["dek"]:
         narrative, generator_label = _dedupe_dek_or_raise(
             narrative,
@@ -770,7 +796,8 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             narrative = _assemble_narrative(raw, ph, meta, signals, upcoming)
             if slate_record:
                 narrative["record"] = slate_record
-            _reuse_same_day_slug(narrative, recent)
+            _mint_unique_slug(narrative)
+        previous, _ = _first_copy_collision(narrative, recent)
         narrative, generator_label = _dedupe_dek_or_raise(
             narrative,
             previous,
@@ -848,7 +875,8 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         narrative = _assemble_narrative(raw, ph, meta, signals, upcoming)
         if slate_record:
             narrative["record"] = slate_record
-        _reuse_same_day_slug(narrative, recent)
+        _mint_unique_slug(narrative)
+        previous, _ = _first_copy_collision(narrative, recent)
         narrative, generator_label = _dedupe_dek_or_raise(
             narrative,
             previous,
@@ -1152,8 +1180,8 @@ def _write_edition_payload(narrative: dict) -> None:
     slug = narrative.get("slug")
     if slug:
         config.ensure_dirs()
-        (config.EDITIONS_DIR / f"{slug}.json").write_text(payload, encoding="utf-8")
-    _purge_other_same_day_editions(narrative)
+        dest = config.EDITIONS_DIR / f"{slug}.json"
+        dest.write_text(payload, encoding="utf-8")
 
 
 def render_published_diagrams(*, stamp: bool = False) -> dict:

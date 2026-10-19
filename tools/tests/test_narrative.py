@@ -43,6 +43,7 @@ from tools.chiefs_narrative import (
     schema,
     x_embeds,
 )
+from tools.tests.frozen_slate import frozen_schedule
 
 
 def _xo_side_ok(card):
@@ -1633,7 +1634,7 @@ class SeasonClock(unittest.TestCase):
             self.assertTrue(phase.is_upcoming(ph["nextGame"], now))
 
     def test_offseason_phase_holds_when_slate_still_has_games(self):
-        slate = collect.load_cached_schedule()
+        slate = frozen_schedule()
         fat = " ".join(["Chiefs tape review word"] * 800)
         off = {
             "headline": fat,
@@ -2366,13 +2367,14 @@ class HeadlineUniqueness(unittest.TestCase):
         self.assertEqual(llm.call_count, 0)
 
     def test_same_day_replacement_skips_today_and_overwrites_slug(self):
-        """A same-day regen must replace today's flawed edition, not clone-fail it.
+        """A same-day regen mints a new slug and keeps this morning's edition.
 
-        Run 36612663271 died on theEdge vs 2026-09-29-1734 (6-11 / Tuesday desk),
-        the edition the re-run was trying to overwrite. Prior-day copy still fails.
+        Run 39187378943 reused 2026-10-18-1341 and overwrote the Preview.
+        Prior-day copy still fails uniqueness.
         """
         now = "2026-09-29T18:45:00+00:00"
         today_slug = "2026-09-29-1734"
+        minted_slug = "2026-09-29-1845"
         today_edge = (
             "Model/market read: the model gives KC 70.0%; Vegas has it KC -4.5; "
             "Polymarket prices the Chiefs at 8.6% to win it all."
@@ -2394,7 +2396,7 @@ class HeadlineUniqueness(unittest.TestCase):
         replacement = {
             "headline": "Fresh Week 4 title after the 6-11 leftover",
             "dek": "A same-day replacement, not a second Tuesday desk.",
-            "theEdge": today_edge,
+            "theEdge": "A new same-day theEdge, not this morning's leftover.",
             "edition": "2026 Training Camp",
         }
         self.assertEqual(
@@ -2434,25 +2436,30 @@ class HeadlineUniqueness(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertEqual(llm.call_count, 1)
             prompt = llm.call_args.args[2]
-            self.assertNotIn("Tuesday desk", prompt)
+            self.assertIn("Tuesday desk", prompt)
             self.assertIn(yesterday["headline"], prompt)
             self.assertEqual(
                 {p.name for p in editions.iterdir()},
-                {f"{today_slug}.json", "2026-09-28-1547.json"},
+                {f"{today_slug}.json", f"{minted_slug}.json", "2026-09-28-1547.json"},
             )
+            kept = json.loads((editions / f"{today_slug}.json").read_text(encoding="utf-8"))
+            self.assertEqual(kept["headline"], today["headline"])
             live = json.loads((root / "narrative.json").read_text(encoding="utf-8"))
-            self.assertEqual(live["slug"], today_slug)
+            self.assertEqual(live["slug"], minted_slug)
             self.assertEqual(live["headline"], replacement["headline"])
-            self.assertEqual(live["theEdge"], today_edge)
+            self.assertEqual(live["theEdge"], replacement["theEdge"])
             saved = json.loads(archive.read_text(encoding="utf-8"))
             today_rows = [
                 row
                 for row in saved
                 if generate._edition_calendar_day(row) == "2026-09-29"
             ]
-            self.assertEqual(len(today_rows), 1)
-            self.assertEqual(today_rows[0]["slug"], today_slug)
-            self.assertEqual(today_rows[0]["headline"], replacement["headline"])
+            self.assertEqual({row["slug"] for row in today_rows}, {today_slug, minted_slug})
+            self.assertEqual(saved[0]["slug"], minted_slug)
+            self.assertEqual(saved[0]["headline"], replacement["headline"])
+            preview_rows = [row for row in saved if row["slug"] == today_slug]
+            self.assertEqual(len(preview_rows), 1)
+            self.assertEqual(preview_rows[0]["headline"], today["headline"])
 
         clone_yesterday = {
             "headline": yesterday["headline"],
@@ -2879,7 +2886,7 @@ class LiveGamePhase(unittest.TestCase):
 
     def test_oct5_completed_without_score_skips_generate(self):
         """ESPN completed + no scores must not mint a Preview PR."""
-        slate = copy.deepcopy(collect.load_cached_schedule())
+        slate = frozen_schedule()
         lv = None
         for game in slate:
             if str(game.get("id")) == "401872976":
@@ -3477,7 +3484,7 @@ class FactCheck(unittest.TestCase):
         recap = _load_fixture("espn_401872952_recap.json")
         last = dict(self.LAST)
         last["date"] = "2026-09-27T17:00:00Z"
-        slate = collect.load_cached_schedule()
+        slate = frozen_schedule()
 
         def issues(lede, analysis=None):
             return facts.check_review(
@@ -7632,7 +7639,7 @@ class FactCheck(unittest.TestCase):
         ]
 
     def _prod_slate(self):
-        return collect.load_cached_schedule()
+        return frozen_schedule()
 
     def test_zone_blitz_int_needs_word_boundary(self):
         recap = _load_fixture("espn_401872952_recap.json")
@@ -10338,7 +10345,9 @@ class FactCheck(unittest.TestCase):
     def test_review_mentions_bye_instead_of_this_week(self):
         from tools.tests import karen_matrices
 
-        slate = copy.deepcopy(collect.load_cached_schedule())
+        # Pinned Week 4 slate + frozen clock. Live schedule_2026.json must
+        # not flip this once the Chargers final is written into the tree.
+        slate = copy.deepcopy(SeasonClock.week4_preview_slate())
         for game in slate:
             if game.get("id") == "401872976":
                 game["completed"] = True

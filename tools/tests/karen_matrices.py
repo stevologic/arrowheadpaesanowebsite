@@ -6,7 +6,8 @@ import json
 import string
 from pathlib import Path
 
-from tools.chiefs_narrative import collect, facts
+from tools.chiefs_narrative import facts
+from tools.tests.frozen_slate import frozen_schedule
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
@@ -485,7 +486,7 @@ def relabel_mia(name: str, abbr: str, short: str) -> tuple[dict, dict]:
 
 
 def ctx(code: str) -> tuple[dict, dict, list]:
-    slate = collect.load_cached_schedule()
+    slate = frozen_schedule()
     if code == "LV5":
         recap = lv5_box()
         last = last_for(
@@ -564,7 +565,7 @@ def _cap(sentence: str) -> str:
 
 
 def mw7_cases() -> list[dict]:
-    slate = collect.load_cached_schedule()
+    slate = frozen_schedule()
     rows = []
     for name, abbr, short, labels in MW7_TEAMS:
         recap, last = relabel_mia(name, abbr, short)
@@ -633,7 +634,7 @@ def mx8_cases() -> list[dict]:
 def t32_cases() -> list[dict]:
     prior = mia_box()
     prior["opponent"] = "Miami Dolphins"
-    slate0 = collect.load_cached_schedule()
+    slate0 = frozen_schedule()
     rows = []
     for abbr, (city, nick) in T32_TEAMS.items():
         recap = {
