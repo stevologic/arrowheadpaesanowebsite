@@ -632,16 +632,34 @@ def _write_archive(narrative: dict) -> None:
         "theEdge": narrative.get("theEdge") or "",
     }
     # Replace only this slug. A same-day Preview and Review are different
-    # editions and must both stay in the archive.
+    # editions and must both stay in the archive. Count first so a later
+    # slice cannot drop a row that was already archived.
+    previous = len(archive)
     slug = (snapshot.get("slug") or "").strip()
     if slug:
         archive = [a for a in archive if (a.get("slug") or "").strip() != slug]
     archive.insert(0, snapshot)
-    # Do not cap. A 30-row slice dropped 2026-09-07-1631 and 2026-09-06-1417
-    # once same-day Preview and Review both stayed in the archive (#241).
+    archive = _keep_archive_rows(archive, previous)
     config.ARCHIVE_JSON.write_text(
         json.dumps(archive, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
+
+
+def _keep_archive_rows(archive: list, previous_unique: int) -> list:
+    """Bound: never drop an edition that was already archived.
+
+    A 30-row cap is not a usable maximum. Same-day Preview and Review both
+    stay (#241), so the list grows, and a slice deleted 2026-09-07-1631 and
+    2026-09-06-1417. The bound is ``previous_unique`` — do not shrink.
+    """
+    if previous_unique < 0:
+        return archive
+    if len(archive) < previous_unique:
+        raise RuntimeError(
+            "Chiefs Narrative archive would drop existing editions "
+            f"({len(archive)} < {previous_unique})"
+        )
+    return archive
 
 
 def _write_schedule(schedule: list[dict]) -> None:
@@ -692,10 +710,16 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
     # 2. Determine phase + upcoming games.
     ph = phase_mod.detect(schedule)
     print(f"  [phase] {ph['label']} (type={ph['type']}, mode={ph['mode']})")
-    if _signed_review_already_published(ph) and _published_review_is_prior_ct_day():
-        print(
-            "  [phase] signed Review is from a prior CT day; advancing to Preview"
-        )
+    if _should_advance_to_preview(ph):
+        if _live_preview_covers_upcoming(ph):
+            print(
+                "  [phase] live next-week Preview wins the review window; "
+                "advancing to Preview"
+            )
+        else:
+            print(
+                "  [phase] signed Review is from a prior CT day; advancing to Preview"
+            )
         ph = phase_mod.detect(schedule, advance_from_review=True)
         print(f"  [phase] {ph['label']} (type={ph['type']}, mode={ph['mode']})")
     if _signed_review_already_published(ph):
@@ -1272,6 +1296,44 @@ def _load_live_narrative() -> dict | None:
     except (OSError, json.JSONDecodeError):
         return None
     return live if isinstance(live, dict) else None
+
+
+def _live_preview_covers_upcoming(ph: dict | None) -> bool:
+    """True when the published edition is already a Preview for next week's game.
+
+    After Preview 2156 lands, the three-day review window still returns
+    Review for Tue/Wed. That live Preview must win, or generate remints
+    last week's Review.
+    """
+    live = _load_live_narrative()
+    if not live or facts.is_review_edition(live):
+        return False
+    live_phase = live.get("phase") if isinstance(live.get("phase"), dict) else {}
+    if str(live_phase.get("mode") or "").strip().lower() != "preview":
+        return False
+    next_game = (ph or {}).get("nextGame") or {}
+    live_week = live_phase.get("week")
+    next_week = next_game.get("week")
+    try:
+        return int(live_week) == int(next_week)
+    except (TypeError, ValueError):
+        return False
+
+
+def _should_advance_to_preview(
+    ph: dict | None, now: datetime | None = None
+) -> bool:
+    """Look ahead instead of reminting Review.
+
+    True when a signed Review is from a prior CT day, or when a next-week
+    Preview is already live inside the three-day review window.
+    """
+    if _live_preview_covers_upcoming(ph):
+        return True
+    return bool(
+        _signed_review_already_published(ph)
+        and _published_review_is_prior_ct_day(now)
+    )
 
 
 def _published_review_is_prior_ct_day(now: datetime | None = None) -> bool:

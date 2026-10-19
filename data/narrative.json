@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-10-19T21:56:11+00:00",
-  "updatedAt": "2026-10-19T22:58:49+00:00",
+  "updatedAt": "2026-10-19T23:12:51+00:00",
   "generator": "grok:grok-4.7",
   "phase": {
     "type": "regular",
@@ -18,7 +18,7 @@
   "storyline": {
     "lede": "Andy Reid's club is 5-0 because the complementary pieces keep cashing wins that the scoreboard does not dress up. Against Los Angeles, Kansas City put up 22 first downs, 150 rushing yards, and 272 net passing yards, finished with 422 total yards and 30:26 of possession, and still left Arrowhead with a 22-6 final that felt like a finishing problem wearing a division win.",
     "body": [
-      "The last afternoon was a Steve Spagnuolo game as much as a Patrick Mahomes game. Justin Herbert went 22-of-37 with four sacks, a 63.3 rating, and nine quarterback hits from Kansas City; Los Angeles managed 15 first downs, 73 rushing yards, 186 net passing yards, 259 total yards, and 29:34 of possession, and the only Los Angeles points were field goals. Jack Cochrane intercepted Herbert, and the fumble L'Jarius Sneed forced and Drue Tranquill recovered were the giveaways that matched the Chargers' two-turnover line.",
+      "The last afternoon was a Steve Spagnuolo game as much as a Patrick Mahomes game. Justin Herbert went 22-of-37 with four sacks, a 63.3 rating, and nine quarterback hits from Kansas City; Los Angeles managed 15 first downs, 73 rushing yards, 186 net passing yards, 259 total yards, and 29:34 of possession, and the only Los Angeles points were field goals. Jack Cochrane intercepted Herbert, and L'Jarius Sneed forced the fumble Drue Tranquill recovered — the giveaways that matched the Chargers' two-turnover line.",
       "Mahomes was 23-of-30 for 272 yards with an 89.9 rating, zero sacks, and three hits. That is an efficient day. Kenneth Walker III carried 19 times for 128 yards and both Kansas City touchdowns — the 33-yard score up the middle at Q1 7:21, extra point no good, and the 2-yard score at Q2 1:49 — on 21 touches with two catches mixed in. Xavier Worthy caught seven passes for 73 yards in a receiver room that did not have Rashee Rice.",
       "The season ask changes on Sun Oct 25, 7:20 PM CT. DraftKings lists Seattle -2.5. The 5-0 record travels. The benefit of the doubt on third down and in the red area does not."
     ]
@@ -209,8 +209,8 @@
     },
     {
       "tag": "Moore",
-      "title": "The right tackle is Out",
-      "body": "Moore left in the second quarter with a concussion. The Chiefs have him Out for Week 7. That is the protection fact Seattle will circle."
+      "title": "status TBD, in concussion protocol",
+      "body": "Moore left in the second quarter with a concussion. The Chiefs listed him Out only for the rest of the Chargers game. Oct 19 reports: status TBD, in concussion protocol, and no starter has been named."
     },
     {
       "tag": "Defense",
@@ -236,7 +236,7 @@
       "chiefs": "Patrick Mahomes, Kingsley Suamataia, Jaylon Moore's replacement",
       "opponent": "Seattle edge heat on a road underdog",
       "edge": "OPP",
-      "note": "Mahomes took zero sacks and three hits at home. Moore is Out with a concussion, so the right side is Joshua Ezeudu's job at Seattle."
+      "note": "Mahomes took zero sacks and three hits at home. Oct 19 reports: status TBD, in concussion protocol. The Out listing applied only to the rest of the Chargers game; no starter has been named."
     },
     {
       "unit": "Worthy and Kelce vs. Seattle coverage",
@@ -370,9 +370,9 @@
   "injuries": [
     {
       "player": "Jaylon Moore",
-      "status": "Out, concussion",
-      "note": "Left in the second quarter with a concussion. The Chiefs listed him Out for Week 7.",
-      "source": "Kansas City Chiefs"
+      "status": "status TBD, in concussion protocol",
+      "note": "Left in the second quarter. The Chiefs listed him Out only for the rest of the Chargers game. Oct 19 reports: status TBD, in concussion protocol; no starter named.",
+      "source": "Oct 19 reports: status TBD, in concussion protocol"
     },
     {
       "player": "Travis Kelce",

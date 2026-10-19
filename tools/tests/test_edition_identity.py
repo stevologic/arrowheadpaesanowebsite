@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 import yaml
 
-from tools.chiefs_narrative import edition_overlay, facts, generate
+from tools.chiefs_narrative import edition_overlay, facts, generate, odds
 from tools.tests.frozen_slate import frozen_schedule
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -194,6 +194,44 @@ class UniqueEditionSlugTests(unittest.TestCase):
         self.assertEqual(slugs[0], "2026-10-19-2156")
         self.assertIn("2026-09-07-1631", slugs)
         self.assertIn("2026-09-06-1417", slugs)
+        self.assertEqual(generate._keep_archive_rows(saved, 31), saved)
+        with self.assertRaises(RuntimeError):
+            generate._keep_archive_rows(saved[:30], 31)
+
+    def test_keep_archive_rows_never_drops_existing_editions(self):
+        rows = [{"slug": f"s{i}"} for i in range(32)]
+        self.assertEqual(generate._keep_archive_rows(rows, 32), rows)
+        with self.assertRaises(RuntimeError):
+            generate._keep_archive_rows(rows[:30], 32)
+
+
+class OddsSourceTests(unittest.TestCase):
+    def test_game_card_source_splits_fpi_and_draftkings_spread(self):
+        """SEA -2.5 is the DraftKings spread, not an FPI projection."""
+        card = odds.build_game_card(
+            {
+                "opponent": "Seattle Seahawks",
+                "id": "401873022",
+                "homeAway": "away",
+                "kickoff": "Sun, Oct 25 · 7:20 PM CT",
+            },
+            {
+                "model": {"kcWin": 52.2, "oppWin": 47.4},
+                "vegas": {
+                    "spreadDetail": "SEA -2.5",
+                    "overUnder": 42.5,
+                    "source": "ESPN / DraftKings",
+                },
+            },
+        )
+        self.assertIsNotNone(card)
+        self.assertEqual(
+            card["source"],
+            "ESPN FPI win probability; ESPN / DraftKings spread",
+        )
+        self.assertEqual(card["spreadDetail"], "SEA -2.5")
+        self.assertEqual(card["overUnder"], 42.5)
+        self.assertEqual(card["kcWin"], 52.2)
 
 
 class ChargersReviewMustPassTests(unittest.TestCase):

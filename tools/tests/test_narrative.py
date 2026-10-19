@@ -3238,6 +3238,73 @@ class LiveGamePhase(unittest.TestCase):
                 patch.object(config, "now_utc", return_value=same_day):
                 self.assertFalse(generate._published_review_is_prior_ct_day())
 
+    def test_live_next_week_preview_wins_review_window_mon_tue_wed(self):
+        """Once Preview 2156 is live, 18:00Z Mon/Tue/Wed must not remint Review."""
+        chargers = {
+            "id": "401873006",
+            "week": 6,
+            "seasonType": "reg",
+            "date": "2026-10-18T20:25:00Z",
+            "opponent": "Los Angeles Chargers",
+            "completed": True,
+            "inProgress": False,
+            "kcScore": 22,
+            "oppScore": 6,
+        }
+        seattle = {
+            "id": "401873022",
+            "week": 7,
+            "seasonType": "reg",
+            "date": "2026-10-26T00:20:00Z",
+            "opponent": "Seattle Seahawks",
+            "completed": False,
+            "inProgress": False,
+            "kcScore": None,
+            "oppScore": None,
+        }
+        live = {
+            "generatedAt": "2026-10-19T21:56:11+00:00",
+            "slug": "2026-10-19-2156",
+            "edition": "2026 Week 7 · Preview",
+            "phase": {"type": "regular", "mode": "preview", "week": 7},
+            "lastGameReview": {"opponent": "Los Angeles Chargers"},
+        }
+        stamps = (
+            datetime(2026, 10, 19, 18, 0, tzinfo=timezone.utc),
+            datetime(2026, 10, 20, 18, 0, tzinfo=timezone.utc),
+            datetime(2026, 10, 21, 18, 0, tzinfo=timezone.utc),
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            narrative_json = Path(tmp) / "narrative.json"
+            narrative_json.write_text(json.dumps(live) + "\n", encoding="utf-8")
+            for stamp in stamps:
+                review_ph = phase.detect([chargers, seattle], now=stamp)
+                self.assertEqual(review_ph["mode"], "review", stamp)
+                self.assertEqual(
+                    review_ph["edition"], "2026 Week 6 · Review", stamp
+                )
+                with patch.object(
+                    generate.config, "NARRATIVE_JSON", narrative_json
+                ), patch.object(config, "now_utc", return_value=stamp):
+                    self.assertTrue(
+                        generate._live_preview_covers_upcoming(review_ph), stamp
+                    )
+                    self.assertTrue(
+                        generate._should_advance_to_preview(review_ph, now=stamp),
+                        stamp,
+                    )
+                ahead = phase.detect(
+                    [chargers, seattle], now=stamp, advance_from_review=True
+                )
+                self.assertEqual(ahead["mode"], "preview", stamp)
+                self.assertEqual(ahead["week"], 7, stamp)
+                self.assertEqual(
+                    ahead["edition"], "2026 Week 7 · Preview", stamp
+                )
+                self.assertEqual(
+                    ahead["nextGame"]["opponent"], "Seattle Seahawks", stamp
+                )
+
     def test_review_edition_header_uses_completed_week(self):
         now = datetime(2026, 9, 28, 15, 0, tzinfo=timezone.utc)
         week3 = {
