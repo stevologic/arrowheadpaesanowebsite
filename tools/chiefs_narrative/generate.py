@@ -637,7 +637,8 @@ def _write_archive(narrative: dict) -> None:
     if slug:
         archive = [a for a in archive if (a.get("slug") or "").strip() != slug]
     archive.insert(0, snapshot)
-    archive = archive[:30]  # keep the last ~month of editions
+    # Do not cap. A 30-row slice dropped 2026-09-07-1631 and 2026-09-06-1417
+    # once same-day Preview and Review both stayed in the archive (#241).
     config.ARCHIVE_JSON.write_text(
         json.dumps(archive, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )

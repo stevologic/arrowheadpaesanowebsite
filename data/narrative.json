@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-10-19T21:56:11+00:00",
-  "updatedAt": "2026-10-19T21:58:28+00:00",
+  "updatedAt": "2026-10-19T22:58:49+00:00",
   "generator": "grok:grok-4.7",
   "phase": {
     "type": "regular",
@@ -80,7 +80,7 @@
     "workOn": [
       {
         "title": "Third-down answers",
-        "body": "3-of-10 will not travel against a defending champion that ESPN FPI already prices at 47.4 percent. Eric Bieniemy needs a third-and-medium menu that is not another hero ball after the sticks move late."
+        "body": "3-of-10 will not travel. ESPN FPI now favors Kansas City at 52.2 percent at Seattle, with Seattle at 47.4. Eric Bieniemy needs a third-and-medium menu that is not another hero ball after the sticks move late."
       },
       {
         "title": "Goal-line identity without a pile-up",
@@ -156,7 +156,7 @@
       "kcWin": 52.2,
       "spreadDetail": "SEA -2.5",
       "overUnder": 42.5,
-      "source": "ESPN FPI game projection",
+      "source": "ESPN FPI win probability; ESPN / DraftKings spread",
       "url": "https://www.espn.com/nfl/game/_/gameId/401873022"
     },
     "model": {
@@ -199,8 +199,8 @@
     },
     {
       "tag": "Market",
-      "title": "The number flipped",
-      "body": "FPI gives Kansas City 52.2 percent and Seattle 47.4. DraftKings has Seattle -2.5 and a 42.5 total. Polymarket has the Chiefs at 10.8 percent to win the championship and 17.0 percent to win the AFC. Undefeated is not the same as favored."
+      "title": "FPI favors Kansas City. DraftKings still lays 2.5.",
+      "body": "ESPN FPI favors Kansas City at 52.2 percent and Seattle at 47.4. DraftKings is the line that still has Kansas City as the underdog: Seattle -2.5 and a 42.5 total. Polymarket has the Chiefs at 10.8 percent to win the championship and 17.0 percent to win the AFC."
     },
     {
       "tag": "Worthy",
@@ -209,8 +209,8 @@
     },
     {
       "tag": "Moore",
-      "title": "The right tackle left before halftime",
-      "body": "Moore left in the second quarter with a concussion and was listed questionable with a head injury. That is the protection fact Seattle will circle."
+      "title": "The right tackle is Out",
+      "body": "Moore left in the second quarter with a concussion. The Chiefs have him Out for Week 7. That is the protection fact Seattle will circle."
     },
     {
       "tag": "Defense",
@@ -236,7 +236,7 @@
       "chiefs": "Patrick Mahomes, Kingsley Suamataia, Jaylon Moore's replacement",
       "opponent": "Seattle edge heat on a road underdog",
       "edge": "OPP",
-      "note": "Mahomes took zero sacks and three hits at home. Moore left with a concussion, so the right side is the question mark until the next injury report is posted."
+      "note": "Mahomes took zero sacks and three hits at home. Moore is Out with a concussion, so the right side is Joshua Ezeudu's job at Seattle."
     },
     {
       "unit": "Worthy and Kelce vs. Seattle coverage",
@@ -370,9 +370,9 @@
   "injuries": [
     {
       "player": "Jaylon Moore",
-      "status": "Left the Chargers game, concussion",
-      "note": "Left in the second quarter. ESPN listed him questionable (head). Week 7 availability was not posted.",
-      "source": "ESPN / Associated Press"
+      "status": "Out, concussion",
+      "note": "Left in the second quarter with a concussion. The Chiefs listed him Out for Week 7.",
+      "source": "Kansas City Chiefs"
     },
     {
       "player": "Travis Kelce",
@@ -479,28 +479,10 @@
       "note": "In the Kansas City Chiefs’ 22-6 win over the Los Angeles Chargers, the Chiefs’ offense drove up and down the field against Los Angeles’ defe"
     },
     {
-      "title": "Chiefs could offer Chris Ballard a familiar landing spot after Colts firing",
-      "publisher": "Arrowhead Addict",
-      "url": "https://arrowheadaddict.com/chiefs-could-offer-chris-ballard-a-familiar-landing-spot-after-colts-firing?utm_source=RSS",
-      "note": "The Colts have moved on from Chris Ballard, but his history in Kansas City brings up the idea of a reunion."
-    },
-    {
       "title": "Patrick Mahomes has taken to the Chiefs’ under-center offense",
       "publisher": "Arrowhead Pride",
       "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/213588/patrick-mahomes-taken-under-center-offense",
       "note": "When the Kansas City Chiefs selected quarterback Patrick Mahomes with the 10th pick in the 2017 NFL Draft, he watched an offense capable of"
-    },
-    {
-      "title": "Chiefs derrotan a Chargers 22-6 y se colocan con marca de 5-0 en la temporada",
-      "publisher": "Chiefs.com",
-      "url": "https://www.chiefs.com/news/chiefs-derrotan-a-chargers-22-6-y-se-colocan-con-marca-de-5-0-en-la-temporada",
-      "note": "Kansas City se mantiene invicto en lo que va de año tras su victoria sobre Los Ángeles"
-    },
-    {
-      "title": "Chiefs besiegen Chargers 22:6 und bleiben ungeschlagen",
-      "publisher": "Chiefs.com",
-      "url": "https://www.chiefs.com/news/chiefs-besiegen-chargers-22-6-und-bleiben-ungeschlagen",
-      "note": "Kansas City bleibt nach dem Sieg gegen Los Angeles in dieser Saison weiterhin ungeschlagen"
     },
     {
       "title": "Patrick Mahomes was much better against Chargers than the box score suggests",
