@@ -754,6 +754,14 @@ _ILLEGAL_USE = re.compile(
     r"\billegal[-\s]use\b|\billegal use of hands\b",
     re.IGNORECASE,
 )
+_ROUGHNESS_CREDIT = re.compile(
+    r"\b(?P<name>[A-Z](?:\.\s*[A-Za-z]+|[A-Za-z''’-]+)"
+    r"(?:\s+[A-Z](?:\.\s*[A-Za-z]+|[A-Za-z''’-]+)){0,2})"
+    r"(?:['’]s)?"
+    r"(?:\s+[Ww]as|\s+[Ww]ere)?"
+    r"\s+(?i:flagged(?:\s+for)?|drew|called for)\s+"
+    r"(?i:(?:an?\s+)?unnecessary[-\s]roughness)\b",
+)
 _SAME_LOOK = re.compile(
     r"\bsame (?:jumbo )?look\b|"
     r"\bboth snaps\b|"
@@ -761,8 +769,32 @@ _SAME_LOOK = re.compile(
     r"\bboth\s+goal-line\s+snaps\b|"
     r"\bboth\s+(?:\w+\s+){0,2}snaps\b|"
     r"\bboth\s+(?:\w+\s+){0,2}runs\b|"
-    r"\beach\s+(?:\w+\s+){0,2}snaps?\b",
+    r"\beach\s+(?:\w+\s+){0,2}snaps?\b|"
+    r"\btogether on both\b|"
+    r"\btwice\b",
     re.IGNORECASE,
+)
+_REPORTED_ELIGIBLE = re.compile(
+    r"((?:[A-Z]\.[A-Za-z.\-']+(?:\s+and\s+)?)+)\s+reported in as eligible",
+    re.IGNORECASE,
+)
+_ELIGIBLE_NAME = re.compile(r"[A-Z]\.[A-Za-z.\-']+")
+_TO_COUNT = re.compile(
+    rf"(?<![\d:\-–—])\b({_NUM_TOKEN})\s+"
+    rf"(?:([A-Za-z][A-Za-z ]{{1,24}}?)\s+)?turnovers?\b",
+    re.IGNORECASE,
+)
+_FORCED_TURNOVER = re.compile(
+    r"\b(?:forced|took\s+away|created)\b",
+    re.IGNORECASE,
+)
+_APOSTROPHE_TRANSLATE = str.maketrans(
+    {
+        "\u2018": "'",
+        "\u2019": "'",
+        "\u201b": "'",
+        "`": "'",
+    }
 )
 _FIRST_MINUTES = re.compile(
     rf"\b(?:first|within|inside(?:\s+of)?)\s+({_NUM_TOKEN})\s+minutes?\b|"
@@ -806,8 +838,10 @@ _FUMBLE_FORCED = re.compile(
     r"([A-Z][A-Za-z''-]+)",
 )
 _INT_CREDIT = re.compile(
-    r"\b([A-Z][A-Za-z''-]+)\s+(?i:intercept(?:ed|ion)|INT)\b"
-    r"|\b(?i:intercept(?:ed|ion)|INT)\s+by\s+([A-Z][A-Za-z''-]+)",
+    r"\b([A-Z][A-Za-z''-]+(?:\s+[A-Z][A-Za-z''-]+)?)\s+"
+    r"(?i:intercept(?:ed|ion)|INT)\b"
+    r"|\b(?i:intercept(?:ed|ion)|INT)\s+by\s+"
+    r"([A-Z][A-Za-z''-]+(?:\s+[A-Z][A-Za-z''-]+)?)",
 )
 _VENUE_CREDIT_TOKENS = frozenset(
     {
@@ -865,6 +899,35 @@ _NOT_PLAYER_TOKENS = frozenset(
         "after",
         "before",
         "arrowhead",
+    }
+)
+# Leading junk that _INT_CREDIT can glue onto a real last name
+# ("Then Bolton", "City's Bolton", "Later Bolton").
+_CREDIT_NAME_PREFIX = _NOT_PLAYER_TOKENS | frozenset(
+    {
+        "later",
+        "next",
+        "first",
+        "finally",
+        "afterward",
+        "afterwards",
+        "meanwhile",
+        "previously",
+        "eventually",
+        "subsequently",
+        "also",
+        "still",
+        "now",
+        "once",
+        "city",
+        "kansas",
+        "chiefs",
+        "las",
+        "vegas",
+        "raiders",
+        "miami",
+        "dolphins",
+        "defense",
     }
 )
 _GARBLED_INITIAL = re.compile(r"\b([A-Z])['’]([A-Z][a-z]{3,})\b")
@@ -2377,9 +2440,25 @@ def _normalize_scope_token(raw: str) -> str:
     return token
 
 
+_COUNT_CLAUSE_BREAK = re.compile(r"\bplus\b|;|—", re.IGNORECASE)
+
+
 def _count_scope(text: str, start: int, end: int):
     """Return None (whole game), a quarter frozenset, or 'skip'."""
-    window = text[max(0, start - 72) : min(len(text), end + 72)]
+    sent_start, sent_end = _sentence_span(text, start)
+    sentence = text[sent_start:sent_end]
+    clause_lo, clause_hi = sent_start, sent_end
+    for brk in _COUNT_CLAUSE_BREAK.finditer(sentence):
+        abs_end = sent_start + brk.end()
+        abs_start = sent_start + brk.start()
+        if abs_end <= start:
+            clause_lo = abs_end
+        elif abs_start >= end:
+            clause_hi = abs_start
+            break
+    window = text[
+        max(clause_lo, start - 72) : min(clause_hi, end + 72)
+    ]
     match = _COUNT_SCOPE.search(window)
     if not match:
         return None
@@ -3712,8 +3791,29 @@ def _check_play_sequence(text: str, recap: dict | None) -> list[str]:
     return issues
 
 
+def _normalize_apostrophes(text: str) -> str:
+    """Treat curly and straight apostrophes as the same character."""
+    return (text or "").translate(_APOSTROPHE_TRANSLATE)
+
+
+def _strip_possessive(token: str) -> str:
+    return re.sub(r"'s\b", "", _normalize_apostrophes(token or ""), flags=re.I)
+
+
+def _clean_credit_name(name: str) -> str:
+    """Keep the player. Strip leading adverbs, team fragments, possessives."""
+    cleaned = _strip_possessive(name or "")
+    parts = [part for part in re.split(r"\s+", cleaned) if part]
+    while parts and parts[0].lower().strip(".,;:") in _CREDIT_NAME_PREFIX:
+        parts.pop(0)
+    if parts:
+        return " ".join(parts)
+    leftover = [part for part in re.split(r"\s+", cleaned) if part]
+    return leftover[-1] if leftover else ""
+
+
 def _last_name_token(raw: str) -> str:
-    token = (raw or "").strip()
+    token = _strip_possessive(raw).strip()
     if not token:
         return ""
     token = token.replace(".", " ").replace("'", "")
@@ -3758,11 +3858,26 @@ def _unique_official_interceptor(recap: dict | None) -> str:
 
 
 def _swap_credit_name(sentence: str, bad: str, official: str) -> str | None:
+    """Replace a false interceptor credit. Never emit 'Nwankpa Nwankpa'."""
     if not sentence or not bad or not official:
         return None
     if not re.search(rf"\b{re.escape(bad)}\b", sentence):
         return None
-    return re.sub(rf"\b{re.escape(bad)}\b", official, sentence, count=1)
+    # 'Xavier Nwankpa' already ends with the official last name.
+    if re.search(
+        rf"\b{re.escape(bad)}\s+{re.escape(official)}\b",
+        sentence,
+        re.I,
+    ):
+        return None
+    rewritten = re.sub(rf"\b{re.escape(bad)}\b", official, sentence, count=1)
+    if re.search(
+        rf"\b{re.escape(official)}\s+{re.escape(official)}\b",
+        rewritten,
+        re.I,
+    ):
+        return None
+    return rewritten
 
 
 def _official_names(plays: list[dict], *fields: str) -> set[str]:
@@ -3946,11 +4061,12 @@ def _check_turnover_credit(text: str, recap: dict | None) -> list[str]:
     for match in _FUMBLE_FORCED.finditer(text):
         name = match.group(1) or match.group(2)
         _reject(name, "fumble", match.group(0))
-    for match in _INT_CREDIT.finditer(text):
-        name = match.group(1) or match.group(2)
-        if (name or "").lower() in {"int", "interception", "intercepted"}:
+    credit_text = _normalize_apostrophes(text)
+    for match in _INT_CREDIT.finditer(credit_text):
+        name = _clean_credit_name(match.group(1) or match.group(2) or "")
+        if name.lower() in {"int", "interception", "intercepted"}:
             continue
-        sentence = _sentence_at(text, match.start())
+        sentence = _sentence_at(credit_text, match.start())
         if re.search(r"\bwiped\b|\bnullified\b|\bno play\b", sentence, re.I):
             continue
         _reject(name, "int", match.group(0))
@@ -5586,11 +5702,35 @@ def _check_drive_counts(
 
 
 def _player_last(name: str) -> str:
-    token = (name or "").replace(".", " ").strip()
+    token = _strip_possessive(name).replace(".", " ").strip()
     parts = [p for p in re.split(r"[^A-Za-z]+", token) if p]
     skip = {"ii", "iii", "iv", "jr", "sr", "the"}
     parts = [p for p in parts if p.lower() not in skip]
     return parts[-1].lower() if parts else ""
+
+
+def _player_given(name: str) -> str:
+    """First name or initial, lowercased."""
+    token = _strip_possessive(name).replace(".", " ").strip()
+    parts = [p for p in re.split(r"[^A-Za-z]+", token) if p]
+    skip = {"ii", "iii", "iv", "jr", "sr", "the"}
+    parts = [p for p in parts if p.lower() not in skip]
+    if len(parts) >= 2:
+        return parts[0].lower()
+    return ""
+
+
+def _same_flagged_player(claimed: str, official: str) -> bool:
+    """Last names must match; first names/initials may not contradict."""
+    claimed_last = _player_last(claimed)
+    official_last = _player_last(official)
+    if not claimed_last or claimed_last != official_last:
+        return False
+    claimed_given = _player_given(claimed)
+    official_given = _player_given(official)
+    if not claimed_given or not official_given:
+        return True
+    return claimed_given[0] == official_given[0]
 
 
 def _bound_touch_row(text: str, claim_at: int, rows: list[dict]) -> dict | None:
@@ -5968,37 +6108,286 @@ def _check_penalty_attribution(text: str, recap: dict | None) -> list[str]:
                 f"illegal-use flag wiped a KC interception, not a Miami one "
                 f"({sentence!r})"
             )
+    official_ur = [
+        row
+        for row in penalties
+        if "unnecessary roughness" in (row.get("type") or "").lower()
+    ]
+    if official_ur:
+        for match in _ROUGHNESS_CREDIT.finditer(text):
+            sent_start, sent_end = _sentence_span(text, match.start())
+            if match.end() > sent_end:
+                continue
+            claimed = (match.group("name") or "").strip()
+            sentence = text[sent_start:sent_end].strip()
+            claimed_last = _player_last(claimed)
+            same_last = [
+                row
+                for row in official_ur
+                if _player_last(row.get("player") or "") == claimed_last
+            ]
+            if same_last:
+                if any(
+                    _same_flagged_player(claimed, row.get("player") or "")
+                    for row in same_last
+                ):
+                    continue
+                who = same_last[0].get("player") or "the flagged player"
+            else:
+                low_sent = sentence.lower()
+                bound = [
+                    row
+                    for row in official_ur
+                    if any(
+                        token in low_sent
+                        for token in re.findall(
+                            r"\b[a-z]{5,}\b",
+                            (row.get("text") or "").lower(),
+                        )
+                        if token
+                        not in {
+                            "penalty",
+                            "yards",
+                            "enforced",
+                            "during",
+                            "shotgun",
+                            "injured",
+                            "unnecessary",
+                            "roughness",
+                        }
+                    )
+                ]
+                who = (bound[0] if bound else official_ur[0]).get(
+                    "player"
+                ) or "the flagged player"
+            issues.append(
+                f"unnecessary-roughness flag was on {who}, not {claimed} "
+                f"({sentence!r})"
+            )
     return issues
 
 
-def _check_same_look_snaps(text: str, recap: dict | None) -> list[str]:
-    eligible = [
-        row
-        for row in (recap or {}).get("eligible") or []
-        if isinstance(row, dict)
-    ]
-    if not text or not eligible:
-        return []
-    nourzad_clocks = {
-        (row.get("quarter"), row.get("clock"))
-        for row in eligible
-        if "nourzad" in (row.get("player") or "").lower()
+def _eligible_snap_sets(
+    recap: dict | None,
+) -> dict[tuple[int, str], set[str]]:
+    """Group reported-eligible last names by this game's own PBP clocks."""
+    snaps: dict[tuple[int, str], set[str]] = {}
+    rows: list[dict] = []
+    for row in (recap or {}).get("eligible") or []:
+        if isinstance(row, dict):
+            rows.append(row)
+    for play in _plays(recap):
+        if re.search(r"reported in as eligible", play.get("text") or "", re.I):
+            rows.append(play)
+    for row in rows:
+        text = row.get("text") or ""
+        names: set[str] = set()
+        hit = _REPORTED_ELIGIBLE.search(text)
+        if hit:
+            names = {_player_last(n) for n in _ELIGIBLE_NAME.findall(hit.group(1))}
+        player = _player_last(row.get("player") or "")
+        if player:
+            names.add(player)
+        names.discard("")
+        if not names:
+            continue
+        key = (int(row.get("quarter") or 0), str(row.get("clock") or ""))
+        snaps.setdefault(key, set()).update(names)
+    return snaps
+
+
+def _title_last(name: str) -> str:
+    return name[:1].upper() + name[1:] if name else ""
+
+
+def _clock_label(quarter: int, clock: str) -> str:
+    return f"Q{quarter} {clock}"
+
+
+def _same_look_message(
+    named: set[str],
+    covered: dict[tuple[int, str], set[str]],
+    sentence: str,
+) -> str:
+    clocks = sorted(covered)
+    clocks_for = {
+        name: sorted(
+            clock for clock, names in covered.items() if name in names
+        )
+        for name in named
     }
+    missing = [
+        name
+        for name in sorted(named, key=lambda n: (len(clocks_for[n]), n))
+        if len(clocks_for[name]) < len(covered)
+    ]
+    parts: list[str] = []
+    if missing:
+        first = missing[0]
+        if clocks_for[first]:
+            labels = ", ".join(_clock_label(*c) for c in clocks_for[first])
+            parts.append(f"{_title_last(first)} reported only at {labels}")
+        else:
+            parts.append(f"{_title_last(first)} did not report eligible")
+        for clock in clocks:
+            if first not in covered[clock]:
+                alone = sorted(covered[clock])
+                who = " and ".join(_title_last(n) for n in alone) or "no one"
+                parts.append(f"{_clock_label(*clock)} was {who} alone")
+                break
+    elif len(covered) == 1:
+        who = " and ".join(_title_last(n) for n in sorted(named))
+        parts.append(f"{who} reported only at {_clock_label(*clocks[0])}")
+    else:
+        parts.append("eligible reports were not the same look")
+    return f"{'; '.join(parts)} ({sentence!r})"
+
+
+def _check_same_look_snaps(text: str, recap: dict | None) -> list[str]:
+    snaps = _eligible_snap_sets(recap)
+    if not text or not snaps:
+        return []
     issues = []
+    seen: set[str] = set()
     for match in _SAME_LOOK.finditer(text):
         sentence = _sentence_at(text, match.start())
-        low = sentence.lower()
-        if "nourzad" not in low and "eligible" not in low and "jumbo" not in low:
+        clause = _same_look_clause(text, match.start(), match.end())
+        low = clause.lower()
+        if not re.search(r"\b(?:nourzad|tonga|eligible|jumbo)\b", low):
             continue
-        # The two Walker stuffs at the Miami 12 were Q2 6:58 (no report)
-        # and Q2 6:15 (Nourzad). Same-look / both-snaps claims are false.
-        if (2, "6:58") not in nourzad_clocks and (
-            "both" in low or "same" in low or "each" in low
+        if re.search(
+            r"\b(?:not|never)\b.{0,32}\bsame\b|"
+            r"\bweren['’]?t\b.{0,24}\bsame\b",
+            low,
         ):
-            issues.append(
-                "Nourzad was reported eligible only on the Q2 6:15 snap, "
-                f"not on 6:58 ({sentence!r})"
+            continue
+        named = {
+            name
+            for names in snaps.values()
+            for name in names
+            if re.search(rf"\b{re.escape(name)}\b", low)
+        }
+        together_claim = bool(re.search(r"\b(?:same|together|jumbo)\b", low))
+        both_claim = bool(re.search(r"\b(?:both|twice|each)\b", low))
+        if not named:
+            if both_claim or together_claim:
+                sets = {frozenset(names) for names in snaps.values()}
+                if len(snaps) >= 2 and len(sets) > 1:
+                    clocks = "; ".join(
+                        f"{' and '.join(_title_last(n) for n in sorted(names))} "
+                        f"at {_clock_label(*clock)}"
+                        for clock, names in sorted(snaps.items())
+                    )
+                    msg = (
+                        f"eligible reports were not the same look: {clocks} "
+                        f"({sentence!r})"
+                    )
+                    if msg not in seen:
+                        seen.add(msg)
+                        issues.append(msg)
+            continue
+        covered = {
+            clock: names for clock, names in snaps.items() if names & named
+        }
+        if not covered:
+            continue
+        sets = {frozenset(names) for names in covered.values()}
+        together_on_all = all(named <= names for names in covered.values())
+        should_flag = False
+        if together_claim:
+            should_flag = (
+                len(covered) < 2 or (not together_on_all) or len(sets) > 1
             )
+        elif both_claim:
+            should_flag = any(
+                sum(1 for names in snaps.values() if name in names) < 2
+                for name in named
+            )
+        if not should_flag:
+            continue
+        msg_covered = snaps if both_claim else covered
+        msg = _same_look_message(named, msg_covered, sentence)
+        if msg in seen:
+            continue
+        seen.add(msg)
+        issues.append(msg)
+    return issues
+
+
+def _check_turnover_counts(
+    text: str,
+    recap: dict | None,
+    last_game: dict | None,
+    schedule=None,
+) -> list[str]:
+    """Team turnover totals vs the ESPN box. Bare 'zero turnovers' is KC."""
+    if not text or not recap:
+        return []
+    kc_to = _box_int((recap or {}).get("kc"), "turnovers")
+    opp_to = _box_int((recap or {}).get("opp"), "turnovers")
+    if kc_to is None and opp_to is None:
+        return []
+    aliases = _team_aliases(last_game, recap, schedule)
+    opp_abbr = ((recap or {}).get("oppAbbr") or "").strip().upper()
+    issues = []
+    for match in _TO_COUNT.finditer(text):
+        if re.match(r"\s+on downs\b", text[match.end() :], re.I):
+            continue
+        claimed = _parse_count(match.group(1))
+        if claimed is None:
+            continue
+        team_phrase = (match.group(2) or "").strip()
+        owner = ""
+        if team_phrase:
+            first = team_phrase.split()[0]
+            if _parse_count(first) is not None:
+                continue
+            owner = _alias_team(team_phrase, aliases)
+            if not owner:
+                continue
+        sentence = _sentence_at(text, match.start())
+        if _SEASON_SPAN.search(sentence):
+            continue
+        if _stat_is_rate_or_other_game(
+            text, match, recap, last_game, schedule
+        ):
+            continue
+        clause = _box_clause_at(text, match.start())
+        window = text[max(0, match.start() - 48) : match.start()]
+        forced = bool(_FORCED_TURNOVER.search(window))
+        team = owner
+        if not team and forced:
+            forcer = (
+                _explicit_box_subject(clause, aliases)
+                or _bound_box_team(text, match.start(), aliases)
+                or "KC"
+            )
+            if forcer == "KC":
+                team = opp_abbr
+            elif opp_abbr and forcer == opp_abbr:
+                team = "KC"
+            else:
+                team = opp_abbr
+        if not team:
+            team = _explicit_box_subject(clause, aliases)
+        if not team:
+            team = _bound_box_team(text, match.start(), aliases)
+        if not team:
+            if claimed != 0:
+                continue
+            team = "KC"
+        if team == "KC":
+            official = kc_to
+        elif opp_abbr and team == opp_abbr:
+            official = opp_to
+        else:
+            continue
+        if official is None or claimed == official:
+            continue
+        issues.append(
+            f"turnovers {claimed} disagrees with ESPN {official} for "
+            f"{team} ({match.group(0)!r})"
+        )
     return issues
 
 
@@ -6013,9 +6402,8 @@ def _first_score_elapsed(recap: dict | None):
     return 15 * 60 - remaining
 
 
-def _clause_at(text: str, start: int, end: int) -> str:
-    """One claim: stop at newlines and sentence punctuation so later fields
-    cannot turn a kickoff-clock note into an opening-score claim."""
+def _clause_span(text: str, start: int, end: int) -> tuple[int, int]:
+    """Bounds of one claim: stop at newlines and sentence punctuation."""
     left_start = 0
     for idx in range(start - 1, -1, -1):
         char = text[idx]
@@ -6034,6 +6422,32 @@ def _clause_at(text: str, start: int, end: int) -> str:
             and not _is_initial_dot(text, idx)
             and not _is_decimal_dot(text, idx)
         ):
+            right_end = idx
+            break
+    return left_start, right_end
+
+
+def _clause_at(text: str, start: int, end: int) -> str:
+    """One claim: stop at newlines and sentence punctuation so later fields
+    cannot turn a kickoff-clock note into an opening-score claim."""
+    left_start, right_end = _clause_span(text, start, end)
+    return text[left_start:right_end]
+
+
+def _same_look_clause(text: str, start: int, end: int) -> str:
+    """Keep twice/both names on this claim, not a colon-led explanation.
+
+    'Tonga reported eligible twice in Las Vegas: Nourzad and Tonga
+    reported together on the no-gain…' is two claims. Binding Nourzad
+    to twice falsely flags the #238 edition line.
+    """
+    left_start, right_end = _clause_span(text, start, end)
+    for idx in range(start - 1, left_start - 1, -1):
+        if text[idx] in ":—":
+            left_start = idx + 1
+            break
+    for idx in range(end, right_end):
+        if text[idx] in ":—":
             right_end = idx
             break
     return text[left_start:right_end]
@@ -6185,7 +6599,7 @@ def _passer_side_name(name: str, recap: dict | None) -> str:
 
 
 _PRESSURE_CLAUSE_SPLIT = re.compile(
-    r";\s+|,\s+and\s+|\n|\s+while\s+|\s+whereas\s+",
+    r";\s+|,\s+and\s+|,\s+with\s+|\n|\s+while\s+|\s+whereas\s+",
     re.IGNORECASE,
 )
 
@@ -6217,7 +6631,9 @@ def _allowed_sack_subject_side(clause: str) -> str:
     low = (clause or "").lower()
     if not re.search(
         r"\bsacks?\s+allowed\b|\ballowed\b.{0,40}\bsacks?\b|"
-        r"\b(?:protection|(?:offensive\s+)?line)\b.{0,40}\bsacks?\b",
+        r"\bprotection\b.{0,40}\bsacks?\b|"
+        r"\boffensive\s+line\b.{0,40}\bsacks?\b|"
+        r"(?<!possession )\bline\b.{0,40}\bsacks?\b",
         low,
     ):
         return ""
@@ -6265,7 +6681,8 @@ def _pressure_side(sentence: str, match, recap: dict | None = None) -> str:
             continue
         if re.search(
             rf"\b(?:sacked|hit)\s+{re.escape(token)}\b|"
-            rf"\b(?:sacks?|hits?)\s+(?:of|on)\s+{re.escape(token)}\b",
+            rf"\b(?:sacks?|hits?)\s+(?:of|on|against)\s+{re.escape(token)}\b|"
+            rf"\bsacks?\s+against\b.{{0,48}}\b{re.escape(token)}\b",
             low,
         ):
             return "opp_qb"
@@ -6320,7 +6737,14 @@ def _defense_recorded_sack_skip(
     ):
         return False
     if re.search(
-        r"\b(?:recorded|four-man|coverage|rush that|the rush|front)\b",
+        r"\b(?:took|absorbed|allowed|given up)\b",
+        sentence or "",
+        re.I,
+    ):
+        return False
+    if re.search(
+        r"\b(?:recorded|four-man|coverage|rush that|the rush|front|"
+        r"bassa|cochrane|nwankpa|scoring order)\b",
         sentence or "",
         re.I,
     ):
@@ -6873,6 +7297,9 @@ def check_review(
                 issues.extend(_check_garbled_initials(text, recap))
                 issues.extend(_check_scheme_claims(text, recap))
                 issues.extend(_check_box_clocks(text, recap, last_game, schedule))
+                issues.extend(
+                    _check_turnover_counts(text, recap, last_game, schedule)
+                )
                 issues.extend(_check_unknown_was_box(text, last_game, recap, schedule))
                 issues.extend(_check_drive_counts(text, recap, last_game, schedule))
                 issues.extend(_check_touch_counts(text, recap))
@@ -7569,7 +7996,8 @@ _STAT_DISAGREE = re.compile(
     re.IGNORECASE,
 )
 _TURNOVER_CREDIT_VIOLATION = re.compile(
-    r"turnover credit:\s+(?P<name>[A-Za-z][A-Za-z''.-]*)\s+is not",
+    r"turnover credit:\s+(?P<name>[A-Za-z][A-Za-z''.-]*"
+    r"(?:\s+[A-Z][A-Za-z''.-]*)?)\s+is not",
     re.IGNORECASE,
 )
 _ILLEGAL_USE_NOT_SNEED = re.compile(
