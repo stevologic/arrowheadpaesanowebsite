@@ -129,10 +129,10 @@
     "homeAway": "home",
     "venue": "Arrowhead Stadium",
     "tv": "CBS",
-    "completed": false,
+    "completed": true,
     "inProgress": false,
-    "kcScore": null,
-    "oppScore": null,
+    "kcScore": 22,
+    "oppScore": 6,
     "kickoff": "Sun, Oct 18 · 3:25 PM CT"
   },
   {

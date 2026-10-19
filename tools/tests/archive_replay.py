@@ -6,7 +6,8 @@ import json
 import subprocess
 from pathlib import Path
 
-from tools.chiefs_narrative import collect, facts
+from tools.chiefs_narrative import facts
+from tools.tests.frozen_slate import frozen_schedule
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 EDITIONS = Path("data") / "narrative_editions"
@@ -112,7 +113,7 @@ def replay_edition(edition: dict, schedule: list, recaps: dict) -> list[str]:
 
 
 def replay_all_editions() -> list[tuple[str, list[str]]]:
-    schedule = collect.load_cached_schedule()
+    schedule = frozen_schedule()
     recaps = recaps_by_event()
     committed = committed_edition_names()
     rows = []
@@ -154,7 +155,7 @@ def salvage_edition(edition: dict, schedule: list, recaps: dict) -> dict:
 
 
 def salvage_all_editions() -> list[tuple[str, dict]]:
-    schedule = collect.load_cached_schedule()
+    schedule = frozen_schedule()
     recaps = recaps_by_event()
     committed = committed_edition_names()
     rows = []
@@ -168,7 +169,7 @@ def salvage_all_editions() -> list[tuple[str, dict]]:
 
 def salvage_edition_file(name: str) -> dict:
     """Replay one on-disk edition, including unpinned published Reviews."""
-    schedule = collect.load_cached_schedule()
+    schedule = frozen_schedule()
     recaps = recaps_by_event()
     edition = json.loads((EDITIONS / name).read_text(encoding="utf-8"))
     return salvage_edition(edition, schedule, recaps)
