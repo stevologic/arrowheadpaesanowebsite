@@ -239,8 +239,13 @@ def build_game_card(next_game: dict | None, pred: dict) -> dict | None:
     model = (pred or {}).get("model") or {}
     vegas = (pred or {}).get("vegas") or {}
     kc_win = model.get("kcWin")
-    source = model.get("label") or ""
-    if kc_win is None:
+    source = ""
+    if kc_win is not None and vegas.get("spreadDetail"):
+        # SEA -2.5 is the DraftKings spread, not an FPI projection.
+        source = "ESPN FPI win probability; ESPN / DraftKings spread"
+    elif kc_win is not None:
+        source = "ESPN FPI win probability"
+    else:
         kc_win = implied_win_pct(_kc_moneyline(vegas, next_game))
         if kc_win is not None:
             source = "DraftKings implied win probability"
