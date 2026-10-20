@@ -219,11 +219,37 @@ function initNarrativeXEmbeds(root = document) {
   embeds.forEach((el) => io.observe(el));
 }
 
+function initNarrativeYtEmbeds(root = document) {
+  const embeds = $$('[data-nrt-yt-embed]:not([data-nrt-yt-bound])', root);
+  if (!embeds.length) return;
+  embeds.forEach((el) => {
+    el.dataset.nrtYtBound = 'true';
+    const trigger = el.querySelector('.nrt-yt-embed__thumb');
+    if (!trigger) return;
+    trigger.addEventListener('click', () => {
+      const id = el.dataset.nrtYtId;
+      if (!id || el.classList.contains('is-playing')) return;
+      el.classList.add('is-playing');
+      const frame = document.createElement('div');
+      frame.className = 'nrt-yt-embed__frame';
+      const iframe = document.createElement('iframe');
+      iframe.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?autoplay=1`;
+      iframe.title = trigger.getAttribute('aria-label') || 'Press conference';
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+      iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+      iframe.allowFullscreen = true;
+      frame.appendChild(iframe);
+      trigger.replaceWith(frame);
+    });
+  });
+}
+
 function initDynamicUI(root = document) {
   initReveal(root);
   initButtonSpotlight(root);
   initImageHandling(root);
   initNarrativeXEmbeds(root);
+  initNarrativeYtEmbeds(root);
 }
 
 initMobileNav();

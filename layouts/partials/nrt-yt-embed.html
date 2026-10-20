@@ -1,0 +1,33 @@
+{{- /*
+  Compact, click-to-load YouTube press-conference embed. No iframe until
+  the reader asks — a thumbnail sits at story width so the clip cannot
+  dominate the page. Context: url, videoId, speaker, optional channel,
+  dateLabel, title, quote.
+*/ -}}
+{{- $url := .url -}}
+{{- $id := .videoId -}}
+{{- $speaker := .speaker -}}
+{{- if and $url $id $speaker }}
+<figure class="nrt-yt-embed" data-nrt-yt-embed data-nrt-yt-id="{{ $id }}" data-nrt-yt-url="{{ $url }}">
+  <button type="button" class="nrt-yt-embed__thumb" aria-label="Play {{ $speaker }} press conference">
+    <img
+      src="https://i.ytimg.com/vi/{{ $id }}/hqdefault.jpg"
+      alt=""
+      width="160"
+      height="90"
+      loading="lazy"
+    />
+    <span class="nrt-yt-embed__play" aria-hidden="true"></span>
+  </button>
+  <figcaption class="nrt-yt-embed__credit">
+    <strong class="nrt-yt-embed__speaker">{{ $speaker }}</strong>
+    {{- with .dateLabel }}<span class="nrt-yt-embed__when">{{ . }}</span>{{ else }}{{ with .date }}<span class="nrt-yt-embed__when">{{ . }}</span>{{ end }}{{ end }}
+    <span class="nrt-yt-embed__source">
+      Source:
+      <a href="{{ $url }}" target="_blank" rel="noopener">{{ .channel | default "YouTube" }}</a>
+    </span>
+    {{- with .title }}<span class="nrt-yt-embed__title">{{ . }}</span>{{ end }}
+    {{- with .quote }}<span class="nrt-yt-embed__quote">“{{ . }}”</span>{{ end }}
+  </figcaption>
+</figure>
+{{- end -}}
