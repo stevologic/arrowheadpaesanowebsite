@@ -24,7 +24,7 @@
   {{- with .retweetedBy }}
   <p class="nrt-locker-post__note">
     <a class="nrt-locker-post__rt" href="{{ .url }}" target="_blank" rel="noopener">View retweet</a>
-    {{- with .handle }}<span class="nrt-locker-post__rt-by">{{ . }}</span>{{ end }}
+    {{- with .handle }} <span class="nrt-locker-post__rt-by">{{ . }}</span>{{ end }}
   </p>
   {{- end }}
   <a class="nrt-locker-post__link" href="{{ $url }}" target="_blank" rel="noopener">View {{ $handle | default "post" }} on X →</a>
