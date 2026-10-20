@@ -9,6 +9,7 @@ raising, because a daily automation must not hard-fail on a flaky model reply.
 from __future__ import annotations
 
 import re
+from urllib.parse import parse_qs, urlparse
 
 from . import config, diagrams, phase as phase_mod
 
@@ -19,6 +20,12 @@ _X_STATUS_RE = re.compile(
     re.IGNORECASE,
 )
 _X_RESERVED_HANDLES = frozenset({"i", "intent", "share", "home", "explore", "search"})
+_YT_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
+_YT_URL_RE = re.compile(
+    r"^https://(?:www\.)?(?:youtube\.com/(?:watch\?v=|embed/|shorts/|live/)|youtu\.be/)"
+    r"([A-Za-z0-9_-]{11})(?:[?&/#].*)?$",
+    re.IGNORECASE,
+)
 
 
 def _s(value, default="") -> str:
@@ -112,6 +119,94 @@ def _norm_x_embeds(value, limit=2) -> list[dict]:
     return out
 
 
+def _norm_press_conference(value) -> dict | None:
+    """Keep a YouTube watch URL with a named speaker, or drop it.
+
+    Accepts a URL string or a dict. Invented hosts and speaker-less rows
+    are discarded so the template never renders an empty iframe.
+    """
+    if isinstance(value, str):
+        url, speaker, title, channel, date, quote, date_label = (
+            _s(value),
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+        )
+    elif isinstance(value, dict):
+        url = _s(
+            value.get("url")
+            or value.get("embedUrl")
+            or value.get("embed_url")
+            or value.get("youtubeUrl")
+        )
+        speaker = _s(
+            value.get("speaker")
+            or value.get("speakers")
+            or value.get("name")
+            or value.get("label")
+        )
+        title = _s(value.get("title") or value.get("caption"))
+        channel = _s(value.get("channel") or value.get("author") or value.get("account"))
+        date = _s(value.get("date") or value.get("sessionDate") or value.get("published"))
+        quote = _s(value.get("quote"))
+        date_label = _s(value.get("dateLabel") or value.get("when"))
+        video_id = _s(value.get("videoId") or value.get("video_id"))
+        if not url and _YT_ID_RE.match(video_id):
+            url = f"https://www.youtube.com/watch?v={video_id}"
+    else:
+        return None
+    if not url:
+        return None
+    raw = url.split("#", 1)[0]
+    match = _YT_URL_RE.match(raw)
+    video_id = match.group(1) if match else ""
+    if not video_id:
+        parsed = urlparse(raw)
+        host = (parsed.netloc or "").lower()
+        if "youtu.be" in host:
+            video_id = parsed.path.strip("/").split("/")[0]
+        elif "youtube.com" in host and parsed.path.startswith("/watch"):
+            video_id = (parse_qs(parsed.query).get("v") or [""])[0]
+        elif "youtube.com" in host and parsed.path.startswith(
+            ("/embed/", "/shorts/", "/live/")
+        ):
+            parts = parsed.path.strip("/").split("/")
+            video_id = parts[1] if len(parts) > 1 else ""
+    if not _YT_ID_RE.match(video_id or ""):
+        return None
+    if not speaker:
+        return None
+    if date and "T" in date:
+        date = date[:10]
+    embed = {
+        "url": f"https://www.youtube.com/watch?v={video_id}",
+        "videoId": video_id,
+        "speaker": speaker,
+        "channel": channel or "YouTube",
+        "title": title,
+        "date": date,
+    }
+    if date_label:
+        embed["dateLabel"] = date_label
+    if quote:
+        embed["quote"] = quote
+    return embed
+
+
+def _norm_press_conferences(value, limit=8) -> list[dict]:
+    out = []
+    for item in _list(value):
+        embed = _norm_press_conference(item)
+        if embed:
+            out.append(embed)
+        if len(out) >= limit:
+            break
+    return out
+
+
 def _norm_analysis(value, key_play_embeds=None) -> list[dict]:
     """Film-room paragraphs, optionally paired with an official X play embed.
 
@@ -172,6 +267,10 @@ def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
         "playerEmbeds": _norm_x_embeds(
             raw.get("playerEmbeds") or raw.get("player_embeds"),
             limit=2,
+        ),
+        "pressConferences": _norm_press_conferences(
+            raw.get("pressConferences") or raw.get("press_conferences"),
+            limit=8,
         ),
         "storyline": _norm_storyline(raw.get("storyline")),
         "lastGameReview": _norm_last_game_review(raw.get("lastGameReview")),

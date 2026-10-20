@@ -734,6 +734,8 @@ def build_user_prompt(
             "sources[] entry must correspond to a provided news item or be omitted. "
             "Do not invent or include X/Twitter status URLs — the desk "
             "attaches official embeds separately after oEmbed verification. "
+            "Do not invent or include YouTube video IDs — the desk attaches "
+            "verified press-conference embeds after YouTube oEmbed. "
             "Output ONLY the JSON object.",
         ]
     )

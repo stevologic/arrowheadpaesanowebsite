@@ -163,6 +163,74 @@
 }
 .nrt-x-embed__label::before { content: "· "; }
 
+/* ---------------- PRESS CONFERENCES (YouTube) ---------------- */
+.nrt-press__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+}
+.nrt-yt-embed {
+  margin: 0;
+  min-width: 0;
+  background: var(--nrt-paper);
+  border: 1px solid var(--nrt-line);
+  border-radius: var(--nrt-radius);
+  padding: 14px 14px 16px;
+  box-shadow: var(--nrt-shadow);
+}
+.nrt-yt-embed__frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #0d0c0d;
+}
+.nrt-yt-embed__frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.nrt-yt-embed__credit {
+  margin: 10px 0 0;
+  font-family: var(--grotesk);
+  font-size: 13px;
+  line-height: 1.45;
+  color: #5c5660;
+}
+.nrt-yt-embed__speaker {
+  display: block;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--nrt-ink);
+}
+.nrt-yt-embed__when {
+  display: inline-block;
+  margin: 2px 8px 0 0;
+  font-weight: 600;
+}
+.nrt-yt-embed__source a {
+  color: var(--nrt-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.nrt-yt-embed__title {
+  display: block;
+  margin-top: 4px;
+  font-weight: 500;
+}
+.nrt-yt-embed__quote {
+  margin: 10px 0 0;
+  padding: 0 0 0 12px;
+  border-left: 3px solid var(--nrt-gold);
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--nrt-ink);
+}
+
 /* ---------------- EDGE ---------------- */
 .nrt-edge { max-width: var(--nrt-max); margin: 0 auto; padding: 26px var(--nrt-gutter); display: flex; align-items: center; gap: 20px; }
 .nrt-edge__label { flex: none; font-family: var(--display); letter-spacing: .06em; font-size: 22px; color: var(--nrt-red); border-right: 3px solid var(--nrt-gold); padding-right: 20px; }
@@ -465,6 +533,7 @@ a.nrt-timeline__link:hover strong { color: var(--nrt-red); }
   .nrt-stamp { margin-left: 0; width: 100%; }
   .nrt-keyplay { grid-template-columns: 1fr; }
   .nrt-player-embeds__grid > .nrt-x-embed { max-width: 100%; }
+  .nrt-press__grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 620px) {
   .nrt .section { padding: 40px 20px; }

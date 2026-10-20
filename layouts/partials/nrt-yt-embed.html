@@ -1,0 +1,34 @@
+{{- /*
+  Official YouTube press-conference embed. Media is never downloaded or
+  rehosted — the iframe points at youtube-nocookie.com. Context: dict
+  with url, videoId, speaker, optional channel, dateLabel, title, quote.
+*/ -}}
+{{- $url := .url -}}
+{{- $id := .videoId -}}
+{{- $speaker := .speaker -}}
+{{- if and $url $id $speaker }}
+<figure class="nrt-yt-embed" data-nrt-yt-embed data-nrt-yt-id="{{ $id }}">
+  <div class="nrt-yt-embed__frame">
+    <iframe
+      src="https://www.youtube-nocookie.com/embed/{{ $id }}"
+      title="{{ $speaker }}{{ with .title }} — {{ . }}{{ end }}"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      referrerpolicy="strict-origin-when-cross-origin"
+      allowfullscreen
+      loading="lazy"
+    ></iframe>
+  </div>
+  <figcaption class="nrt-yt-embed__credit">
+    <strong class="nrt-yt-embed__speaker">{{ $speaker }}</strong>
+    {{- with .dateLabel }}<span class="nrt-yt-embed__when">{{ . }}</span>{{ else }}{{ with .date }}<span class="nrt-yt-embed__when">{{ . }}</span>{{ end }}{{ end }}
+    <span class="nrt-yt-embed__source">
+      Source:
+      <a href="{{ $url }}" target="_blank" rel="noopener">{{ .channel | default "YouTube" }}</a>
+    </span>
+    {{- with .title }}<span class="nrt-yt-embed__title">{{ . }}</span>{{ end }}
+  </figcaption>
+  {{- with .quote }}
+  <blockquote class="nrt-yt-embed__quote">“{{ . }}”</blockquote>
+  {{- end }}
+</figure>
+{{- end -}}

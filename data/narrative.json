@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-10-20T17:37:10+00:00",
-  "updatedAt": "2026-10-20T17:52:00+00:00",
+  "updatedAt": "2026-10-20T18:11:51+00:00",
   "generator": "grok:grok-4.7",
   "phase": {
     "type": "regular",
@@ -71,6 +71,27 @@
       "Penalties that wiped a Roland-Wallace interception and extended Los Angeles, including Fulton’s pass interference and Jones’ roughing"
     ]
   },
+  "pressConferences": [
+    {
+      "url": "https://www.youtube.com/watch?v=wV0rX_GUtTg",
+      "videoId": "wV0rX_GUtTg",
+      "speaker": "Andy Reid",
+      "channel": "Kansas City Chiefs",
+      "title": "Andy Reid Speaks to the Media | OCTOBER 19, 2026",
+      "date": "2026-10-19",
+      "dateLabel": "Mon Oct 19, 2026",
+      "quote": "I thought defensively we did a really nice job of executing the plan that Spags had put together with the coaches there."
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=HqrXUR4Gg4o",
+      "videoId": "HqrXUR4Gg4o",
+      "speaker": "Andy Reid, Patrick Mahomes, Ken Walker, and Nick Bolton",
+      "channel": "Kansas City Chiefs",
+      "title": "Andy Reid, Patrick Mahomes, Ken Walker & Nick Bolton Postgame Press Conferences - NFL Week 6",
+      "date": "2026-10-18",
+      "dateLabel": "Sun Oct 18, 2026"
+    }
+  ],
   "currentState": {
     "lede": "The Chiefs are 5-0, ranked No. 2 in Arrowhead Pride’s Week 7 sampling, and priced as a road underdog. The offense can move the ball — 422 against the Chargers, and 399 and 189 rushing yards in 24:18 at Las Vegas the week before — and it is not finishing at the same rate.",
     "record": "5-0",
