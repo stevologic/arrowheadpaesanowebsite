@@ -127,7 +127,9 @@ def _regular_edition(season, week, mode, last_game) -> str:
     return f"{season} Week {week} · Preview"
 
 
-def detect(schedule: list[dict], now: datetime = None) -> dict:
+def detect(
+    schedule: list[dict], now: datetime = None, *, advance_from_review: bool = False
+) -> dict:
     """Return a phase descriptor.
 
     Shape::
@@ -141,6 +143,10 @@ def detect(schedule: list[dict], now: datetime = None) -> dict:
           "nextGame": {…} | None,
           "lastGame": {…} | None,
         }
+
+    ``advance_from_review`` is the day-after-publish switch: a signed Review
+    already landed, and today is a later America/Chicago calendar day, so
+    the desk looks ahead to the upcoming game instead of reminting Review.
     """
     now = _aware(now)
 
@@ -191,6 +197,11 @@ def detect(schedule: list[dict], now: datetime = None) -> dict:
             and days_since_last <= REVIEW_DAYS
             and (days_to_next is None or days_to_next > REVIEW_DAYS)
         ):
+            # Keep Review until a signed edition exists. Once that Review
+            # is from a prior CT day, look ahead — otherwise generate
+            # skips and the next opponent never gets a Preview.
+            if advance_from_review:
+                return "preview"
             return "review"
         return "preview"
 

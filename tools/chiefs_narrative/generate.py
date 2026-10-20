@@ -632,15 +632,25 @@ def _write_archive(narrative: dict) -> None:
         "theEdge": narrative.get("theEdge") or "",
     }
     # Replace only this slug. A same-day Preview and Review are different
-    # editions and must both stay in the archive.
+    # editions and must both stay in the archive. Unlimited growth is
+    # intended for now; do not prune.
     slug = (snapshot.get("slug") or "").strip()
     if slug:
         archive = [a for a in archive if (a.get("slug") or "").strip() != slug]
     archive.insert(0, snapshot)
-    archive = archive[:30]  # keep the last ~month of editions
+    archive = _keep_archive_rows(archive)
     config.ARCHIVE_JSON.write_text(
         json.dumps(archive, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
+
+
+def _keep_archive_rows(archive: list) -> list:
+    """Keep every archived edition. Unlimited growth is intended for now.
+
+    Same-day Preview and Review both stay (#241). A 30-row slice deleted
+    2026-09-07-1631 and 2026-09-06-1417. Do not prune.
+    """
+    return archive
 
 
 def _write_schedule(schedule: list[dict]) -> None:
@@ -690,12 +700,24 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
 
     # 2. Determine phase + upcoming games.
     ph = phase_mod.detect(schedule)
-    upcoming = phase_mod.next_games(schedule, count=3)
     print(f"  [phase] {ph['label']} (type={ph['type']}, mode={ph['mode']})")
+    if _should_advance_to_preview(ph):
+        if _live_preview_covers_upcoming(ph):
+            print(
+                "  [phase] live next-week Preview wins the review window; "
+                "advancing to Preview"
+            )
+        else:
+            print(
+                "  [phase] signed Review is from a prior CT day; advancing to Preview"
+            )
+        ph = phase_mod.detect(schedule, advance_from_review=True)
+        print(f"  [phase] {ph['label']} (type={ph['type']}, mode={ph['mode']})")
     if _signed_review_already_published(ph):
         raise LiveGameSkip(
             "signed Review edition already published; skipping new edition"
         )
+    upcoming = phase_mod.next_games(schedule, count=3)
 
     last = ph.get("lastGame") or {}
     if last.get("id"):
@@ -1256,23 +1278,84 @@ def _attach_prior_recap(recap: dict, fixture_name: str, fixtures) -> dict:
     return payload
 
 
+def _load_live_narrative() -> dict | None:
+    path = config.NARRATIVE_JSON
+    if not path.is_file():
+        return None
+    try:
+        live = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return live if isinstance(live, dict) else None
+
+
+def _live_preview_covers_upcoming(ph: dict | None) -> bool:
+    """True when the published edition is already a Preview for next week's game.
+
+    After Preview 2156 lands, the three-day review window still returns
+    Review for Tue/Wed. That live Preview must win, or generate remints
+    last week's Review.
+    """
+    live = _load_live_narrative()
+    if not live or facts.is_review_edition(live):
+        return False
+    live_phase = live.get("phase") if isinstance(live.get("phase"), dict) else {}
+    if str(live_phase.get("mode") or "").strip().lower() != "preview":
+        return False
+    next_game = (ph or {}).get("nextGame") or {}
+    live_week = live_phase.get("week")
+    next_week = next_game.get("week")
+    try:
+        return int(live_week) == int(next_week)
+    except (TypeError, ValueError):
+        return False
+
+
+def _should_advance_to_preview(
+    ph: dict | None, now: datetime | None = None
+) -> bool:
+    """Look ahead instead of reminting Review.
+
+    True when a signed Review is from a prior CT day, or when a next-week
+    Preview is already live inside the three-day review window.
+    """
+    if _live_preview_covers_upcoming(ph):
+        return True
+    return bool(
+        _signed_review_already_published(ph)
+        and _published_review_is_prior_ct_day(now)
+    )
+
+
+def _published_review_is_prior_ct_day(now: datetime | None = None) -> bool:
+    """True when the live edition's America/Chicago day is already over.
+
+    A Sunday-night Review stamped 02:26 UTC Monday is still Sunday in
+    Kansas City. The next CT calendar day should mint the upcoming Preview
+    instead of skipping inside the three-day review window.
+    """
+    pub_day = _edition_calendar_day(_load_live_narrative())
+    if not pub_day:
+        return False
+    stamp = now or config.now_utc()
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=timezone.utc)
+    today = stamp.astimezone(_CT).date().isoformat()
+    return today > pub_day
+
+
 def _signed_review_already_published(ph: dict | None) -> bool:
     """True when Karen already signed the live Review for this last game.
 
     Same-day regen may still overwrite an unsigned draft. A signed Review
     must stay byte-identical; reminting it is what turned run 37358660165
-    red after Week 4 landed.
+    red after Week 4 landed. The next CT day is not a remint: detect
+    advances to Preview so generate can look at the upcoming game.
     """
     if str((ph or {}).get("mode") or "").strip().lower() != "review":
         return False
-    path = config.NARRATIVE_JSON
-    if not path.is_file():
-        return False
-    try:
-        live = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return False
-    if not isinstance(live, dict) or not facts.is_review_edition(live):
+    live = _load_live_narrative()
+    if not live or not facts.is_review_edition(live):
         return False
     if not review_gate.review_signed_off(live):
         return False

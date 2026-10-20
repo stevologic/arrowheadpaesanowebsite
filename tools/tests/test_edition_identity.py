@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 import yaml
 
-from tools.chiefs_narrative import edition_overlay, facts, generate
+from tools.chiefs_narrative import edition_overlay, facts, generate, odds
 from tools.tests.frozen_slate import frozen_schedule
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -158,6 +158,80 @@ class UniqueEditionSlugTests(unittest.TestCase):
             saved = json.loads(path.read_text(encoding="utf-8"))
         self.assertEqual(len(saved), 1)
         self.assertEqual(saved[0]["headline"], "revised draft")
+
+    def test_write_archive_does_not_drop_older_editions(self):
+        """A 30-row slice dropped 2026-09-07-1631 and 2026-09-06-1417 (#244)."""
+        rows = []
+        for day in range(6, 36):
+            rows.append(
+                {
+                    "generatedAt": f"2026-09-{day:02d}T12:00:00+00:00",
+                    "slug": f"2026-09-{day:02d}-1200",
+                    "edition": "2026 Week 1",
+                    "phase": "Week 1",
+                    "headline": f"day {day}",
+                    "theEdge": "edge",
+                }
+            )
+        rows[0]["slug"] = "2026-09-06-1417"
+        rows[1]["slug"] = "2026-09-07-1631"
+        newest = {
+            "generatedAt": "2026-10-19T21:56:11+00:00",
+            "slug": "2026-10-19-2156",
+            "edition": "2026 Week 7 · Preview",
+            "phase": {"label": "Week 7"},
+            "headline": "Walker scored both. Seattle still lays 2.5 at Lumen Field.",
+            "theEdge": "edge",
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "archive.json"
+            path.write_text(json.dumps(rows) + "\n", encoding="utf-8")
+            with patch.object(generate.config, "ARCHIVE_JSON", path):
+                generate._write_archive(newest)
+            saved = json.loads(path.read_text(encoding="utf-8"))
+        slugs = [row["slug"] for row in saved]
+        self.assertEqual(len(saved), 31)
+        self.assertEqual(slugs[0], "2026-10-19-2156")
+        self.assertIn("2026-09-07-1631", slugs)
+        self.assertIn("2026-09-06-1417", slugs)
+        self.assertEqual(generate._keep_archive_rows(saved), saved)
+
+    def test_keep_archive_rows_does_not_prune(self):
+        rows = [{"slug": f"s{i}"} for i in range(32)]
+        kept = generate._keep_archive_rows(rows)
+        self.assertIs(kept, rows)
+        self.assertEqual(len(kept), 32)
+        self.assertNotIn("Bound", generate._keep_archive_rows.__doc__ or "")
+        self.assertIn("Unlimited growth is intended for now", generate._keep_archive_rows.__doc__ or "")
+
+
+class OddsSourceTests(unittest.TestCase):
+    def test_game_card_source_splits_fpi_and_draftkings_spread(self):
+        """SEA -2.5 is the DraftKings spread, not an FPI projection."""
+        card = odds.build_game_card(
+            {
+                "opponent": "Seattle Seahawks",
+                "id": "401873022",
+                "homeAway": "away",
+                "kickoff": "Sun, Oct 25 · 7:20 PM CT",
+            },
+            {
+                "model": {"kcWin": 52.2, "oppWin": 47.4},
+                "vegas": {
+                    "spreadDetail": "SEA -2.5",
+                    "overUnder": 42.5,
+                    "source": "ESPN / DraftKings",
+                },
+            },
+        )
+        self.assertIsNotNone(card)
+        self.assertEqual(
+            card["source"],
+            "ESPN FPI win probability; ESPN / DraftKings spread",
+        )
+        self.assertEqual(card["spreadDetail"], "SEA -2.5")
+        self.assertEqual(card["overUnder"], 42.5)
+        self.assertEqual(card["kcWin"], 52.2)
 
 
 class ChargersReviewMustPassTests(unittest.TestCase):

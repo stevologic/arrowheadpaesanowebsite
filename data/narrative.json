@@ -1,24 +1,24 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-19T02:26:31+00:00",
-  "updatedAt": "2026-10-19T02:26:31+00:00",
+  "generatedAt": "2026-10-19T21:56:11+00:00",
+  "updatedAt": "2026-10-19T23:25:20+00:00",
   "generator": "grok:grok-4.7",
   "phase": {
     "type": "regular",
-    "label": "Week 6",
-    "week": 6,
-    "mode": "review"
+    "label": "Week 7",
+    "week": 7,
+    "mode": "preview"
   },
-  "edition": "2026 Week 6 · Review",
+  "edition": "2026 Week 7 · Preview",
   "record": "5-0",
-  "headline": "422 yards cashed 22. Seattle gets the underdog tape.",
-  "dek": "Kansas City is 5-0 after a 22-6 win over the Chargers at Arrowhead: Kansas City rushed for 150, passed for 272 net, and held the ball 30:26, and the next kickoff is at Seattle on Sun Oct 25, 7:20 PM CT.",
-  "videoHook": "Twenty-two points on 422 yards, zero sacks on Mahomes, and a road number that does not care that the Chargers never scored a touchdown.",
-  "theEdge": "ESPN FPI has Kansas City at 48.3 percent to win at Seattle, DraftKings lists Seattle -2.5 on a 42.5 total, and Polymarket sits at 10.5 percent to win the championship and 17.5 percent to win the AFC — a road underdog after a 22-6 afternoon.",
+  "headline": "Walker scored both. Seattle still lays 2.5 at Lumen Field.",
+  "dek": "A 22-6 afternoon left Kansas City 5-0 with Kenneth Walker III’s two rushing scores and a defense that allowed zero Chargers touchdowns, and they go to Lumen Field on Sun Oct 25, 7:20 PM CT, NBC, as a 2.5-point underdog.",
+  "videoHook": "Nineteen carries, two Kansas City touchdowns, six points allowed, and a 7:20 PM CT number that still has Seattle laying 2.5.",
+  "theEdge": "ESPN FPI now gives Kansas City 52.2 percent to win at Seattle, DraftKings lists Seattle -2.5 on a 42.5 total, and Polymarket sits at 10.8 percent to win the championship and 17.0 percent to win the AFC — still a road underdog after a 22-6 afternoon.",
   "storyline": {
     "lede": "Andy Reid's club is 5-0 because the complementary pieces keep cashing wins that the scoreboard does not dress up. Against Los Angeles, Kansas City put up 22 first downs, 150 rushing yards, and 272 net passing yards, finished with 422 total yards and 30:26 of possession, and still left Arrowhead with a 22-6 final that felt like a finishing problem wearing a division win.",
     "body": [
-      "The last afternoon was a Steve Spagnuolo game as much as a Patrick Mahomes game. Justin Herbert went 22-of-37 with four sacks, a 63.3 rating, and nine quarterback hits from Kansas City; Los Angeles managed 15 first downs, 73 rushing yards, 186 net passing yards, 259 total yards, and 29:34 of possession, and the only Los Angeles points were field goals. Jack Cochrane's interception and the fumble L'Jarius Sneed forced and Drue Tranquill recovered were the giveaways that matched the Chargers' two-turnover line.",
+      "The last afternoon was a Steve Spagnuolo game as much as a Patrick Mahomes game. Justin Herbert went 22-of-37 with four sacks, a 63.3 rating, and nine quarterback hits from Kansas City; Los Angeles managed 15 first downs, 73 rushing yards, 186 net passing yards, 259 total yards, and 29:34 of possession, and the only Los Angeles points were field goals. Jack Cochrane intercepted Herbert, and L'Jarius Sneed forced the fumble Drue Tranquill recovered — the giveaways that matched the Chargers' two-turnover line.",
       "Mahomes was 23-of-30 for 272 yards with an 89.9 rating, zero sacks, and three hits. That is an efficient day. Kenneth Walker III carried 19 times for 128 yards and both Kansas City touchdowns — the 33-yard score up the middle at Q1 7:21, extra point no good, and the 2-yard score at Q2 1:49 — on 21 touches with two catches mixed in. Xavier Worthy caught seven passes for 73 yards in a receiver room that did not have Rashee Rice.",
       "The season ask changes on Sun Oct 25, 7:20 PM CT. DraftKings lists Seattle -2.5. The 5-0 record travels. The benefit of the doubt on third down and in the red area does not."
     ]
@@ -34,7 +34,7 @@
         "body": "The run tape is specific. Walker gained 13 up the middle, 2 off left end, 4 up the middle, and 3 off right end before the 33-yard touchdown up the middle. Later he ripped 11 and 13 off left end and, on the Q3 6:34 snap with K. Tonga reported eligible, was stopped at the 1 on a left-guard carry for no gain — a turnover on downs. Emmett Johnson added five touches. Kansas City's team line is 27 carries for 150. Walker had 128 of those yards. Against Las Vegas the club rushed for 189."
       },
       {
-        "body": "Mahomes' throws included the deep-middle 23-yarder to Cyrus Allen and the short-right interception by Cam Hart that became a touchback. Creed Humphrey's fumble on a snap was recovered by Mahomes, who found Travis Kelce for 16 on the continuation. The 23-of-30, zero-sack line still came with three hits. The miss that stings is finishing — 3-of-10 on third down, a 52-yard Butker miss wide right, the failed fourth-down snap at the 1, and two giveaways on a day the offense reached 422 yards."
+        "body": "Mahomes' throws included the deep-middle 23-yarder to Cyrus Allen and the short-right throw Cam Hart intercepted, which became a touchback. Creed Humphrey's fumble on a snap was recovered by Mahomes, who found Travis Kelce for 16 on the continuation. The 23-of-30, zero-sack line still came with three hits. The miss that stings is finishing — 3-of-10 on third down, a 52-yard Butker miss wide right, the failed fourth-down snap at the 1, and two giveaways on a day the offense reached 422 yards."
       },
       {
         "body": "Spagnuolo's group kept a winless offense in field-goal range. Herbert scrambled for gains, including 6 and 7 up the middle and 7 off left end, but Chamarri Conner was credited with a sack and the rush finished with four sacks and nine hits. Cochrane intercepted a short-right throw intended for KeAndre Lambert-Smith and returned it 48 yards; a Chris Roland-Wallace interception was wiped by Ashton Gillotte's roughing penalty and does not count. Quentin Johnston's 57-yard catch reached the 1 and that drive still ended in a 30-yard field goal. Los Angeles did not score a touchdown."
@@ -62,7 +62,7 @@
       "Mahomes at 23-of-30, 272 yards, zero sacks, three hits",
       "Worthy’s seven catches for 73 yards",
       "Four sacks and nine hits, with Conner credited for one sack",
-      "Cochrane’s interception and the Sneed-forced, Tranquill-recovered fumble",
+      "Jack Cochrane intercepted Herbert, plus the Sneed-forced, Tranquill-recovered fumble",
       "Holding Los Angeles to 73 rushing yards, 259 total yards, and two field goals"
     ],
     "whatDidnt": [
@@ -80,7 +80,7 @@
     "workOn": [
       {
         "title": "Third-down answers",
-        "body": "3-of-10 will not travel against a defending champion that ESPN FPI already prices at 51.3 percent. Eric Bieniemy needs a third-and-medium menu that is not another hero ball after the sticks move late."
+        "body": "3-of-10 will not travel. ESPN FPI now favors Kansas City at 52.2 percent at Seattle, with Seattle at 47.4. Eric Bieniemy needs a third-and-medium menu that is not another hero ball after the sticks move late."
       },
       {
         "title": "Goal-line identity without a pile-up",
@@ -102,11 +102,11 @@
       },
       {
         "title": "How much of the Vegas run game is this offense?",
-        "body": "Against Las Vegas, Kansas City rushed for 189 on 26 attempts, passed for 210 net, and possessed the ball 24:18, while Las Vegas held it 35:42. This afternoon was 150 rushing, 272 passing, and 30:26 of possession. Walker is the connector."
+        "body": "Against Las Vegas, Kansas City rushed 26 times for 189 yards, passed for 210 net, and possessed the ball 24:18, while Las Vegas held it 35:42. Against Los Angeles the club ran 27 times for 150, passed for 272 net, and possessed the ball 30:26. Walker is the connector."
       },
       {
         "title": "Underdog or trap narrative?",
-        "body": "DraftKings is Seattle -2.5, total 42.5. FPI is 48.3 percent. Believe the number, then beat it with a plan."
+        "body": "DraftKings is Seattle -2.5, total 42.5. FPI is 52.2 percent. Believe the number, then beat it with a plan."
       }
     ]
   },
@@ -146,45 +146,46 @@
     "opponent": "Seattle Seahawks",
     "at": "@ Lumen Field",
     "tv": "NBC",
-    "note": "Kickoff Sun Oct 25, 7:20 PM CT. Defending champions lay a short number; Kansas City is 5-0 and not favored."
+    "note": "Kickoff Sun Oct 25, 7:20 PM CT on NBC. Seattle lays 2.5; Kansas City is 5-0 and not listed as the favorite."
   },
   "markets": {
     "game": {
       "opponent": "Seattle Seahawks",
       "label": "Sun, Oct 25 · 7:20 PM CT",
       "homeAway": "away",
-      "kcWin": 48.3,
+      "kcWin": 52.2,
       "spreadDetail": "SEA -2.5",
       "overUnder": 42.5,
-      "source": "ESPN FPI win probability; ESPN / Draft Kings spread",
+      "source": "ESPN FPI win probability; ESPN / DraftKings spread",
       "url": "https://www.espn.com/nfl/game/_/gameId/401873022"
     },
     "model": {
-      "kcWin": 48.3,
-      "oppWin": 51.3,
+      "kcWin": 52.2,
+      "oppWin": 47.4,
       "label": "ESPN FPI game projection",
       "source": "ESPN FPI",
       "url": "https://www.espn.com/nfl/fpi"
     },
     "vegas": {
-      "provider": "Draft Kings",
+      "provider": "DraftKings",
       "spreadDetail": "SEA -2.5",
       "overUnder": 42.5,
       "homeMoneyline": -135.0,
       "awayMoneyline": 114.0,
-      "source": "ESPN / Draft Kings",
+      "source": "ESPN / DraftKings",
       "url": "https://www.espn.com/nfl/lines"
     },
+    "consensus": null,
     "futures": [
       {
         "label": "Pro Football: 2027 Champion",
-        "chiefsPct": 10.5,
+        "chiefsPct": 10.8,
         "source": "Polymarket",
         "url": "https://polymarket.com/event/pro-football-2027-champion-20260729185915366"
       },
       {
         "label": "Pro Football: 2027 AFC Champion",
-        "chiefsPct": 17.5,
+        "chiefsPct": 17.0,
         "source": "Polymarket",
         "url": "https://polymarket.com/event/pro-football-2027-afc-champion"
       }
@@ -198,8 +199,8 @@
     },
     {
       "tag": "Market",
-      "title": "The number flipped",
-      "body": "FPI gives Seattle 51.3 percent and Kansas City 48.3. DraftKings has Seattle -2.5 and a 42.5 total. Polymarket has the Chiefs at 10.5 percent to win the championship and 17.5 percent to win the AFC. Undefeated is not the same as favored."
+      "title": "FPI favors Kansas City. DraftKings still lays 2.5.",
+      "body": "ESPN FPI favors Kansas City at 52.2 percent and Seattle at 47.4. DraftKings is the line that still has Kansas City as the underdog: Seattle -2.5 and a 42.5 total. Polymarket has the Chiefs at 10.8 percent to win the championship and 17.0 percent to win the AFC."
     },
     {
       "tag": "Worthy",
@@ -208,8 +209,8 @@
     },
     {
       "tag": "Moore",
-      "title": "The right tackle left before halftime",
-      "body": "Moore left in the second quarter with a concussion and was listed questionable with a head injury. That is the protection fact Seattle will circle."
+      "title": "Moore: status TBD, in concussion protocol",
+      "body": "Moore left in the second quarter with a concussion. The Chiefs listed him Out only for the rest of the Chargers game. Oct 19 reports: status TBD, in concussion protocol, and no starter has been named."
     },
     {
       "tag": "Defense",
@@ -235,7 +236,7 @@
       "chiefs": "Patrick Mahomes, Kingsley Suamataia, Jaylon Moore's replacement",
       "opponent": "Seattle edge heat on a road underdog",
       "edge": "OPP",
-      "note": "Mahomes took zero sacks and three hits at home. Moore left with a concussion, so the right side is the question mark until the next injury report is posted."
+      "note": "Mahomes took zero sacks and three hits at home. Jaylon Moore: status TBD, in concussion protocol. The Out listing applied only to the rest of the Chargers game; no starter has been named."
     },
     {
       "unit": "Worthy and Kelce vs. Seattle coverage",
@@ -278,7 +279,7 @@
         "z": "stalk and replace",
         "te": "zone arc on the end"
       },
-      "diagram": "images/narrative/2026-10-19-0226/xo-inside_zone.svg",
+      "diagram": "images/narrative/2026-10-19-2156/xo-inside_zone.svg",
       "side": "offense"
     },
     {
@@ -292,7 +293,7 @@
         "z": "wheel alert",
         "te": "flat sit"
       },
-      "diagram": "images/narrative/2026-10-19-0226/xo-play_action_boot.svg",
+      "diagram": "images/narrative/2026-10-19-2156/xo-play_action_boot.svg",
       "side": "offense"
     },
     {
@@ -306,7 +307,7 @@
         "z": "corner sit",
         "te": "shallow cross opposite"
       },
-      "diagram": "images/narrative/2026-10-19-0226/xo-mesh.svg",
+      "diagram": "images/narrative/2026-10-19-2156/xo-mesh.svg",
       "side": "offense"
     },
     {
@@ -320,7 +321,7 @@
         "z": "stalk block",
         "te": "slip to the alley"
       },
-      "diagram": "images/narrative/2026-10-19-0226/xo-spacing_screen.svg",
+      "diagram": "images/narrative/2026-10-19-2156/xo-spacing_screen.svg",
       "side": "offense"
     },
     {
@@ -334,7 +335,7 @@
         "z": "deep half",
         "te": "hook curl"
       },
-      "diagram": "images/narrative/2026-10-19-0226/xo-cover_two.svg",
+      "diagram": "images/narrative/2026-10-19-2156/xo-cover_two.svg",
       "side": "defense"
     },
     {
@@ -348,7 +349,7 @@
         "z": "flat replace",
         "te": "hook drop from the line"
       },
-      "diagram": "images/narrative/2026-10-19-0226/xo-zone_blitz.svg",
+      "diagram": "images/narrative/2026-10-19-2156/xo-zone_blitz.svg",
       "side": "defense"
     }
   ],
@@ -369,9 +370,9 @@
   "injuries": [
     {
       "player": "Jaylon Moore",
-      "status": "Left the Chargers game, concussion",
-      "note": "Left in the second quarter. ESPN listed him questionable (head). Week 7 availability was not posted.",
-      "source": "ESPN / Associated Press"
+      "status": "status TBD, in concussion protocol",
+      "note": "Left in the second quarter. The Chiefs listed him Out only for the rest of the Chargers game. Oct 19 reports: status TBD, in concussion protocol; no starter named.",
+      "source": "Atoz Sports, Yahoo Sports (Oct 19)"
     },
     {
       "player": "Travis Kelce",
@@ -450,7 +451,7 @@
     {
       "segment": "Seattle plan",
       "length": "12:30-16:00",
-      "talkTrack": "Sun Oct 25, 7:20 PM CT, NBC. FPI 48.3 percent. DraftKings Seattle -2.5, total 42.5. Polymarket 10.5 and 17.5. Walk the six calls: zone, boot, mesh, screen, Cover 2, simulated pressure."
+      "talkTrack": "Sun Oct 25, 7:20 PM CT, NBC. FPI 52.2 percent. DraftKings Seattle -2.5, total 42.5. Polymarket 10.8 and 17.0. Walk the six calls: zone, boot, mesh, screen, Cover 2, simulated pressure."
     },
     {
       "segment": "Close",
@@ -460,23 +461,35 @@
   ],
   "sources": [
     {
-      "title": "Xavier Worthy rises to the occasion for Chiefs’ offense",
-      "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/213339/xavier-worthy-rises-occasion-chiefs-offense",
-      "note": "Worthy stepping up with the receiver room thinned."
+      "title": "10 Quick Facts Following the Chiefs Week 6 Win Over Los Angeles | Upon Further Review",
+      "publisher": "Chiefs.com",
+      "url": "https://www.chiefs.com/news/10-quick-facts-following-the-chiefs-week-6-win-over-los-angeles-upon-further-review",
+      "note": "The Chiefs moved to 5-0 on Sunday"
     },
     {
-      "title": "Rapid Reaction: Chiefs’ defense keeps lowly Chargers down",
-      "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/213402/rapid-reaction-chiefs-defense-keeps-lowly-chargers-down",
-      "note": "5-0 and the defensive read on a 22-6 afternoon."
+      "title": "Travis Kelce's injury scare underscores his importance to Chiefs offense",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/travis-kelce-injury-scare-underscores-his-importance-chiefs-offense?utm_source=RSS",
+      "note": "After the Chiefs' Week 6 win against the Chargers, Travis Kelce may prove to be more important than ever as the season continues."
     },
     {
-      "title": "Chiefs defeat Chargers to remain undefeated",
+      "title": "The Chiefs’ red-zone offense has to get straightened out",
       "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-game-information/213318/chiefs-chargers-live-updates-game-thread",
-      "note": "22-6 final, Walker 128 and two scores, Mahomes 23 of 30 for 272."
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/213597/chiefs-red-zone-offense-straightened-out",
+      "note": "In the Kansas City Chiefs’ 22-6 win over the Los Angeles Chargers, the Chiefs’ offense drove up and down the field against Los Angeles’ defe"
+    },
+    {
+      "title": "Patrick Mahomes has taken to the Chiefs’ under-center offense",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/213588/patrick-mahomes-taken-under-center-offense",
+      "note": "When the Kansas City Chiefs selected quarterback Patrick Mahomes with the 10th pick in the 2017 NFL Draft, he watched an offense capable of"
+    },
+    {
+      "title": "Patrick Mahomes was much better against Chargers than the box score suggests",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/patrick-mahomes-was-much-better-against-chargers-than-box-score-suggests-01m59sgxywqj?utm_source=RSS",
+      "note": "A closer look at Patrick Mahomes' performance reveals just how well the Chiefs quarterback played against Los Angeles, despite what the box"
     }
   ],
-  "slug": "2026-10-19-0226"
+  "slug": "2026-10-19-2156"
 }
