@@ -154,6 +154,8 @@ _EDITION_KEYS = (
     "theEdge",
     "storyline",
     "lastGameReview",
+    "pressConferences",
+    "lockerRoom",
     "currentState",
     "gamePlan",
     "nextGame",

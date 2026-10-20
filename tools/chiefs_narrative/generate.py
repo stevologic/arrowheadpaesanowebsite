@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from . import collect, config, diagrams, facts, known_errors, odds, offline, phase as phase_mod
-from . import prompts, providers, review_gate, schema, x_embeds
+from . import locker_room, press_conferences, prompts, providers, review_gate, schema, x_embeds
 
 _CT = ZoneInfo("America/Chicago")
 
@@ -579,6 +579,13 @@ def _assemble_narrative(
     # Models are not given X data and must not invent status IDs. Keep an
     # embed only when oEmbed 200s for an allowlisted official account.
     x_embeds.strip_unverified_embeds(narrative)
+    # Models are not given YouTube IDs and must not invent them. Attach
+    # only oEmbed-verified, allowlisted, game-week press conferences.
+    # Dead candidates fail the run instead of publishing a broken iframe.
+    press_conferences.attach_verified(narrative, signals, ph)
+    # Same rule for locker-room X posts: never keep a writer-invented
+    # status ID. Empty is the honest fallback when X cannot be fetched.
+    locker_room.attach_verified(narrative, signals, ph)
     return narrative
 
 
@@ -1462,6 +1469,8 @@ def check_published_edition() -> list[str]:
     schedule = collect.load_cached_schedule()
     issues = facts.check_review(narrative, last, recap, schedule=schedule)
     issues.extend(facts.check_diagram_captions(narrative))
+    issues.extend(press_conferences.check_embeds(narrative, schedule=schedule))
+    issues.extend(locker_room.check_posts(narrative, schedule=schedule))
     return issues
 
 
@@ -1487,7 +1496,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--check-edition",
         action="store_true",
-        help="run check_review and the SVG/why gate on data/narrative.json",
+        help="run check_review, the SVG/why gate, press-conference oEmbed, and locker-room X resolution on data/narrative.json",
     )
     parser.add_argument(
         "--gate-replay",
@@ -1534,9 +1543,21 @@ def main(argv=None) -> int:
 
     if args.check_edition:
         issues = check_published_edition()
-        if issues:
+        press_issues = [
+            item
+            for item in issues
+            if str(item).startswith("press conference:")
+            or str(item).startswith("locker room:")
+        ]
+        other = [item for item in issues if item not in press_issues]
+        if press_issues:
             print("ERROR: published edition failed gates:", file=sys.stderr)
-            for item in issues:
+            for item in press_issues + other:
+                print(f"  - {item}", file=sys.stderr)
+            return 1
+        if other:
+            print("ERROR: published edition failed gates:", file=sys.stderr)
+            for item in other:
                 print(f"  - {item}", file=sys.stderr)
             repair = {}
             if config.REPAIR_JSON.is_file():
@@ -1564,6 +1585,9 @@ def main(argv=None) -> int:
         print(f"  [generate] {exc}")
         return 0
     except DuplicateNarrativeError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    except press_conferences.UnverifiedPressConferenceError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
     except FactCheckError as exc:

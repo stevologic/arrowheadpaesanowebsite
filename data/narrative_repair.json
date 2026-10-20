@@ -1,6 +1,8 @@
 {
   "droppedSentences": [],
-  "correctedSentences": [],
+  "correctedSentences": [
+    "Mahomes at 23-of-30 for 272 yards with zero sacks and a 89.9 rating \u2192 Mahomes at 23-of-30 for 272 yards with zero sacks and an 89.9 rating"
+  ],
   "leftoverIssues": [],
   "holdAutomerge": true
 }
