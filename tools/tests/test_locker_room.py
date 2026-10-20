@@ -26,7 +26,10 @@ WEEK_PHASE = {
 }
 
 WALKER_URL = "https://x.com/Kenneth_Walker9/status/2112203440080482333"
+WALKER_ID = "2112203440080482333"
 MAHOMES_URL = "https://x.com/PatrickMahomes/status/2111990066990260570"
+MAHOMES_RT_URL = "https://x.com/PatrickMahomes/status/2112231759832355290"
+MAHOMES_RT_ID = "2112231759832355290"
 FAN_URL = "https://x.com/TravisKelce/status/2112203440080482333"
 
 
@@ -333,6 +336,98 @@ class LockerRoomVerification(unittest.TestCase):
             )
         )
 
+    def test_retweet_keeps_syndication_unroll_by_claimed_handle(self):
+        row = {
+            "url": WALKER_URL,
+            "handle": "@Kenneth_Walker9",
+            "date": "2026-10-19",
+            "retweetedBy": {
+                "handle": "@PatrickMahomes",
+                "statusId": MAHOMES_RT_ID,
+                "url": MAHOMES_RT_URL,
+            },
+        }
+
+        def payload(status_id):
+            self.assertEqual(status_id, MAHOMES_RT_ID)
+            return {"id_str": WALKER_ID}
+
+        verified = locker_room.verify_post(
+            row,
+            oembed_fetch=lambda url: _oembed(
+                "https://x.com/PatrickMahomes"
+                if "2112231759832355290" in url
+                else "https://x.com/Kenneth_Walker9",
+                "<p>pic</p> October 19, 2026",
+            ),
+            fallback_fetch=lambda url: None,
+            syndication_fetch=_author("Kenneth_Walker9"),
+            syndication_payload_fetch=payload,
+            phase=WEEK_PHASE,
+        )
+        self.assertIsNotNone(verified)
+        self.assertEqual(verified["retweetedBy"]["statusId"], MAHOMES_RT_ID)
+
+    def test_retweet_rejects_mismatch_and_failed_lookup(self):
+        row = {
+            "url": WALKER_URL,
+            "handle": "@Kenneth_Walker9",
+            "date": "2026-10-19",
+            "retweetedBy": {
+                "handle": "@PatrickMahomes",
+                "statusId": MAHOMES_RT_ID,
+                "url": MAHOMES_RT_URL,
+            },
+        }
+
+        def oembed(url):
+            author = (
+                "https://x.com/PatrickMahomes"
+                if MAHOMES_RT_ID in url
+                else "https://x.com/Kenneth_Walker9"
+            )
+            return _oembed(author, "<p>pic</p> October 19, 2026")
+
+        common = dict(
+            oembed_fetch=oembed,
+            fallback_fetch=lambda url: None,
+            syndication_fetch=_author("Kenneth_Walker9"),
+            phase=WEEK_PHASE,
+        )
+        self.assertIsNone(
+            locker_room.verify_post(
+                row, syndication_payload_fetch=lambda sid: None, **common
+            )
+        )
+        self.assertIsNone(
+            locker_room.verify_post(
+                row,
+                syndication_payload_fetch=lambda sid: {"id_str": MAHOMES_RT_ID},
+                **common,
+            )
+        )
+        self.assertIsNone(
+            locker_room.verify_post(
+                row,
+                syndication_payload_fetch=lambda sid: {"id_str": "1"},
+                **common,
+            )
+        )
+        wrong_handle = dict(row)
+        wrong_handle["retweetedBy"] = dict(row["retweetedBy"])
+        self.assertIsNone(
+            locker_room.verify_post(
+                wrong_handle,
+                oembed_fetch=lambda url: _oembed(
+                    "https://x.com/Chiefs", "<p>pic</p> October 19, 2026"
+                ),
+                fallback_fetch=lambda url: None,
+                syndication_fetch=_author("Kenneth_Walker9"),
+                syndication_payload_fetch=lambda sid: {"id_str": WALKER_ID},
+                phase=WEEK_PHASE,
+            )
+        )
+
     def test_fixtweet_does_not_fall_back_to_claimed_handle(self):
         class _Resp:
             status_code = 200
@@ -391,11 +486,14 @@ class LockerRoomTemplate(unittest.TestCase):
         )
         self.assertIn("nrt-locker-post__quote", partial)
         self.assertIn("nrt-locker-post__link", partial)
+        self.assertIn("View retweet", partial)
+        self.assertIn(".retweetedBy", partial)
         self.assertNotIn("<iframe", partial)
         self.assertNotIn("twitter-tweet", partial)
         css = (ROOT / "public" / "css" / "narrative.css").read_text(encoding="utf-8")
         self.assertIn(".nrt-locker__list", css)
         self.assertIn("max-width: 74ch", css[css.find(".nrt-locker__list"):])
+        self.assertIn("overflow-wrap: anywhere", css[css.find(".nrt-locker-post__note"):])
 
     def test_prompt_does_not_ask_the_model_for_status_ids(self):
         text = prompts.build_user_prompt({"news": [], "schedule": []}, WEEK_PHASE, [])

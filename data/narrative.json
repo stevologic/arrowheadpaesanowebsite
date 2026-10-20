@@ -93,7 +93,7 @@
     }
   ],
   "currentState": {
-    "lede": "The Chiefs are 5-0, ranked No. 2 in Arrowhead Pride’s Week 7 sampling, and priced as a road underdog. The offense can move the ball — 422 against the Chargers, and 399 and 189 rushing yards in 24:18 at Las Vegas the week before — and it is not finishing at the same rate.",
+    "lede": "The Chiefs are 5-0, ranked No. 2 in Arrowhead Pride’s Week 7 sampling, and priced as a road underdog. The offense can move the ball — 422 against the Chargers, and 399 and 189 rushing yards in 24:18 at Las Vegas the week before (ESPN) — and it is not finishing at the same rate.",
     "record": "5-0",
     "workOn": [
       {
@@ -568,7 +568,11 @@
         "dateLabel": "Mon Oct 19, 2026",
         "quote": "",
         "highlight": true,
-        "highlightNote": "Patrick Mahomes retweeted this: https://x.com/PatrickMahomes/status/2112231759832355290"
+        "retweetedBy": {
+          "handle": "@PatrickMahomes",
+          "statusId": "2112231759832355290",
+          "url": "https://x.com/PatrickMahomes/status/2112231759832355290"
+        }
       }
     ]
   }

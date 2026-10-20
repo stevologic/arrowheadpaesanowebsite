@@ -182,13 +182,8 @@ def status_id_from_url(url: str) -> str:
     return match.group(1) if match else ""
 
 
-def fetch_syndication_author(status_id: str, *, timeout: float = OEMBED_TIMEOUT_SEC) -> str | None:
-    """Author of record: syndication tweet-result ``.user.screen_name``.
-
-    oEmbed ``author_url`` follows the retweeter. This payload names the
-    account that actually authored the status. Empty/failed lookups return
-    None so the gate can fail closed.
-    """
+def fetch_syndication(status_id: str, *, timeout: float = OEMBED_TIMEOUT_SEC) -> dict | None:
+    """Syndication tweet-result payload, or None when the lookup fails."""
     sid = str(status_id or "").strip()
     if not sid.isdigit():
         return None
@@ -207,7 +202,20 @@ def fetch_syndication_author(status_id: str, *, timeout: float = OEMBED_TIMEOUT_
         payload = resp.json()
     except ValueError:
         return None
-    if not isinstance(payload, dict):
+    if not isinstance(payload, dict) or not payload.get("id_str"):
+        return None
+    return payload
+
+
+def fetch_syndication_author(status_id: str, *, timeout: float = OEMBED_TIMEOUT_SEC) -> str | None:
+    """Author of record: syndication tweet-result ``.user.screen_name``.
+
+    oEmbed ``author_url`` follows the retweeter. This payload names the
+    account that actually authored the status. Empty/failed lookups return
+    None so the gate can fail closed.
+    """
+    payload = fetch_syndication(status_id, timeout=timeout)
+    if not payload:
         return None
     user = payload.get("user") if isinstance(payload.get("user"), dict) else {}
     screen = str(user.get("screen_name") or "").strip()
@@ -276,6 +284,52 @@ def date_from_oembed(payload: dict | None) -> datetime | None:
         return None
 
 
+def verify_retweet(
+    row: dict,
+    *,
+    syndication_payload_fetch=None,
+    oembed_fetch=None,
+) -> bool:
+    """True when ``retweetedBy`` is a real RT of this post by the claimed handle.
+
+    Syndication unrolls a retweet id to the original: the lookup must succeed,
+    returned ``id_str`` must differ from the claimed RT id (it is a retweet),
+    and ``id_str`` must be this post. oEmbed ``author_url`` names the
+    retweeter — syndication cannot, because it unrolls.
+    """
+    claimed = row.get("retweetedBy")
+    if not claimed:
+        return True
+    claimed = schema._norm_retweeted_by(claimed)
+    if not claimed:
+        return False
+    rt_id = claimed["statusId"]
+    cited_id = status_id_from_url(row.get("url") or "")
+    if not cited_id:
+        return False
+    fetch = fetch_syndication if syndication_payload_fetch is None else syndication_payload_fetch
+    try:
+        payload = fetch(rt_id)
+    except Exception:  # noqa: BLE001 — fail closed
+        return False
+    if not isinstance(payload, dict):
+        return False
+    original_id = str(payload.get("id_str") or "").strip()
+    if not original_id:
+        return False
+    if original_id == rt_id:
+        return False
+    if original_id != cited_id:
+        return False
+    oembed = resolve_post(
+        claimed["url"], oembed_fetch=oembed_fetch, fallback_fetch=lambda url: None
+    )
+    if not oembed:
+        return False
+    author = x_embeds.handle_from_author_url(oembed.get("author_url") or "")
+    return bool(author) and author.lower() == claimed["handle"].lstrip("@").lower()
+
+
 def quote_is_verbatim(quote: str, source: str) -> bool:
     """True when the published quote is empty or appears in the resolved text."""
     q = " ".join((quote or "").split())
@@ -293,6 +347,7 @@ def verify_post(
     oembed_fetch=None,
     fallback_fetch=None,
     syndication_fetch=None,
+    syndication_payload_fetch=None,
     phase: dict | None = None,
 ) -> dict | None:
     """Keep a locker-room post only when it resolves and is on the allowlist."""
@@ -330,6 +385,12 @@ def verify_post(
         session = date_from_oembed(payload)
     if not press_conferences.in_game_week(session, phase):
         return None
+    if not verify_retweet(
+        row,
+        syndication_payload_fetch=syndication_payload_fetch,
+        oembed_fetch=oembed_fetch,
+    ):
+        return None
     row["handle"] = f"@{author}" if author else row["handle"]
     row["name"] = allowed["name"]
     row["team"] = allowed["team"]
@@ -346,6 +407,7 @@ def verify_all(
     oembed_fetch=None,
     fallback_fetch=None,
     syndication_fetch=None,
+    syndication_payload_fetch=None,
     phase=None,
 ):
     kept = []
@@ -356,6 +418,7 @@ def verify_all(
             oembed_fetch=oembed_fetch,
             fallback_fetch=fallback_fetch,
             syndication_fetch=syndication_fetch,
+            syndication_payload_fetch=syndication_payload_fetch,
             phase=phase,
         )
         if verified:
@@ -390,6 +453,7 @@ def attach_verified(
     oembed_fetch=None,
     fallback_fetch=None,
     syndication_fetch=None,
+    syndication_payload_fetch=None,
 ) -> dict:
     """Overwrite writer-invented locker-room posts with verified ones.
 
@@ -410,6 +474,7 @@ def attach_verified(
         oembed_fetch=oembed_fetch,
         fallback_fetch=fallback_fetch,
         syndication_fetch=syndication_fetch,
+        syndication_payload_fetch=syndication_payload_fetch,
         phase=phase,
     )
     narrative["lockerRoom"] = {"posts": kept}
@@ -422,6 +487,7 @@ def check_posts(
     oembed_fetch=None,
     fallback_fetch=None,
     syndication_fetch=None,
+    syndication_payload_fetch=None,
     schedule=None,
     phase: dict | None = None,
 ) -> list[str]:
@@ -453,6 +519,7 @@ def check_posts(
             oembed_fetch=oembed_fetch,
             fallback_fetch=fallback_fetch,
             syndication_fetch=syndication_fetch,
+            syndication_payload_fetch=syndication_payload_fetch,
             phase=phase,
         )
         if not verified:

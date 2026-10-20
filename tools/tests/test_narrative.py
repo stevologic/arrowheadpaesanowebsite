@@ -931,20 +931,6 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("COLLABORATOR", automerge)
         self.assertIn("author_association", automerge)
 
-    def test_edition_gates_run_on_bot_narrative_heads(self):
-        """edition-gates must run on github-actions narrative/update-* PRs."""
-        root = Path(__file__).resolve().parents[2] / ".github" / "workflows"
-        qa = (root / "edition-qa.yml").read_text(encoding="utf-8")
-        parsed = __import__("yaml").load(qa, Loader=__import__("yaml").BaseLoader)
-        self.assertIn("pull_request", parsed["on"])
-        self.assertIn("pull_request_target", parsed["on"])
-        self.assertNotIn("if", parsed["jobs"]["edition-gates"])
-        self.assertIn("Data+code PRs fail the allow-list", qa)
-        self.assertIn("overlaid {copied} edition files from the PR head", qa)
-        automerge = parsed["jobs"]["automerge"]["if"]
-        self.assertIn("narrative/update-", automerge)
-        self.assertIn("github-actions[bot]", automerge)
-
     def test_edition_qa_svg_gate_uses_overlay_index(self):
         """Staged overlay is the baseline: caption edits pass, tampered SVG fails."""
         slug = "2026-09-28-1547"

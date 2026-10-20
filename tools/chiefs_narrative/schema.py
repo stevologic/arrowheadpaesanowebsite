@@ -207,6 +207,31 @@ def _norm_press_conferences(value, limit=8) -> list[dict]:
     return out
 
 
+def _norm_retweeted_by(value) -> dict | None:
+    """Keep a named status URL for a retweet of the locker-room post."""
+    if not isinstance(value, dict):
+        return None
+    handle = _s(value.get("handle") or value.get("account")).lstrip("@")
+    status_id = _s(value.get("statusId") or value.get("status_id") or value.get("id"))
+    url = _s(value.get("url"))
+    if url:
+        embed = _norm_x_embed(url)
+        if not embed:
+            return None
+        url = embed["url"]
+        handle = handle or embed["account"].lstrip("@")
+        status_id = status_id or url.rsplit("/", 1)[-1]
+    if not handle or not status_id.isdigit():
+        return None
+    if not url:
+        url = f"https://x.com/{handle}/status/{status_id}"
+        embed = _norm_x_embed(url)
+        if not embed:
+            return None
+        url = embed["url"]
+    return {"handle": f"@{handle}", "statusId": status_id, "url": url}
+
+
 def _norm_locker_post(value) -> dict | None:
     """Keep a real X status URL with a named player/coach handle, or drop it."""
     if isinstance(value, str):
@@ -242,6 +267,9 @@ def _norm_locker_post(value) -> dict | None:
     note = _s(value.get("highlightNote") or value.get("note"))
     if note:
         row["highlightNote"] = note
+    retweeted = _norm_retweeted_by(value.get("retweetedBy") or value.get("retweeted_by"))
+    if retweeted:
+        row["retweetedBy"] = retweeted
     return row
 
 

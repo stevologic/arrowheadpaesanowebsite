@@ -1,26 +1,14 @@
 name: Edition gates (human)
 
 # Human data-only PRs also run ci.yml's required PR-event gates. This adds
-# a trusted-base overlay check. pull_request_target reads this file from
-# the base branch; pull_request reads it from the PR head so
-# github-actions[bot] narrative/update-* PRs still get edition-gates.
-# Never execute PR code. Tools, tests, fixtures, and requirements come
-# from the base (main). Only edition data files are copied from the PR head,
-# then discarded.
+# a trusted-base overlay check. Bot PRs use the approval-protected PR event.
+# This workflow is pull_request_target only so github-actions[bot] does
+# not sit on first-time approval. Never execute PR code. Tools, tests,
+# fixtures, and requirements come from the base (main). Only edition
+# data files are copied from the PR head, then discarded.
 
 on:
   pull_request_target:
-    branches: [main, develop]
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - "data/narrative.json"
-      - "data/narrative_archive.json"
-      - "data/narrative_repair.json"
-      - "data/narrative_editions/**"
-      - "data/wire.json"
-      - "data/schedule_2026.json"
-      - "public/images/narrative/**"
-  pull_request:
     branches: [main, develop]
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -36,7 +24,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: edition-qa-${{ github.event.pull_request.number }}-${{ github.event_name }}
+  group: edition-qa-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 env:
@@ -45,6 +33,10 @@ env:
 
 jobs:
   edition-gates:
+    if: >-
+      ${{ github.actor != 'github-actions[bot]' &&
+          github.event.pull_request.user.login != 'github-actions[bot]' &&
+          !startsWith(github.head_ref, 'narrative/update-') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -76,58 +68,9 @@ jobs:
         env:
           PYTHONDONTWRITEBYTECODE: "1"
         run: |
-          set +e
           python3 -B -m tools.chiefs_narrative.edition_overlay .pr-head . \
             --base "${{ github.event.pull_request.base.sha }}" \
             --head "${{ github.event.pull_request.head.sha }}"
-          status=$?
-          set -e
-          if [ "$status" -eq 0 ]; then
-            exit 0
-          fi
-          # Data+code PRs fail the allow-list. Still overlay edition files
-          # from the PR head onto main tools so edition-gates can run.
-          python3 -B - <<'PY'
-          import shutil
-          import sys
-          from pathlib import Path
-
-          from tools.chiefs_narrative import edition_overlay
-
-          src = Path(".pr-head").resolve()
-          dst = Path(".").resolve()
-          if not src.is_dir():
-              print("ERROR: missing PR head at .pr-head", file=sys.stderr)
-              raise SystemExit(1)
-          slug = edition_overlay.current_slug(src, dst)
-          concepts = edition_overlay.narrative_concepts(src, dst)
-          copied = 0
-          for path in src.rglob("*"):
-              if ".git" in path.relative_to(src).parts:
-                  continue
-              if path.is_symlink() or not path.is_file():
-                  continue
-              rel = path.relative_to(src)
-              if not edition_overlay.is_allowed_rel(rel, slug, concepts):
-                  continue
-              posix = rel.as_posix()
-              raw = path.read_bytes()
-              if edition_overlay.NARRATIVE_SLUG_XO.match(posix):
-                  text = raw.decode("utf-8", errors="replace")
-                  if edition_overlay.svg_payload_rejected(text, raw):
-                      print(
-                          f"ERROR: refusing PR SVG with disallowed XML: {posix}",
-                          file=sys.stderr,
-                      )
-                      raise SystemExit(1)
-              target = dst / rel
-              target.parent.mkdir(parents=True, exist_ok=True)
-              shutil.copyfile(path, target)
-              copied += 1
-          edition_overlay._require_card_svgs(dst, slug, concepts)
-          shutil.rmtree(src)
-          print(f"overlaid {copied} edition files from the PR head")
-          PY
 
       - name: Stage overlaid edition files
         run: git add -A -- data public/images/narrative
