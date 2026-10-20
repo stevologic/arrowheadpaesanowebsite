@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from . import collect, config, diagrams, facts, known_errors, odds, offline, phase as phase_mod
-from . import press_conferences, prompts, providers, review_gate, schema, x_embeds
+from . import locker_room, press_conferences, prompts, providers, review_gate, schema, x_embeds
 
 _CT = ZoneInfo("America/Chicago")
 
@@ -583,6 +583,9 @@ def _assemble_narrative(
     # only oEmbed-verified, allowlisted, game-week press conferences.
     # Dead candidates fail the run instead of publishing a broken iframe.
     press_conferences.attach_verified(narrative, signals, ph)
+    # Same rule for locker-room X posts: never keep a writer-invented
+    # status ID. Empty is the honest fallback when X cannot be fetched.
+    locker_room.attach_verified(narrative, signals, ph)
     return narrative
 
 
@@ -1467,6 +1470,7 @@ def check_published_edition() -> list[str]:
     issues = facts.check_review(narrative, last, recap, schedule=schedule)
     issues.extend(facts.check_diagram_captions(narrative))
     issues.extend(press_conferences.check_embeds(narrative, schedule=schedule))
+    issues.extend(locker_room.check_posts(narrative, schedule=schedule))
     return issues
 
 
@@ -1492,7 +1496,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--check-edition",
         action="store_true",
-        help="run check_review, the SVG/why gate, and press-conference oEmbed on data/narrative.json",
+        help="run check_review, the SVG/why gate, press-conference oEmbed, and locker-room X resolution on data/narrative.json",
     )
     parser.add_argument(
         "--gate-replay",
@@ -1543,6 +1547,7 @@ def main(argv=None) -> int:
             item
             for item in issues
             if str(item).startswith("press conference:")
+            or str(item).startswith("locker room:")
         ]
         other = [item for item in issues if item not in press_issues]
         if press_issues:

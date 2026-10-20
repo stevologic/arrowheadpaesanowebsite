@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 
 import requests
 
-from . import config, press_conferences
+from . import config, locker_room, press_conferences
 
 
 def _get(url: str) -> str | None:
@@ -1165,9 +1165,13 @@ def collect_all(season: int = None) -> dict:
     print("  [collect] fetching press conferences…")
     press = press_conferences.collect_candidates()
     print(f"  [collect] {len(press)} press-conference videos loaded")
+    print("  [collect] fetching locker-room posts…")
+    locker = locker_room.collect_candidates()
+    print(f"  [collect] {len(locker)} locker-room posts loaded")
     return {
         "collectedAt": config.iso_now(),
         "schedule": schedule,
         "news": news,
         "pressConferences": press,
+        "lockerRoom": locker,
     }

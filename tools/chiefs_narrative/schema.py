@@ -207,6 +207,62 @@ def _norm_press_conferences(value, limit=8) -> list[dict]:
     return out
 
 
+def _norm_locker_post(value) -> dict | None:
+    """Keep a real X status URL with a named player/coach handle, or drop it."""
+    if isinstance(value, str):
+        value = {"url": value}
+    if not isinstance(value, dict):
+        return None
+    base = _norm_x_embed(value)
+    if not base:
+        return None
+    handle = _s(base.get("account")).lstrip("@")
+    if not handle:
+        return None
+    date = _s(value.get("date") or value.get("posted") or value.get("published"))
+    if date and "T" in date:
+        date = date[:10]
+    role = _s(value.get("role") or "player").lower() or "player"
+    if role not in ("player", "coach"):
+        role = "player"
+    row = {
+        "url": base["url"],
+        "handle": f"@{handle}",
+        "name": _s(value.get("name") or value.get("speaker") or handle),
+        "team": _s(value.get("team")).upper(),
+        "role": role,
+        "date": date,
+        "quote": _s(value.get("quote") or value.get("text")),
+    }
+    date_label = _s(value.get("dateLabel") or value.get("when"))
+    if date_label:
+        row["dateLabel"] = date_label
+    if value.get("highlight") or value.get("special"):
+        row["highlight"] = True
+    note = _s(value.get("highlightNote") or value.get("note"))
+    if note:
+        row["highlightNote"] = note
+    return row
+
+
+def _norm_locker_room(value, limit=6) -> dict:
+    """Always a {posts: [...]} object so Hugo can render the empty state."""
+    if isinstance(value, dict) and not (
+        value.get("url") or value.get("embedUrl") or value.get("embed_url")
+    ):
+        items = value.get("posts") or value.get("lockerRoom")
+    else:
+        items = value
+    posts = []
+    for item in _list(items):
+        row = _norm_locker_post(item)
+        if row:
+            posts.append(row)
+        if len(posts) >= limit:
+            break
+    return {"posts": posts}
+
+
 def _norm_analysis(value, key_play_embeds=None) -> list[dict]:
     """Film-room paragraphs, optionally paired with an official X play embed.
 
@@ -271,6 +327,10 @@ def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
         "pressConferences": _norm_press_conferences(
             raw.get("pressConferences") or raw.get("press_conferences"),
             limit=8,
+        ),
+        "lockerRoom": _norm_locker_room(
+            raw.get("lockerRoom") or raw.get("locker_room"),
+            limit=6,
         ),
         "storyline": _norm_storyline(raw.get("storyline")),
         "lastGameReview": _norm_last_game_review(raw.get("lastGameReview")),

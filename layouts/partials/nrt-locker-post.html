@@ -1,0 +1,26 @@
+{{- /*
+  Compact locker-room X post. No widget, no iframe — quote + credit +
+  link at story width so the section cannot dominate the page.
+  Context: url, handle, name, dateLabel/date, quote, optional highlight.
+*/ -}}
+{{- $url := .url -}}
+{{- $handle := .handle -}}
+{{- if $url }}
+<article class="nrt-locker-post{{ if .highlight }} nrt-locker-post--special{{ end }}">
+  {{- if .highlight }}
+  <span class="nrt-locker-post__flag">Worth a look</span>
+  {{- end }}
+  <header class="nrt-locker-post__who">
+    <strong>{{ .name | default $handle }}</strong>
+    <span class="nrt-locker-post__handle">{{ $handle }}</span>
+    {{- with .dateLabel }}<span class="nrt-locker-post__when">{{ . }}</span>{{ else }}{{ with .date }}<span class="nrt-locker-post__when">{{ . }}</span>{{ end }}{{ end }}
+  </header>
+  {{- with .quote }}
+  <p class="nrt-locker-post__quote">“{{ . }}”</p>
+  {{- else }}
+  <p class="nrt-locker-post__media">Photo on X</p>
+  {{- end }}
+  {{- with .highlightNote }}<p class="nrt-locker-post__note">{{ . }}</p>{{ end }}
+  <a class="nrt-locker-post__link" href="{{ $url }}" target="_blank" rel="noopener">View {{ $handle | default "post" }} on X →</a>
+</article>
+{{- end -}}

@@ -155,6 +155,7 @@ _EDITION_KEYS = (
     "storyline",
     "lastGameReview",
     "pressConferences",
+    "lockerRoom",
     "currentState",
     "gamePlan",
     "nextGame",

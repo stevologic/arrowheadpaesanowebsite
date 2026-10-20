@@ -327,6 +327,26 @@
   </section>
   {{ end }}
 
+  <!-- ===================== LOCKER ROOM (after the story, compact) ===================== -->
+  {{ with .lockerRoom }}
+  <section class="section nrt-locker" id="locker-room">
+    <div class="section-head reveal">
+      <div>
+        <span class="kicker">This week</span>
+        <h2><span class="rule"></span> From the Locker Room</h2>
+        <p class="section-dek">Player and coach posts from either sideline. Each one is a real, linked X status from this game week.</p>
+      </div>
+    </div>
+    <div class="nrt-locker__list">
+      {{ with .posts }}
+        {{ range . }}{{ partial "nrt-locker-post.html" . }}{{ end }}
+      {{ else }}
+        <p class="nrt-locker__empty">None verified this week.</p>
+      {{ end }}
+    </div>
+  </section>
+  {{ end }}
+
   <!-- ===================== PRESS CONFERENCES (after the story) ===================== -->
   {{ with .pressConferences }}
   <section class="section nrt-press" id="press-conferences">

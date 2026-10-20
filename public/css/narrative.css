@@ -163,6 +163,86 @@
 }
 .nrt-x-embed__label::before { content: "· "; }
 
+/* ---------------- LOCKER ROOM (compact, after the story) ---------------- */
+.nrt-locker .section-head { margin-bottom: 16px; }
+.nrt-locker__list {
+  max-width: 74ch;
+  display: grid;
+  gap: 12px;
+}
+.nrt-locker__empty {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 1.5;
+  color: #5c5660;
+}
+.nrt-locker-post {
+  margin: 0;
+  min-width: 0;
+  background: var(--nrt-paper);
+  border: 1px solid var(--nrt-line);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.nrt-locker-post--special {
+  border-color: #d8c7a2;
+}
+.nrt-locker-post__flag {
+  display: inline-block;
+  margin: 0 0 6px;
+  font-family: var(--grotesk);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--nrt-red);
+}
+.nrt-locker-post__who {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  font-family: var(--grotesk);
+  font-size: 13px;
+  color: #5c5660;
+}
+.nrt-locker-post__who strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--nrt-ink);
+}
+.nrt-locker-post__quote {
+  margin: 8px 0 0;
+  font-family: var(--serif);
+  font-size: 15px;
+  line-height: 1.45;
+  color: #4a4550;
+}
+.nrt-locker-post__media {
+  margin: 8px 0 0;
+  font-family: var(--grotesk);
+  font-size: 13px;
+  font-weight: 600;
+  color: #5c5660;
+}
+.nrt-locker-post__note {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #5c5660;
+}
+.nrt-locker-post__link {
+  display: inline-block;
+  margin-top: 8px;
+  font-family: var(--grotesk);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--nrt-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 /* ---------------- PRESS CONFERENCES (compact, after the story) ---------------- */
 .nrt-press .section-head { margin-bottom: 16px; }
 .nrt-press__list {

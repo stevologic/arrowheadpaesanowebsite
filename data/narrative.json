@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-10-20T17:37:10+00:00",
-  "updatedAt": "2026-10-20T18:11:51+00:00",
+  "updatedAt": "2026-10-20T18:52:00+00:00",
   "generator": "grok:grok-4.7",
   "phase": {
     "type": "regular",
@@ -549,5 +549,31 @@
       "note": "Scoring plays 16-3 through 22-6; Suamataia injured Q4 9:43."
     }
   ],
-  "slug": "2026-10-20-1737"
+  "slug": "2026-10-20-1737",
+  "lockerRoom": {
+    "posts": [
+      {
+        "url": "https://x.com/Kenneth_Walker9/status/2112203440080482333",
+        "handle": "@Kenneth_Walker9",
+        "name": "Kenneth Walker III",
+        "team": "KC",
+        "role": "player",
+        "date": "2026-10-19",
+        "dateLabel": "Mon Oct 19, 2026",
+        "quote": "",
+        "highlight": true,
+        "highlightNote": "Patrick Mahomes retweeted this the day after the Chargers game."
+      },
+      {
+        "url": "https://x.com/PatrickMahomes/status/2111990066990260570",
+        "handle": "@PatrickMahomes",
+        "name": "Patrick Mahomes",
+        "team": "KC",
+        "role": "player",
+        "date": "2026-10-18",
+        "dateLabel": "Sun Oct 18, 2026",
+        "quote": "It's a denim day for QB1."
+      }
+    ]
+  }
 }
