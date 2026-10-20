@@ -1,6 +1,12 @@
 {
-  "droppedSentences": [],
-  "correctedSentences": [],
+  "droppedSentences": [
+    "A 2-yard touchdown at Q2 1:49 made it 16-3, a 50-yard field goal at Q2 0:02 made it 19-3, a Chargers 30-yard field goal at Q3 10:44 made it 19-6, and a 30-yard field goal at Q4 3:52 closed it at 22-6."
+  ],
+  "correctedSentences": [
+    "The yardage split is the film. Kansas City finished with 22 first downs, 27 rushes for 150 yards, 272 net passing yards, 422 total yards, 11 drives, and 30:26 of possession. Los Angeles had 15 first downs, 22 rushes for 73, 186 net passing yards, 259 total yards, 12 drives, and 29:34. This was not a clock heist. It was an efficiency gap: Walker 19 carries, 128 yards, two touchdowns and 21 touches, Mahomes 23-of-30 for 272 with a 89.9 rating, Xavier Worthy 7 catches for 73, Travis Kelce 4 catches. \u2192 The yardage split is the film. Kansas City finished with 22 first downs, 27 rushes for 150 yards, 272 net passing yards, 422 total yards, 11 drives, and 30:26 of possession. Los Angeles had 15 first downs, 22 rushes for 73, 186 net passing yards, 259 total yards, 12 drives, and 29:34. This was not a clock heist. It was an efficiency gap: Walker 19 carries, 128 yards, two touchdowns and 21 touches, Mahomes 23-of-30 for 272 with an 89.9 rating, Xavier Worthy 7 catches for 73, Travis Kelce 4 catches.",
+    "Mahomes at 23-of-30 for 272 yards with zero sacks and a 89.9 rating \u2192 Mahomes at 23-of-30 for 272 yards with zero sacks and an 89.9 rating",
+    "Kenneth Walker III was the offense that cashed. Nineteen carries for 128 yards and two rushing touchdowns, plus two catches, put him at 21 touches. Patrick Mahomes was 23-of-30 for 272 yards with a 89.9 rating, zero sacks, and three quarterback hits. That is an efficient day, not a broken one. The misses were situational: 3-of-10 on third down, two turnovers on the box, a missed extra point after the 33-yard score, and Harrison Butker's 52-yard attempt wide right. \u2192 Kenneth Walker III was the offense that cashed. Nineteen carries for 128 yards and two rushing touchdowns, plus two catches, put him at 21 touches. Patrick Mahomes was 23-of-30 for 272 yards with an 89.9 rating, zero sacks, and three quarterback hits. That is an efficient day, not a broken one. The misses were situational: 3-of-10 on third down, two turnovers on the box, a missed extra point after the 33-yard score, and Harrison Butker's 52-yard attempt wide right."
+  ],
   "leftoverIssues": [],
   "holdAutomerge": true
 }
