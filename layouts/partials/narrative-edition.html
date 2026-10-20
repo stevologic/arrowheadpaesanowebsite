@@ -169,22 +169,6 @@
   </section>
   {{ end }}
 
-  <!-- ===================== PRESS CONFERENCES ===================== -->
-  {{ with .pressConferences }}
-  <section class="section nrt-press" id="press-conferences">
-    <div class="section-head reveal">
-      <div>
-        <span class="kicker"><span class="dot dot-live"></span> This week</span>
-        <h2><span class="rule"></span> Press Conferences</h2>
-        <p class="section-dek">Official, playable video from this game week — each clip names the speaker it shows.</p>
-      </div>
-    </div>
-    <div class="nrt-press__grid">
-      {{ range . }}{{ partial "nrt-yt-embed.html" . }}{{ end }}
-    </div>
-  </section>
-  {{ end }}
-
   <!-- ===================== CURRENT STATE ===================== -->
   {{ with .currentState }}
   <section class="section nrt-state" id="current-state">
@@ -339,6 +323,22 @@
     <div class="nrt-story__body reveal">
       {{ with .lede }}<p class="nrt-story__lede">{{ . }}</p>{{ end }}
       {{ range .body }}<p>{{ . }}</p>{{ end }}
+    </div>
+  </section>
+  {{ end }}
+
+  <!-- ===================== PRESS CONFERENCES (after the story) ===================== -->
+  {{ with .pressConferences }}
+  <section class="section nrt-press" id="press-conferences">
+    <div class="section-head reveal">
+      <div>
+        <span class="kicker">This week</span>
+        <h2><span class="rule"></span> Press Conferences</h2>
+        <p class="section-dek">Official clips from this game week. Each one names the speaker it shows.</p>
+      </div>
+    </div>
+    <div class="nrt-press__list">
+      {{ range . }}{{ partial "nrt-yt-embed.html" . }}{{ end }}
     </div>
   </section>
   {{ end }}

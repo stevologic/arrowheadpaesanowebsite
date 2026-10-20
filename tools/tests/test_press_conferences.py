@@ -281,14 +281,32 @@ class PressConferenceTemplate(unittest.TestCase):
         self.assertIn('id="press-conferences"', edition)
         self.assertIn("Press Conferences", edition)
         self.assertIn('partial "nrt-yt-embed.html"', edition)
+        self.assertLess(
+            edition.find('class="section nrt-story"'),
+            edition.find('id="press-conferences"'),
+        )
+        self.assertLess(
+            edition.find('id="press-conferences"'),
+            edition.find('id="xo"'),
+        )
+        self.assertNotIn("nrt-hero", edition[edition.find("PRESS CONFERENCES"):])
         partial = (ROOT / "layouts" / "partials" / "nrt-yt-embed.html").read_text(
             encoding="utf-8"
         )
-        self.assertIn("youtube-nocookie.com/embed/", partial)
+        self.assertIn("nrt-yt-embed__thumb", partial)
         self.assertIn("nrt-yt-embed__speaker", partial)
         self.assertIn("{{ $speaker }}", partial)
         self.assertIn("if and $url $id $speaker", partial)
-        self.assertLess(partial.find("if and $url $id $speaker"), partial.find("nrt-yt-embed__frame"))
+        self.assertNotIn("youtube-nocookie.com/embed/", partial)
+        self.assertNotIn("<iframe", partial)
+        css = (ROOT / "public" / "css" / "narrative.css").read_text(encoding="utf-8")
+        self.assertIn(".nrt-press__list", css)
+        self.assertIn("max-width: 74ch", css[css.find(".nrt-press__list"):])
+        self.assertIn("160px", css[css.find(".nrt-yt-embed__thumb"):])
+        js = (ROOT / "public" / "js" / "main.js").read_text(encoding="utf-8")
+        self.assertIn("function initNarrativeYtEmbeds", js)
+        self.assertIn("initNarrativeYtEmbeds(root)", js)
+        self.assertIn("nrt-yt-embed__thumb", js)
 
     def test_prompt_does_not_ask_the_model_for_youtube_ids(self):
         text = prompts.build_user_prompt({"news": [], "schedule": []}, WEEK_PHASE, [])
