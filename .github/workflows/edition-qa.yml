@@ -76,9 +76,58 @@ jobs:
         env:
           PYTHONDONTWRITEBYTECODE: "1"
         run: |
+          set +e
           python3 -B -m tools.chiefs_narrative.edition_overlay .pr-head . \
             --base "${{ github.event.pull_request.base.sha }}" \
             --head "${{ github.event.pull_request.head.sha }}"
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            exit 0
+          fi
+          # Data+code PRs fail the allow-list. Still overlay edition files
+          # from the PR head onto main tools so edition-gates can run.
+          python3 -B - <<'PY'
+          import shutil
+          import sys
+          from pathlib import Path
+
+          from tools.chiefs_narrative import edition_overlay
+
+          src = Path(".pr-head").resolve()
+          dst = Path(".").resolve()
+          if not src.is_dir():
+              print("ERROR: missing PR head at .pr-head", file=sys.stderr)
+              raise SystemExit(1)
+          slug = edition_overlay.current_slug(src, dst)
+          concepts = edition_overlay.narrative_concepts(src, dst)
+          copied = 0
+          for path in src.rglob("*"):
+              if ".git" in path.relative_to(src).parts:
+                  continue
+              if path.is_symlink() or not path.is_file():
+                  continue
+              rel = path.relative_to(src)
+              if not edition_overlay.is_allowed_rel(rel, slug, concepts):
+                  continue
+              posix = rel.as_posix()
+              raw = path.read_bytes()
+              if edition_overlay.NARRATIVE_SLUG_XO.match(posix):
+                  text = raw.decode("utf-8", errors="replace")
+                  if edition_overlay.svg_payload_rejected(text, raw):
+                      print(
+                          f"ERROR: refusing PR SVG with disallowed XML: {posix}",
+                          file=sys.stderr,
+                      )
+                      raise SystemExit(1)
+              target = dst / rel
+              target.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copyfile(path, target)
+              copied += 1
+          edition_overlay._require_card_svgs(dst, slug, concepts)
+          shutil.rmtree(src)
+          print(f"overlaid {copied} edition files from the PR head")
+          PY
 
       - name: Stage overlaid edition files
         run: git add -A -- data public/images/narrative

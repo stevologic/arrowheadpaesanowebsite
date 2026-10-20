@@ -939,6 +939,8 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("pull_request", parsed["on"])
         self.assertIn("pull_request_target", parsed["on"])
         self.assertNotIn("if", parsed["jobs"]["edition-gates"])
+        self.assertIn("Data+code PRs fail the allow-list", qa)
+        self.assertIn("overlaid {copied} edition files from the PR head", qa)
         automerge = parsed["jobs"]["automerge"]["if"]
         self.assertIn("narrative/update-", automerge)
         self.assertIn("github-actions[bot]", automerge)
