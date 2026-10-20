@@ -23,8 +23,10 @@ from . import phase as phase_mod, press_conferences, schema, x_embeds
 OEMBED_ENDPOINT = "https://publish.x.com/oembed"
 OEMBED_FALLBACK = "https://publish.twitter.com/oembed"
 FIXTWEET_ENDPOINT = "https://api.fxtwitter.com"
+SYNDICATION_ENDPOINT = "https://cdn.syndication.twimg.com/tweet-result"
 OEMBED_TIMEOUT_SEC = 8
 _CT = ZoneInfo("America/Chicago")
+_STATUS_ID = re.compile(r"/status/(\d+)", re.IGNORECASE)
 
 # Actual player/coach accounts only — not club, reporter, or fan handles.
 # verified=true on X as of 2026-10-20 (get_users_by_username). Team is the
@@ -154,7 +156,11 @@ def fetch_fixtweet(url: str, *, timeout: float = OEMBED_TIMEOUT_SEC) -> dict | N
     if not isinstance(tweet, dict):
         return None
     author = tweet.get("author") if isinstance(tweet.get("author"), dict) else {}
-    screen = str(author.get("screen_name") or handle)
+    # Never fall back to the claimed URL handle — that hid @Chiefs originals
+    # credited to a player. Missing screen_name is a failed lookup.
+    screen = str(author.get("screen_name") or "").strip()
+    if not screen:
+        return None
     text = str(tweet.get("text") or "")
     created = tweet.get("created_timestamp")
     date_html = ""
@@ -168,6 +174,61 @@ def fetch_fixtweet(url: str, *, timeout: float = OEMBED_TIMEOUT_SEC) -> dict | N
         "html": f"<p>{html_mod.escape(text)}</p> {date_html}",
         "provider_name": "FixTweet",
     }
+
+
+def status_id_from_url(url: str) -> str:
+    """Numeric status id from an x.com/twitter.com status URL."""
+    match = _STATUS_ID.search(url or "")
+    return match.group(1) if match else ""
+
+
+def fetch_syndication_author(status_id: str, *, timeout: float = OEMBED_TIMEOUT_SEC) -> str | None:
+    """Author of record: syndication tweet-result ``.user.screen_name``.
+
+    oEmbed ``author_url`` follows the retweeter. This payload names the
+    account that actually authored the status. Empty/failed lookups return
+    None so the gate can fail closed.
+    """
+    sid = str(status_id or "").strip()
+    if not sid.isdigit():
+        return None
+    try:
+        resp = requests.get(
+            SYNDICATION_ENDPOINT,
+            params={"id": sid, "lang": "en", "token": "0"},
+            timeout=timeout,
+            allow_redirects=True,
+        )
+    except requests.RequestException:
+        return None
+    if resp.status_code != 200:
+        return None
+    try:
+        payload = resp.json()
+    except ValueError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    user = payload.get("user") if isinstance(payload.get("user"), dict) else {}
+    screen = str(user.get("screen_name") or "").strip()
+    return screen or None
+
+
+def resolve_author(
+    url: str,
+    *,
+    syndication_fetch=None,
+) -> str | None:
+    """Fetched author handle, or None when syndication lookup fails."""
+    status_id = status_id_from_url(url)
+    fetch = fetch_syndication_author if syndication_fetch is None else syndication_fetch
+    try:
+        screen = fetch(status_id)
+    except Exception:  # noqa: BLE001 — fail closed, never invent
+        return None
+    if not screen:
+        return None
+    return str(screen).lstrip("@").strip() or None
 
 
 def resolve_post(url: str, *, oembed_fetch=None, fallback_fetch=None) -> dict | None:
@@ -231,6 +292,7 @@ def verify_post(
     *,
     oembed_fetch=None,
     fallback_fetch=None,
+    syndication_fetch=None,
     phase: dict | None = None,
 ) -> dict | None:
     """Keep a locker-room post only when it resolves and is on the allowlist."""
@@ -241,15 +303,19 @@ def verify_post(
     allowed = allowed_for_week(handle, phase)
     if not allowed:
         return None
+    author = resolve_author(row["url"], syndication_fetch=syndication_fetch)
+    if not author:
+        return None
+    if author.lower() != handle.lower():
+        return None
+    if author.lower() in x_embeds.OFFICIAL_X_ACCOUNTS:
+        return None
+    if author.lower() not in PLAYER_COACH_ACCOUNTS:
+        return None
     payload = resolve_post(
         row["url"], oembed_fetch=oembed_fetch, fallback_fetch=fallback_fetch
     )
     if not payload:
-        return None
-    author = x_embeds.handle_from_author_url(payload.get("author_url") or "")
-    if author.lower() != handle.lower():
-        return None
-    if author.lower() not in PLAYER_COACH_ACCOUNTS:
         return None
     source = text_from_oembed(payload)
     if not quote_is_verbatim(row.get("quote") or "", source):
@@ -274,7 +340,14 @@ def verify_post(
     return row
 
 
-def verify_all(items, *, oembed_fetch=None, fallback_fetch=None, phase=None):
+def verify_all(
+    items,
+    *,
+    oembed_fetch=None,
+    fallback_fetch=None,
+    syndication_fetch=None,
+    phase=None,
+):
     kept = []
     errors = []
     for item in items or []:
@@ -282,6 +355,7 @@ def verify_all(items, *, oembed_fetch=None, fallback_fetch=None, phase=None):
             item,
             oembed_fetch=oembed_fetch,
             fallback_fetch=fallback_fetch,
+            syndication_fetch=syndication_fetch,
             phase=phase,
         )
         if verified:
@@ -315,6 +389,7 @@ def attach_verified(
     *,
     oembed_fetch=None,
     fallback_fetch=None,
+    syndication_fetch=None,
 ) -> dict:
     """Overwrite writer-invented locker-room posts with verified ones.
 
@@ -334,6 +409,7 @@ def attach_verified(
         collected,
         oembed_fetch=oembed_fetch,
         fallback_fetch=fallback_fetch,
+        syndication_fetch=syndication_fetch,
         phase=phase,
     )
     narrative["lockerRoom"] = {"posts": kept}
@@ -345,6 +421,7 @@ def check_posts(
     *,
     oembed_fetch=None,
     fallback_fetch=None,
+    syndication_fetch=None,
     schedule=None,
     phase: dict | None = None,
 ) -> list[str]:
@@ -375,6 +452,7 @@ def check_posts(
             item,
             oembed_fetch=oembed_fetch,
             fallback_fetch=fallback_fetch,
+            syndication_fetch=syndication_fetch,
             phase=phase,
         )
         if not verified:

@@ -1,14 +1,26 @@
 name: Edition gates (human)
 
 # Human data-only PRs also run ci.yml's required PR-event gates. This adds
-# a trusted-base overlay check. Bot PRs use the approval-protected PR event.
-# This workflow is pull_request_target only so github-actions[bot] does
-# not sit on first-time approval. Never execute PR code. Tools, tests,
-# fixtures, and requirements come from the base (main). Only edition
-# data files are copied from the PR head, then discarded.
+# a trusted-base overlay check. pull_request_target reads this file from
+# the base branch; pull_request reads it from the PR head so
+# github-actions[bot] narrative/update-* PRs still get edition-gates.
+# Never execute PR code. Tools, tests, fixtures, and requirements come
+# from the base (main). Only edition data files are copied from the PR head,
+# then discarded.
 
 on:
   pull_request_target:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - "data/narrative.json"
+      - "data/narrative_archive.json"
+      - "data/narrative_repair.json"
+      - "data/narrative_editions/**"
+      - "data/wire.json"
+      - "data/schedule_2026.json"
+      - "public/images/narrative/**"
+  pull_request:
     branches: [main, develop]
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
@@ -24,7 +36,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: edition-qa-${{ github.event.pull_request.number }}
+  group: edition-qa-${{ github.event.pull_request.number }}-${{ github.event_name }}
   cancel-in-progress: true
 
 env:
@@ -33,10 +45,6 @@ env:
 
 jobs:
   edition-gates:
-    if: >-
-      ${{ github.actor != 'github-actions[bot]' &&
-          github.event.pull_request.user.login != 'github-actions[bot]' &&
-          !startsWith(github.head_ref, 'narrative/update-') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

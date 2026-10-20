@@ -385,7 +385,7 @@
       "player": "Travis Kelce",
       "status": "ankle tweak; should be fine",
       "note": "Tweaked his ankle vs. Los Angeles, was taped, and returned. After the Oct 18 game, Reid said he “might be a little sore tomorrow” and should be fine.",
-      "source": "Atoz Sports (Oct 18)"
+      "source": "Chiefs Crowd (Oct 19), Atoz Sports (Oct 18)"
     },
     {
       "player": "Rashee Rice",
@@ -516,7 +516,7 @@
       "title": "Chiefs injury update: Jaylon Moore’s concussion creates concern ahead of Seattle",
       "publisher": "Chiefs Crowd",
       "url": "https://chiefscrowd.com/chiefs-injury-update-jaylon-moores-concussion-creates-concern-ahead-of-seattle/",
-      "note": "Oct 19: Moore in concussion protocol; Week 7 status undecided."
+      "note": "Oct 19: Moore in concussion protocol; Kelce ankle was taped and he returned; Week 7 status undecided."
     },
     {
       "title": "Latest injury update on Josh Simmons, Jaylon Moore, Rashee Rice for Week 7 vs. Seahawks",
@@ -543,6 +543,12 @@
       "note": "523 total yards in the overtime win over Indianapolis."
     },
     {
+      "title": "Chiefs 30-27 Raiders (Oct 4, 2026) Game Stats",
+      "publisher": "ESPN",
+      "url": "https://www.espn.com/nfl/matchup?gameId=401872976",
+      "note": "399 total yards and 189 rushing yards in 24:18 at Las Vegas."
+    },
+    {
       "title": "Chiefs 22-6 Chargers (Oct 18, 2026) Final Score",
       "publisher": "ESPN",
       "url": "https://www.espn.com/nfl/game/_/gameId/401873006/chargers-chiefs",
@@ -562,17 +568,7 @@
         "dateLabel": "Mon Oct 19, 2026",
         "quote": "",
         "highlight": true,
-        "highlightNote": "Patrick Mahomes retweeted this the day after the Chargers game."
-      },
-      {
-        "url": "https://x.com/PatrickMahomes/status/2111990066990260570",
-        "handle": "@PatrickMahomes",
-        "name": "Patrick Mahomes",
-        "team": "KC",
-        "role": "player",
-        "date": "2026-10-18",
-        "dateLabel": "Sun Oct 18, 2026",
-        "quote": "It's a denim day for QB1."
+        "highlightNote": "Patrick Mahomes retweeted this: https://x.com/PatrickMahomes/status/2112231759832355290"
       }
     ]
   }

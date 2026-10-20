@@ -30,6 +30,11 @@ MAHOMES_URL = "https://x.com/PatrickMahomes/status/2111990066990260570"
 FAN_URL = "https://x.com/TravisKelce/status/2112203440080482333"
 
 
+def _author(handle):
+    """Injected syndication lookup that returns a fixed screen_name."""
+    return lambda status_id: handle.lstrip("@")
+
+
 def _oembed(author_url, html, name="Player"):
     return {
         "author_name": name,
@@ -109,7 +114,11 @@ class LockerRoomVerification(unittest.TestCase):
             )
 
         verified = locker_room.verify_post(
-            payload, oembed_fetch=fetch, fallback_fetch=lambda url: None, phase=WEEK_PHASE
+            payload,
+            oembed_fetch=fetch,
+            fallback_fetch=lambda url: None,
+            syndication_fetch=_author("Kenneth_Walker9"),
+            phase=WEEK_PHASE,
         )
         self.assertIsNotNone(verified)
         self.assertEqual(verified["name"], "Kenneth Walker III")
@@ -126,6 +135,7 @@ class LockerRoomVerification(unittest.TestCase):
                 row,
                 oembed_fetch=lambda url: None,
                 fallback_fetch=lambda url: None,
+                syndication_fetch=_author("Kenneth_Walker9"),
                 phase=WEEK_PHASE,
             )
         )
@@ -137,6 +147,7 @@ class LockerRoomVerification(unittest.TestCase):
                     "<p>fan clip</p> October 19, 2026",
                 ),
                 fallback_fetch=lambda url: None,
+                syndication_fetch=_author("TravisKelce"),
                 phase=WEEK_PHASE,
             )
         )
@@ -150,6 +161,7 @@ class LockerRoomVerification(unittest.TestCase):
                     "<p>pic</p> October 16, 2026",
                 ),
                 fallback_fetch=lambda url: None,
+                syndication_fetch=_author("Kenneth_Walker9"),
                 phase=WEEK_PHASE,
             )
         )
@@ -168,6 +180,7 @@ class LockerRoomVerification(unittest.TestCase):
                 "<p>It&#39;s a denim day for QB1.</p> October 19, 2026",
             ),
             fallback_fetch=lambda url: None,
+            syndication_fetch=_author("PatrickMahomes"),
             phase=WEEK_PHASE,
         )
         self.assertIsNone(verified)
@@ -186,6 +199,7 @@ class LockerRoomVerification(unittest.TestCase):
                 "<p>It&#39;s a denim day for QB1.</p> October 19, 2026",
             ),
             fallback_fetch=lambda url: None,
+            syndication_fetch=_author("PatrickMahomes"),
             phase=WEEK_PHASE,
         )
         self.assertIsNotNone(verified)
@@ -207,6 +221,7 @@ class LockerRoomVerification(unittest.TestCase):
             narrative,
             oembed_fetch=lambda url: None,
             fallback_fetch=lambda url: None,
+            syndication_fetch=_author("Kenneth_Walker9"),
             phase=WEEK_PHASE,
         )
         self.assertTrue(issues)
@@ -232,6 +247,7 @@ class LockerRoomVerification(unittest.TestCase):
                     "<p>pic</p> October 19, 2026",
                 ),
                 fallback_fetch=lambda url: None,
+                syndication_fetch=_author("Kenneth_Walker9"),
                 phase=WEEK_PHASE,
             ),
             [],
@@ -251,6 +267,7 @@ class LockerRoomVerification(unittest.TestCase):
             WEEK_PHASE,
             oembed_fetch=lambda url: None,
             fallback_fetch=lambda url: None,
+            syndication_fetch=_author("Kenneth_Walker9"),
         )
         self.assertEqual(narrative["lockerRoom"], {"posts": []})
 
@@ -271,8 +288,66 @@ class LockerRoomVerification(unittest.TestCase):
                 "<p>pic</p> October 19, 2026",
             ),
             fallback_fetch=lambda url: None,
+            syndication_fetch=_author("Kenneth_Walker9"),
         )
         self.assertEqual(narrative["lockerRoom"]["posts"][0]["url"], WALKER_URL)
+
+    def test_verify_rejects_syndication_author_mismatch(self):
+        """Claimed @PatrickMahomes must fail when tweet-result says @Chiefs."""
+        row = {
+            "url": MAHOMES_URL,
+            "handle": "@PatrickMahomes",
+            "date": "2026-10-18",
+            "quote": "It's a denim day for QB1.",
+        }
+        self.assertIsNone(
+            locker_room.verify_post(
+                row,
+                oembed_fetch=lambda url: _oembed(
+                    "https://x.com/PatrickMahomes",
+                    "<p>It&#39;s a denim day for QB1.</p> October 18, 2026",
+                ),
+                fallback_fetch=lambda url: None,
+                syndication_fetch=_author("Chiefs"),
+                phase=WEEK_PHASE,
+            )
+        )
+
+    def test_verify_rejects_failed_syndication_lookup(self):
+        """A failed tweet-result lookup is a hard fail, not a claimed-handle pass."""
+        row = {
+            "url": WALKER_URL,
+            "handle": "@Kenneth_Walker9",
+            "date": "2026-10-19",
+        }
+        self.assertIsNone(
+            locker_room.verify_post(
+                row,
+                oembed_fetch=lambda url: _oembed(
+                    "https://x.com/Kenneth_Walker9",
+                    "<p>pic</p> October 19, 2026",
+                ),
+                fallback_fetch=lambda url: None,
+                syndication_fetch=lambda status_id: None,
+                phase=WEEK_PHASE,
+            )
+        )
+
+    def test_fixtweet_does_not_fall_back_to_claimed_handle(self):
+        class _Resp:
+            status_code = 200
+
+            def json(self):
+                return {
+                    "tweet": {
+                        "author": {"name": "Patrick Mahomes"},
+                        "text": "It's a denim day for QB1.",
+                        "created_timestamp": 1760808480,
+                    }
+                }
+
+        with patch.object(locker_room.requests, "get", return_value=_Resp()):
+            self.assertIsNone(locker_room.fetch_fixtweet(MAHOMES_URL))
 
     def test_check_edition_fails_locker_issues_even_when_held(self):
         with patch.object(
