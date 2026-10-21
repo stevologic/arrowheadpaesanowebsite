@@ -509,6 +509,22 @@ class PublicationPolicy(unittest.TestCase):
             self.assertNotIn(forbidden, scripts)
         self.assertIn("--draft", scripts)
         self.assertIn('BASE="develop"', scripts)
+        for job_name in ("generate", "test", "update"):
+            checkouts = [
+                step
+                for step in jobs[job_name]["steps"]
+                if isinstance(step, dict) and "actions/checkout" in str(step.get("uses") or "")
+            ]
+            self.assertTrue(checkouts, job_name)
+            for step in checkouts:
+                self.assertEqual((step.get("with") or {}).get("ref"), "develop", job_name)
+        refuse = next(
+            step["run"]
+            for step in jobs["update"]["steps"]
+            if step.get("name") == "Refuse unsigned Review editions"
+        )
+        self.assertIn("origin/develop", refuse)
+        self.assertNotIn("GITHUB_REF_NAME", refuse)
 
     def test_queue_blocks_provider_and_duplicate_pr_work(self):
         steps = self.narrative["jobs"]["generate"]["steps"]

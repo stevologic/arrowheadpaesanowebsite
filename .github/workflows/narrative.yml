@@ -3,9 +3,14 @@ name: Chiefs Narrative (daily)
 # Regenerates the Chiefs Narrative every morning as a three-act desk:
 # last-game review, current state / work list, then next-game plan and
 # matchup. Also refreshes the published schedule more often (evenings and
-# late game windows) and opens a draft PR to develop. A maintainer approves
-# any queued PR-event workflow, reviews the edition, and promotes develop
-# to main. pages.yml remains the deployment path after that reviewed merge.
+# late game windows) and opens a draft PR to develop. Jobs check out
+# develop, not the default-branch trigger on main: scheduled runs live on
+# main, and after a squash-promote the histories diverge, so a branch cut
+# from main conflicts with develop on the live edition files. A maintainer
+# approves any queued PR-event workflow, reviews the edition, and promotes
+# develop to main. pages.yml remains the deployment path after that
+# reviewed merge. The checkout pin must be on main before the next
+# scheduled run, or tomorrow's PR will conflict the same way.
 #
 # Install and tests run in a contents:read job with persist-credentials:
 # false. Only the final update job gets contents:write; it
@@ -66,6 +71,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
+          ref: develop
           fetch-depth: 0
           persist-credentials: false
 
@@ -192,6 +198,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
+          ref: develop
           fetch-depth: 0
           persist-credentials: false
 
@@ -321,6 +328,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
+          ref: develop
           fetch-depth: 0
           persist-credentials: false
 
@@ -338,9 +346,9 @@ jobs:
       - name: Refuse unsigned Review editions
         run: |
           set -euo pipefail
-          git fetch --no-tags origin "${GITHUB_REF_NAME}"
+          git fetch --no-tags origin develop
           GATE_BASE="${RUNNER_TEMP}/gate-base"
-          git worktree add --detach "$GATE_BASE" "origin/${GITHUB_REF_NAME}"
+          git worktree add --detach "$GATE_BASE" "origin/develop"
           cd "$GATE_BASE"
           pages_rc=0
           PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.review_gate --pages \

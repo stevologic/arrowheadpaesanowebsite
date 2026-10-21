@@ -861,6 +861,9 @@ class GrokModelSelection(unittest.TestCase):
         self.assertNotIn("gh pr merge", narrative)
         self.assertIn("gh pr create --draft", narrative)
         self.assertIn('BASE="develop"', narrative)
+        self.assertGreaterEqual(narrative.count("ref: develop"), 3)
+        self.assertIn("origin/develop", narrative)
+        self.assertNotIn("${GITHUB_REF_NAME}", narrative)
         self.assertIn("Approve any waiting pull_request workflow", narrative)
         self.assertNotIn("sleep 5", narrative)
         self.assertNotIn("sleep 10", narrative)
@@ -6344,6 +6347,8 @@ class FactCheck(unittest.TestCase):
         self.assertNotIn("deploy", narrative["jobs"])
         narr_gate = _job_step_script(narrative, "update", name="Refuse unsigned Review editions")
         self.assertIn('cd "$GATE_BASE"', narr_gate)
+        self.assertIn("origin/develop", narr_gate)
+        self.assertNotIn("GITHUB_REF_NAME", narr_gate)
         self.assertIn("python -P -m tools.chiefs_narrative.review_gate --pages", narr_gate)
         self.assertIn('if [ "$pages_rc" -eq 2 ]', narr_gate)
         self.assertIn('elif [ "$pages_rc" -ne 0 ]', narr_gate)
@@ -6426,6 +6431,11 @@ class FactCheck(unittest.TestCase):
                 self.assertEqual(
                     (step.get("with") or {}).get("persist-credentials"),
                     False,
+                    job_name,
+                )
+                self.assertEqual(
+                    (step.get("with") or {}).get("ref"),
+                    "develop",
                     job_name,
                 )
 
