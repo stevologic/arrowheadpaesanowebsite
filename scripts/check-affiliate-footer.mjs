@@ -29,9 +29,10 @@ try {
     return failure ? '' : readFileSync(join(fixture, 'public/index.html'), 'utf8');
   }
 
-  assert.doesNotMatch(render('disabled in production', original), /chiefs-finds|amazon\.com|Amazon Associate/);
-  assert.doesNotMatch(render('production ignores preview flag', original, 'production', true), /chiefs-finds|amazon\.com|Amazon Associate/);
-  const incomplete = structuredClone(original);
+  const disabled = { ...original, enabled: false };
+  assert.doesNotMatch(render('disabled in production', disabled), /chiefs-finds|amazon\.com|Amazon Associate/);
+  assert.doesNotMatch(render('production ignores preview flag', disabled, 'production', true), /chiefs-finds|amazon\.com|Amazon Associate/);
+  const incomplete = structuredClone(disabled);
   incomplete.products[0].affiliateUrl = '';
   const preview = render('incomplete development preview', incomplete, 'development', true);
   assert.match(preview, /Local design preview/);

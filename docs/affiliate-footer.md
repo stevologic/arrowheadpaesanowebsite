@@ -1,14 +1,13 @@
 # Chiefs merchandise footer
 
-Status on 2026-10-21: **application received; footer still disabled and unpublished**.
+Status on 2026-10-21: **application received; verified footer enabled for approved publication**.
 
 The existing repository is `stevologic/arrowheadpaesanowebsite`; the connected
 GitHub identity `stevologic` owns it with admin/push access. Work starts from
 develop `b0a424d553423fae18a3ba1dc2ba32e57483a7d8`. Its configuration and checked-in
 Pages workflow name `https://arrowheadpaesano.com/` as the production site.
-Main publishes through `pages.yml`; this work must remain a draft PR to develop
-until publication is explicitly approved. Preserve existing review
-and publication gates.
+Main publishes through `pages.yml`. The owner explicitly approved publication
+after remote checks pass. Preserve existing review and publication gates.
 
 ## Account verification
 
@@ -37,8 +36,8 @@ All three full links were captured directly from SiteStripe with
 `arrowheadpaes-20` selected. The blanket and banner were reverified in stock;
 their standard Copy affiliate link controls now return text through the
 supported browser clipboard API. No link was reconstructed. The footer remains
-disabled in production pending publication approval; the development preview
-shows the verified links for review.
+enabled for the owner's approved publication after the preparation commit's
+full remote checks passed. The development preview shows the same links.
 
 ## Product evidence
 
@@ -67,7 +66,7 @@ requests to use links to support the publisher; the disclosure stays neutral.
 [Amazon's tax-interview guidance](https://affiliate-program.amazon.com/help/node/topic/GMVSBL86R9337EB6)
 requires validated tax information before commission payments. It does not state
 that unfinished tax setup blocks link publication. Account-specific restrictions
-would still govern. The owner's explicit publication approval remains required.
+would still govern. The owner explicitly approved publication after checks pass.
 
 ## Preview
 
@@ -81,8 +80,9 @@ The explicit development config shows an identified local design preview
 with verified links and `noindex, nofollow`. Incomplete configurations show
 inert labels instead. The short draft-only preview page permits focused mobile
 testing; normal production builds exclude it. The production environment
-ignores the preview flag. Normal builds currently omit the entire product
-section and disclosure, so no inactive or untagged purchase links can ship.
+ignores the preview flag. Normal builds now include the verified product
+section and disclosure. Disabling the data flag omits the whole section;
+inactive or untagged purchase links cannot ship.
 The opt-in settings live in `tools/affiliate-preview.yaml`, outside the
 auto-loaded `config/` directory, so the existing publication-surface gate is
 preserved without exceptions.
