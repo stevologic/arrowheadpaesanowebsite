@@ -4,7 +4,7 @@ Status on 2026-10-21: **application received; footer still disabled and unpublis
 
 The existing repository is `stevologic/arrowheadpaesanowebsite`; the connected
 GitHub identity `stevologic` owns it with admin/push access. Work starts from
-develop `58315eb7b222a8ba10282ed97cf1daf027fc44f9`. Its configuration and checked-in
+develop `b0a424d553423fae18a3ba1dc2ba32e57483a7d8`. Its configuration and checked-in
 Pages workflow name `https://arrowheadpaesano.com/` as the production site.
 Main publishes through `pages.yml`; this work must remain a draft PR to develop
 until publication is explicitly approved. Preserve existing review
@@ -114,7 +114,13 @@ Local evidence on 2026-10-21: extended Hugo 0.152.2 normal and preview builds
 passed. The 19 render checks passed, including the three actual configured
 links, preview-only rendering, and duplicate-tag rejection. Desktop browser preview had
 three equal-height cards, no horizontal overflow, and zero media/scripts inside
-the section. The three product links have unique accessible labels, reference
+the section. DOM layout checks also passed at effective CSS widths 800px (two
+columns), 433px and 355px (one column), without horizontal overflow. Keyboard
+navigation reached the first product link and showed its visible focus ring.
+Card heights remained unchanged across desktop observations. The browser's
+viewport-override screenshot compositing was inconsistent, so responsive
+geometry is verified through DOM measurements rather than a reliable full
+mobile capture. The three product links have unique accessible labels, reference
 the nearby disclosure, and use the exact captured URLs. Real affiliate
 attribution still requires genuine qualifying activity; no automated purchase
 or synthetic commission test is performed. The full narrative/Unity suites
