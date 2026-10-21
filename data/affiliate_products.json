@@ -1,0 +1,43 @@
+{
+  "enabled": true,
+  "accountVerifiedOn": "2026-10-21",
+  "accountStatus": "Application received; final review pending qualified sales",
+  "siteVerifiedOn": "2026-10-21",
+  "siteUrl": "https://arrowheadpaesano.com/",
+  "trackingId": "arrowheadpaes-20",
+  "products": [
+    {
+      "asin": "B0C2W495W4",
+      "brand": "Rico Industries",
+      "title": "Chiefs Bistro Mug",
+      "category": "At the table",
+      "description": "A 15 oz matte-black mug with an etched Chiefs design for your game-day coffee.",
+      "sourceUrl": "https://www.amazon.com/dp/B0C2W495W4",
+      "productVerifiedOn": "2026-10-21",
+      "affiliateUrl": "https://www.amazon.com/dp/B0C2W495W4?&linkCode=ll2&tag=arrowheadpaes-20&linkId=f2be47368c6f7c5cea5afb08526b49ef&language=en_US&gaOptInStatus=true&ref_=as_li_ss_tl",
+      "siteStripeVerifiedOn": "2026-10-21"
+    },
+    {
+      "asin": "B0BTTNTZKS",
+      "brand": "FOCO",
+      "title": "Chiefs Sherpa Fleece Blanket",
+      "category": "On the couch",
+      "description": "The Chiefs Team Property Of sherpa fleece blanket for settling in on game day.",
+      "sourceUrl": "https://www.amazon.com/FOCO-Kansas-Chiefs-Property-Blanket/dp/B0BTTNTZKS",
+      "productVerifiedOn": "2026-10-21",
+      "affiliateUrl": "https://www.amazon.com/dp/B0BTTNTZKS?&linkCode=ll2&tag=arrowheadpaes-20&linkId=1e965e3cd7e5211b2dfbe80fba324c4f&language=en_US&gaOptInStatus=true&ref_=as_li_ss_tl",
+      "siteStripeVerifiedOn": "2026-10-21"
+    },
+    {
+      "asin": "B099Z354KR",
+      "brand": "WinCraft",
+      "title": "Chiefs Fan Cave Banner",
+      "category": "For the fan cave",
+      "description": "A Chiefs wall or door banner with a hanging cord to give your watch spot some team color.",
+      "sourceUrl": "https://www.amazon.com/WinCraft-Kansas-Chiefs-Banner-Scroll/dp/B099Z354KR",
+      "productVerifiedOn": "2026-10-21",
+      "affiliateUrl": "https://www.amazon.com/WinCraft-Kansas-Chiefs-Banner-Scroll/dp/B099Z354KR?&linkCode=ll2&tag=arrowheadpaes-20&linkId=f0b830a3cefd440c53732a12a33ba5e3&language=en_US&gaOptInStatus=true&ref_=as_li_ss_tl",
+      "siteStripeVerifiedOn": "2026-10-21"
+    }
+  ]
+}
