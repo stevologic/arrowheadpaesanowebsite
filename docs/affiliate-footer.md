@@ -22,12 +22,14 @@ its receipt; the assistant did not submit it a second time.
 Amazon assigned **`arrowheadpaes-20`**, and the Associates Central dashboard and
 SiteStripe both show that exact ID. The account website list contains
 `https://arrowheadpaesano.com`. This is an application received with Associates
-Central access, not final approval: Amazon says review follows qualified sales
-and that access/application will be withdrawn after 180 days without qualified
-sales. The owner identifies this as a personal sole-proprietor blog, not an LLC.
+Central access, not final approval: the authenticated welcome email independently
+confirms the assigned ID and specifies three qualifying purchases within 180
+days before application review. The owner identifies this as a personal
+sole-proprietor blog, not an LLC.
 
-Payment/tax setup was deferred via Later. Account settings show the US tax
-interview as Incomplete. The owner must privately complete tax classification,
+Payment/tax setup was deferred via Later. The last account-settings inspection
+showed the US tax interview as Incomplete; the welcome email does not establish
+current tax status. The owner must privately complete tax classification,
 identifiers, certification/signature, and payment details. No tax form or bank
 details were entered or exported. The existing retail/Prime account is unchanged.
 
