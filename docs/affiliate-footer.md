@@ -58,6 +58,17 @@ it is never emitted as a customer purchase link. No affiliate tag is invented.
 The required disclosure is based on the [Amazon Associates Operating
 Agreement](https://affiliate-program.amazon.com/help/operating/agreement).
 
+## Provisional enrollment and publication
+
+[Amazon's application-review guidance](https://affiliate-program.amazon.com/help/node/topic/G8TW5AE9XL2VX9VM)
+requires three qualifying purchases within 180 days before review. This implies
+that compliant links can be used during provisional enrollment. It also forbids
+requests to use links to support the publisher; the disclosure stays neutral.
+[Amazon's tax-interview guidance](https://affiliate-program.amazon.com/help/node/topic/GMVSBL86R9337EB6)
+requires validated tax information before commission payments. It does not state
+that unfinished tax setup blocks link publication. Account-specific restrictions
+would still govern. The owner's explicit publication approval remains required.
+
 ## Preview
 
 ```sh
