@@ -103,6 +103,9 @@ jobs:
           [[ "$version" == "hugo v${HUGO_VERSION}"*+extended* ]]
           npm run build
 
+      - name: Verify affiliate footer activation and link guards
+        run: npm run check:affiliates
+
       # Exercise the v4 ZIP -> v8 download contract used by narrative.yml,
       # including its hidden metadata, without generating or publishing content.
       - name: Prepare publication artifact compatibility fixture

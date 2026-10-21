@@ -1,0 +1,3 @@
+# Explicit local development preview only. Not an auto-loaded Hugo config path.
+params:
+  affiliateFooterPreview: true
