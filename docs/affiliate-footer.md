@@ -1,6 +1,6 @@
 # Chiefs merchandise footer
 
-Status on 2026-10-21: **prepared; not commission-ready or published**.
+Status on 2026-10-21: **application received; footer still disabled and unpublished**.
 
 The existing repository is `stevologic/arrowheadpaesanowebsite`; the connected
 GitHub identity `stevologic` owns it with admin/push access. Work starts from
@@ -10,28 +10,34 @@ Main publishes through `pages.yml`; this work must remain a draft PR to develop
 until the account/link checks below are completed. Preserve existing review
 and publication gates.
 
-## Account verification is still pending
+## Account verification
 
-The authorized Chrome session opened `https://affiliate-program.amazon.com/`
-and followed **Sign in**. Amazon showed **Sign in or create account**, with an
-empty email/mobile field, on its existing-account sign-in route. It did not
-show an Associates dashboard, account status, tracking ID, or website list.
-This is **unknown membership**, not proof of no account. Prior connected inbox
-searches found no Associates evidence; Prime membership is not Associates
-verification. No duplicate account was created, form submitted, agreement
-accepted, credential changed, or tax/bank information entered.
+After the owner signed in, Amazon explicitly reported that the existing login
+was not connected to an Associates account. The owner authorized registration,
+confirmed the existing payee/contact, declared that the site is not primarily
+directed at children under 13, approved the preferred ID, selected Word of Mouth,
+and accepted the Operating Agreement. On resumption the wizard already showed
+its receipt; the assistant did not submit it a second time.
 
-Smallest next action: the owner signs in to the existing Amazon account in the
-waiting Associates tab, completing any secure authentication themselves.
-Then inspect the dashboard's account status, the existing tracking ID, and
-the website/mobile-app list for `https://arrowheadpaesano.com/`. If the site is
-absent, get the owner to add/approve its coverage before enabling links.
-If Amazon explicitly confirms that no Associates account exists, continue
-the signup using the existing Amazon login; do not create another retail
-Amazon account. The live signup form must establish which identity/payee,
-address, contact, website/profile, and traffic facts are missing. Those facts
-cannot be inferred from Prime. Leave any required legal acceptance, tax,
-banking and secure identity/authentication steps to the owner.
+Amazon assigned **`arrowheadpaes-20`**, and the Associates Central dashboard and
+SiteStripe both show that exact ID. The account website list contains
+`https://arrowheadpaesano.com`. This is an application received with Associates
+Central access, not final approval: Amazon says review follows qualified sales
+and that access/application will be withdrawn after 180 days without qualified
+sales. The owner identifies this as a personal sole-proprietor blog, not an LLC.
+
+Payment/tax setup was deferred via Later. Account settings show the US tax
+interview as Incomplete. The owner must privately complete tax classification,
+identifiers, certification/signature, and payment details. No tax form or bank
+details were entered or exported. The existing retail/Prime account is unchanged.
+
+The mug's full link was captured directly from SiteStripe. The blanket and
+banner are real in-stock product variants, but their newer SiteStripe copy-only
+UI did not return text through the browser clipboard tool. Their URLs remain
+blank. The owner must copy and provide those two full SiteStripe links (with
+`arrowheadpaes-20` selected); do not reconstruct them. A browser clipboard-check
+page using a data URL was blocked by the URL policy and was not retried or
+worked around. The footer remains disabled pending completion and link review.
 
 ## Product evidence
 

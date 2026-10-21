@@ -1,9 +1,10 @@
 {
   "enabled": false,
-  "accountVerifiedOn": "",
-  "siteVerifiedOn": "",
-  "siteUrl": "",
-  "trackingId": "",
+  "accountVerifiedOn": "2026-10-21",
+  "accountStatus": "Application received; final review pending qualified sales",
+  "siteVerifiedOn": "2026-10-21",
+  "siteUrl": "https://arrowheadpaesano.com/",
+  "trackingId": "arrowheadpaes-20",
   "products": [
     {
       "asin": "B0C2W495W4",
@@ -13,8 +14,8 @@
       "description": "A 15 oz matte-black mug with an etched Chiefs design for your game-day coffee.",
       "sourceUrl": "https://www.amazon.com/dp/B0C2W495W4",
       "productVerifiedOn": "2026-10-21",
-      "affiliateUrl": "",
-      "siteStripeVerifiedOn": ""
+      "affiliateUrl": "https://www.amazon.com/dp/B0C2W495W4?&linkCode=ll2&tag=arrowheadpaes-20&linkId=f2be47368c6f7c5cea5afb08526b49ef&language=en_US&gaOptInStatus=true&ref_=as_li_ss_tl",
+      "siteStripeVerifiedOn": "2026-10-21"
     },
     {
       "asin": "B0BTTNTZKS",
