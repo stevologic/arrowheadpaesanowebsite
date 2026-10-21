@@ -7,7 +7,7 @@ GitHub identity `stevologic` owns it with admin/push access. Work starts from
 develop `58315eb7b222a8ba10282ed97cf1daf027fc44f9`. Its configuration and checked-in
 Pages workflow name `https://arrowheadpaesano.com/` as the production site.
 Main publishes through `pages.yml`; this work must remain a draft PR to develop
-until the account/link checks below are completed. Preserve existing review
+until publication is explicitly approved. Preserve existing review
 and publication gates.
 
 ## Account verification
@@ -33,13 +33,12 @@ current tax status. The owner must privately complete tax classification,
 identifiers, certification/signature, and payment details. No tax form or bank
 details were entered or exported. The existing retail/Prime account is unchanged.
 
-The mug's full link was captured directly from SiteStripe. The blanket and
-banner are real in-stock product variants, but their newer SiteStripe copy-only
-UI did not return text through the browser clipboard tool. Their URLs remain
-blank. The owner must copy and provide those two full SiteStripe links (with
-`arrowheadpaes-20` selected); do not reconstruct them. A browser clipboard-check
-page using a data URL was blocked by the URL policy and was not retried or
-worked around. The footer remains disabled pending completion and link review.
+All three full links were captured directly from SiteStripe with
+`arrowheadpaes-20` selected. The blanket and banner were reverified in stock;
+their standard Copy affiliate link controls now return text through the
+supported browser clipboard API. No link was reconstructed. The footer remains
+disabled in production pending publication approval; the development preview
+shows the verified links for review.
 
 ## Product evidence
 
@@ -64,11 +63,13 @@ Agreement](https://affiliate-program.amazon.com/help/operating/agreement).
 ```sh
 npm ci
 npm run dev:affiliates
-# Open http://localhost:1516/#chiefs-finds
+# Open http://localhost:1516/affiliate-preview/
 ```
 
 The explicit development config shows an identified local design preview
-with inert link labels and `noindex, nofollow`. The production environment
+with verified links and `noindex, nofollow`. Incomplete configurations show
+inert labels instead. The short draft-only preview page permits focused mobile
+testing; normal production builds exclude it. The production environment
 ignores the preview flag. Normal builds currently omit the entire product
 section and disclosure, so no inactive or untagged purchase links can ship.
 
@@ -110,11 +111,12 @@ and unsafe/incomplete activation failures. It does not contact Amazon or
 touch the real product data. CI runs it after the Hugo installer check.
 
 Local evidence on 2026-10-21: extended Hugo 0.152.2 normal and preview builds
-passed (94 pages). The 16 render checks passed. Desktop browser preview had
-three equal-height cards, no horizontal overflow, zero purchase anchors and
-zero media/scripts inside the section. Responsive DOM inspection at the
-mobile viewport confirmed one-column cards and equal document/client widths.
-The browser viewport screenshot override produced a blank mobile capture;
-mobile visual approval and real affiliate click/attribution testing remain
-pending. The full narrative/Unity suites were not run for this isolated
+passed. The 19 render checks passed, including the three actual configured
+links, preview-only rendering, and duplicate-tag rejection. Desktop browser preview had
+three equal-height cards, no horizontal overflow, and zero media/scripts inside
+the section. The three product links have unique accessible labels, reference
+the nearby disclosure, and use the exact captured URLs. Real affiliate
+attribution still requires genuine qualifying activity; no automated purchase
+or synthetic commission test is performed. The full narrative/Unity suites
+were not run for this isolated
 footer; no game files, narrative data, or daily generator were changed.

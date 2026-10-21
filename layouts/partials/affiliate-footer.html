@@ -1,25 +1,29 @@
 {{- $shop := .Site.Data.affiliate_products -}}
 {{- $preview := and hugo.IsDevelopment .Site.Params.affiliateFooterPreview -}}
 {{- $live := $shop.enabled | default false -}}
-{{- if $live -}}
-  {{- if or (not $shop.accountVerifiedOn) (not $shop.siteVerifiedOn) (ne $shop.siteUrl "https://arrowheadpaesano.com/") (not (findRE `^[a-zA-Z0-9-]+-20$` $shop.trackingId)) -}}
+{{- $accountReady := and $shop.accountVerifiedOn $shop.siteVerifiedOn (eq $shop.siteUrl "https://arrowheadpaesano.com/") (gt (len (findRE `^[a-zA-Z0-9-]+-20$` $shop.trackingId)) 0) -}}
+{{- $countReady := and (ge (len $shop.products) 3) (le (len $shop.products) 4) -}}
+{{- $ready := and $accountReady $countReady -}}
+{{- if or $live $preview -}}
+  {{- if and $live (not $accountReady) -}}
     {{- errorf "Affiliate footer: verify the existing US Associates account, tracking ID and site coverage before enabling." -}}
   {{- end -}}
-  {{- if or (lt (len $shop.products) 3) (gt (len $shop.products) 4) -}}
+  {{- if and $live (not $countReady) -}}
     {{- errorf "Affiliate footer: exactly 3 or 4 verified products are required." -}}
   {{- end -}}
   {{- range $shop.products -}}
     {{- $url := urls.Parse .affiliateUrl -}}
     {{- $productPath := printf `^/(?:[^/?#]+/)*dp/%s(?:/[^?#]*)?$` .asin -}}
-    {{- if or (not .productVerifiedOn) (not .siteStripeVerifiedOn) (ne $url.Scheme "https") (ne $url.Host "www.amazon.com") $url.User $url.Fragment (not (findRE $productPath $url.Path)) (ne ($url.Query.Get "tag") $shop.trackingId) -}}
-      {{- errorf "Affiliate footer: %s needs a verified SiteStripe full link for its exact ASIN and account tracking ID." .asin -}}
+    {{- if or (not .productVerifiedOn) (not .siteStripeVerifiedOn) (not (findRE `^[A-Z0-9]{10}$` .asin)) (ne $url.Scheme "https") (ne $url.Host "www.amazon.com") $url.User $url.Fragment (not (findRE $productPath $url.Path)) (ne ($url.Query.Get "tag") $shop.trackingId) (ne (len (index $url.Query "tag")) 1) -}}
+      {{- $ready = false -}}
+      {{- if $live -}}{{- errorf "Affiliate footer: %s needs a verified SiteStripe full link for its exact ASIN and account tracking ID." .asin -}}{{- end -}}
     {{- end -}}
   {{- end -}}
 {{- end -}}
 {{- if or $live $preview -}}
 <section class="amazon-finds-band affiliate-footer" id="chiefs-finds" aria-labelledby="chiefs-finds-heading" aria-describedby="chiefs-finds-disclosure">
   <div class="amazon-finds-band__inner">
-    {{ if $preview }}<p class="affiliate-preview-note" role="note"><strong>Local design preview.</strong> Affiliate links are not active. Account and SiteStripe verification are still required.</p>{{ end }}
+    {{ if $preview }}<p class="affiliate-preview-note" role="note"><strong>Local design preview.</strong> {{ if $ready }}Verified affiliate links are shown for review. This footer has not been published.{{ else }}Affiliate links are not active. Account and SiteStripe verification are still required.{{ end }}</p>{{ end }}
     <div class="amazon-finds-head">
       <div>
         <p class="affiliate-eyebrow">For the Kingdom</p>
@@ -44,8 +48,8 @@
           <h3 id="chiefs-find-{{ .asin }}">{{ .title }}</h3>
           <p>{{ .description }}</p>
         </div>
-        {{ if and $live (not $preview) }}
-        <a href="{{ .affiliateUrl }}" target="_blank" rel="sponsored nofollow noopener" aria-describedby="chiefs-find-{{ .asin }} chiefs-finds-disclosure">View on Amazon<span class="sr-only"> (opens in a new tab)</span><span aria-hidden="true">↗</span></a>
+        {{ if $ready }}
+        <a href="{{ .affiliateUrl }}" target="_blank" rel="sponsored nofollow noopener" aria-label="View {{ .title }} on Amazon (opens in a new tab)" aria-describedby="chiefs-finds-disclosure">View on Amazon<span aria-hidden="true">&nearr;</span></a>
         {{ else }}
         <span class="affiliate-link-pending">View on Amazon <small>Link pending verification</small></span>
         {{ end }}

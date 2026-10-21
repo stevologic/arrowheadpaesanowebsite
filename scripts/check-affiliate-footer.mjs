@@ -31,15 +31,24 @@ try {
 
   assert.doesNotMatch(render('disabled in production', original), /chiefs-finds|amazon\.com|Amazon Associate/);
   assert.doesNotMatch(render('production ignores preview flag', original, 'production', true), /chiefs-finds|amazon\.com|Amazon Associate/);
-  const preview = render('development preview', original, 'development', true);
+  const incomplete = structuredClone(original);
+  incomplete.products[0].affiliateUrl = '';
+  const preview = render('incomplete development preview', incomplete, 'development', true);
   assert.match(preview, /Local design preview/);
   assert.equal((preview.match(/class="amazon-find-card"/g) || []).length, 3);
   assert.doesNotMatch(preview, /<a\b|<img\b|<script\b|<iframe\b/);
   assert.match(preview, /As an Amazon Associate I earn from qualifying purchases\./);
   const html = render('verified fixture', live);
   assert.equal((html.match(/rel="sponsored nofollow noopener"/g) || []).length, 3);
-  assert.equal((html.match(/aria-describedby="chiefs-find-/g) || []).length, 3);
+  assert.equal((html.match(/aria-label="View .+ on Amazon \(opens in a new tab\)"/g) || []).length, 3);
   assert.doesNotMatch(html, /Link pending|<img\b|<script\b|<iframe\b/);
+  const configuredPreview = render('configured full-link preview', original, 'development', true);
+  const configuredLive = render('configured full-link production', { ...original, enabled: true });
+  for (const rendered of [configuredPreview, configuredLive]) {
+    assert.equal((rendered.match(/rel="sponsored nofollow noopener"/g) || []).length, 3);
+    assert.doesNotMatch(rendered, /Link pending|<img\b|<script\b|<iframe\b/);
+    for (const p of original.products) assert.ok(rendered.replaceAll('&amp;', '&').includes(`href="${p.affiliateUrl}"`));
+  }
 
   const cases = [
     ['account missing', d => { d.accountVerifiedOn = ''; }],
@@ -50,6 +59,7 @@ try {
     ['unverified SiteStripe', d => { d.products[0].siteStripeVerifiedOn = ''; }],
     ['wrong product', d => { d.products[0].affiliateUrl = 'https://www.amazon.com/dp/B000000000?tag=fixture-only-20'; }],
     ['wrong tag', d => { d.products[0].affiliateUrl = `https://www.amazon.com/dp/${d.products[0].asin}?tag=wrong-20`; }],
+    ['duplicate tag', d => { d.products[0].affiliateUrl += '&tag=wrong-20'; }],
     ['lookalike host', d => { d.products[0].affiliateUrl = `https://www.amazon.com.example.invalid/dp/${d.products[0].asin}?tag=fixture-only-20`; }],
     ['unsafe scheme', d => { d.products[0].affiliateUrl = 'javascript:alert(1)'; }],
     ['too few products', d => { d.products.pop(); }],

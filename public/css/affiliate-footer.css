@@ -1,4 +1,7 @@
 /* Reuse the existing Kingdom Press Box cards without third-party media or JS. */
+.affiliate-preview-intro { max-width: var(--max); margin: auto; padding: 24px var(--gutter); }
+.affiliate-preview-intro h1 { margin: 0 0 8px; font: 400 32px/1.1 var(--display); }
+.affiliate-preview-intro p { margin: 0; }
 .affiliate-footer { color: var(--ap-black); text-align: left; }
 .affiliate-footer .amazon-finds-band__inner { padding-block: 64px; }
 .affiliate-footer .amazon-finds-head { gap: 32px; }
