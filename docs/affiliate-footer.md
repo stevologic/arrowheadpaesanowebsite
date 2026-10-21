@@ -83,6 +83,9 @@ inert labels instead. The short draft-only preview page permits focused mobile
 testing; normal production builds exclude it. The production environment
 ignores the preview flag. Normal builds currently omit the entire product
 section and disclosure, so no inactive or untagged purchase links can ship.
+The opt-in settings live in `tools/affiliate-preview.yaml`, outside the
+auto-loaded `config/` directory, so the existing publication-surface gate is
+preserved without exceptions.
 
 ## Activation
 

@@ -1,3 +1,0 @@
-# Explicit local development preview only. Production never renders this flag.
-params:
-  affiliateFooterPreview: true
