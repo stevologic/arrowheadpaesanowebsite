@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-21T14:46:49+00:00",
-  "updatedAt": "2026-10-21T14:46:51+00:00",
-  "generator": "grok:grok-4.7",
+  "generatedAt": "2026-10-25T20:27:10+00:00",
+  "updatedAt": "2026-10-25T20:30:52+00:00",
+  "generator": "codex:one-time-authoring",
   "phase": {
     "type": "regular",
     "label": "Week 7",
@@ -11,151 +11,122 @@
   },
   "edition": "2026 Week 7 · Preview",
   "record": "5-0",
-  "headline": "22 on 422, Walker’s pair, and a market that still lays 2.5",
-  "dek": "Kansas City rushed for 150, passed for 272 net, and held the ball 30:26 in a 22-6 win over the Chargers; Los Angeles rushed for 73 and held it 29:34, and the next kickoff is at Seattle on Sun Oct 25, 7:20 PM CT, NBC, with Seattle laying 2.5.",
-  "videoHook": "Five-and-oh, 422 yards, 22 points, and Seattle still laying 2.5 — that is the tape Andy Reid takes on the road.",
-  "theEdge": "ESPN FPI gives Kansas City 52.8 percent to win at Seattle, DraftKings lists Seattle -2.5 on a 42.5 total, and Polymarket sits at 11.2 percent to win the championship and 18.5 percent to win the AFC — a betting underdog the model still leans toward after 22-6.",
+  "headline": "No Rice, no Moore: the Chiefs need answers at Seattle",
+  "dek": "Kansas City takes a 5-0 record to Lumen Field on Sunday. The game-day question is how to protect the pocket and distribute the ball with two offensive starters ruled out. Kickoff is October 25 at 7:20 p.m. Central on NBC.",
+  "videoHook": "The record is perfect. The lineup is not. Seattle is where the Chiefs have to make the next answer work.",
+  "theEdge": "Our read: give Mahomes a quick answer before asking for a deep one. Make Seattle defend the width of the formation, then let Walker attack the space that creates. This is a pregame plan, not a prediction of the final score.",
   "pressConferences": [
     {
-      "url": "https://www.youtube.com/watch?v=wV0rX_GUtTg",
-      "videoId": "wV0rX_GUtTg",
-      "speaker": "Andy Reid",
+      "videoId": "xCnSucR_NCw",
+      "url": "https://www.youtube.com/watch?v=xCnSucR_NCw",
+      "speaker": "Andy Reid, Ken Walker, Jack Cochrane, and Nohl Williams",
       "channel": "Kansas City Chiefs",
-      "title": "Andy Reid Speaks to the Media | OCTOBER 19, 2026",
-      "date": "2026-10-19",
-      "dateLabel": "Mon Oct 19, 2026"
+      "title": "Andy Reid, Ken Walker, Jack Cochrane, and Nohl Williams Speak to Media | OCTOBER 23, 2026",
+      "date": "2026-10-23",
+      "dateLabel": "Fri Oct 23, 2026"
     },
     {
-      "url": "https://www.youtube.com/watch?v=HqrXUR4Gg4o",
-      "videoId": "HqrXUR4Gg4o",
-      "speaker": "Andy Reid, Patrick Mahomes, Ken Walker, and Nick Bolton",
+      "videoId": "0ShMtltDtGM",
+      "url": "https://www.youtube.com/watch?v=0ShMtltDtGM",
+      "speaker": "Coordinators, Assistant Coaches, and Chris Jones",
       "channel": "Kansas City Chiefs",
-      "title": "Andy Reid, Patrick Mahomes, Ken Walker & Nick Bolton Postgame Press Conferences - NFL Week 6",
-      "date": "2026-10-18",
-      "dateLabel": "Sun Oct 18, 2026"
+      "title": "Coordinators, Assistant Coaches and Chris Jones Speak to Media | OCTOBER 22, 2026",
+      "date": "2026-10-22",
+      "dateLabel": "Thu Oct 22, 2026"
     }
   ],
   "storyline": {
-    "lede": "The 2026 Chiefs are 5-0 because the identity run and the complementary defense keep cashing games the scoreboard does not dress up. Against the Chargers, Kansas City posted 22 first downs, 150 rushing yards on 27 attempts, and 272 net passing yards for 422 total, then won 22-6 while converting 3 of 10 third downs and giving the ball away twice.",
+    "lede": "Five wins buy belief. They do not fill tonight’s vacancies. Kansas City’s next step is to make the offense coherent with the players available, then let the defense play a full field.",
     "body": [
-      "Kenneth Walker III carried the rush line: 19 carries, 128 yards, and two touchdowns inside a team total of 150. Patrick Mahomes was 23-of-30 for 272 yards with a rating of 89.9, zero sacks, and one interception. Los Angeles managed 15 first downs, 73 rushing yards, and 186 net passing yards. Justin Herbert was 22-of-37 with a 63.3 rating. The clock was close — Kansas City 30:26 on 11 drives, Los Angeles 29:34 on 12 — so the separation was explosives and the end zone, not a long possession monopoly.",
-      "Do not blend those clocks. The Chargers afternoon was the higher-yardage, lower-scoring version of the same idea Arrowhead Addict has been calling winning ugly, and Arrowhead Pride’s mailbag is right to ask whether 22 points on 422 is a sustainable weekly diet.",
-      "The schedule argument starts now. Arrowhead Pride notes the slate gets tougher beginning in Week 7, and the number agrees in a split way: Seattle is laying 2.5 on a 42.5 total while ESPN FPI still has Kansas City at 52.8 percent. National rankings have the club at No. 2. The film says the staff must turn third down and the kicking game into points before Lumen Field asks them to do it on the road."
+      "This is why the Seattle trip is worth watching beyond the record. A good offense has answers that survive a changed lineup. The formation should explain the protection, the route spacing should explain the first read, and the checkdown should be part of the play rather than a rescue mission.",
+      "There is no result to grade yet. Judge the opening possessions by the quality of the decisions: clean operation, useful early-down gains and a quarterback who knows where the ball can go when the first look disappears. The scoreboard will supply the verdict later."
     ]
   },
   "lastGameReview": {
     "opponent": "Los Angeles Chargers",
     "label": "Week 6 · Sun, Oct 18 · 3:25 PM CT",
     "result": "W",
-    "score": "KC 22–6",
-    "lede": "At Arrowhead, Kansas City led 3-0 on a 44-yard field goal at Q1 11:20, then Kenneth Walker III ran up the middle 33 yards for a touchdown at Q1 7:21. Harrison Butker’s extra point was no good, wide left, so the score was 9-0. Los Angeles answered with a 23-yard field goal at Q1 1:33. Los Angeles kicked a 30-yard field goal at Q3 10:44. Butker’s 30-yard field goal at Q4 3:52 made the final 22-6. Los Angeles did not score a touchdown.",
+    "score": "22–6",
+    "lede": "The Chargers game gave Kansas City a sturdy foundation: an early lead, a productive run game and a defense that kept Los Angeles out of the end zone. Seattle asks the offense to carry that work into a different lineup and a road setting.",
     "analysis": [
       {
-        "body": "The rush tape is the cleanest part of the offense. Walker’s 33-yard score was an up-the-middle cut with the extra point missed, so a touchdown drive produced six. His other listed rushing scores sit on the leader line — 19 carries, 128 yards, two touchdowns — inside a team rush of 150 on 27 attempts. Emmett Johnson’s line is separate: 3 rushes and 2 catches, 5 touches. Patrick Mahomes added 5 rushes, including a 10-yard gain off the left end in the second quarter and an 8-yard scramble off the right end in the fourth. That is quarterback movement, not a claim that any throw was play-action."
+        "body": "In the team’s October 19 recap, Ken Walker’s 128 rushing yards and two touchdowns drove the scoring. His 33-yard touchdown supplied the early burst; a second score from two yards out and a Harrison Butker field goal before halftime built the cushion. Los Angeles finished with 259 yards. Those are the previous game’s facts, not a forecast for tonight."
       },
       {
-        "body": "Mahomes’ dropbacks were clean in the pocket count and messy in the finishing. He was 23-of-30, 0 sacks, with 3 quarterback hits recorded against him, 272 yards, and a rating of 89.9. The interception was a short-right throw intended for Andrew Armstrong, taken by C. Hart for a touchback. Xavier Worthy led the receivers with 7 catches for 73 yards. Travis Kelce had 4 catches. Cyrus Allen had 2 catches, including a 23-yard gain in the fourth quarter. Armstrong played a heavy snap count — Arrowhead Addict has the figure at 42 — and finished with 1 catch. The passing game moved the ball. It did not finish enough drives with touchdowns."
+        "body": "The team’s follow-up report credits Jack Cochrane with the interception and L’Jarius Sneed with the forced fumble recovered by Drue Tranquill. It also lists four sacks, shared by Ashton Gillotte, George Karlaftis, Chamarri Conner, Chris Jones and Peter Woods. The pressure finally became finished plays."
       },
       {
-        "body": "Steve Spagnuolo’s unit held Los Angeles to 259 yards and 73 on the ground. Nick Bolton led the tackle sheet with 11, a total Arrowhead Pride ties to a franchise record for games with 10 or more tackles. Jack Cochrane intercepted Herbert on a short-right throw intended for KeAndre Lambert-Smith and returned it 48 yards. L. Sneed forced a fumble on a short-right completion to Lambert-Smith; Drue Tranquill recovered. Chamarri Conner was credited with 1 sack. Kansas City recorded 9 quarterback hits. A separate second-quarter interception by Christian Roland-Wallace was wiped by Ashton Gillotte’s roughing-the-passer penalty and is not a takeaway. Quentin Johnston’s 57-yard catch to the 1 shows the shell can still lose a deep ball; Los Angeles then kicked, they did not punch it in."
-      },
-      {
-        "body": "The hidden scoreboard is penalties and kicks. Travis Kelce was flagged for an illegal block above the waist on the opening series. Trent Smith’s holding wiped a play. Kingsley Suamataia’s holding wiped another; the play-by-play notes he had returned. Gillotte’s roughing gave Herbert a drive back. Chris Jones was flagged for roughing late. Butker missed the extra point and later missed a 52-yard field goal wide right. A fourth-quarter Kansas City series with K. Tonga reported eligible ended on downs when Walker went left guard to the 1 for no gain. Special teams also had a punt loose ball forced by T. Dye that was reversed and recovered by the Chargers’ C. Murphy. Kansas City’s box still lists two turnovers. One of them is the Hart interception. The other is not a play this wire lets us rename."
-      }
-    ],
-    "takeaways": [
-      {
-        "title": "Walker was the points",
-        "body": "Team rush was 150. Walker was 19 carries for 128 and two touchdowns, with 21 touches once his 2 catches are included. The 33-yard score at Q1 7:21 was the explosive, and the missed extra point kept a touchdown drive at six."
-      },
-      {
-        "title": "Third down and the tee lagged the yardage",
-        "body": "Kansas City was 3-of-10 on third down and scored 22 on 422 yards. Butker made kicks of 44, 50, and 30, missed the extra point, and missed from 52. That is how a yardage win becomes a one-score-looking cushion that was actually 16 at the end."
-      },
-      {
-        "title": "The takeaways have names",
-        "body": "Cochrane is the interceptor on the live Herbert throw. Sneed forced the Lambert-Smith fumble and Tranquill recovered it. Do not move those credits."
+        "body": "Xavier Worthy’s seven catches for 73 yards and Andrew Armstrong’s first regular-season reception matter to the next game. They provide recent evidence of receivers doing useful work. Asking them to help fill an absent teammate’s role is reasonable; treating that role as automatically replaced is not."
       }
     ],
     "whatWorked": [
-      "Walker’s up-the-middle and perimeter carries, especially the 33-yard touchdown and the 16-yard run in the fourth quarter",
-      "Mahomes at 23-of-30 with 0 sacks and 272 net yards, matching the team passing total",
-      "Run defense: Los Angeles 73 rushing yards on 22 attempts, with Bolton at 11 tackles",
-      "Cochrane’s interception and the Sneed-forced, Tranquill-recovered fumble"
+      "Walker turned the run game into touchdowns.",
+      "The defense kept the Chargers out of the end zone."
     ],
     "whatDidnt": [
-      "3-of-10 on third down and a fourth-quarter snap that died at the 1",
-      "The missed extra point and the missed 52-yard field goal",
-      "Mahomes’ interception intended for Armstrong",
-      "Gillotte’s roughing penalty, which erased a Roland-Wallace interception",
-      "The 57-yard completion to Johnston, which put Los Angeles on the doorstep before a field goal"
+      "The offensive line lost Jaylon Moore to a concussion.",
+      "Travis Kelce sustained an ankle injury, although the team recap says he played through it."
+    ],
+    "takeaways": [
+      {
+        "title": "Finish the rush",
+        "body": "A hurry starts the problem. Getting the quarterback down finishes it. Keep the rush lanes connected so an escape does not undo the first win."
+      }
     ]
   },
   "currentState": {
-    "lede": "Kansas City is 5-0, ranked No. 2 in the Arrowhead Pride Week 7 sampling, and still priced as a road underdog for Sun Oct 25, 7:20 PM CT. The offense can move the ball. It is not yet turning that movement into a touchdown rate that travels.",
     "record": "5-0",
+    "lede": "The October 23 injury report and October 24 transactions are the meaningful changes since our last published preview. This update was prepared before kickoff; game-day inactives remain the final check.",
     "workOn": [
       {
-        "title": "Third down has to cash more than 3-of-10",
-        "body": "Eleven drives and 422 yards produced 22 points. Against a Seattle team laying 2.5, another 3-of-10 afternoon on the road will hand the game to field position and the 42.5 total."
+        "title": "Set the protection before the noise",
+        "body": "Give the replacement tackle help with alignment, a chip or a quick release when the matchup needs it. A tight end cannot be both a permanent extra blocker and an immediate outlet. Decide which job matters on each call."
       },
       {
-        "title": "Finish red-zone and kicking details",
-        "body": "A missed extra point and a miss from 52 turned touchdown and long-field chances into a thinner margin. Reid and Bieniemy need a call at the 1 that is not a stuffed left-guard run, and Butker needs the routine points."
+        "title": "Give the receiving rotation a job",
+        "body": "Worthy can stretch a defender’s leverage. Armstrong can work a defined route. The underneath option needs to arrive on time. Do not ask every available receiver to impersonate Rice; build a progression the quarterback can finish."
       },
       {
-        "title": "Protect the takeaway math",
-        "body": "Kansas City’s box lists two turnovers, including Mahomes to Hart. Los Angeles also had two, via Cochrane and Tranquill. A wiped interception from a roughing foul is a discipline fix for Gillotte, not a scheme trophy."
-      },
-      {
-        "title": "Sort the receiver snaps before the road",
-        "body": "Armstrong’s 42 snaps and 1 catch, Worthy’s 7-for-73, and Kelce’s 4 catches are the usage facts. The room has to be a plan, not a snap-count experiment, once Seattle crowds the box against Walker."
+        "title": "Let the run set up the answer",
+        "body": "Keep a pass available when Seattle commits numbers to Walker. If the front wins a run, the next call should attack what the defense showed rather than simply repeat the collision."
       }
     ],
     "thinkAbout": [
       {
-        "title": "Is the ugly win the identity or the ceiling?",
-        "body": "Arrowhead Pride’s mailbag asks if the current approach is sustainable. Arrowhead Addict says the club has remastered winning ugly after last year’s 6-11. Both can be true for five games. Week 7 is the test."
+        "title": "Availability is not a snap count",
+        "body": "An activation or elevation makes a player available for selection. It does not promise a start, a workload or even an active jersey. Keep the roster transaction and the football projection separate."
       },
       {
-        "title": "Model versus the number",
-        "body": "ESPN FPI has Kansas City at 52.8 percent. DraftKings has Seattle -2.5. That split is the honest edge: respect the building, do not pretend the market has already conceded the trip."
-      },
-      {
-        "title": "How much Gilman, and how much Bolton?",
-        "body": "Arrowhead Addict tracked Alohi Gilman from 90 percent of the defensive snaps in Week 4 to 49 percent in Week 6. Bolton just posted an 11-tackle game. Spagnuolo’s sub package on the road should be a choice, not a drift."
+        "title": "A clean possession has value",
+        "body": "A road offense can help its defense by avoiding a short field. The aggressive throw still belongs in the plan, but it needs protection and leverage, not just a desire to make a statement."
       }
     ]
   },
   "gamePlan": {
     "opponent": "Seattle Seahawks",
-    "lede": "Win the early-down run, steal a third down, and keep the score ahead of a Seattle team the market still favors by 2.5. Kickoff is Sun Oct 25, 7:20 PM CT on NBC at Seattle. No result exists yet.",
-    "howTheyMatch": "Kansas City brings a 5-0 run-leaning offense — 150 rushing yards and a 23-of-30 quarterback with 0 sacks last time out — into a loud road building where Seattle is laying the number. The Chiefs’ defense just held a division offense to 73 on the ground and 6 points, with a leak on one 57-yard shot. The leverage is Kansas City’s downhill carries versus a home favorite that will want to squeeze third down, where Kansas City was 3-of-10.",
+    "lede": "Our suggested plan starts with manageable decisions: protect the edge, spread the underneath coverage and earn the shot play. The calls below are proposals, not claims about what Kansas City has already installed.",
+    "howTheyMatch": "The Chiefs’ official Saturday preview sets the central matchup: Walker against a Seattle defense that has gone 35 straight games without allowing a 100-yard rusher. On the other side, it identifies Jaxon Smith-Njigba as the focal point of Seattle’s passing game. Winning either matchup requires more than one defender or one blocker doing his job.",
     "keys": [
       {
-        "title": "Make Walker the first-down answer",
-        "body": "Inside zone and the occasional Mahomes keep keep Seattle’s second level fit-conscious. Team rush has to stay a team number, with Johnson’s 5-touch changeup available so the closer is not asked to be the whole plan."
+        "title": "Move the launch point with purpose",
+        "body": "Use a boot only after the edge has a reason to squeeze inside. If the outside defender stays home, give Mahomes a short outlet and permission to move on."
       },
       {
-        "title": "Manufacture third-down completions",
-        "body": "Mesh and a running-back screen give Mahomes answers that do not require a 40-yard shot. Worthy and Kelce are the separators. Armstrong has to be a route, not just a snap."
+        "title": "Know where Smith-Njigba is",
+        "body": "Match the coverage to his alignment. Carry the crossing route through the handoff between zones. Pressure that leaves a free release and an empty middle is an expensive bargain."
       },
       {
-        "title": "Two-deep, then a called zone blitz",
-        "body": "Cover 2 takes away the Johnston-style shot that broke the Chargers tape. A simulated pressure is a call Spagnuolo can dial — show heat, drop a lineman — not a retroactive label on Cochrane’s interception."
-      },
-      {
-        "title": "Bank the points Butker can make",
-        "body": "A 42.5 total does not require a track meet. It does require the extra point and the makeable field goal. Leave the 52-yard hero kick for a last resort."
+        "title": "Make Seattle earn the field",
+        "body": "The team preview points to Seattle’s recent giveaways. That makes disciplined rush lanes and secure tackling attractive; it does not make a turnover inevitable. Play the down before celebrating the opportunity."
       }
     ],
     "script": [
-      "Open under center with Walker on inside zone and force a light box before any boot.",
-      "On a confirmed run look, boot Mahomes to the perimeter with Kelce as the flat option and Worthy clearing.",
-      "Third-and-medium: mesh Kelce and a wide receiver, Johnson as the checkdown.",
-      "Second-and-long after a sack or a penalty: spacing screen to Walker so the 3 hits from last game do not become a dropback habit.",
-      "Defensively, start in Cover 2 on standard downs and rally Bolton to the ball.",
-      "Call a zone blitz on a Seattle second-and-medium, with a defensive lineman dropping and the second level rushing — a call, not a story about last week’s takeaways."
+      "Open with inside zone and read how Seattle fits it.",
+      "Show the same backfield action, then give Mahomes a boot with an outlet.",
+      "Use mesh against man coverage; settle into space against zone.",
+      "Keep a running-back screen available against an aggressive rush.",
+      "Start with a two-high picture and rally to the underneath throw.",
+      "Change the pressure picture without abandoning the coverage responsibility."
     ]
   },
   "nextGame": {
@@ -163,350 +134,260 @@
     "opponent": "Seattle Seahawks",
     "at": "@ Lumen Field",
     "tv": "NBC",
-    "note": "Kickoff Sun Oct 25, 7:20 PM CT. Seattle -2.5, total 42.5. FPI leans Kansas City at 52.8 percent. No score to invent."
+    "note": "Pregame update, October 25. Kickoff is 7:20 p.m. Central / 5:20 p.m. in Seattle and Arizona. NBC carries the game; KSHB is the Kansas City affiliate. The Chiefs list Field Pass LIVE on their YouTube channel from 5:30 p.m. Central."
   },
-  "markets": {
-    "game": {
-      "opponent": "Seattle Seahawks",
-      "label": "Sun, Oct 25 · 7:20 PM CT",
-      "homeAway": "away",
-      "kcWin": 52.8,
-      "spreadDetail": "SEA -2.5",
-      "overUnder": 42.5,
-      "source": "ESPN FPI win probability; ESPN / DraftKings spread",
-      "url": "https://www.espn.com/nfl/game/_/gameId/401873022"
-    },
-    "model": {
-      "kcWin": 52.8,
-      "oppWin": 46.8,
-      "label": "ESPN FPI game projection",
-      "source": "ESPN FPI",
-      "url": "https://www.espn.com/nfl/fpi"
-    },
-    "vegas": {
-      "provider": "Draft Kings",
-      "spreadDetail": "SEA -2.5",
-      "overUnder": 42.5,
-      "homeMoneyline": -148.0,
-      "awayMoneyline": 124.0,
-      "source": "ESPN / Draft Kings",
-      "url": "https://www.espn.com/nfl/lines"
-    },
-    "futures": [
-      {
-        "label": "Pro Football: 2027 Champion",
-        "chiefsPct": 11.2,
-        "source": "Polymarket",
-        "url": "https://polymarket.com/event/pro-football-2027-champion-20260729185915366"
-      },
-      {
-        "label": "Pro Football: 2027 AFC Champion",
-        "chiefsPct": 18.5,
-        "source": "Polymarket",
-        "url": "https://polymarket.com/event/pro-football-2027-afc-champion"
-      }
-    ]
-  },
+  "markets": {},
   "spotlight": [
     {
-      "tag": "Run game",
-      "title": "Walker’s 21 touches sat inside a 150-yard team rush",
-      "body": "19 carries, 128 yards, two touchdowns, plus 2 catches. Johnson was a 5-touch complement, not the same workload. That split is how Bieniemy keeps the downhill plan fresh on the road."
+      "tag": "Pregame",
+      "title": "The last word is the inactive list",
+      "body": "This edition uses the official Friday report and Saturday roster moves. Check the Chiefs’ game-day inactive announcement before treating a questionable player as available."
     },
     {
-      "tag": "Points",
-      "title": "422 yards became 22 because the finishing stalled",
-      "body": "Three made field goals, one missed extra point, one missed 52-yard try, and a snap that died at the 1. The yardage was not the problem. The points per drive were."
-    },
-    {
-      "tag": "Defense",
-      "title": "Bolton’s 11 and a named takeaway pair",
-      "body": "Cochrane intercepted Herbert. Sneed forced the fumble Tranquill recovered. Conner had the listed sack. Kansas City put 9 hits on the quarterback. Los Angeles still hit one 57-yard completion."
-    },
-    {
-      "tag": "Market",
-      "title": "No. 2 in the rankings, plus-2.5 on the number",
-      "body": "Arrowhead Pride’s Week 7 roundup has the Chiefs settling at No. 2. DraftKings still has Seattle favored. Polymarket is at 11.2 percent to win the championship and 18.5 percent to win the AFC."
-    },
-    {
-      "tag": "Schedule",
-      "title": "The soft opening is over",
-      "body": "Arrowhead Pride’s schedule piece says the road gets harder starting in Week 7. Denver in Week 8 is the next trip after Seattle. This edition is about Lumen Field, not a December hypothetical."
+      "tag": "Broadcast",
+      "title": "Settle in for kickoff",
+      "body": "The team’s viewing guide has the national broadcast on NBC and the local telecast on KSHB. Its YouTube pregame show is a separate program from the game telecast."
     }
   ],
   "matchups": [
     {
-      "unit": "Chiefs inside run vs. Seattle front",
-      "chiefs": "Kenneth Walker III, Creed Humphrey, Eric Bieniemy",
-      "opponent": "Seattle’s early-down fit",
-      "edge": "KC",
-      "note": "150 team rushing yards and Walker’s 128 are the evidence. The left-guard stuff at the 1 is the warning, not the identity."
-    },
-    {
-      "unit": "Mahomes’ pocket vs. Seattle pass rush",
-      "chiefs": "Patrick Mahomes, 0 sacks and 3 hits allowed last game",
-      "opponent": "Seattle edge rush at home",
+      "unit": "Edge protection",
+      "chiefs": "Kansas City’s offensive tackle depth",
+      "opponent": "Seattle’s edge rush",
       "edge": "PUSH",
-      "note": "Zero sacks is real protection. Three hits say it was not a vacuum. Road noise can change the operation without rewriting the Chargers tape."
+      "note": "Our watch point: does the formation supply help without removing every quick outlet?"
     },
     {
-      "unit": "Spagnuolo’s shell vs. explosive shots",
-      "chiefs": "Cover 2 with Bolton (11 tackles) and a secondary whose Gilman share dropped to 49 percent",
-      "opponent": "Seattle’s home shot plays",
+      "unit": "Route spacing",
+      "chiefs": "Worthy, Armstrong and the available pass catchers",
+      "opponent": "Seattle’s underneath coverage",
       "edge": "PUSH",
-      "note": "Los Angeles was held to 6 points and still completed a 57-yard ball to Johnston. Two-deep is the correction. It is not a guarantee."
+      "note": "Our watch point: can the receivers create distinct windows instead of crowding the same defender?"
     },
     {
-      "unit": "Third-down offense vs. Seattle’s down package",
-      "chiefs": "3-of-10, Worthy 7 catches, Kelce 4",
-      "opponent": "A defense playing with a 2.5-point lead in the number",
-      "edge": "OPP",
-      "note": "This is the clearest Kansas City leak. Mesh and the screen are the fixes, not a speech about explosives."
-    },
-    {
-      "unit": "Kicking vs. a 42.5 total",
-      "chiefs": "Harrison Butker: made 44, 50, and 30; missed PAT and 52",
-      "opponent": "Seattle’s field-position game at home",
+      "unit": "Coverage discipline",
+      "chiefs": "Steve Spagnuolo’s secondary",
+      "opponent": "Jaxon Smith-Njigba",
       "edge": "PUSH",
-      "note": "The made kicks won the margin. The misses are why 422 did not look dominant."
-    },
-    {
-      "unit": "Linebacker depth vs. a long road week",
-      "chiefs": "Nick Bolton, plus Aiden Fisher on the practice squad and Cooper McDonald’s practice window",
-      "opponent": "Seattle’s run-and-play-action stress, schematically",
-      "edge": "KC",
-      "note": "Bolton is the starter who just made the tackle sheet. Fisher and McDonald are roster news, not a declaration that either plays Sunday."
+      "note": "Our watch point: who carries the route when he crosses from one zone into another?"
     }
   ],
   "xsandos": [
     {
-      "title": "Walker downhill on early downs",
-      "situation": "1st-and-10 at Seattle, Sun Oct 25, 7:20 PM CT, before the defense can set a pass-only menu",
+      "title": "Make the front declare",
+      "situation": "Early downs, before choosing the next constraint",
       "concept": "inside_zone",
-      "why": "Walker just cut up the middle for a 33-yard touchdown and finished with 128 of Kansas City’s 150 rushing yards — Bieniemy should keep that track as the first answer at Lumen Field.",
-      "coaching": "Humphrey and the interior reach, Walker presses the mesh point and makes one cut. Johnson (5 touches last game) is the changeup, not the starter’s carry count.",
+      "why": "Inside zone asks the blockers to work together and gives the runner a cut based on the fit. Use the response to choose the next call.",
+      "coaching": "Keep the combination blocks connected; press the track before cutting.",
       "labels": {
         "x": "stalk and wall",
         "z": "crack replace",
         "te": "zone combo to linebacker"
       },
-      "diagram": "images/narrative/2026-10-21-1446/xo-inside_zone.svg",
+      "diagram": "images/narrative/2026-10-25-2027/xo-inside_zone.svg",
       "side": "offense"
     },
     {
-      "title": "Boot off the run look",
-      "situation": "2nd-and-5 after a Walker carry, Seattle flowing downhill",
+      "title": "Change the launch point",
+      "situation": "After a run look has drawn the edge inward",
       "concept": "play_action_boot",
-      "why": "Sell the 150-yard rush profile, then move Mahomes — who was not sacked and took 3 hits — to the perimeter where Kelce’s 4 catches become an easy read.",
-      "coaching": "This is a call for Seattle, not a label on last week’s throws. Worthy clears the corner. Kelce sits in the flat. Mahomes keeps a run option if the end crashes.",
+      "why": "A boot can move the quarterback away from the initial rush. It needs an outlet if the edge defender stays home.",
+      "coaching": "Sell the run action, then read the edge. Do not turn a covered outlet into a forced throw.",
       "labels": {
         "x": "clear out",
         "z": "pivot",
         "te": "flat sit"
       },
-      "diagram": "images/narrative/2026-10-21-1446/xo-play_action_boot.svg",
+      "diagram": "images/narrative/2026-10-25-2027/xo-play_action_boot.svg",
       "side": "offense"
     },
     {
-      "title": "Mesh on third-and-medium",
-      "situation": "3rd-and-5 to 3rd-and-7, the down Kansas City hit on 3 of 10 against Los Angeles",
+      "title": "Create a clean crossing window",
+      "situation": "Against man coverage, with a zone answer built in",
       "concept": "mesh",
-      "why": "Worthy (7 for 73) and Kelce are the rub winners; Armstrong’s 42 snaps have to produce a route, not another interception target with no catch.",
-      "coaching": "Crossers at depth, a sit behind them, Johnson as the outlet. Mahomes throws the first open window. No hero shot required on a 42.5 total.",
+      "why": "Crossing routes can separate through traffic. Against zone, the receivers need space to settle rather than running into the same window.",
+      "coaching": "Keep legal spacing through the cross and make the coverage declare.",
       "labels": {
         "x": "shallow cross",
         "z": "sit",
         "te": "opposite shallow"
       },
-      "diagram": "images/narrative/2026-10-21-1446/xo-mesh.svg",
+      "diagram": "images/narrative/2026-10-25-2027/xo-mesh.svg",
       "side": "offense"
     },
     {
-      "title": "Walker screen when the rush declares",
-      "situation": "2nd-and-long after a penalty or a negative play, pass rush climbing up the pocket",
+      "title": "Make the rush travel",
+      "situation": "When the defense attacks the pocket",
       "concept": "spacing_screen",
-      "why": "Mahomes took 0 sacks and 3 hits. A screen lets Walker’s 2 catches punish a rush that overplays the 23-of-30 dropback.",
-      "coaching": "Line leads in space. Worthy and a slot hold the edges. Walker catches on the move and gets vertical. Do not ask him to be a pass-rusher’s decoy with no plan.",
+      "why": "A running-back screen invites the rush forward before sending the ball behind it. Timing matters more than surprise.",
+      "coaching": "Let the rush commit, release the blockers on time and secure the catch.",
       "labels": {
         "x": "stalk",
         "z": "stalk",
         "te": "arc release"
       },
-      "diagram": "images/narrative/2026-10-21-1446/xo-spacing_screen.svg",
+      "diagram": "images/narrative/2026-10-25-2027/xo-spacing_screen.svg",
       "side": "offense"
     },
     {
-      "title": "Cover 2 on standard downs",
-      "situation": "1st-and-10 and 2nd-and-medium at Seattle, after a 57-yard shot leaked last week",
+      "title": "Keep a lid on the shot",
+      "situation": "Early downs with two deep safeties",
       "concept": "cover_two",
-      "why": "Two deep, five under takes away the Johnston-style go ball and lets Bolton, coming off 11 tackles, rally to the checkdown.",
-      "coaching": "Spagnuolo: corners sink, safeties stay on top, linebackers fit the run that Seattle will steal from Kansas City’s own tape. Rally and tackle. No freelance deep jump.",
+      "why": "Cover 2 puts a safety over each deep half while underneath defenders rally to the ball. The middle still needs an alert handoff.",
+      "coaching": "Disrupt releases without losing the flat; safeties stay deeper than the deepest threat.",
       "labels": {
         "x": "deep half",
         "z": "deep half",
         "te": "hook curl"
       },
-      "diagram": "images/narrative/2026-10-21-1446/xo-cover_two.svg",
+      "diagram": "images/narrative/2026-10-25-2027/xo-cover_two.svg",
       "side": "defense"
     },
     {
-      "title": "Call the zone blitz, do not narrate last week’s picks",
-      "situation": "2nd-and-6, Seattle in the shotgun, offense expecting a soft look after Cover 2",
+      "title": "Change who is coming",
+      "situation": "A passing down where the coverage can support pressure",
       "concept": "zone_blitz",
-      "why": "Show heat, drop a lineman, rush a second-level player — Spagnuolo’s signature as a call for this trip, not an explanation of Cochrane’s interception or Sneed’s forced fumble.",
-      "coaching": "Declare the dropper before the snap. Bolton or a safety can be the rusher. The dropped lineman owns the hot throw. Conner’s pass-rush win last week does not make this card a sack prediction.",
+      "why": "A zone blitz sends an unexpected rusher and drops another defender into coverage. The exchange must leave a complete coverage structure.",
+      "coaching": "Identify the dropper and the vacated zone before the snap; rush with contain.",
       "labels": {
         "x": "underneath drop",
         "z": "rush from depth",
         "te": "hook replace"
       },
-      "diagram": "images/narrative/2026-10-21-1446/xo-zone_blitz.svg",
+      "diagram": "images/narrative/2026-10-25-2027/xo-zone_blitz.svg",
       "side": "defense"
     }
   ],
   "coaching": [
     {
-      "topic": "Reid and Bieniemy, points per drive",
-      "detail": "422 yards and 22 points is a finishing problem. The script should be run-first, then defined answers on third down, not more empty volume."
-    },
-    {
-      "topic": "Spagnuolo’s two cards",
-      "detail": "Cover 2 to erase the 57-yard leak, and a zone blitz he calls on purpose. Cochrane, Sneed, and Tranquill already have their credits from the Chargers tape."
-    },
-    {
-      "topic": "Bolton as the fit player",
-      "detail": "An 11-tackle game is the standard for the road. Gilman’s snap share dropped to 49 percent in Week 6, so the sub-package communication has to be explicit."
+      "topic": "Give every call a failure answer",
+      "detail": "A covered first read should lead to a defined second decision. That is especially valuable when the protection has changed."
     }
   ],
   "injuries": [
     {
-      "player": "Cooper McDonald",
-      "status": "Practice window opened",
-      "note": "Arrowhead Addict reports the Chiefs activated his practice window ahead of Week 7 preparation. That is a step, not a declaration he plays at Seattle.",
-      "source": "Arrowhead Addict"
+      "player": "Rashee Rice",
+      "status": "Out · Friday report",
+      "note": "Hamstring/knee; did not practice Friday.",
+      "source": "https://www.chiefs.com/news/week-7-injury-report-chiefs-vs-seahawks-2026"
+    },
+    {
+      "player": "Jaylon Moore",
+      "status": "Out · Friday report",
+      "note": "Concussion; did not practice Friday.",
+      "source": "https://www.chiefs.com/news/week-7-injury-report-chiefs-vs-seahawks-2026"
+    },
+    {
+      "player": "L’Jarius Sneed",
+      "status": "Questionable · Friday report",
+      "note": "Knee; limited Friday. This is not confirmation that he will play.",
+      "source": "https://www.chiefs.com/news/week-7-injury-report-chiefs-vs-seahawks-2026"
+    },
+    {
+      "player": "Travis Kelce / Patrick Mahomes",
+      "status": "No game designation · Friday report",
+      "note": "Kelce was limited with an ankle issue; Mahomes was full with a knee issue. Practice participation and game status are different fields.",
+      "source": "https://www.chiefs.com/news/week-7-injury-report-chiefs-vs-seahawks-2026"
+    },
+    {
+      "player": "Brashard Smith",
+      "status": "Reserve/Injured · Saturday transaction",
+      "note": "Friday: out with a hamstring injury. The team transaction log subsequently records his placement on Reserve/Injured.",
+      "source": "https://www.chiefs.com/team/transactions/2026"
     }
   ],
   "personnel": [
     {
-      "move": "Aiden Fisher to the practice squad",
-      "detail": "Arrowhead Pride and Arrowhead Addict report the rookie linebacker, a former Indiana teammate of left tackle Kahlil Benson, is expected to sign. Depth, not a Week 7 starter announcement."
+      "move": "Saturday, October 24",
+      "detail": "The Chiefs transaction log records Cooper McDonald’s activation from Reserve/Injured, Justin Watson’s standard elevation and a roster contract for running back Jaydn Ott. These are roster moves, not promised snap counts."
     },
     {
-      "move": "Mecole Hardman to the Colts practice squad",
-      "detail": "Arrowhead Pride notes the reunion rumors; Hardman signed in Indianapolis. Justin Watson, separately, was elevated and played one offensive snap and three special-teams snaps against the Chargers."
+      "move": "Friday, October 23",
+      "detail": "Andrew Armstrong was signed to the active roster from the practice squad. Nate Carter was signed to the practice squad."
     },
     {
-      "move": "Andrew Armstrong’s snap count",
-      "detail": "Arrowhead Addict has him at 42 snaps in Week 6 after a practice-squad call-up, with 1 catch on the touch chart and an interception on a ball intended for him."
-    },
-    {
-      "move": "Alohi Gilman’s snap share",
-      "detail": "From 90 percent of defensive snaps in Week 4 to 49 percent in Week 6, per Arrowhead Addict. A possible secondary shift, not a released player."
+      "move": "Thursday, October 22",
+      "detail": "Josh Simmons was placed on Reserve/Injured. His absence is part of the protection planning, not a new game-day diagnosis."
     }
   ],
   "strategies": [
-    "Lead with inside zone to Walker so Seattle’s front has to fit the run before it hunts Mahomes.",
-    "Use a boot as a called constraint once that run is respected, with Kelce in the flat.",
-    "On third-and-medium, mesh rather than another low-percentage third down after a 3-of-10 game.",
-    "Throw the spacing screen to Walker when the rush declares, protecting a quarterback who took 3 hits and 0 sacks.",
-    "Start defensive series in Cover 2 so a Johnston-length shot is a rally, not a score.",
-    "Dial one zone blitz per series as a Spagnuolo call, with the dropper identified, and keep special teams conservative inside Butker’s made range."
+    "Pair the protection call with a quick throwing answer.",
+    "Use the run response to choose the next constraint.",
+    "Carry crossing routes through the zones and tackle the catch."
   ],
   "debates": [
-    "Is 22 points on 422 a sustainable offense, or a five-game disguise the tougher slate will expose?",
-    "Should Armstrong’s 42 snaps continue if the production stays at 1 catch?",
-    "Does Gilman at 49 percent of the snaps mean a real secondary change or a one-game rotation?",
-    "Who do you trust more this week, ESPN FPI at 52.8 percent or DraftKings at Seattle -2.5?",
-    "Is Bolton’s franchise mark for 10-tackle games a compliment or a sign the defense is tackling too far downfield?"
+    "How much help should the replacement tackle get on passing downs?",
+    "Which available receiver gives Mahomes the clearest first read?",
+    "Can the defense pressure Seattle without losing Smith-Njigba in transition?"
   ],
   "runOfShow": [
     {
       "segment": "Cold open",
-      "length": "0:00-1:00",
-      "talkTrack": "Five-and-oh, 22-6, 422 yards, and Seattle still laying 2.5. That split is the show."
+      "length": "0:00–0:45",
+      "talkTrack": "The perfect record meets an imperfect lineup. Frame this as a pregame plan."
     },
     {
-      "segment": "Chargers film",
-      "length": "1:00-6:00",
-      "talkTrack": "Walk the scoring order: field goal at Q1 11:20, Walker’s 33-yard touchdown at Q1 7:21 with the extra point missed, Chargers field goals of 23 and 30, Kansas City’s 2-yard touchdown and Butker’s 50 and 30. Team lines: 150 rush, 272 net pass, 30:26. Herbert 22-of-37, 4 sacks, 63.3. Mahomes 23-of-30, 0 sacks, 89.9."
-    },
-    {
-      "segment": "What to fix",
-      "length": "6:00-9:00",
-      "talkTrack": "Third-and-10 efficiency at 3-of-10, the missed kicks, the Hart interception, Gillotte’s roughing, Armstrong’s snaps versus his 1 catch. Prior game in Las Vegas stays in its own box: 189 rush, 210 net pass, 24:18."
+      "segment": "What changed",
+      "length": "0:45–3:00",
+      "talkTrack": "Walk through Friday’s designations and Saturday’s roster moves. Separate availability from projected usage."
     },
     {
       "segment": "Seattle plan",
-      "length": "9:00-14:00",
-      "talkTrack": "Inside zone, boot, mesh, screen, Cover 2, and a called zone blitz. Kickoff string is Sun Oct 25, 7:20 PM CT, NBC. FPI 52.8, Seattle -2.5, total 42.5, Polymarket 11.2 and 18.5."
+      "length": "3:00–6:00",
+      "talkTrack": "Use the diagrams to explain protection, quick outlets and coverage handoffs. These are proposed calls."
     },
     {
-      "segment": "Close",
-      "length": "14:00-15:00",
-      "talkTrack": "Credit Cochrane, Sneed, and Tranquill by name. No invented score. Look ahead, then stop."
+      "segment": "At the podium",
+      "length": "6:00–8:00",
+      "talkTrack": "Introduce the dated official player and coach press conferences below; let the speakers supply their own words."
+    },
+    {
+      "segment": "Before kickoff",
+      "length": "8:00–8:30",
+      "talkTrack": "Check the inactive list. Kickoff is 7:20 p.m. Central on NBC; this edition contains no game result."
     }
   ],
   "sources": [
     {
-      "title": "Chiefs Mailbag: Is Kansas City’s current approach sustainable?",
-      "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/213617/chiefs-mailbag-kansas-citys-current-approach-sustainable",
-      "note": "Frames whether the 5-0 approach can travel."
+      "title": "How to Watch and Listen | Week 7: Chiefs vs. Seahawks",
+      "publisher": "Kansas City Chiefs",
+      "url": "https://www.chiefs.com/news/how-to-watch-and-listen-week-7-chiefs-vs-seahawks",
+      "note": "Published October 24: kickoff, venue, broadcast and official YouTube pregame show."
     },
     {
-      "title": "The Chiefs have remastered the art of winning ugly",
-      "publisher": "Arrowhead Addict",
-      "url": "https://arrowheadaddict.com/the-chiefs-have-remastered-the-art-of-winning-ugly?utm_source=RSS",
-      "note": "Season-long read on winning without a pretty scoreboard."
+      "title": "Week 7 Injury Report | Chiefs vs. Seahawks",
+      "publisher": "Chiefs Public Relations",
+      "url": "https://www.chiefs.com/news/week-7-injury-report-chiefs-vs-seahawks-2026",
+      "note": "Published October 23: Friday participation and game designations; does not establish Sunday active status."
     },
     {
-      "title": "The Chiefs’ schedule gets a lot tougher starting in Week 7",
-      "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-schedule/213670/chiefs-schedule-tougher-starting-week-7",
-      "note": "Sets the stakes for the Seattle trip."
+      "title": "2026 Kansas City Chiefs Transactions",
+      "publisher": "Kansas City Chiefs",
+      "url": "https://www.chiefs.com/team/transactions/2026",
+      "note": "October 22–24 roster moves, checked October 25 before kickoff."
     },
     {
-      "title": "NFL Power Rankings Week 7 Roundup: Chiefs settle into No. 2 spot",
-      "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-power-rankings/213631/nfl-power-rankings-week-7-roundup-chiefs-settle-no-2-spot",
-      "note": "National placement after 5-0."
+      "title": "Five Things to Watch on Sunday | Chiefs vs. Seahawks",
+      "publisher": "Kansas City Chiefs",
+      "url": "https://www.chiefs.com/news/five-things-to-watch-on-sunday-chiefs-vs-seahawks",
+      "note": "Published October 24: Seattle run defense, receiving focal point and turnover context."
     },
     {
-      "title": "Chiefs News: Nick Bolton has most 10+ tackle games in franchise history",
-      "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/213622/chiefs-news-nick-bolton-most-10-tackle-games-franchise-history",
-      "note": "Bolton’s 11-tackle game and the franchise mark."
+      "title": "Chiefs Defeat Chargers, 22-6, to Move to 5-0 on the Season",
+      "publisher": "Kansas City Chiefs",
+      "url": "https://www.chiefs.com/news/chiefs-defeat-chargers-22-6-to-move-to-5-0-on-the-season",
+      "note": "Published October 19; describes the October 18 game."
     },
     {
-      "title": "Andrew Armstrong's surprising Chiefs snap count makes sense after closer look",
-      "publisher": "Arrowhead Addict",
-      "url": "https://arrowheadaddict.com/andrew-armstrong-surprising-chiefs-snap-count-makes-sense-after-closer-look?utm_source=RSS",
-      "note": "42 snaps for Armstrong in Week 6."
-    },
-    {
-      "title": "Alohi Gilman's reduced playing time signals a possible shift in Chiefs secondary",
-      "publisher": "Arrowhead Addict",
-      "url": "https://arrowheadaddict.com/alohi-gilman-s-reduced-playing-time-signals-a-possible-shift-in-chiefs-secondary-01m5am6v34zd?utm_source=RSS",
-      "note": "Snap share from 90 percent to 49 percent."
-    },
-    {
-      "title": "Chiefs take important step toward getting Cooper McDonald back on the field",
-      "publisher": "Arrowhead Addict",
-      "url": "https://arrowheadaddict.com/chiefs-take-important-step-toward-getting-cooper-mcdonald-back-on-field?utm_source=RSS",
-      "note": "Practice window opened ahead of Week 7."
-    },
-    {
-      "title": "Chiefs are reportedly signing rookie LB Aiden Fisher to the practice squad",
-      "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/213677/chiefs-reportedly-signing-rookie-aiden-fisher-practice-squad",
-      "note": "Linebacker depth addition."
-    },
-    {
-      "title": "Chiefs News: Mecole Hardman signs with Colts practice squad",
-      "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/213690/chiefs-news-mecole-hardman-signs-colts-practice-squad",
-      "note": "Hardman’s landing spot and the Watson elevation note."
+      "title": "10 Quick Facts Following the Chiefs Week 6 Win Over Los Angeles",
+      "publisher": "Kansas City Chiefs",
+      "url": "https://www.chiefs.com/news/10-quick-facts-following-the-chiefs-week-6-win-over-los-angeles-upon-further-review",
+      "note": "Published October 19: receiver production and credited defensive plays."
     }
   ],
-  "slug": "2026-10-21-1446"
+  "slug": "2026-10-25-2027",
+  "playerEmbeds": [],
+  "lockerRoom": {
+    "posts": []
+  }
 }
