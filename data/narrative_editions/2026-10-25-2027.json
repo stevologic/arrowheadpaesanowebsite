@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-10-25T20:27:10+00:00",
-  "updatedAt": "2026-10-25T20:30:52+00:00",
+  "updatedAt": "2026-10-25T21:05:00+00:00",
   "generator": "codex:one-time-authoring",
   "phase": {
     "type": "regular",
@@ -12,7 +12,7 @@
   "edition": "2026 Week 7 · Preview",
   "record": "5-0",
   "headline": "No Rice, no Moore: the Chiefs need answers at Seattle",
-  "dek": "Kansas City takes a 5-0 record to Lumen Field on Sunday. The game-day question is how to protect the pocket and distribute the ball with two offensive starters ruled out. Kickoff is October 25 at 7:20 p.m. Central on NBC.",
+  "dek": "Seattle is the assignment now: protect Mahomes without Rice and Moore, give Walker a real answer against a stubborn run front, and keep Smith-Njigba in view. Kickoff is October 25 at 7:20 p.m. Central on NBC. This is a pregame edition.",
   "videoHook": "The record is perfect. The lineup is not. Seattle is where the Chiefs have to make the next answer work.",
   "theEdge": "Our read: give Mahomes a quick answer before asking for a deep one. Make Seattle defend the width of the formation, then let Walker attack the space that creates. This is a pregame plan, not a prediction of the final score.",
   "pressConferences": [
@@ -47,36 +47,19 @@
     "label": "Week 6 · Sun, Oct 18 · 3:25 PM CT",
     "result": "W",
     "score": "22–6",
-    "lede": "The Chargers game gave Kansas City a sturdy foundation: an early lead, a productive run game and a defense that kept Los Angeles out of the end zone. Seattle asks the offense to carry that work into a different lineup and a road setting.",
+    "lede": "The October 18 win over the Chargers supplies context, not tonight's script: Kansas City won 22-6 and kept Los Angeles out of the end zone.",
     "analysis": [
       {
-        "body": "In the team’s October 19 recap, Ken Walker’s 128 rushing yards and two touchdowns drove the scoring. His 33-yard touchdown supplied the early burst; a second score from two yards out and a Harrison Butker field goal before halftime built the cushion. Los Angeles finished with 259 yards. Those are the previous game’s facts, not a forecast for tonight."
-      },
-      {
-        "body": "The team’s follow-up report credits Jack Cochrane with the interception and L’Jarius Sneed with the forced fumble recovered by Drue Tranquill. It also lists four sacks, shared by Ashton Gillotte, George Karlaftis, Chamarri Conner, Chris Jones and Peter Woods. The pressure finally became finished plays."
-      },
-      {
-        "body": "Xavier Worthy’s seven catches for 73 yards and Andrew Armstrong’s first regular-season reception matter to the next game. They provide recent evidence of receivers doing useful work. Asking them to help fill an absent teammate’s role is reasonable; treating that role as automatically replaced is not."
+        "body": "Walker ran for 128 yards and two touchdowns; Worthy caught seven passes for 73 yards. Those contributions point toward tonight's question: can the available weapons keep the offense on schedule when Seattle squeezes the run?"
       }
     ],
-    "whatWorked": [
-      "Walker turned the run game into touchdowns.",
-      "The defense kept the Chargers out of the end zone."
-    ],
-    "whatDidnt": [
-      "The offensive line lost Jaylon Moore to a concussion.",
-      "Travis Kelce sustained an ankle injury, although the team recap says he played through it."
-    ],
-    "takeaways": [
-      {
-        "title": "Finish the rush",
-        "body": "A hurry starts the problem. Getting the quarterback down finishes it. Keep the rush lanes connected so an escape does not undo the first win."
-      }
-    ]
+    "whatWorked": [],
+    "whatDidnt": [],
+    "takeaways": []
   },
   "currentState": {
     "record": "5-0",
-    "lede": "The October 23 injury report and October 24 transactions are the meaningful changes since our last published preview. This update was prepared before kickoff; game-day inactives remain the final check.",
+    "lede": "Kansas City brings a 5-0 record to Lumen Field; Seattle is 3-3. The useful question is what works tonight. The official Friday report rules out Rashee Rice and Jaylon Moore, and Saturday brought roster reinforcements. Game-day inactives are still the final check, not something this preview assumes.",
     "workOn": [
       {
         "title": "Set the protection before the noise",
@@ -109,15 +92,15 @@
     "keys": [
       {
         "title": "Move the launch point with purpose",
-        "body": "Use a boot only after the edge has a reason to squeeze inside. If the outside defender stays home, give Mahomes a short outlet and permission to move on."
+        "body": "Seattle has gone 35 games without conceding a 100-yard rusher, according to the Chiefs' Saturday preview. Make that front defend width as well as the interior. A boot is useful only if the edge squeezes; if he stays home, Mahomes needs the short outlet. The animation below shows that read as an illustration, not a play already called."
       },
       {
         "title": "Know where Smith-Njigba is",
-        "body": "Match the coverage to his alignment. Carry the crossing route through the handoff between zones. Pressure that leaves a free release and an empty middle is an expensive bargain."
+        "body": "Smith-Njigba is Seattle's central receiving threat in the official matchup preview. Match the coverage to his alignment, carry the crossing route between zones and keep help over the top. Make the catch happen where the defense can rally, rather than donating an open runway."
       },
       {
         "title": "Make Seattle earn the field",
-        "body": "The team preview points to Seattle’s recent giveaways. That makes disciplined rush lanes and secure tackling attractive; it does not make a turnover inevitable. Play the down before celebrating the opportunity."
+        "body": "The official preview identifies Seattle's recent giveaways and protection trouble. Connected rush lanes can turn those vulnerabilities into difficult decisions, but a turnover is not owed to Kansas City. Win leverage, tackle the catch and make Seattle execute another down."
       }
     ],
     "script": [
@@ -269,31 +252,49 @@
       "player": "Rashee Rice",
       "status": "Out · Friday report",
       "note": "Hamstring/knee; did not practice Friday.",
-      "source": "https://www.chiefs.com/news/week-7-injury-report-chiefs-vs-seahawks-2026"
+      "source": "https://www.chiefs.com/news/week-7-injury-report-chiefs-vs-seahawks-2026",
+      "image": "https://static.clubs.nfl.com/image/upload/t_editorial_landscape_mobile/f_auto/chiefs/vpfjeftdxrvtijjy9tfh.jpg",
+      "imageSource": "https://www.chiefs.com/team/players-roster/rashee-rice/"
     },
     {
       "player": "Jaylon Moore",
       "status": "Out · Friday report",
       "note": "Concussion; did not practice Friday.",
-      "source": "https://www.chiefs.com/news/week-7-injury-report-chiefs-vs-seahawks-2026"
+      "source": "https://www.chiefs.com/news/week-7-injury-report-chiefs-vs-seahawks-2026",
+      "image": "https://static.clubs.nfl.com/image/upload/t_editorial_landscape_mobile/f_png/chiefs/dpc61wjdr1axf27sboky.png",
+      "imageSource": "https://www.chiefs.com/team/players-roster/jaylon-moore/"
     },
     {
       "player": "L’Jarius Sneed",
       "status": "Questionable · Friday report",
       "note": "Knee; limited Friday. This is not confirmation that he will play.",
-      "source": "https://www.chiefs.com/news/week-7-injury-report-chiefs-vs-seahawks-2026"
+      "source": "https://www.chiefs.com/news/week-7-injury-report-chiefs-vs-seahawks-2026",
+      "image": "https://static.clubs.nfl.com/image/upload/t_editorial_landscape_mobile/f_auto/chiefs/rd1lhffxwsvdugctjbow.jpg",
+      "imageSource": "https://www.chiefs.com/team/players-roster/l-jarius-sneed/"
     },
     {
-      "player": "Travis Kelce / Patrick Mahomes",
-      "status": "No game designation · Friday report",
-      "note": "Kelce was limited with an ankle issue; Mahomes was full with a knee issue. Practice participation and game status are different fields.",
-      "source": "https://www.chiefs.com/news/week-7-injury-report-chiefs-vs-seahawks-2026"
+      "player": "Travis Kelce",
+      "status": "No game designation — Friday report",
+      "note": "Ankle; limited Friday. The official report lists no game designation. That does not predict his workload.",
+      "source": "https://www.chiefs.com/news/week-7-injury-report-chiefs-vs-seahawks-2026",
+      "image": "https://static.clubs.nfl.com/image/private/t_editorial_landscape_mobile/f_auto/chiefs/shcz08ej2eowvjhhwakj.jpg",
+      "imageSource": "https://www.chiefs.com/team/players-roster/travis-kelce/"
+    },
+    {
+      "player": "Patrick Mahomes",
+      "status": "No game designation — Friday report",
+      "note": "Knee; full Friday. The official report lists no game designation.",
+      "source": "https://www.chiefs.com/news/week-7-injury-report-chiefs-vs-seahawks-2026",
+      "image": "https://static.clubs.nfl.com/image/upload/t_editorial_landscape_mobile/f_auto/chiefs/a6vwen0wtjgti32nxfmw.jpg",
+      "imageSource": "https://www.chiefs.com/team/players-roster/patrick-mahomes/"
     },
     {
       "player": "Brashard Smith",
       "status": "Reserve/Injured · Saturday transaction",
       "note": "Friday: out with a hamstring injury. The team transaction log subsequently records his placement on Reserve/Injured.",
-      "source": "https://www.chiefs.com/team/transactions/2026"
+      "source": "https://www.chiefs.com/team/transactions/2026",
+      "image": "https://static.clubs.nfl.com/image/upload/t_editorial_landscape_mobile/f_png/chiefs/d1ydrzgfsdq11najn3t7.png",
+      "imageSource": "https://www.chiefs.com/team/players-roster/brashard-smith/"
     }
   ],
   "personnel": [
@@ -320,33 +321,7 @@
     "Which available receiver gives Mahomes the clearest first read?",
     "Can the defense pressure Seattle without losing Smith-Njigba in transition?"
   ],
-  "runOfShow": [
-    {
-      "segment": "Cold open",
-      "length": "0:00–0:45",
-      "talkTrack": "The perfect record meets an imperfect lineup. Frame this as a pregame plan."
-    },
-    {
-      "segment": "What changed",
-      "length": "0:45–3:00",
-      "talkTrack": "Walk through Friday’s designations and Saturday’s roster moves. Separate availability from projected usage."
-    },
-    {
-      "segment": "Seattle plan",
-      "length": "3:00–6:00",
-      "talkTrack": "Use the diagrams to explain protection, quick outlets and coverage handoffs. These are proposed calls."
-    },
-    {
-      "segment": "At the podium",
-      "length": "6:00–8:00",
-      "talkTrack": "Introduce the dated official player and coach press conferences below; let the speakers supply their own words."
-    },
-    {
-      "segment": "Before kickoff",
-      "length": "8:00–8:30",
-      "talkTrack": "Check the inactive list. Kickoff is 7:20 p.m. Central on NBC; this edition contains no game result."
-    }
-  ],
+  "runOfShow": [],
   "sources": [
     {
       "title": "How to Watch and Listen | Week 7: Chiefs vs. Seahawks",
@@ -383,11 +358,65 @@
       "publisher": "Kansas City Chiefs",
       "url": "https://www.chiefs.com/news/10-quick-facts-following-the-chiefs-week-6-win-over-los-angeles-upon-further-review",
       "note": "Published October 19: receiver production and credited defensive plays."
+    },
+    {
+      "title": "Patrick Mahomes — October 21 press conference",
+      "publisher": "Kansas City Chiefs",
+      "url": "https://www.chiefs.com/video/patrick-mahomes-on-seahawks-they-re-gonna-make-you-earn-it-every-single-drive-press-conference-10-21",
+      "note": "Recorded October 21. Official source video and corresponding podium thumbnail; any LIVE graphic belongs to the original broadcast."
+    },
+    {
+      "title": "Drue Tranquill — October 21 press conference",
+      "publisher": "Kansas City Chiefs",
+      "url": "https://www.chiefs.com/video/drue-tranquill-on-week-7-matchup-they-re-explosive-press-conference-10-21",
+      "note": "Recorded October 21. Official source video and corresponding podium thumbnail; any LIVE graphic belongs to the original broadcast."
+    },
+    {
+      "title": "Xavier Worthy — October 21 press conference",
+      "publisher": "Kansas City Chiefs",
+      "url": "https://www.chiefs.com/video/xavier-worthy-on-seahawks-they-go-out-there-and-play-hard-press-conference-10-21",
+      "note": "Recorded October 21. Official source video and corresponding podium thumbnail; any LIVE graphic belongs to the original broadcast."
     }
   ],
   "slug": "2026-10-25-2027",
   "playerEmbeds": [],
   "lockerRoom": {
     "posts": []
-  }
+  },
+  "sectionTitles": {
+    "currentState": "Seattle changes the assignment",
+    "gamePlan": "Win the down before chasing the highlight",
+    "lastGame": "What carries over from the Chargers win",
+    "storyline": "Five wins. One new test.",
+    "pressConferences": "Seattle week, in their own words",
+    "xsandos": "Six calls, four stages, one clear read",
+    "injuries": "Who is available for Seattle?",
+    "personnel": "The roster behind the game plan"
+  },
+  "pressConferenceLinks": [
+    {
+      "speaker": "Patrick Mahomes",
+      "title": "What Seattle makes an offense earn",
+      "url": "https://www.chiefs.com/video/patrick-mahomes-on-seahawks-they-re-gonna-make-you-earn-it-every-single-drive-press-conference-10-21",
+      "date": "2026-10-21",
+      "dateLabel": "Wed Oct 21, 2026",
+      "image": "https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/chiefs/ap9bj9acprczc8zchacj"
+    },
+    {
+      "speaker": "Drue Tranquill",
+      "title": "Preparing for an explosive opponent",
+      "url": "https://www.chiefs.com/video/drue-tranquill-on-week-7-matchup-they-re-explosive-press-conference-10-21",
+      "date": "2026-10-21",
+      "dateLabel": "Wed Oct 21, 2026",
+      "image": "https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/chiefs/nb3v5vpuzclgsx3vfizw"
+    },
+    {
+      "speaker": "Xavier Worthy",
+      "title": "The receiver's view of the Seattle matchup",
+      "url": "https://www.chiefs.com/video/xavier-worthy-on-seahawks-they-go-out-there-and-play-hard-press-conference-10-21",
+      "date": "2026-10-21",
+      "dateLabel": "Wed Oct 21, 2026",
+      "image": "https://static.clubs.nfl.com/image/upload/t_editorial_landscape_12_desktop/chiefs/r9yyz59tlwrhpecglhoz"
+    }
+  ]
 }
