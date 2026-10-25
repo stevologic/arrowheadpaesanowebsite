@@ -401,9 +401,10 @@ def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
         ),
         "strategies": _str_list(raw.get("strategies"), limit=8),
         "debates": _str_list(raw.get("debates"), limit=8),
-        # Keep the legacy key readable, but new editions no longer generate a
-        # public video script. Requested press conferences are separate.
-        "runOfShow": [],
+        # Legacy/internal data remains readable; the public report never
+        # renders a script and the current writer prompt requests no script.
+        "runOfShow": _obj_list(raw.get("runOfShow"),
+            {"segment":"", "length":"", "talkTrack":""}, limit=10),
         "sources": _obj_list(
             raw.get("sources"),
             {"title": "", "publisher": "", "url": "", "note": ""},

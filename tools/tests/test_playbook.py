@@ -29,7 +29,7 @@ class EditorialPresentation(unittest.TestCase):
             'injuries':[{'player':'A','image':'javascript:bad','imageSource':'https://example.com'}]},
             phase={'mode':'preview'}, meta={})
         self.assertEqual(result['sectionTitles']['gamePlan'],'The Seattle assignment')
-        self.assertEqual(result['runOfShow'],[])
+        self.assertEqual(result['runOfShow'][0]['talkTrack'],'old public script')
         self.assertEqual(result['injuries'][0]['image'],'')
 
     def test_retired_script_is_not_rendered(self):

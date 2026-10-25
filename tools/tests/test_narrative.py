@@ -710,10 +710,7 @@ class Diagrams(unittest.TestCase):
         css = (
             Path(__file__).resolve().parents[2] / "public" / "css" / "narrative.css"
         ).read_text(encoding="utf-8")
-        self.assertIn(
-            "grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr))",
-            css,
-        )
+        self.assertRegex(css, r"\.nrt-xo__grid\s*\{[^}]*repeat\(auto-(?:fit|fill),\s*minmax\(min\(100%,\s*\d+px\),\s*1fr\)\)")
         self.assertNotIn(
             "grid-template-columns: repeat(auto-fill, minmax(340px, 1fr))",
             css,
@@ -10920,6 +10917,8 @@ class XEmbedSlots(unittest.TestCase):
         )
         self.assertIn('{{ with .playerEmbeds }}', edition)
         self.assertIn("nrt-player-embeds", edition)
+        self.assertIn('partial "nrt-last-game.html"', edition)
+        edition += (self.ROOT / "layouts" / "partials" / "nrt-last-game.html").read_text(encoding="utf-8")
         self.assertIn("nrt-keyplay", edition)
         self.assertIn("reflect.IsMap", edition)
         self.assertIn("{{ if and $body $embed }}", edition)
