@@ -28,11 +28,11 @@ class HeroRights(unittest.TestCase):
             row={'kind':'licensed-image','editionSlugs':['edition'],'sourceUrl':'https://x.com/Chiefs/status/123',
                  'image':'images/hero/photo.webp','alt':'Fixture subject','width':600,'height':400,
                  'sha256':hashlib.sha256(b'fixture image bytes').hexdigest(),
-                 'rights':{'status':'approved','commercialUse':True,'providedImage':True,'rightsholder':'Fixture owner',
+                 'rights':{'status':'approved','commercialUse':True,'providedImage':True,'rightsholder':'Fixture owner','license':'Written commercial permission',
                            'attribution':'Fixture credit','evidence':'docs/media-rights/photo.md','reviewedAt':'2026-10-01','expiresAt':'2026-12-31'}}
             self.assertTrue(hero_media.approved(row,'edition',root=root,now=NOW))
             self.assertFalse(hero_media.approved(row,'other',root=root,now=NOW))
-            for key,value in [('commercialUse',False),('expiresAt','2026-10-24'),('evidence','../private.md')]:
+            for key,value in [('license',''),('commercialUse',False),('expiresAt','2026-10-24'),('evidence','../private.md')]:
                 copy=json.loads(json.dumps(row));copy['rights'][key]=value
                 self.assertFalse(hero_media.approved(copy,'edition',root=root,now=NOW))
             row['kind']='x-post'

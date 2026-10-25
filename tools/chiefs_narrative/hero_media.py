@@ -35,7 +35,7 @@ def approved(item, slug, *, root=None, now=None):
     rights = item.get("rights") or {}
     if not isinstance(rights, dict) or rights.get("status") != "approved" or rights.get("commercialUse") is not True:
         return False
-    if not all(isinstance(rights.get(k), str) and rights[k].strip() for k in ("rightsholder", "attribution", "evidence", "reviewedAt", "expiresAt")):
+    if not all(isinstance(rights.get(k), str) and rights[k].strip() for k in ("rightsholder", "license", "attribution", "evidence", "reviewedAt", "expiresAt")):
         return False
     if not EVIDENCE.fullmatch(rights["evidence"]) or not (root/rights["evidence"]).is_file():
         return False
