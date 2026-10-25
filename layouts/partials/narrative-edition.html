@@ -50,6 +50,7 @@
       {{ end }}
       {{ with .dek }}<p class="nrt-dek">{{ . }}</p>{{ end }}
 
+      {{ partial "nrt-hero-media.html" (dict "n" . "site" $site) }}
       <div class="nrt-hero__grid">
         <div class="nrt-hero__main">
           {{ with .videoHook }}
@@ -75,7 +76,7 @@
               {{ with .tv }}<li><span>TV</span>{{ . }}</li>{{ end }}
               <li><span>KC{{ with $season }} {{ . }}{{ end }} record</span>{{ $rec }}</li>
             </ul>
-            {{ with .note }}<p class="nrt-nextgame__note">{{ . }}</p>{{ end }}
+            {{ with .note }}<details class="nrt-nextgame__more"><summary>Broadcast &amp; timing details</summary><p class="nrt-nextgame__note">{{ . }}</p></details>{{ end }}
           {{ end }}
         </aside>
       </div>
@@ -166,8 +167,8 @@
       <div class="nrt-gameplan__keys">
         {{ range . }}
         <article>
-          <h3>{{ .title }}</h3>
-          <p>{{ .body }}</p>
+          <div class="nrt-spot-card__copy"><h3>{{ .title }}</h3>
+          <p>{{ .body }}</p></div>
         </article>
         {{ end }}
       </div>
@@ -313,7 +314,6 @@
   </section>
   {{ end }}
 
-  {{ partial "nrt-chiefs-feed.html" . }}
 
   <!-- ===================== X's & O's ===================== -->
   {{ with .xsandos }}
@@ -339,6 +339,7 @@
           {{ with .situation }}<p class="nrt-xo-card__situation"><span>Situation</span> {{ . }}</p>{{ end }}
           {{ with .why }}<p class="nrt-xo-card__why">{{ . }}</p>{{ end }}
           {{ with .coaching }}<p class="nrt-xo-card__coach"><span>Coaching point</span> {{ . }}</p>{{ end }}
+          <div class="playmakers" aria-label="Illustrative play roles">{{ if .playmakers }}{{ range .playmakers }}<div class="playmaker">{{ partial "person-media.html" (dict "name" .name "site" $site) }}<span><strong>{{ .name }}</strong><small>{{ .role }}</small></span></div>{{ end }}{{ else }}<div class="playmaker">{{ partial "person-media.html" (dict "name" "Schematic player role" "site" $site) }}<span>Illustrative roles shown on the board</span></div>{{ end }}</div>
         </div>
       </article>
       {{ end }}
@@ -359,8 +360,8 @@
       {{ range . }}
       <article class="nrt-spot-card reveal">
         {{ with .tag }}<span class="nrt-spot-card__tag">{{ . }}</span>{{ end }}
-        <h3>{{ .title }}</h3>
-        <p>{{ .body }}</p>
+        <div class="nrt-spot-card__copy"><h3>{{ .title }}</h3>
+        <p>{{ .body }}</p></div>
       </article>
       {{ end }}
     </div>
@@ -381,14 +382,15 @@
       <article class="nrt-matchup reveal">
         <div class="nrt-matchup__unit">
           <h3>{{ .unit }}</h3>
-          <span class="nrt-edge-chip {{ index $edgeClass .edge }}">{{ index $edgeText .edge }}</span>
+          <span class="nrt-edge-chip {{ index $edgeClass .edge }}">Analysis: {{ index $edgeText .edge }}</span>
         </div>
         <div class="nrt-matchup__cols">
-          <div class="nrt-matchup__side nrt-matchup__side--kc"><span>Chiefs</span>{{ .chiefs }}</div>
+          <div class="nrt-matchup__side nrt-matchup__side--kc">{{ partial "person-media.html" (dict "name" .chiefs "site" $site) }}<span>Chiefs</span><strong>{{ .chiefs }}</strong>{{ with .chiefsStat }}<p class="nrt-matchup__stat">{{ . }}</p>{{ end }}</div>
           <div class="nrt-matchup__vs" aria-hidden="true">vs</div>
-          <div class="nrt-matchup__side"><span>Opponent</span>{{ .opponent }}</div>
+          <div class="nrt-matchup__side nrt-matchup__side--opp">{{ partial "person-media.html" (dict "name" .opponent "site" $site) }}<span>Opponent</span><strong>{{ .opponent }}</strong>{{ with .opponentStat }}<p class="nrt-matchup__stat">{{ . }}</p>{{ end }}</div>
         </div>
         {{ with .note }}<p class="nrt-matchup__note">{{ . }}</p>{{ end }}
+          {{ if .statSource }}<a class="nrt-matchup__source" href="{{ .statSource }}" target="_blank" rel="noopener">Stat source{{ with .statDate }} · {{ . }}{{ end }}</a>{{ end }}
       </article>
       {{ end }}
     </div>
@@ -446,7 +448,7 @@
         <h2><span class="rule rule-gold"></span> {{ index $sectionTitles "personnel" | default "Personnel" }}</h2>
         <ul class="nrt-report__list nrt-report__list--personnel">
           {{ range . }}
-          <li><strong>{{ .move }}</strong><p>{{ .detail }}</p></li>
+          <li><div class="roster-people">{{ if .players }}{{ range .players }}<span>{{ partial "person-media.html" (dict "name" . "site" $site) }}<small>{{ . }}</small></span>{{ end }}{{ else }}{{ partial "person-media.html" (dict "name" "Roster move" "site" $site) }}{{ end }}</div><div><strong>{{ .move }}</strong><p>{{ .detail }}</p></div></li>
           {{ end }}
         </ul>
       </div>

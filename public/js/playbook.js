@@ -169,13 +169,16 @@ const ArrowheadPlaybook = (() => {
     const source=html('p','playbook__source');
     const link=html('a','',spec.sourceLabel); link.href=spec.source;link.target='_blank';link.rel='noopener';source.append('Teaching reference: ',link,'. Representative spacing; not to scale.');
     const fallback=html('details','playbook__static'), summary=html('summary','','Full static diagram');fallback.append(summary);
-    panel.append(badge,svg,controls,label,status,legend,note,source,fallback);
+    const help=html("details","playbook__help"), helpTitle=html("summary","","Diagram key & teaching source");help.append(helpTitle,legend,note,source);
+    panel.append(badge,svg,controls,label,status,help,fallback);
     figure.append(panel);fallback.append(original);figure.dataset.playbookReady='true';
     const lengths=paths.map(path=>path.getTotalLength());
     let progress=0, frame=null, last=null, announced=-1, visible=true;
     const motion=window.matchMedia('(prefers-reduced-motion: reduce)');
     function render(value) {
       progress=Math.max(0,Math.min(3,value));scrub.value=String(progress);
+      figure.dataset.playbookProgress=String(progress);
+      figure.dispatchEvent(new CustomEvent("playbookframe",{detail:{progress}}));
       const phase=Math.min(3,Math.floor(progress+0.000001));
       marks.forEach(({group,actor})=>group.setAttribute('transform',`translate(${pointAt(actor.points,progress).join(' ')})`));
       ball.setAttribute('transform',`translate(${pointAt(spec.ball,progress).join(' ')})`);
