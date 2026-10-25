@@ -1,0 +1,62 @@
+{{- $shop := .Site.Data.affiliate_products -}}
+{{- $preview := and hugo.IsDevelopment .Site.Params.affiliateFooterPreview -}}
+{{- $live := $shop.enabled | default false -}}
+{{- $accountReady := and $shop.accountVerifiedOn $shop.siteVerifiedOn (eq $shop.siteUrl "https://arrowheadpaesano.com/") (gt (len (findRE `^[a-zA-Z0-9-]+-20$` $shop.trackingId)) 0) -}}
+{{- $countReady := and (ge (len $shop.products) 3) (le (len $shop.products) 4) -}}
+{{- $ready := and $accountReady $countReady -}}
+{{- if or $live $preview -}}
+  {{- if and $live (not $accountReady) -}}
+    {{- errorf "Affiliate footer: verify the existing US Associates account, tracking ID and site coverage before enabling." -}}
+  {{- end -}}
+  {{- if and $live (not $countReady) -}}
+    {{- errorf "Affiliate footer: exactly 3 or 4 verified products are required." -}}
+  {{- end -}}
+  {{- range $shop.products -}}
+    {{- $url := urls.Parse .affiliateUrl -}}
+    {{- $productPath := printf `^/(?:[^/?#]+/)*dp/%s(?:/[^?#]*)?$` .asin -}}
+    {{- if or (not .productVerifiedOn) (not .siteStripeVerifiedOn) (not (findRE `^[A-Z0-9]{10}$` .asin)) (ne $url.Scheme "https") (ne $url.Host "www.amazon.com") $url.User $url.Fragment (not (findRE $productPath $url.Path)) (ne ($url.Query.Get "tag") $shop.trackingId) (ne (len (index $url.Query "tag")) 1) -}}
+      {{- $ready = false -}}
+      {{- if $live -}}{{- errorf "Affiliate footer: %s needs a verified SiteStripe full link for its exact ASIN and account tracking ID." .asin -}}{{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- if or $live $preview -}}
+<section class="amazon-finds-band affiliate-footer" id="chiefs-finds" aria-labelledby="chiefs-finds-heading" aria-describedby="chiefs-finds-disclosure">
+  <div class="amazon-finds-band__inner">
+    {{ if $preview }}<p class="affiliate-preview-note" role="note"><strong>Local design preview.</strong> {{ if $ready }}Verified affiliate links are shown for review.{{ else }}Affiliate links are not active. Account and SiteStripe verification are still required.{{ end }}</p>{{ end }}
+    <div class="amazon-finds-head">
+      <div>
+        <p class="affiliate-eyebrow">For the Kingdom</p>
+        <h2 id="chiefs-finds-heading">Game-day finds</h2>
+        <p>A little Chiefs color for your coffee, couch, and fan cave.</p>
+      </div>
+      <div class="affiliate-disclosure" id="chiefs-finds-disclosure">
+        <span>Affiliate disclosure{{ if $preview }} · proposed copy{{ end }}</span>
+        <strong>Paid links to Amazon</strong>
+        <p>These are paid links. We may earn a commission when you buy through them, at no extra cost to you.</p>
+        <p>As an Amazon Associate I earn from qualifying purchases.</p>
+      </div>
+    </div>
+    <ul class="amazon-finds-grid affiliate-products" role="list">
+      {{ range $index, $product := $shop.products }}
+      <li class="amazon-find-card">
+        <div class="amazon-find-card__top">
+          <span>{{ .category }}</span><b aria-hidden="true">0{{ add $index 1 }}</b>
+        </div>
+        <div class="amazon-find-card__body">
+          <p class="affiliate-brand">{{ .brand }}</p>
+          <h3 id="chiefs-find-{{ .asin }}">{{ .title }}</h3>
+          <p>{{ .description }}</p>
+        </div>
+        {{ if $ready }}
+        <a href="{{ .affiliateUrl }}" target="_blank" rel="sponsored nofollow noopener" aria-label="View {{ .title }} on Amazon (opens in a new tab)" aria-describedby="chiefs-finds-disclosure">View on Amazon<span aria-hidden="true">&nearr;</span></a>
+        {{ else }}
+        <span class="affiliate-link-pending">View on Amazon <small>Link pending verification</small></span>
+        {{ end }}
+      </li>
+      {{ end }}
+    </ul>
+    <p class="amazon-finds-note">Check Amazon for current availability, product options, and pricing.</p>
+  </div>
+</section>
+{{- end -}}
