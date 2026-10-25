@@ -8,6 +8,6 @@ if(process.argv.includes('--check')) {
  if(!readFileSync(output).equals(result.outputFiles[0].contents))throw Error('Three.js bundle differs; run npm run vendor:three');
 } else {
  mkdirSync(dir,{recursive:true});writeFileSync(output,result.outputFiles[0].contents);
- writeFileSync(`${dir}/LICENSE`,readFileSync('node_modules/three/LICENSE'));
+ writeFileSync(`${dir}/LICENSE.txt`,readFileSync('node_modules/three/LICENSE'));
 }
 console.log('Verified Three.js '+pkg.devDependencies.three);
