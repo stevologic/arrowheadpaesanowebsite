@@ -138,21 +138,33 @@
       "chiefs": "Kansas City’s offensive tackle depth",
       "opponent": "Seattle’s edge rush",
       "edge": "PUSH",
-      "note": "Our watch point: does the formation supply help without removing every quick outlet?"
+      "note": "Our watch point: does the formation supply help without removing every quick outlet?",
+      "chiefsStat": "Jaylon Moore: out on the Friday report",
+      "opponentStat": "Lawrence and Nwosu: questionable on the Friday report",
+      "statSource": "https://www.chiefs.com/news/week-7-injury-report-chiefs-vs-seahawks-2026",
+      "statDate": "October 23, 2026"
     },
     {
       "unit": "Route spacing",
       "chiefs": "Worthy, Armstrong and the available pass catchers",
       "opponent": "Seattle’s underneath coverage",
       "edge": "PUSH",
-      "note": "Our watch point: can the receivers create distinct windows instead of crowding the same defender?"
+      "note": "Our watch point: can the receivers create distinct windows instead of crowding the same defender?",
+      "chiefsStat": "Worthy: 7 receptions for 73 yards in Week 6",
+      "opponentStat": "",
+      "statSource": "https://www.chiefs.com/news/10-quick-facts-following-the-chiefs-week-6-win-over-los-angeles-upon-further-review",
+      "statDate": "October 19, 2026 · Week 6 recap"
     },
     {
       "unit": "Coverage discipline",
       "chiefs": "Steve Spagnuolo’s secondary",
       "opponent": "Jaxon Smith-Njigba",
       "edge": "PUSH",
-      "note": "Our watch point: who carries the route when he crosses from one zone into another?"
+      "note": "Our watch point: who carries the route when he crosses from one zone into another?",
+      "chiefsStat": "Chiefs: No. 2 scoring defense entering Week 7",
+      "opponentStat": "Smith-Njigba: 49 receptions, 717 yards, 7 TDs entering Week 7",
+      "statSource": "https://www.chiefs.com/news/five-things-to-watch-on-sunday-chiefs-vs-seahawks",
+      "statDate": "October 24, 2026"
     }
   ],
   "xsandos": [
@@ -168,7 +180,17 @@
         "te": "zone combo to linebacker"
       },
       "diagram": "images/narrative/2026-10-25-2027/xo-inside_zone.svg",
-      "side": "offense"
+      "side": "offense",
+      "playmakers": [
+        {
+          "name": "Ken Walker",
+          "role": "Ball carrier · proposed"
+        },
+        {
+          "name": "Patrick Mahomes",
+          "role": "Mesh point · proposed"
+        }
+      ]
     },
     {
       "title": "Change the launch point",
@@ -182,7 +204,17 @@
         "te": "flat sit"
       },
       "diagram": "images/narrative/2026-10-25-2027/xo-play_action_boot.svg",
-      "side": "offense"
+      "side": "offense",
+      "playmakers": [
+        {
+          "name": "Patrick Mahomes",
+          "role": "Boot read · proposed"
+        },
+        {
+          "name": "Ken Walker",
+          "role": "Run fake · proposed"
+        }
+      ]
     },
     {
       "title": "Create a clean crossing window",
@@ -196,7 +228,17 @@
         "te": "opposite shallow"
       },
       "diagram": "images/narrative/2026-10-25-2027/xo-mesh.svg",
-      "side": "offense"
+      "side": "offense",
+      "playmakers": [
+        {
+          "name": "Patrick Mahomes",
+          "role": "Progression · proposed"
+        },
+        {
+          "name": "Xavier Worthy",
+          "role": "Receiver option · proposed"
+        }
+      ]
     },
     {
       "title": "Make the rush travel",
@@ -210,7 +252,17 @@
         "te": "arc release"
       },
       "diagram": "images/narrative/2026-10-25-2027/xo-spacing_screen.svg",
-      "side": "offense"
+      "side": "offense",
+      "playmakers": [
+        {
+          "name": "Ken Walker",
+          "role": "Screen option · proposed"
+        },
+        {
+          "name": "Patrick Mahomes",
+          "role": "Delivery · proposed"
+        }
+      ]
     },
     {
       "title": "Keep a lid on the shot",
@@ -224,7 +276,13 @@
         "te": "hook curl"
       },
       "diagram": "images/narrative/2026-10-25-2027/xo-cover_two.svg",
-      "side": "defense"
+      "side": "defense",
+      "playmakers": [
+        {
+          "name": "Nohl Williams",
+          "role": "Corner role · proposed"
+        }
+      ]
     },
     {
       "title": "Change who is coming",
@@ -238,7 +296,17 @@
         "te": "hook replace"
       },
       "diagram": "images/narrative/2026-10-25-2027/xo-zone_blitz.svg",
-      "side": "defense"
+      "side": "defense",
+      "playmakers": [
+        {
+          "name": "Chris Jones",
+          "role": "Interior rush · proposed"
+        },
+        {
+          "name": "Nohl Williams",
+          "role": "Coverage role · proposed"
+        }
+      ]
     }
   ],
   "coaching": [
@@ -300,15 +368,27 @@
   "personnel": [
     {
       "move": "Saturday, October 24",
-      "detail": "The Chiefs transaction log records Cooper McDonald’s activation from Reserve/Injured, Justin Watson’s standard elevation and a roster contract for running back Jaydn Ott. These are roster moves, not promised snap counts."
+      "detail": "The Chiefs transaction log records Cooper McDonald’s activation from Reserve/Injured, Justin Watson’s standard elevation and a roster contract for running back Jaydn Ott. These are roster moves, not promised snap counts.",
+      "players": [
+        "Cooper McDonald",
+        "Justin Watson",
+        "Jaydn Ott"
+      ]
     },
     {
       "move": "Friday, October 23",
-      "detail": "Andrew Armstrong was signed to the active roster from the practice squad. Nate Carter was signed to the practice squad."
+      "detail": "Andrew Armstrong was signed to the active roster from the practice squad. Nate Carter was signed to the practice squad.",
+      "players": [
+        "Andrew Armstrong",
+        "Nate Carter"
+      ]
     },
     {
       "move": "Thursday, October 22",
-      "detail": "Josh Simmons was placed on Reserve/Injured. His absence is part of the protection planning, not a new game-day diagnosis."
+      "detail": "Josh Simmons was placed on Reserve/Injured. His absence is part of the protection planning, not a new game-day diagnosis.",
+      "players": [
+        "Josh Simmons"
+      ]
     }
   ],
   "strategies": [
