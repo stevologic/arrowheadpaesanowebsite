@@ -9,7 +9,7 @@ It is labeled a channel image, never a current-game or X photograph.
 
 The generator overwrites model-supplied hero IDs. It may select only a reviewed
 `data/hero_media.json` entry for the exact edition slug. An entry requires a
-named rightsholder, attribution, commercial-use permission, dated review and
+named rightsholder, license terms, attribution, commercial-use permission, dated review and
 expiry, documentary evidence under `docs/media-rights/`, a supplied image under
 `images/hero/`, and its exact SHA-256. These are human-review records, not an
 automated legal determination. Review the evidence before approving a catalog
