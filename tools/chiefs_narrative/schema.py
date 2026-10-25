@@ -345,6 +345,11 @@ def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
         "edition": _s(phase_mod.format_edition(pg) or raw.get("edition"), "Chiefs Narrative"),
         "record": _s(raw.get("record") or meta.get("record")),
         "headline": _s(raw.get("headline"), "The Chiefs Narrative"),
+        "sectionTitles": {
+            key: _s((raw.get("sectionTitles") or {}).get(key))
+            for key in ("lastGame", "currentState", "gamePlan", "storyline", "pressConferences", "xsandos", "injuries", "personnel")
+            if isinstance(raw.get("sectionTitles"), dict) and _s(raw["sectionTitles"].get(key))
+        },
         "dek": _s(raw.get("dek")),
         "videoHook": _s(raw.get("videoHook")),
         "theEdge": _s(raw.get("theEdge")),
@@ -356,6 +361,12 @@ def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
             raw.get("pressConferences") or raw.get("press_conferences"),
             limit=8,
         ),
+        "pressConferenceLinks": [
+            item for item in _obj_list(raw.get("pressConferenceLinks"),
+                {"url":"", "speaker":"", "title":"", "date":"", "dateLabel":"", "image":""}, limit=8)
+            if item["url"].startswith("https://www.chiefs.com/video/") and item["speaker"]
+            and item["image"].startswith("https://static.clubs.nfl.com/image/")
+        ],
         "lockerRoom": _norm_locker_room(
             raw.get("lockerRoom") or raw.get("locker_room"),
             limit=6,
@@ -382,7 +393,7 @@ def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
         ),
         "injuries": _obj_list(
             raw.get("injuries"),
-            {"player": "", "status": "", "note": "", "source": ""},
+            {"player": "", "status": "", "note": "", "source": "", "image": "", "imageSource": ""},
             limit=10,
         ),
         "personnel": _obj_list(
@@ -390,17 +401,22 @@ def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
         ),
         "strategies": _str_list(raw.get("strategies"), limit=8),
         "debates": _str_list(raw.get("debates"), limit=8),
-        "runOfShow": _obj_list(
-            raw.get("runOfShow"),
-            {"segment": "", "length": "", "talkTrack": ""},
-            limit=10,
-        ),
+        # Keep the legacy key readable, but new editions no longer generate a
+        # public video script. Requested press conferences are separate.
+        "runOfShow": [],
         "sources": _obj_list(
             raw.get("sources"),
             {"title": "", "publisher": "", "url": "", "note": ""},
             limit=16,
         ),
     }
+
+    # Portraits are optional official profile references, never generated faces.
+    for item in narrative["injuries"]:
+        if not (item["image"].startswith("https://static.clubs.nfl.com/image/")
+                and item["imageSource"].startswith("https://www.chiefs.com/team/players-roster/")):
+            item["image"] = ""
+            item["imageSource"] = ""
 
     # Normalize matchup edge to a known token.
     for m in narrative["matchups"]:

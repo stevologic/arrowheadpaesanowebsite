@@ -12,6 +12,7 @@
 {{ $archive := .archive }}
 {{ $currentSlug := .currentSlug }}
 {{ $rec := .n.record }}
+{{ $sectionTitles := .n.sectionTitles | default dict }}
 {{- /* Season for the record label: edition prefix ("2026 Week 3 …"), else generatedAt year. */ -}}
 {{ $season := "" }}
 {{ with .n.edition }}{{ $m := findRE `^\d{4}` . 1 }}{{ with $m }}{{ $season = index . 0 }}{{ end }}{{ end }}
@@ -60,7 +61,7 @@
           <div class="nrt-hero__actions">
             <a class="btn btn-yt btn-lg" href="{{ $site.Params.subscribeUrl }}" target="_blank" rel="noopener">Watch on YouTube</a>
             <a class="btn btn-ink" href="#xo">Jump to the X&rsquo;s &amp; O&rsquo;s <span aria-hidden="true">↓</span></a>
-            <a class="btn btn-ghost" href="#runofshow">Episode rundown</a>
+            <a class="btn btn-ghost" href="#press-conferences">Press conferences</a>
           </div>
         </div>
 
@@ -101,73 +102,7 @@
   </section>
   {{ end }}
 
-  <!-- ===================== LAST GAME ===================== -->
-  {{ with .lastGameReview }}
-  <section class="section nrt-lastgame" id="last-game">
-    <div class="section-head reveal">
-      <div>
-        <span class="kicker"><span class="dot dot-live"></span> Last game</span>
-        <h2><span class="rule"></span> What the tape said</h2>
-        <p class="section-dek">A real review of the most recent result — not a box-score dump, and not a skip-ahead.</p>
-      </div>
-    </div>
-    <div class="nrt-lastgame__card reveal">
-      <div class="nrt-lastgame__scoreboard">
-        {{ with .result }}<span class="nrt-lastgame__result nrt-lastgame__result--{{ . }}">{{ . }}</span>{{ end }}
-        <div>
-          {{ with .opponent }}<strong>{{ . }}</strong>{{ end }}
-          {{ with .label }}<span>{{ . }}</span>{{ end }}
-        </div>
-        {{ with .score }}<b class="nrt-lastgame__score">{{ . }}</b>{{ end }}
-      </div>
-      {{ with .lede }}<p class="nrt-lastgame__lede">{{ . }}</p>{{ end }}
-      {{ range .analysis }}
-        {{ $body := "" }}
-        {{ $embed := false }}
-        {{ if reflect.IsMap . }}
-          {{ $body = .body }}
-          {{ $embed = .embed }}
-        {{ else }}
-          {{ $body = . }}
-        {{ end }}
-        {{ if and $body $embed }}
-        <div class="nrt-keyplay">
-          <p class="nrt-analysis">{{ $body }}</p>
-          {{ partial "nrt-x-embed.html" $embed }}
-        </div>
-        {{ else if $body }}
-        <p class="nrt-analysis">{{ $body }}</p>
-        {{ end }}
-      {{ end }}
-      {{ if or .whatWorked .whatDidnt }}
-      <div class="nrt-lastgame__split">
-        {{ with .whatWorked }}
-        <div>
-          <h3>What held up</h3>
-          <ul>{{ range . }}<li>{{ . }}</li>{{ end }}</ul>
-        </div>
-        {{ end }}
-        {{ with .whatDidnt }}
-        <div>
-          <h3>What broke</h3>
-          <ul>{{ range . }}<li>{{ . }}</li>{{ end }}</ul>
-        </div>
-        {{ end }}
-      </div>
-      {{ end }}
-      {{ with .takeaways }}
-      <div class="nrt-lastgame__takes">
-        {{ range . }}
-        <article>
-          <h3>{{ .title }}</h3>
-          <p>{{ .body }}</p>
-        </article>
-        {{ end }}
-      </div>
-      {{ end }}
-    </div>
-  </section>
-  {{ end }}
+  {{ if ne .phase.mode "preview" }}{{ partial "nrt-last-game.html" . }}{{ end }}
 
   <!-- ===================== CURRENT STATE ===================== -->
   {{ with .currentState }}
@@ -175,7 +110,7 @@
     <div class="section-head reveal">
       <div>
         <span class="kicker kicker--gold">Current state</span>
-        <h2><span class="rule rule-gold"></span> Where we stand</h2>
+        <h2><span class="rule rule-gold"></span> {{ index $sectionTitles "currentState" | default "Where we stand" }}</h2>
         <p class="section-dek">After the last kickoff: the work list, and the questions the building should be arguing.</p>
       </div>
       {{ with .record }}<p class="nrt-state__record">{{ . }}</p>{{ end }}
@@ -214,7 +149,7 @@
     <div class="section-head reveal">
       <div>
         <span class="kicker"><span class="dot dot-accent"></span> Looking ahead</span>
-        <h2><span class="rule"></span> The next-game plan</h2>
+        <h2><span class="rule"></span> {{ index $sectionTitles "gamePlan" | default "The next-game plan" }}</h2>
         <p class="section-dek">How they match up, what Kansas City should script, and the keys that decide it.</p>
       </div>
     </div>
@@ -245,6 +180,8 @@
     </div>
   </section>
   {{ end }}
+
+  {{ if eq .phase.mode "preview" }}{{ partial "nrt-last-game.html" . }}{{ end }}
 
   <!-- ===================== MARKETS ===================== -->
   {{ with .markets }}
@@ -317,7 +254,7 @@
     <div class="section-head reveal">
       <div>
         <span class="kicker kicker--gold">The story so far</span>
-        <h2><span class="rule rule-gold"></span> Always looking ahead</h2>
+        <h2><span class="rule rule-gold"></span> {{ index $sectionTitles "storyline" | default "Always looking ahead" }}</h2>
       </div>
     </div>
     <div class="nrt-story__body reveal">
@@ -348,20 +285,35 @@
   {{ end }}
 
   <!-- ===================== PRESS CONFERENCES (after the story) ===================== -->
-  {{ with .pressConferences }}
+  {{ if or .pressConferences .pressConferenceLinks }}
   <section class="section nrt-press" id="press-conferences">
+    <span id="runofshow" aria-hidden="true"></span>
     <div class="section-head reveal">
       <div>
         <span class="kicker">This week</span>
-        <h2><span class="rule"></span> Press Conferences</h2>
+        <h2><span class="rule"></span> {{ index $sectionTitles "pressConferences" | default "Press Conferences" }}</h2>
         <p class="section-dek">Official clips from this game week. Each one names the speaker it shows.</p>
       </div>
     </div>
     <div class="nrt-press__list">
-      {{ range . }}{{ partial "nrt-yt-embed.html" . }}{{ end }}
+      {{ range .pressConferences }}{{ partial "nrt-yt-embed.html" . }}{{ end }}
     </div>
+    {{ with .pressConferenceLinks }}
+    <div class="nrt-press__source-grid">
+      {{ range . }}
+      <a class="nrt-press__source-card" href="{{ .url }}" target="_blank" rel="noopener">
+        <img src="{{ .image }}" alt="{{ .speaker }} at the podium in the recorded {{ .dateLabel }} Chiefs press conference" width="320" height="180" loading="lazy" decoding="async" />
+        <span>Recorded {{ .dateLabel }} · {{ .speaker }}</span>
+        <strong>{{ .title }}</strong>
+        <small>Watch at Chiefs.com ↗</small>
+      </a>
+      {{ end }}
+    </div>
+    {{ end }}
   </section>
   {{ end }}
+
+  {{ partial "nrt-chiefs-feed.html" . }}
 
   <!-- ===================== X's & O's ===================== -->
   {{ with .xsandos }}
@@ -369,14 +321,14 @@
     <div class="section-head reveal">
       <div>
         <span class="kicker"><span class="dot dot-accent"></span> Film room</span>
-        <h2><span class="rule"></span> The X&rsquo;s &amp; O&rsquo;s</h2>
+        <h2><span class="rule"></span> {{ index $sectionTitles "xsandos" | default "The X’s & O’s" }}</h2>
         <p class="section-dek">Concepts drawn up on the board — what it is, why it works, and the coaching point.</p>
       </div>
     </div>
     <div class="nrt-xo__grid">
       {{ range . }}
       <article class="nrt-xo-card reveal">
-        <figure class="nrt-xo-card__board">
+        <figure class="nrt-xo-card__board" data-playbook="{{ .concept }}" data-playbook-title="{{ .title }}">
           <img src="{{ .diagram | relURL }}" alt="Diagram: {{ .title }}" loading="lazy" />
         </figure>
         <div class="nrt-xo-card__body">
@@ -467,10 +419,16 @@
       {{ with .injuries }}
       <div class="nrt-report__col reveal">
         <span class="kicker">Injury &amp; availability</span>
-        <h2><span class="rule"></span> The report</h2>
+        <h2><span class="rule"></span> {{ index $sectionTitles "injuries" | default "The report" }}</h2>
         <ul class="nrt-report__list nrt-report__list--injury">
           {{ range . }}
           <li>
+            {{ if and .image .imageSource }}
+            <a class="nrt-report__portrait" href="{{ .imageSource }}" target="_blank" rel="noopener" aria-label="{{ .player }}: official Chiefs profile and photo">
+              <img src="{{ .image }}" alt="{{ .player }} — official Chiefs profile photo" width="88" height="66" loading="lazy" decoding="async" />
+              <span>Chiefs photo</span>
+            </a>
+            {{ end }}
             <div class="nrt-report__row">
               {{ with .player }}<strong>{{ . }}</strong>{{ end }}
               {{ with .status }}<span class="nrt-status">{{ . }}</span>{{ end }}
@@ -485,7 +443,7 @@
       {{ with .personnel }}
       <div class="nrt-report__col reveal">
         <span class="kicker kicker--gold">Roster moves</span>
-        <h2><span class="rule rule-gold"></span> Personnel</h2>
+        <h2><span class="rule rule-gold"></span> {{ index $sectionTitles "personnel" | default "Personnel" }}</h2>
         <ul class="nrt-report__list nrt-report__list--personnel">
           {{ range . }}
           <li><strong>{{ .move }}</strong><p>{{ .detail }}</p></li>
@@ -506,28 +464,6 @@
       <ul class="nrt-debate-list nrt-debate-list--wide">
         {{ range . }}<li>{{ . }}</li>{{ end }}
       </ul>
-    </div>
-  </section>
-  {{ end }}
-
-  <!-- ===================== RUN OF SHOW ===================== -->
-  {{ with .runOfShow }}
-  <section class="section nrt-ros" id="runofshow">
-    <div class="section-head reveal">
-      <div>
-        <span class="kicker"><span class="dot dot-live"></span> YouTube template</span>
-        <h2><span class="rule"></span> This week&rsquo;s episode rundown</h2>
-        <p class="section-dek">A ready-to-shoot run-of-show for the weekly video — segment, timing, and talk track.</p>
-      </div>
-    </div>
-    <div class="nrt-ros__table reveal">
-      {{ range $i, $seg := . }}
-      <div class="nrt-ros__row">
-        <span class="nrt-ros__num">{{ printf "%02d" (add $i 1) }}</span>
-        <div class="nrt-ros__seg"><strong>{{ .segment }}</strong></div>
-        <p class="nrt-ros__talk">{{ .talkTrack }}</p>
-      </div>
-      {{ end }}
     </div>
   </section>
   {{ end }}
