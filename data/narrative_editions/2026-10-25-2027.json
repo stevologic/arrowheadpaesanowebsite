@@ -1,0 +1,393 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-25T20:27:10+00:00",
+  "updatedAt": "2026-10-25T20:30:52+00:00",
+  "generator": "codex:one-time-authoring",
+  "phase": {
+    "type": "regular",
+    "label": "Week 7",
+    "week": 7,
+    "mode": "preview"
+  },
+  "edition": "2026 Week 7 · Preview",
+  "record": "5-0",
+  "headline": "No Rice, no Moore: the Chiefs need answers at Seattle",
+  "dek": "Kansas City takes a 5-0 record to Lumen Field on Sunday. The game-day question is how to protect the pocket and distribute the ball with two offensive starters ruled out. Kickoff is October 25 at 7:20 p.m. Central on NBC.",
+  "videoHook": "The record is perfect. The lineup is not. Seattle is where the Chiefs have to make the next answer work.",
+  "theEdge": "Our read: give Mahomes a quick answer before asking for a deep one. Make Seattle defend the width of the formation, then let Walker attack the space that creates. This is a pregame plan, not a prediction of the final score.",
+  "pressConferences": [
+    {
+      "videoId": "xCnSucR_NCw",
+      "url": "https://www.youtube.com/watch?v=xCnSucR_NCw",
+      "speaker": "Andy Reid, Ken Walker, Jack Cochrane, and Nohl Williams",
+      "channel": "Kansas City Chiefs",
+      "title": "Andy Reid, Ken Walker, Jack Cochrane, and Nohl Williams Speak to Media | OCTOBER 23, 2026",
+      "date": "2026-10-23",
+      "dateLabel": "Fri Oct 23, 2026"
+    },
+    {
+      "videoId": "0ShMtltDtGM",
+      "url": "https://www.youtube.com/watch?v=0ShMtltDtGM",
+      "speaker": "Coordinators, Assistant Coaches, and Chris Jones",
+      "channel": "Kansas City Chiefs",
+      "title": "Coordinators, Assistant Coaches and Chris Jones Speak to Media | OCTOBER 22, 2026",
+      "date": "2026-10-22",
+      "dateLabel": "Thu Oct 22, 2026"
+    }
+  ],
+  "storyline": {
+    "lede": "Five wins buy belief. They do not fill tonight’s vacancies. Kansas City’s next step is to make the offense coherent with the players available, then let the defense play a full field.",
+    "body": [
+      "This is why the Seattle trip is worth watching beyond the record. A good offense has answers that survive a changed lineup. The formation should explain the protection, the route spacing should explain the first read, and the checkdown should be part of the play rather than a rescue mission.",
+      "There is no result to grade yet. Judge the opening possessions by the quality of the decisions: clean operation, useful early-down gains and a quarterback who knows where the ball can go when the first look disappears. The scoreboard will supply the verdict later."
+    ]
+  },
+  "lastGameReview": {
+    "opponent": "Los Angeles Chargers",
+    "label": "Week 6 · Sun, Oct 18 · 3:25 PM CT",
+    "result": "W",
+    "score": "22–6",
+    "lede": "The Chargers game gave Kansas City a sturdy foundation: an early lead, a productive run game and a defense that kept Los Angeles out of the end zone. Seattle asks the offense to carry that work into a different lineup and a road setting.",
+    "analysis": [
+      {
+        "body": "In the team’s October 19 recap, Ken Walker’s 128 rushing yards and two touchdowns drove the scoring. His 33-yard touchdown supplied the early burst; a second score from two yards out and a Harrison Butker field goal before halftime built the cushion. Los Angeles finished with 259 yards. Those are the previous game’s facts, not a forecast for tonight."
+      },
+      {
+        "body": "The team’s follow-up report credits Jack Cochrane with the interception and L’Jarius Sneed with the forced fumble recovered by Drue Tranquill. It also lists four sacks, shared by Ashton Gillotte, George Karlaftis, Chamarri Conner, Chris Jones and Peter Woods. The pressure finally became finished plays."
+      },
+      {
+        "body": "Xavier Worthy’s seven catches for 73 yards and Andrew Armstrong’s first regular-season reception matter to the next game. They provide recent evidence of receivers doing useful work. Asking them to help fill an absent teammate’s role is reasonable; treating that role as automatically replaced is not."
+      }
+    ],
+    "whatWorked": [
+      "Walker turned the run game into touchdowns.",
+      "The defense kept the Chargers out of the end zone."
+    ],
+    "whatDidnt": [
+      "The offensive line lost Jaylon Moore to a concussion.",
+      "Travis Kelce sustained an ankle injury, although the team recap says he played through it."
+    ],
+    "takeaways": [
+      {
+        "title": "Finish the rush",
+        "body": "A hurry starts the problem. Getting the quarterback down finishes it. Keep the rush lanes connected so an escape does not undo the first win."
+      }
+    ]
+  },
+  "currentState": {
+    "record": "5-0",
+    "lede": "The October 23 injury report and October 24 transactions are the meaningful changes since our last published preview. This update was prepared before kickoff; game-day inactives remain the final check.",
+    "workOn": [
+      {
+        "title": "Set the protection before the noise",
+        "body": "Give the replacement tackle help with alignment, a chip or a quick release when the matchup needs it. A tight end cannot be both a permanent extra blocker and an immediate outlet. Decide which job matters on each call."
+      },
+      {
+        "title": "Give the receiving rotation a job",
+        "body": "Worthy can stretch a defender’s leverage. Armstrong can work a defined route. The underneath option needs to arrive on time. Do not ask every available receiver to impersonate Rice; build a progression the quarterback can finish."
+      },
+      {
+        "title": "Let the run set up the answer",
+        "body": "Keep a pass available when Seattle commits numbers to Walker. If the front wins a run, the next call should attack what the defense showed rather than simply repeat the collision."
+      }
+    ],
+    "thinkAbout": [
+      {
+        "title": "Availability is not a snap count",
+        "body": "An activation or elevation makes a player available for selection. It does not promise a start, a workload or even an active jersey. Keep the roster transaction and the football projection separate."
+      },
+      {
+        "title": "A clean possession has value",
+        "body": "A road offense can help its defense by avoiding a short field. The aggressive throw still belongs in the plan, but it needs protection and leverage, not just a desire to make a statement."
+      }
+    ]
+  },
+  "gamePlan": {
+    "opponent": "Seattle Seahawks",
+    "lede": "Our suggested plan starts with manageable decisions: protect the edge, spread the underneath coverage and earn the shot play. The calls below are proposals, not claims about what Kansas City has already installed.",
+    "howTheyMatch": "The Chiefs’ official Saturday preview sets the central matchup: Walker against a Seattle defense that has gone 35 straight games without allowing a 100-yard rusher. On the other side, it identifies Jaxon Smith-Njigba as the focal point of Seattle’s passing game. Winning either matchup requires more than one defender or one blocker doing his job.",
+    "keys": [
+      {
+        "title": "Move the launch point with purpose",
+        "body": "Use a boot only after the edge has a reason to squeeze inside. If the outside defender stays home, give Mahomes a short outlet and permission to move on."
+      },
+      {
+        "title": "Know where Smith-Njigba is",
+        "body": "Match the coverage to his alignment. Carry the crossing route through the handoff between zones. Pressure that leaves a free release and an empty middle is an expensive bargain."
+      },
+      {
+        "title": "Make Seattle earn the field",
+        "body": "The team preview points to Seattle’s recent giveaways. That makes disciplined rush lanes and secure tackling attractive; it does not make a turnover inevitable. Play the down before celebrating the opportunity."
+      }
+    ],
+    "script": [
+      "Open with inside zone and read how Seattle fits it.",
+      "Show the same backfield action, then give Mahomes a boot with an outlet.",
+      "Use mesh against man coverage; settle into space against zone.",
+      "Keep a running-back screen available against an aggressive rush.",
+      "Start with a two-high picture and rally to the underneath throw.",
+      "Change the pressure picture without abandoning the coverage responsibility."
+    ]
+  },
+  "nextGame": {
+    "label": "Week 7 · Sun, Oct 25 · 7:20 PM CT",
+    "opponent": "Seattle Seahawks",
+    "at": "@ Lumen Field",
+    "tv": "NBC",
+    "note": "Pregame update, October 25. Kickoff is 7:20 p.m. Central / 5:20 p.m. in Seattle and Arizona. NBC carries the game; KSHB is the Kansas City affiliate. The Chiefs list Field Pass LIVE on their YouTube channel from 5:30 p.m. Central."
+  },
+  "markets": {},
+  "spotlight": [
+    {
+      "tag": "Pregame",
+      "title": "The last word is the inactive list",
+      "body": "This edition uses the official Friday report and Saturday roster moves. Check the Chiefs’ game-day inactive announcement before treating a questionable player as available."
+    },
+    {
+      "tag": "Broadcast",
+      "title": "Settle in for kickoff",
+      "body": "The team’s viewing guide has the national broadcast on NBC and the local telecast on KSHB. Its YouTube pregame show is a separate program from the game telecast."
+    }
+  ],
+  "matchups": [
+    {
+      "unit": "Edge protection",
+      "chiefs": "Kansas City’s offensive tackle depth",
+      "opponent": "Seattle’s edge rush",
+      "edge": "PUSH",
+      "note": "Our watch point: does the formation supply help without removing every quick outlet?"
+    },
+    {
+      "unit": "Route spacing",
+      "chiefs": "Worthy, Armstrong and the available pass catchers",
+      "opponent": "Seattle’s underneath coverage",
+      "edge": "PUSH",
+      "note": "Our watch point: can the receivers create distinct windows instead of crowding the same defender?"
+    },
+    {
+      "unit": "Coverage discipline",
+      "chiefs": "Steve Spagnuolo’s secondary",
+      "opponent": "Jaxon Smith-Njigba",
+      "edge": "PUSH",
+      "note": "Our watch point: who carries the route when he crosses from one zone into another?"
+    }
+  ],
+  "xsandos": [
+    {
+      "title": "Make the front declare",
+      "situation": "Early downs, before choosing the next constraint",
+      "concept": "inside_zone",
+      "why": "Inside zone asks the blockers to work together and gives the runner a cut based on the fit. Use the response to choose the next call.",
+      "coaching": "Keep the combination blocks connected; press the track before cutting.",
+      "labels": {
+        "x": "stalk and wall",
+        "z": "crack replace",
+        "te": "zone combo to linebacker"
+      },
+      "diagram": "images/narrative/2026-10-25-2027/xo-inside_zone.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Change the launch point",
+      "situation": "After a run look has drawn the edge inward",
+      "concept": "play_action_boot",
+      "why": "A boot can move the quarterback away from the initial rush. It needs an outlet if the edge defender stays home.",
+      "coaching": "Sell the run action, then read the edge. Do not turn a covered outlet into a forced throw.",
+      "labels": {
+        "x": "clear out",
+        "z": "pivot",
+        "te": "flat sit"
+      },
+      "diagram": "images/narrative/2026-10-25-2027/xo-play_action_boot.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Create a clean crossing window",
+      "situation": "Against man coverage, with a zone answer built in",
+      "concept": "mesh",
+      "why": "Crossing routes can separate through traffic. Against zone, the receivers need space to settle rather than running into the same window.",
+      "coaching": "Keep legal spacing through the cross and make the coverage declare.",
+      "labels": {
+        "x": "shallow cross",
+        "z": "sit",
+        "te": "opposite shallow"
+      },
+      "diagram": "images/narrative/2026-10-25-2027/xo-mesh.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Make the rush travel",
+      "situation": "When the defense attacks the pocket",
+      "concept": "spacing_screen",
+      "why": "A running-back screen invites the rush forward before sending the ball behind it. Timing matters more than surprise.",
+      "coaching": "Let the rush commit, release the blockers on time and secure the catch.",
+      "labels": {
+        "x": "stalk",
+        "z": "stalk",
+        "te": "arc release"
+      },
+      "diagram": "images/narrative/2026-10-25-2027/xo-spacing_screen.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Keep a lid on the shot",
+      "situation": "Early downs with two deep safeties",
+      "concept": "cover_two",
+      "why": "Cover 2 puts a safety over each deep half while underneath defenders rally to the ball. The middle still needs an alert handoff.",
+      "coaching": "Disrupt releases without losing the flat; safeties stay deeper than the deepest threat.",
+      "labels": {
+        "x": "deep half",
+        "z": "deep half",
+        "te": "hook curl"
+      },
+      "diagram": "images/narrative/2026-10-25-2027/xo-cover_two.svg",
+      "side": "defense"
+    },
+    {
+      "title": "Change who is coming",
+      "situation": "A passing down where the coverage can support pressure",
+      "concept": "zone_blitz",
+      "why": "A zone blitz sends an unexpected rusher and drops another defender into coverage. The exchange must leave a complete coverage structure.",
+      "coaching": "Identify the dropper and the vacated zone before the snap; rush with contain.",
+      "labels": {
+        "x": "underneath drop",
+        "z": "rush from depth",
+        "te": "hook replace"
+      },
+      "diagram": "images/narrative/2026-10-25-2027/xo-zone_blitz.svg",
+      "side": "defense"
+    }
+  ],
+  "coaching": [
+    {
+      "topic": "Give every call a failure answer",
+      "detail": "A covered first read should lead to a defined second decision. That is especially valuable when the protection has changed."
+    }
+  ],
+  "injuries": [
+    {
+      "player": "Rashee Rice",
+      "status": "Out · Friday report",
+      "note": "Hamstring/knee; did not practice Friday.",
+      "source": "https://www.chiefs.com/news/week-7-injury-report-chiefs-vs-seahawks-2026"
+    },
+    {
+      "player": "Jaylon Moore",
+      "status": "Out · Friday report",
+      "note": "Concussion; did not practice Friday.",
+      "source": "https://www.chiefs.com/news/week-7-injury-report-chiefs-vs-seahawks-2026"
+    },
+    {
+      "player": "L’Jarius Sneed",
+      "status": "Questionable · Friday report",
+      "note": "Knee; limited Friday. This is not confirmation that he will play.",
+      "source": "https://www.chiefs.com/news/week-7-injury-report-chiefs-vs-seahawks-2026"
+    },
+    {
+      "player": "Travis Kelce / Patrick Mahomes",
+      "status": "No game designation · Friday report",
+      "note": "Kelce was limited with an ankle issue; Mahomes was full with a knee issue. Practice participation and game status are different fields.",
+      "source": "https://www.chiefs.com/news/week-7-injury-report-chiefs-vs-seahawks-2026"
+    },
+    {
+      "player": "Brashard Smith",
+      "status": "Reserve/Injured · Saturday transaction",
+      "note": "Friday: out with a hamstring injury. The team transaction log subsequently records his placement on Reserve/Injured.",
+      "source": "https://www.chiefs.com/team/transactions/2026"
+    }
+  ],
+  "personnel": [
+    {
+      "move": "Saturday, October 24",
+      "detail": "The Chiefs transaction log records Cooper McDonald’s activation from Reserve/Injured, Justin Watson’s standard elevation and a roster contract for running back Jaydn Ott. These are roster moves, not promised snap counts."
+    },
+    {
+      "move": "Friday, October 23",
+      "detail": "Andrew Armstrong was signed to the active roster from the practice squad. Nate Carter was signed to the practice squad."
+    },
+    {
+      "move": "Thursday, October 22",
+      "detail": "Josh Simmons was placed on Reserve/Injured. His absence is part of the protection planning, not a new game-day diagnosis."
+    }
+  ],
+  "strategies": [
+    "Pair the protection call with a quick throwing answer.",
+    "Use the run response to choose the next constraint.",
+    "Carry crossing routes through the zones and tackle the catch."
+  ],
+  "debates": [
+    "How much help should the replacement tackle get on passing downs?",
+    "Which available receiver gives Mahomes the clearest first read?",
+    "Can the defense pressure Seattle without losing Smith-Njigba in transition?"
+  ],
+  "runOfShow": [
+    {
+      "segment": "Cold open",
+      "length": "0:00–0:45",
+      "talkTrack": "The perfect record meets an imperfect lineup. Frame this as a pregame plan."
+    },
+    {
+      "segment": "What changed",
+      "length": "0:45–3:00",
+      "talkTrack": "Walk through Friday’s designations and Saturday’s roster moves. Separate availability from projected usage."
+    },
+    {
+      "segment": "Seattle plan",
+      "length": "3:00–6:00",
+      "talkTrack": "Use the diagrams to explain protection, quick outlets and coverage handoffs. These are proposed calls."
+    },
+    {
+      "segment": "At the podium",
+      "length": "6:00–8:00",
+      "talkTrack": "Introduce the dated official player and coach press conferences below; let the speakers supply their own words."
+    },
+    {
+      "segment": "Before kickoff",
+      "length": "8:00–8:30",
+      "talkTrack": "Check the inactive list. Kickoff is 7:20 p.m. Central on NBC; this edition contains no game result."
+    }
+  ],
+  "sources": [
+    {
+      "title": "How to Watch and Listen | Week 7: Chiefs vs. Seahawks",
+      "publisher": "Kansas City Chiefs",
+      "url": "https://www.chiefs.com/news/how-to-watch-and-listen-week-7-chiefs-vs-seahawks",
+      "note": "Published October 24: kickoff, venue, broadcast and official YouTube pregame show."
+    },
+    {
+      "title": "Week 7 Injury Report | Chiefs vs. Seahawks",
+      "publisher": "Chiefs Public Relations",
+      "url": "https://www.chiefs.com/news/week-7-injury-report-chiefs-vs-seahawks-2026",
+      "note": "Published October 23: Friday participation and game designations; does not establish Sunday active status."
+    },
+    {
+      "title": "2026 Kansas City Chiefs Transactions",
+      "publisher": "Kansas City Chiefs",
+      "url": "https://www.chiefs.com/team/transactions/2026",
+      "note": "October 22–24 roster moves, checked October 25 before kickoff."
+    },
+    {
+      "title": "Five Things to Watch on Sunday | Chiefs vs. Seahawks",
+      "publisher": "Kansas City Chiefs",
+      "url": "https://www.chiefs.com/news/five-things-to-watch-on-sunday-chiefs-vs-seahawks",
+      "note": "Published October 24: Seattle run defense, receiving focal point and turnover context."
+    },
+    {
+      "title": "Chiefs Defeat Chargers, 22-6, to Move to 5-0 on the Season",
+      "publisher": "Kansas City Chiefs",
+      "url": "https://www.chiefs.com/news/chiefs-defeat-chargers-22-6-to-move-to-5-0-on-the-season",
+      "note": "Published October 19; describes the October 18 game."
+    },
+    {
+      "title": "10 Quick Facts Following the Chiefs Week 6 Win Over Los Angeles",
+      "publisher": "Kansas City Chiefs",
+      "url": "https://www.chiefs.com/news/10-quick-facts-following-the-chiefs-week-6-win-over-los-angeles-upon-further-review",
+      "note": "Published October 19: receiver production and credited defensive plays."
+    }
+  ],
+  "slug": "2026-10-25-2027",
+  "playerEmbeds": [],
+  "lockerRoom": {
+    "posts": []
+  }
+}
