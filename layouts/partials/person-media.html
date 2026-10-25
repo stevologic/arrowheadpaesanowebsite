@@ -1,0 +1,12 @@
+{{- $name := .name | default "Player" -}}
+{{- $person := index (.site.Data.people_media.people | default dict) ($name | urlize) -}}
+{{- $photo := false -}}
+{{- with $person -}}
+  {{- $r := .rights | default dict -}}
+  {{- $path := printf "public/%s" (.image | default "missing") -}}
+  {{- if and (eq .name $name) (eq $r.status "approved") (eq $r.commercialUse true) $r.rightsholder $r.license $r.attribution (findRE `^\d{4}-\d{2}-\d{2}$` ($r.reviewedAt | default "")) (findRE `^\d{4}-\d{2}-\d{2}$` ($r.expiresAt | default "")) (le ($r.reviewedAt | default "9999") (now.Format "2006-01-02")) (ge ($r.expiresAt | default "0000") (now.Format "2006-01-02")) (findRE `^docs/media-rights/[A-Za-z0-9_-]+\.md$` ($r.evidence | default "")) (fileExists ($r.evidence | default "missing")) (findRE `^images/people/[A-Za-z0-9_-]+\.(?:webp|png|jpe?g)$` (.image | default "")) (fileExists $path) -}}
+    {{- if eq (sha256 (readFile $path)) .sha256 }}{{ $photo = . }}{{ end -}}
+  {{- end -}}
+{{- end -}}
+{{ if $photo }}<span class="person-media"><img src="{{ $photo.image | relURL }}" alt="{{ $name }}" width="64" height="64" loading="lazy" decoding="async" /><span class="person-media__credit">{{ $photo.rights.attribution }}</span></span>
+{{ else }}<span class="person-media person-media--silhouette" role="img" aria-label="{{ $name }} — illustrative silhouette, not a photograph"><svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="25" r="15"/><path d="M10 76V65c0-18 12-24 30-24s30 6 30 24v11Z"/></svg></span>{{ end }}

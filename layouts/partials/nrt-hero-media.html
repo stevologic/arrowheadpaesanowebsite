@@ -1,0 +1,21 @@
+{{- $catalog := .site.Data.hero_media -}}
+{{- $media := $catalog.fallback -}}
+{{- $licensed := false -}}
+{{- $item := index ($catalog.items | default dict) (.n.heroMediaId | default "paesano-channel") -}}
+{{- with $item -}}
+  {{- $r := .rights | default dict -}}
+  {{- $evidenceOK := and (findRE `^docs/media-rights/[A-Za-z0-9_-]+\.md$` ($r.evidence | default "")) (fileExists ($r.evidence | default "missing")) -}}
+  {{- $datesOK := and (findRE `^\d{4}-\d{2}-\d{2}$` ($r.reviewedAt | default "")) (findRE `^\d{4}-\d{2}-\d{2}$` ($r.expiresAt | default "")) (le ($r.reviewedAt | default "9999") (now.Format "2006-01-02")) (ge ($r.expiresAt | default "0000") (now.Format "2006-01-02")) -}}
+  {{- $sourceOK := findRE `^https://(?:www\.)?(?:x|twitter)\.com/[A-Za-z0-9_]+/status/[0-9]+/?$` (.sourceUrl | default "") -}}
+  {{- if and (in (.editionSlugs | default slice) $.n.slug) (eq .kind "licensed-image") (eq $r.status "approved") (eq $r.commercialUse true) (eq $r.providedImage true) $r.rightsholder $r.license $r.attribution $evidenceOK $datesOK $sourceOK .alt .width .height (findRE `^images/hero/[A-Za-z0-9_/-]+\.(?:webp|png|jpe?g)$` (.image | default "")) (not (in (.image | default "") "..")) -}}
+    {{- $path := printf "public/%s" .image -}}
+    {{- if and (fileExists $path) (eq (sha256 (readFile $path)) .sha256) -}}{{- $media = . -}}{{- $licensed = true -}}{{- end -}}
+  {{- end -}}
+{{- end -}}
+<figure class="nrt-hero-media" data-hero-kind="{{ if $licensed }}licensed-image{{ else }}channel-fallback{{ end }}">
+  <div class="nrt-hero-media__visual"><img src="{{ $media.image | relURL }}" alt="{{ $media.alt }}" width="{{ $media.width }}" height="{{ $media.height }}" decoding="async" fetchpriority="high" /></div>
+  <figcaption class="nrt-hero-media__caption">
+    {{ if $licensed }}<span class="nrt-hero-media__label">Licensed image</span><strong>{{ $media.caption }}</strong><span>{{ $media.rights.attribution }} · {{ $media.rights.license }}</span><a href="{{ $media.sourceUrl }}" target="_blank" rel="noopener">Original post on X</a>
+    {{ else }}<span class="nrt-hero-media__label">Channel image</span><strong>{{ $media.caption }}</strong><span>{{ $media.attribution }}</span>{{ end }}
+  </figcaption>
+</figure>

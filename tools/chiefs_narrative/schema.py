@@ -326,6 +326,18 @@ def _norm_analysis(value, key_play_embeds=None) -> list[dict]:
     return out
 
 
+def _norm_personnel(value):
+    result = []
+    for item in _list(value):
+        if not isinstance(item, dict) or not (_s(item.get("move")) or _s(item.get("detail"))):
+            continue
+        result.append({"move": _s(item.get("move")), "detail": _s(item.get("detail")),
+                       "players": _str_list(item.get("players"), limit=8)})
+        if len(result) >= 10:
+            break
+    return result
+
+
 def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
     """Return a fully-populated, validated narrative dict."""
     raw = raw or {}
@@ -336,6 +348,8 @@ def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
         "generatedAt": meta.get("generatedAt") or config.iso_now(),
         "updatedAt": meta.get("updatedAt") or raw.get("updatedAt") or "",
         "generator": meta.get("generator", "offline"),
+        "heroMediaId": "paesano-channel",
+        "heroMediaVerifiedAt": "",
         "phase": {
             "type": _s(pg.get("type"), "offseason"),
             "label": _s(pg.get("label"), "Offseason"),
@@ -384,7 +398,7 @@ def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
         ),
         "matchups": _obj_list(
             raw.get("matchups"),
-            {"unit": "", "chiefs": "", "opponent": "", "edge": "PUSH", "note": ""},
+            {"unit": "", "chiefs": "", "opponent": "", "edge": "PUSH", "note": "", "chiefsStat":"", "opponentStat":"", "statSource":"", "statDate":""},
             limit=8,
         ),
         "xsandos": _norm_xsandos(raw.get("xsandos")),
@@ -396,9 +410,7 @@ def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
             {"player": "", "status": "", "note": "", "source": "", "image": "", "imageSource": ""},
             limit=10,
         ),
-        "personnel": _obj_list(
-            raw.get("personnel"), {"move": "", "detail": ""}, limit=10
-        ),
+        "personnel": _norm_personnel(raw.get("personnel")),
         "strategies": _str_list(raw.get("strategies"), limit=8),
         "debates": _str_list(raw.get("debates"), limit=8),
         # Legacy/internal data remains readable; the public report never
@@ -411,6 +423,11 @@ def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
             limit=16,
         ),
     }
+
+    allowed_sources = {item["url"] for item in narrative["sources"]}
+    for row in narrative["matchups"]:
+        if row["statSource"] not in allowed_sources:
+            row["chiefsStat"] = row["opponentStat"] = row["statSource"] = row["statDate"] = ""
 
     # Portraits are optional official profile references, never generated faces.
     for item in narrative["injuries"]:
@@ -539,6 +556,7 @@ def _norm_xsandos(value) -> list[dict]:
                 "why": why,
                 "coaching": _s(item.get("coaching")),
                 "labels": {str(k): _s(v) for k, v in labels.items()},
+                "playmakers": _obj_list(item.get("playmakers"), {"name":"", "role":""}, limit=3),
                 # diagram file + side filled in during rendering
             }
         )

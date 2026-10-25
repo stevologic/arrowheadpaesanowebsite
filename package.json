@@ -4,13 +4,17 @@
   "private": true,
   "description": "The daily Chiefs Narrative from Arrowhead Paesano",
   "scripts": {
-    "build": "hugo --gc --minify",
+    "build": "npm run check:three && hugo --gc --minify",
     "dev": "hugo server --bind 127.0.0.1 --port 1515 --baseURL http://localhost:1515/ --disableFastRender --renderToMemory",
     "dev:affiliates": "hugo server --bind 127.0.0.1 --port 1516 --baseURL http://localhost:1516/ --environment development --config hugo.yaml,tools/affiliate-preview.yaml --buildDrafts --disableFastRender --renderToMemory",
-    "check:affiliates": "node scripts/check-affiliate-footer.mjs"
+    "check:affiliates": "node scripts/check-affiliate-footer.mjs",
+    "vendor:three": "node scripts/build-three.mjs",
+    "check:three": "node scripts/build-three.mjs --check"
   },
   "devDependencies": {
-    "hugo-bin": "^0.165.0"
+    "esbuild": "0.28.2",
+    "hugo-bin": "^0.165.0",
+    "three": "0.186.1"
   },
   "engines": {
     "node": ">=22.12.0"

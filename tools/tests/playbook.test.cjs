@@ -49,6 +49,7 @@ test('controls respect reduced motion, scrubbing, replay and offscreen pause', (
     setAttribute(k,v) { this.attrs[k]=v; }
     addEventListener(k,f) { this.events[k]=f; }
     fire(k) { this.events[k](); }
+    dispatchEvent() {}
     getTotalLength() { return 100; }
     querySelector() { return this.image; }
   }
@@ -60,7 +61,7 @@ test('controls respect reduced motion, scrubbing, replay and offscreen pause', (
     addEventListener(k,f) { this.events[k]=f; }};
   const motion={matches:true,addEventListener(_,f) { this.change=f; }};
   const frames=new Map(); let nextId=0, observer;
-  const context={document,window:{matchMedia:()=>motion},module:{exports:{}},
+  const context={CustomEvent:class {constructor(type,options){this.type=type;this.detail=options.detail;}},document,window:{matchMedia:()=>motion},module:{exports:{}},
     requestAnimationFrame:f=>{frames.set(++nextId,f);return nextId;},
     cancelAnimationFrame:id=>frames.delete(id),
     IntersectionObserver:class { constructor(f) { observer=f; } observe() {} }};

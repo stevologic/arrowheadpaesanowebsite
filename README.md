@@ -47,7 +47,7 @@ GitHub Pages has no server-side redirects. Retired URLs are checked-in as HTML s
 
 The homepage is an automated Kansas City Chiefs analysis desk. Preview editions lead with the upcoming matchup and current roster, with a short last-game context section. As kickoff approaches, the next opponent, verified availability and what to watch receive most of the analysis. Topic-specific headings vary by edition. The site includes illustrated X's-and-O's with optional staged playback, injuries, personnel, cited sources and verified official press conferences. The public YouTube script/template section is retired; the legacy `runOfShow` data key remains empty for new editions.
 
-The animated playbook is an illustrative teaching aid, not tracked game film or a prediction of a play's outcome. It uses local SVG/JavaScript, starts paused, supports keyboard stepping and scrubbing, pauses offscreen, and respects reduced motion. Each board retains its original static SVG and links to its teaching reference. The optional @Chiefs X timeline connects to X only after a reader clicks Load; the official-account link remains available when embeds fail.
+The playbook uses the same schematic geometry in 2D and optional Three.js views, with keyboard stages and static fallback. Hero and people media use a reviewed rights catalog and channel-image or silhouette fallbacks. See [media provenance and controls](docs/narrative-media.md).
 
 ### How it works
 

@@ -250,35 +250,6 @@ function initDynamicUI(root = document) {
   initImageHandling(root);
   initNarrativeXEmbeds(root);
   initNarrativeYtEmbeds(root);
-  initChiefsFeed(root);
-}
-
-function initChiefsFeed(root = document) {
-  $$('[data-chiefs-feed]:not([data-feed-bound])', root).forEach((el) => {
-    el.dataset.feedBound = 'true';
-    const button = el.querySelector('[data-load-chiefs-feed]');
-    const slot = el.querySelector('[data-chiefs-feed-slot]');
-    const status = el.querySelector('[data-chiefs-feed-status]');
-    button.addEventListener('click', () => {
-      button.disabled = true;
-      status.textContent = 'Connecting to X… The direct account link stays available below.';
-      const fallback = () => {
-        status.textContent = 'X did not make the timeline available here. Use the official account link below for current posts.';
-      };
-      const timeout = setTimeout(fallback, 8000);
-      ensureTwitterWidgets().then((twttr) => {
-        return twttr.widgets.createTimeline(
-          {sourceType: 'profile', screenName: 'Chiefs'}, slot,
-          {height: 500, theme: 'light', dnt: true, chrome: 'nofooter noborders'}
-        );
-      }).then((frame) => {
-        clearTimeout(timeout);
-        if (!frame) { fallback(); return; }
-        frame.title = 'Official Kansas City Chiefs timeline on X';
-        status.textContent = 'Timeline supplied by X. Availability and ordering are controlled by X.';
-      }).catch(() => { clearTimeout(timeout); fallback(); });
-    }, {once: true});
-  });
 }
 
 initMobileNav();

@@ -32,6 +32,8 @@ scores, or quotes.
 - In previews, lead with the upcoming opponent and give it most of the space.
   Near kickoff, the last result is brief supporting context, not the lead.
   Use topic-specific sectionTitles instead of recycling generic headings.
+  Hero media is selected from the rights-reviewed catalog by the desk; never invent image URLs or licenses.
+  Roster players and proposed playmakers must be named only from supplied facts; roles in play cards are illustrative assignments, not participation claims.
   Do not generate runOfShow or a YouTube script; press conferences are attached separately.
 
 Cite sources using ONLY the provided news items (match the publisher + url). If \
@@ -569,6 +571,10 @@ def _schema_hint(phase: dict, record: str = "") -> str:
                     "opponent": "opp side",
                     "edge": "KC | OPP | PUSH",
                     "note": "why",
+                    "chiefsStat": "optional exact sourced stat, else empty",
+                    "opponentStat": "optional exact sourced stat, else empty",
+                    "statSource": "provided source URL for both stats, else empty",
+                    "statDate": "source date, else empty",
                 }
             ],
             "xsandos": [
@@ -582,13 +588,14 @@ def _schema_hint(phase: dict, record: str = "") -> str:
                     "coaching": "the film-room coaching point, specific to the players "
                                 "who will execute it",
                     "labels": {"x": "route", "z": "route", "te": "route"},
+                    "playmakers": [{"name":"verified player", "role":"proposed schematic role"}],
                 }
             ],
             "coaching": [{"topic": "coaching matchup/staff note", "detail": "1-2 sentences"}],
             "injuries": [
                 {"player": "name", "status": "e.g. PUP/Questionable/Out", "note": "context", "source": "publisher"}
             ],
-            "personnel": [{"move": "roster move/battle", "detail": "1-2 sentences"}],
+            "personnel": [{"move": "roster move/battle", "detail": "1-2 sentences", "players":["verified full player name"]}],
             "strategies": ["3-6 concrete strategies KC could deploy"],
             "debates": ["3-5 fan/viewer debate questions"],
             "runOfShow": [],

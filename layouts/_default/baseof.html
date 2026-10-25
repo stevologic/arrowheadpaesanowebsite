@@ -67,6 +67,7 @@
   <link rel="stylesheet" href="{{ "css/style.css" | relURL }}" />
   <link rel="stylesheet" href="{{ "css/v2.css" | relURL }}" />
   <link rel="stylesheet" href="{{ "css/narrative.css" | relURL }}?v={{ readFile "public/css/narrative.css" | sha256 }}" />
+  <link rel="stylesheet" href="{{ "css/editorial-layout.css" | relURL }}?v={{ readFile "public/css/editorial-layout.css" | sha256 }}" />
   <link rel="stylesheet" href="{{ "css/affiliate-footer.css" | relURL }}" />
 </head>
 <body class="page-{{ $bodyPage }}" data-site-base="{{ $homeURL }}" data-logo-url="{{ $logoURL }}">
@@ -130,5 +131,7 @@
   </footer>
   <script src="{{ "js/main.js" | relURL }}?v={{ readFile "public/js/main.js" | sha256 }}" defer></script>
   <script src="{{ "js/playbook.js" | relURL }}?v={{ readFile "public/js/playbook.js" | sha256 }}" defer></script>
+  {{ $threeVersion := index (unmarshal (readFile "package.json")).devDependencies "three" }}
+  <script src="{{ "js/playbook-3d.js" | relURL }}?v={{ readFile "public/js/playbook-3d.js" | sha256 }}" data-three-module="{{ printf "vendor/three-%s/three.module.js" $threeVersion | relURL }}" defer></script>
 </body>
 </html>

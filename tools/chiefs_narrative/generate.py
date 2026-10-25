@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from . import collect, config, diagrams, facts, known_errors, odds, offline, phase as phase_mod
-from . import locker_room, press_conferences, prompts, providers, review_gate, schema, x_embeds
+from . import hero_media, locker_room, press_conferences, prompts, providers, review_gate, schema, x_embeds
 
 _CT = ZoneInfo("America/Chicago")
 
@@ -586,6 +586,7 @@ def _assemble_narrative(
     # Same rule for locker-room X posts: never keep a writer-invented
     # status ID. Empty is the honest fallback when X cannot be fetched.
     locker_room.attach_verified(narrative, signals, ph)
+    hero_media.attach(narrative)
     return narrative
 
 
