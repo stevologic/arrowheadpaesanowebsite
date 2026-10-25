@@ -1,0 +1,69 @@
+  <!-- ===================== LAST GAME ===================== -->
+  {{ $sectionTitles := .sectionTitles | default dict }}
+{{ with .lastGameReview }}
+  <section class="section nrt-lastgame" id="last-game">
+    <div class="section-head reveal">
+      <div>
+        <span class="kicker"><span class="dot dot-live"></span> Last game</span>
+        <h2><span class="rule"></span> {{ index $sectionTitles "lastGame" | default "What the tape said" }}</h2>
+        <p class="section-dek">The previous result, with the details that matter to the next assignment.</p>
+      </div>
+    </div>
+    <div class="nrt-lastgame__card reveal">
+      <div class="nrt-lastgame__scoreboard">
+        {{ with .result }}<span class="nrt-lastgame__result nrt-lastgame__result--{{ . }}">{{ . }}</span>{{ end }}
+        <div>
+          {{ with .opponent }}<strong>{{ . }}</strong>{{ end }}
+          {{ with .label }}<span>{{ . }}</span>{{ end }}
+        </div>
+        {{ with .score }}<b class="nrt-lastgame__score">{{ . }}</b>{{ end }}
+      </div>
+      {{ with .lede }}<p class="nrt-lastgame__lede">{{ . }}</p>{{ end }}
+      {{ range .analysis }}
+        {{ $body := "" }}
+        {{ $embed := false }}
+        {{ if reflect.IsMap . }}
+          {{ $body = .body }}
+          {{ $embed = .embed }}
+        {{ else }}
+          {{ $body = . }}
+        {{ end }}
+        {{ if and $body $embed }}
+        <div class="nrt-keyplay">
+          <p class="nrt-analysis">{{ $body }}</p>
+          {{ partial "nrt-x-embed.html" $embed }}
+        </div>
+        {{ else if $body }}
+        <p class="nrt-analysis">{{ $body }}</p>
+        {{ end }}
+      {{ end }}
+      {{ if or .whatWorked .whatDidnt }}
+      <div class="nrt-lastgame__split">
+        {{ with .whatWorked }}
+        <div>
+          <h3>What held up</h3>
+          <ul>{{ range . }}<li>{{ . }}</li>{{ end }}</ul>
+        </div>
+        {{ end }}
+        {{ with .whatDidnt }}
+        <div>
+          <h3>What broke</h3>
+          <ul>{{ range . }}<li>{{ . }}</li>{{ end }}</ul>
+        </div>
+        {{ end }}
+      </div>
+      {{ end }}
+      {{ with .takeaways }}
+      <div class="nrt-lastgame__takes">
+        {{ range . }}
+        <article>
+          <h3>{{ .title }}</h3>
+          <p>{{ .body }}</p>
+        </article>
+        {{ end }}
+      </div>
+      {{ end }}
+    </div>
+  </section>
+  {{ end }}
+

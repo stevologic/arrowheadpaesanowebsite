@@ -277,9 +277,10 @@ class PressConferenceTemplate(unittest.TestCase):
         edition = (
             ROOT / "layouts" / "partials" / "narrative-edition.html"
         ).read_text(encoding="utf-8")
-        self.assertIn('{{ with .pressConferences }}', edition)
+        self.assertIn('{{ if or .pressConferences .pressConferenceLinks }}', edition)
+        self.assertIn('{{ range .pressConferences }}', edition)
         self.assertIn('id="press-conferences"', edition)
-        self.assertIn("Press Conferences", edition)
+        self.assertIn('index $sectionTitles "pressConferences"', edition)
         self.assertIn('partial "nrt-yt-embed.html"', edition)
         self.assertLess(
             edition.find('class="section nrt-story"'),
@@ -310,8 +311,10 @@ class PressConferenceTemplate(unittest.TestCase):
 
     def test_prompt_does_not_ask_the_model_for_youtube_ids(self):
         text = prompts.build_user_prompt({"news": [], "schedule": []}, WEEK_PHASE, [])
-        hint = text[text.find("Return JSON with EXACTLY these keys") :]
-        self.assertNotIn('"pressConferences"', hint)
+        hint = __import__('json').loads(prompts._schema_hint(WEEK_PHASE, ''))
+        self.assertNotIn('pressConferences', hint)
+        self.assertNotIn('pressConferenceLinks', hint)
+        self.assertNotIn('videoId', hint)
         self.assertIn("Do not invent or include YouTube video IDs", text)
 
     def test_speakers_from_title(self):
