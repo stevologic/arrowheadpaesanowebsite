@@ -39,3 +39,46 @@ test('mesh crossers remain on distinct levels through the key read', () => {
   const a=actors.find(a=>a.id==='H'), b=actors.find(a=>a.id==='Y');
   assert.ok(Math.abs(a.points[2][1]-b.points[2][1])>=20);
 });
+
+test('controls respect reduced motion, scrubbing, replay and offscreen pause', () => {
+  const vm = require('node:vm');
+  const fs = require('node:fs');
+  class Element {
+    constructor(tag) { this.tag=tag; this.children=[]; this.dataset={}; this.style={}; this.attrs={}; this.events={}; this.isConnected=true; }
+    append(...nodes) { this.children.push(...nodes); }
+    setAttribute(k,v) { this.attrs[k]=v; }
+    addEventListener(k,f) { this.events[k]=f; }
+    fire(k) { this.events[k](); }
+    getTotalLength() { return 100; }
+    querySelector() { return this.image; }
+  }
+  const figure=new Element('figure');
+  figure.dataset={playbook:'inside_zone',playbookTitle:'Test zone'};
+  figure.image=new Element('img');
+  const document={hidden:false,events:{},querySelectorAll:()=>[figure],
+    createElement:t=>new Element(t),createElementNS:(_,t)=>new Element(t),
+    addEventListener(k,f) { this.events[k]=f; }};
+  const motion={matches:true,addEventListener(_,f) { this.change=f; }};
+  const frames=new Map(); let nextId=0, observer;
+  const context={document,window:{matchMedia:()=>motion},module:{exports:{}},
+    requestAnimationFrame:f=>{frames.set(++nextId,f);return nextId;},
+    cancelAnimationFrame:id=>frames.delete(id),
+    IntersectionObserver:class { constructor(f) { observer=f; } observe() {} }};
+  vm.runInNewContext(fs.readFileSync(require.resolve('../../public/js/playbook.js'),'utf8'),context);
+  const panel=figure.children[0], controls=panel.children.find(e=>e.className==='playbook__controls');
+  const [play,replay,prev,next]=controls.children;
+  const slider=panel.children.find(e=>e.className==='playbook__scrub').children[0];
+  assert.equal(play.disabled,true);
+  next.fire('click'); assert.equal(slider.value,'1'); assert.equal(frames.size,0);
+  replay.fire('click'); assert.equal(slider.value,'0'); assert.equal(frames.size,0);
+  motion.matches=false; motion.change(); play.fire('click'); assert.equal(frames.size,1);
+  observer([{isIntersecting:false}]); assert.equal(frames.size,0); assert.equal(play.attrs['aria-pressed'],'false');
+  observer([{isIntersecting:true}]); assert.equal(frames.size,0);
+  play.fire('click'); slider.value='2.5'; slider.fire('input');
+  assert.equal(frames.size,0); assert.equal(slider.value,'2.5');
+  prev.fire('click'); assert.equal(slider.value,'2');
+  next.fire('click'); assert.equal(slider.value,'3'); assert.equal(next.disabled,true);
+  replay.fire('click'); assert.equal(slider.value,'0'); assert.equal(frames.size,1);
+  document.hidden=true; document.events.visibilitychange(); assert.equal(frames.size,0);
+  context.module.exports.init(); assert.equal(figure.children.length,1);
+});
