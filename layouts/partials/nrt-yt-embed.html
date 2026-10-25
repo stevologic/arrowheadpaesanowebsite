@@ -9,7 +9,7 @@
 {{- $speaker := .speaker -}}
 {{- if and $url $id $speaker }}
 <figure class="nrt-yt-embed" data-nrt-yt-embed data-nrt-yt-id="{{ $id }}" data-nrt-yt-url="{{ $url }}">
-  <button type="button" class="nrt-yt-embed__thumb" aria-label="Play {{ $speaker }} press conference">
+  <button type="button" class="nrt-yt-embed__thumb" aria-label="Play {{ .title | default (printf "%s press conference" $speaker) }}">
     <img
       src="https://i.ytimg.com/vi/{{ $id }}/hqdefault.jpg"
       alt=""
@@ -27,6 +27,7 @@
       <a href="{{ $url }}" target="_blank" rel="noopener">{{ .channel | default "YouTube" }}</a>
     </span>
     {{- with .title }}<span class="nrt-yt-embed__title">{{ . }}</span>{{ end }}
+    <a class="nrt-yt-embed__fallback" href="{{ $url }}" target="_blank" rel="noopener">Watch on YouTube<span class="sr-only">: {{ .title | default (printf "%s press conference" $speaker) }}</span></a>
     {{- with .quote }}<span class="nrt-yt-embed__quote">“{{ . }}”</span>{{ end }}
   </figcaption>
 </figure>
