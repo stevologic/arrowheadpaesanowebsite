@@ -1,6 +1,10 @@
 .nrt-hero-media { margin: 12px 0 20px; overflow: hidden; border-radius: 12px; background: #171416; border: 1px solid #514735; }
 .nrt-hero-media__visual { height: 240px; background: #171416; }
 .nrt-hero-media__visual img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.nrt-event-illustration { display: block; width: 100%; height: 100%; }
+.nrt-press__source-card > .person-media { margin: 14px 16px 0; }
+.nrt-report__person { float: left; margin: 0 12px 8px 0; }
+.nrt-report__profile { float: right; font: 11px/1.5 var(--grotesk); padding: 5px; }
 .nrt-hero-media__caption { display: grid; gap: 3px; padding: 12px 16px; color: #eee5d4; font: 13px/1.4 var(--grotesk); }
 .nrt-hero-media__caption strong { font-size: 17px; }
 .nrt-hero-media__label { color: #ffcf53; text-transform: uppercase; font-size: 10px; letter-spacing: .08em; }
@@ -77,6 +81,8 @@
 .nrt-nextgame__more summary { cursor: pointer; min-height: 32px; }
 .nrt-nextgame__more summary:focus-visible { outline: 2px solid #ffcf53; }
 @media (max-width: 600px) {
+  .nrt-hero-media[data-hero-kind="article-illustration"] { display: block; }
+  .nrt-hero-media[data-hero-kind="article-illustration"] .nrt-hero-media__visual { height: 135px; }
   .nrt-hero-media { display: grid; grid-template-columns: 115px minmax(0,1fr); }
   .nrt-hero-media__visual { height: 140px; }
   .nrt-hero-media__caption { padding: 10px; font-size: 11px; align-content: center; }

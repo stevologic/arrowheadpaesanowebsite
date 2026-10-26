@@ -1,7 +1,7 @@
 {{- $catalog := .site.Data.hero_media -}}
 {{- $media := $catalog.fallback -}}
 {{- $licensed := false -}}
-{{- $item := index ($catalog.items | default dict) (.n.heroMediaId | default "paesano-channel") -}}
+{{- $item := index ($catalog.items | default dict) (.n.heroMediaId | default "article-illustration") -}}
 {{- with $item -}}
   {{- $r := .rights | default dict -}}
   {{- $evidenceOK := and (findRE `^docs/media-rights/[A-Za-z0-9_-]+\.md$` ($r.evidence | default "")) (fileExists ($r.evidence | default "missing")) -}}
@@ -12,10 +12,11 @@
     {{- if and (fileExists $path) (eq (sha256 (readFile $path)) .sha256) -}}{{- $media = . -}}{{- $licensed = true -}}{{- end -}}
   {{- end -}}
 {{- end -}}
-<figure class="nrt-hero-media" data-hero-kind="{{ if $licensed }}licensed-image{{ else }}channel-fallback{{ end }}">
-  <div class="nrt-hero-media__visual"><img src="{{ $media.image | relURL }}" alt="{{ $media.alt }}" width="{{ $media.width }}" height="{{ $media.height }}" decoding="async" fetchpriority="high" /></div>
+{{- $context := partial "nrt-event-context.html" .n -}}
+<figure class="nrt-hero-media" data-hero-kind="{{ if $licensed }}licensed-image{{ else }}article-illustration{{ end }}" data-event-subject="{{ $context.subject }}" data-event-mode="{{ $context.mode }}">
+  <div class="nrt-hero-media__visual">{{ if $licensed }}<img src="{{ $media.image | relURL }}" alt="{{ $media.alt }}" width="{{ $media.width }}" height="{{ $media.height }}" decoding="async" fetchpriority="high" />{{ else }}{{ partial "nrt-event-illustration.html" .n }}{{ end }}</div>
   <figcaption class="nrt-hero-media__caption">
     {{ if $licensed }}<span class="nrt-hero-media__label">Licensed image</span><strong>{{ $media.caption }}</strong><span>{{ $media.rights.attribution }} · {{ $media.rights.license }}</span><a href="{{ $media.sourceUrl }}" target="_blank" rel="noopener">Original post on X</a>
-    {{ else }}<span class="nrt-hero-media__label">Channel image</span><strong>{{ $media.caption }}</strong><span>{{ $media.attribution }}</span>{{ end }}
+    {{ else }}<span class="nrt-hero-media__label">Temporary article illustration</span><strong>{{ $context.topic }}</strong><span>{{ $context.label }}</span><span>Event photograph not yet cleared.</span>{{ end }}
   </figcaption>
 </figure>
