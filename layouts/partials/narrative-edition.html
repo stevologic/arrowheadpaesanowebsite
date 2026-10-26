@@ -303,7 +303,7 @@
     <div class="nrt-press__source-grid">
       {{ range . }}
       <a class="nrt-press__source-card" href="{{ .url }}" target="_blank" rel="noopener">
-        <img src="{{ .image }}" alt="{{ .speaker }} at the podium in the recorded {{ .dateLabel }} Chiefs press conference" width="320" height="180" loading="lazy" decoding="async" />
+        {{ partial "person-media.html" (dict "name" .speaker "site" $site) }}
         <span>Recorded {{ .dateLabel }} · {{ .speaker }}</span>
         <strong>{{ .title }}</strong>
         <small>Watch at Chiefs.com ↗</small>
@@ -425,12 +425,8 @@
         <ul class="nrt-report__list nrt-report__list--injury">
           {{ range . }}
           <li>
-            {{ if and .image .imageSource }}
-            <a class="nrt-report__portrait" href="{{ .imageSource }}" target="_blank" rel="noopener" aria-label="{{ .player }}: official Chiefs profile and photo">
-              <img src="{{ .image }}" alt="{{ .player }} — official Chiefs profile photo" width="88" height="66" loading="lazy" decoding="async" />
-              <span>Chiefs photo</span>
-            </a>
-            {{ end }}
+            <span class="nrt-report__person">{{ partial "person-media.html" (dict "name" .player "site" $site) }}</span>
+            {{ with .imageSource }}<a class="nrt-report__profile" href="{{ . }}" target="_blank" rel="noopener">Player profile</a>{{ end }}
             <div class="nrt-report__row">
               {{ with .player }}<strong>{{ . }}</strong>{{ end }}
               {{ with .status }}<span class="nrt-status">{{ . }}</span>{{ end }}

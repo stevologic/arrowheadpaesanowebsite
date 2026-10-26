@@ -1,11 +1,22 @@
 # Narrative imagery and schematic views
 
 Every current and archived narrative receives a hero through the same partial.
-The initial catalog deliberately contains **no rights-cleared X photographs**.
-The fallback is the existing first-party Arrowhead Paesano channel image at
-`images/channel/host-studio-red.webp`, introduced in commit
-`5937845efa65f48c0013c019d035f327daca209b` and inspected for this change.
-It is labeled a channel image, never a current-game or X photograph.
+No event-specific photograph is currently cleared. The former channel-portrait
+fallback is deliberately retired: it does not illustrate an article's event.
+
+Until a matching photograph has documented reuse rights, the hero is a clearly
+labeled original vector illustration. It uses the **viewed edition's** headline,
+phase, opponent and event-date label. Preview editions use their next game;
+Review editions use their last-game review; camp and other reports retain their
+own topic. It never borrows today's opponent for an archived story. This is a
+temporary illustration, not fulfillment of the event-photograph requirement.
+It depicts no person, stadium scene, actual play or purported game outcome.
+
+Photo review must match the article's event, event date and pictured identity,
+in addition to checking rights. A licensed but unrelated archival photograph is
+not an acceptable replacement. Record the exact source gallery/post, frame,
+photographer, capture date, permission and any required credit. A public gallery
+or social post by itself is not permission to download, hotlink or republish.
 
 The generator overwrites model-supplied hero IDs. It may select only a reviewed
 `data/hero_media.json` entry for the exact edition slug. An entry requires a
@@ -19,7 +30,7 @@ X post's media. If the rightsholder supplies a separately licensed original,
 record that permission and source post. Honor license terms and adaptations.
 
 This hero implementation does not load X scripts, scrape X or create new
-tracking consent. No licensed record means the owned fallback. A removed or
+tracking consent. No licensed record means the labeled article illustration. A removed or
 expired permission must be removed from the catalog; the template also checks
 scope, permission dates and asset hash at build time. Historic signed narrative
 JSON is not rewritten to add heroes.
@@ -40,3 +51,8 @@ reproducibility. No CDN script loads. Readers opt into a single 3D view; there
 is at most one WebGL context, pixel ratio is capped at 1.5, and leaving the play
 or tab disposes its resources. Reduced motion or unavailable WebGL keeps the
 2D board and all stage controls. Both views use identical schematic coordinates.
+
+Raw `injuries[].image` and `pressConferenceLinks[].image` fields are source
+candidates, not license records. Rendering uses the shared reviewed people
+catalog; absent permission, show the silhouette and retain the source link.
+This does not alter the separate user-activated official YouTube player embeds.
