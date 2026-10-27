@@ -8,6 +8,7 @@ widely-known facts, and to return a single JSON object matching the schema.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 
 from . import collect, config, diagrams, phase as phase_mod
 
@@ -28,6 +29,12 @@ scores, or quotes.
 - Built as a three-act desk: (1) review the last game with real analysis, \
 (2) say where the Chiefs stand and what they must work on or think about, \
 (3) look ahead to the next game with a game plan and a matchup read.
+- In previews, lead with the upcoming opponent and give it most of the space.
+  Near kickoff, the last result is brief supporting context, not the lead.
+  Use topic-specific sectionTitles instead of recycling generic headings.
+  Hero media is selected from the rights-reviewed catalog by the desk; never invent image URLs or licenses.
+  Roster players and proposed playmakers must be named only from supplied facts; roles in play cards are illustrative assignments, not participation claims.
+  Do not generate runOfShow or a YouTube script; press conferences are attached separately.
 
 Cite sources using ONLY the provided news items (match the publisher + url). If \
 a claim is general football knowledge, you do not need a citation. Do not \
@@ -507,6 +514,7 @@ def _schema_hint(phase: dict, record: str = "") -> str:
             "edition": "omit — the desk writes the edition header",
             "record": record_hint,
             "headline": "punchy edition headline",
+            "sectionTitles": {"lastGame": "topic-specific context heading", "currentState": "current roster story", "gamePlan": "upcoming opponent thesis", "pressConferences": "dated podium coverage heading"},
             "dek": "one-sentence standfirst",
             "videoHook": "spoken cold-open line for the YouTube episode",
             "theEdge": "one-sentence thesis on where the season is trending",
@@ -563,6 +571,10 @@ def _schema_hint(phase: dict, record: str = "") -> str:
                     "opponent": "opp side",
                     "edge": "KC | OPP | PUSH",
                     "note": "why",
+                    "chiefsStat": "optional exact sourced stat, else empty",
+                    "opponentStat": "optional exact sourced stat, else empty",
+                    "statSource": "provided source URL for both stats, else empty",
+                    "statDate": "source date, else empty",
                 }
             ],
             "xsandos": [
@@ -576,18 +588,17 @@ def _schema_hint(phase: dict, record: str = "") -> str:
                     "coaching": "the film-room coaching point, specific to the players "
                                 "who will execute it",
                     "labels": {"x": "route", "z": "route", "te": "route"},
+                    "playmakers": [{"name":"verified player", "role":"proposed schematic role"}],
                 }
             ],
             "coaching": [{"topic": "coaching matchup/staff note", "detail": "1-2 sentences"}],
             "injuries": [
                 {"player": "name", "status": "e.g. PUP/Questionable/Out", "note": "context", "source": "publisher"}
             ],
-            "personnel": [{"move": "roster move/battle", "detail": "1-2 sentences"}],
+            "personnel": [{"move": "roster move/battle", "detail": "1-2 sentences", "players":["verified full player name"]}],
             "strategies": ["3-6 concrete strategies KC could deploy"],
             "debates": ["3-5 fan/viewer debate questions"],
-            "runOfShow": [
-                {"segment": "episode segment", "length": "e.g. 0:00-1:30", "talkTrack": "what to say"}
-            ],
+            "runOfShow": [],
             "sources": [
                 {"title": "headline", "publisher": "name", "url": "url", "note": "why it matters"}
             ],
@@ -654,6 +665,28 @@ def _prior_titles_block(prior_editions: list[dict] | None) -> str:
     return "\n".join(lines)
 
 
+def preview_guidance(phase: dict, next_games: list[dict], now=None) -> str:
+    """Shift space toward the approaching game without changing phase detection."""
+    now = now or datetime.now(timezone.utc)
+    game = phase.get("nextGame") or next(iter(next_games), {})
+    hours = None
+    try:
+        kickoff = datetime.fromisoformat(str(game.get("date", "")).replace("Z", "+00:00"))
+        if kickoff.tzinfo is not None:
+            hours = (kickoff - now).total_seconds() / 3600
+    except (ValueError, TypeError):
+        pass
+    if hours is not None and 0 <= hours <= 24:
+        return ("GAME-DAY PREVIEW: lead with the upcoming opponent, verified availability, "
+                "matchup keys and what to watch. Devote at least three quarters of the analysis "
+                "to the current/upcoming game. Limit last-game context to at most 120 words; "
+                "include only facts that support the next-game plan. Do not claim an inactive "
+                "list, outcome or final score before official confirmation.")
+    return ("PREVIEW: lead with the upcoming opponent and give the next-game plan more space "
+            "than the previous result. Keep last-game analysis as supporting context, with "
+            "specific matchup keys, verified availability and topic-specific headings.")
+
+
 def build_user_prompt(
     signals: dict,
     phase: dict,
@@ -700,6 +733,8 @@ def build_user_prompt(
         "proved, what still needs answering, and how the pieces point toward the opener.",
     }.get(phase.get("type"), "Advance the Chiefs story and look ahead.")
 
+    if str(phase.get("mode") or "").lower() == "preview":
+        guidance = preview_guidance(phase, next_games)
     chunks = [
         facts,
         phase_line,

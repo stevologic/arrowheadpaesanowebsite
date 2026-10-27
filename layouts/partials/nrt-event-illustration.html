@@ -1,0 +1,18 @@
+{{- $context := partial "nrt-event-context.html" . -}}
+<svg class="nrt-event-illustration" viewBox="0 0 660 260" role="img" aria-label="Original article illustration: {{ $context.topic }}. {{ $context.label }}. Not a photograph or game footage.">
+  <rect width="660" height="260" fill="#102e24"/>
+  <path d="M0 0h330v260H0z" fill="#991c35"/>
+  <g stroke="#ffffff" opacity=".12"><path d="M40 0v260M100 0v260M160 0v260M220 0v260M280 0v260M380 0v260M440 0v260M500 0v260M560 0v260M620 0v260"/><path d="M0 30h660M0 230h660"/></g>
+  <g fill="#fff6e5" font-family="Arial, sans-serif" text-anchor="middle">
+    <text x="330" y="47" font-size="14" letter-spacing="3">{{ upper (.phase.label | default "CHIEFS REPORT") }}</text>
+    <text x="330" y="105" font-size="30" font-weight="700">KANSAS CITY CHIEFS</text>
+    {{ if ne $context.subject "Kansas City Chiefs" }}
+      <text x="330" y="139" font-size="16">{{ if eq $context.mode "review" }}GAME REVIEW{{ else }}MATCHUP PREVIEW{{ end }}</text>
+      <text x="330" y="179" font-size="27" font-weight="700">{{ upper $context.subject }}</text>
+    {{ else }}
+      <path d="M285 148q45-36 90 0q-45 36-90 0" fill="#dec38d"/><path d="M313 148h34m-26-8v16m9-16v16m9-16v16" stroke="#5d391f" stroke-width="3"/>
+      <text x="330" y="201" font-size="20">{{ upper $context.label }}</text>
+    {{ end }}
+    <text x="330" y="238" font-size="13">ARTICLE ILLUSTRATION · NOT A PHOTOGRAPH</text>
+  </g>
+</svg>

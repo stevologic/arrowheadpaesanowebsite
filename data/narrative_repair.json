@@ -1,15 +1,6 @@
 {
-  "droppedSentences": [
-    "Herbert\u2019s line reads 22-of-37, 4 sacks, rating 63.3.",
-    "Conner\u2019s sack is one; Herbert\u2019s passing line includes 4 sacks.",
-    "Seattle\u2019s preseason meeting was a 9-9 tie; that is August, not a scouting report.",
-    "That is a different shape from the prior game in Las Vegas, where Kansas City rushed for 189, passed for 210 net, and held the ball 24:18 in a 30-27 win.",
-    "A 2-yard Kansas City touchdown at Q2 1:49 made it 16-3, Butker added a 50-yard field goal at Q2 0:02, and the half closed 19-3."
-  ],
-  "correctedSentences": [
-    "The 2026 Chiefs are 5-0 because the run identity and Steve Spagnuolo\u2019s defense keep cashing afternoons that the passing game does not have to finish in style. Against the Chargers, Patrick Mahomes was 23-of-30 for 272 with a 89.9 rating and zero sacks, Kenneth Walker III carried 19 times for 128 and two rushing touchdowns on 21 touches, and Kansas City still needed Harrison Butker\u2019s fourth-quarter field goal to close a 22-6 win. \u2192 The 2026 Chiefs are 5-0 because the run identity and Steve Spagnuolo\u2019s defense keep cashing afternoons that the passing game does not have to finish in style. Against the Chargers, Patrick Mahomes was 23-of-30 for 272 with an 89.9 rating and zero sacks, Kenneth Walker III carried 19 times for 128 and two rushing touchdowns on 21 touches, and Kansas City still needed Harrison Butker\u2019s fourth-quarter field goal to close a 22-6 win.",
-    "Mahomes at 23-of-30 for 272, zero sacks, three hits, and a 89.9 rating, with Worthy at 7 catches for 73. \u2192 Mahomes at 23-of-30 for 272, zero sacks, three hits, and an 89.9 rating, with Worthy at 7 catches for 73."
-  ],
+  "droppedSentences": [],
+  "correctedSentences": [],
   "leftoverIssues": [],
   "holdAutomerge": true
 }

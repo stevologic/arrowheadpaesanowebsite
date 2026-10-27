@@ -66,7 +66,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,800;1,9..144,700&family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="{{ "css/style.css" | relURL }}" />
   <link rel="stylesheet" href="{{ "css/v2.css" | relURL }}" />
-  <link rel="stylesheet" href="{{ "css/narrative.css" | relURL }}" />
+  <link rel="stylesheet" href="{{ "css/narrative.css" | relURL }}?v={{ readFile "public/css/narrative.css" | sha256 }}" />
+  <link rel="stylesheet" href="{{ "css/editorial-layout.css" | relURL }}?v={{ readFile "public/css/editorial-layout.css" | sha256 }}" />
   <link rel="stylesheet" href="{{ "css/affiliate-footer.css" | relURL }}" />
 </head>
 <body class="page-{{ $bodyPage }}" data-site-base="{{ $homeURL }}" data-logo-url="{{ $logoURL }}">
@@ -128,6 +129,9 @@
       <span class="footer-slogan">Made by a Paesano, for the Kingdom.</span>
     </div>
   </footer>
-  <script src="{{ "js/main.js" | relURL }}" defer></script>
+  <script src="{{ "js/main.js" | relURL }}?v={{ readFile "public/js/main.js" | sha256 }}" defer></script>
+  <script src="{{ "js/playbook.js" | relURL }}?v={{ readFile "public/js/playbook.js" | sha256 }}" defer></script>
+  {{ $threeVersion := index (unmarshal (readFile "package.json")).devDependencies "three" }}
+  <script src="{{ "js/playbook-3d.js" | relURL }}?v={{ readFile "public/js/playbook-3d.js" | sha256 }}" data-three-module="{{ printf "vendor/three-%s/three.module.js" $threeVersion | relURL }}" defer></script>
 </body>
 </html>

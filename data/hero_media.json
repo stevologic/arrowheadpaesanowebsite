@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "fallback": {
+    "id": "article-illustration",
+    "kind": "original-topic-illustration",
+    "rightsBasis": "Original inline vector diagram; no third-party photograph or likeness",
+    "photoStatus": "Event photograph not yet cleared"
+  },
+  "items": {}
+}

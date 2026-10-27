@@ -1,0 +1,15 @@
+{{- /* Context comes from this edition, never the site's current game. */ -}}
+{{- $mode := lower (.phase.mode | default .phase.type | default "") -}}
+{{- $event := dict -}}
+{{- $subject := "Kansas City Chiefs" -}}
+{{- $label := .phase.label | default "Chiefs report" -}}
+{{- if eq $mode "preview" -}}
+  {{- $event = .nextGame | default dict -}}
+  {{- $subject = $event.opponent | default $subject -}}
+  {{- $label = $event.label | default $label -}}
+{{- else if eq $mode "review" -}}
+  {{- $event = .lastGameReview | default dict -}}
+  {{- $subject = $event.opponent | default $subject -}}
+  {{- $label = $event.label | default $label -}}
+{{- end -}}
+{{- return (dict "subject" $subject "label" $label "mode" $mode "topic" (.headline | default "Chiefs report")) -}}

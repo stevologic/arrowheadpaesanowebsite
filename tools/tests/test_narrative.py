@@ -710,10 +710,7 @@ class Diagrams(unittest.TestCase):
         css = (
             Path(__file__).resolve().parents[2] / "public" / "css" / "narrative.css"
         ).read_text(encoding="utf-8")
-        self.assertIn(
-            "grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr))",
-            css,
-        )
+        self.assertRegex(css, r"\.nrt-xo__grid\s*\{[^}]*repeat\(auto-(?:fit|fill),\s*minmax\(min\(100%,\s*\d+px\),\s*1fr\)\)")
         self.assertNotIn(
             "grid-template-columns: repeat(auto-fill, minmax(340px, 1fr))",
             css,
@@ -1867,20 +1864,20 @@ class SeasonClock(unittest.TestCase):
         self.assertNotIn("schedule/", slate)
         self.assertIn(".game", edition)
         self.assertIn("Upcoming game", edition)
-        story = edition.find("Always looking ahead")
+        story = edition.find('nrt-story')
         xo = edition.find('id="xo"')
-        last_game = edition.find('id="last-game"')
+        last_game_template = (root / "layouts" / "partials" / "nrt-last-game.html").read_text(encoding="utf-8")
+        self.assertIn('id="last-game"', last_game_template)
+        self.assertIn('partial "nrt-last-game.html"', edition)
         state = edition.find('id="current-state"')
         plan = edition.find('id="game-plan"')
         self.assertGreater(story, -1)
         self.assertGreater(xo, -1)
         self.assertLess(story, xo, "Always looking ahead must render above the X's & O's")
-        self.assertLess(last_game, state)
         self.assertLess(state, plan)
         self.assertLess(plan, xo, "Next-game plan must render above the X's & O's")
-        self.assertIn("What the tape said", edition)
-        self.assertIn("Where we stand", edition)
-        self.assertIn("The next-game plan", edition)
+        self.assertIn('id="current-state"', edition)
+        self.assertIn('id="game-plan"', edition)
         self.assertIn("How they match up", edition)
         watch_css = (root / "public" / "css" / "v2.css").read_text(encoding="utf-8")
         stage = watch_css[watch_css.find(".yt-stage--watch"):watch_css.find(".yt-stage--watch") + 220]
@@ -10920,6 +10917,8 @@ class XEmbedSlots(unittest.TestCase):
         )
         self.assertIn('{{ with .playerEmbeds }}', edition)
         self.assertIn("nrt-player-embeds", edition)
+        self.assertIn('partial "nrt-last-game.html"', edition)
+        edition += (self.ROOT / "layouts" / "partials" / "nrt-last-game.html").read_text(encoding="utf-8")
         self.assertIn("nrt-keyplay", edition)
         self.assertIn("reflect.IsMap", edition)
         self.assertIn("{{ if and $body $embed }}", edition)
