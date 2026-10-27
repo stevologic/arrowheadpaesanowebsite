@@ -1246,13 +1246,17 @@ def _last_game_from_edition(narrative: dict) -> dict:
 _RECAP_FIXTURES = (
     (("miami",), "espn_401872952_recap.json"),
     (("las vegas", "raiders"), "espn_401872976_recap.json"),
+    (("seattle", "seahawks"), "espn_401873022_recap.json"),
 )
 # Same chain archive_replay uses: last-game fixture + prior-game fixture.
 _PRIOR_RECAP_FIXTURE = {
+    "espn_401873022_recap.json": "espn_401873006_recap.json",
     "espn_401872976_recap.json": "espn_401872952_recap.json",
     "espn_401872952_recap.json": "espn_401872945_recap.json",
 }
 _FIXTURE_OPPONENT = {
+    "espn_401873022_recap.json": ("Seattle Seahawks", "SEA"),
+    "espn_401873006_recap.json": ("Los Angeles Chargers", "LAC"),
     "espn_401872952_recap.json": ("Miami Dolphins", "MIA"),
     "espn_401872945_recap.json": ("Indianapolis Colts", "IND"),
     "espn_401872976_recap.json": ("Las Vegas Raiders", "LV"),
@@ -1405,8 +1409,8 @@ def recap_is_usable(recap: dict | None) -> bool:
 def replay_fixture_missing(narrative: dict | None) -> bool:
     """True when a Review names an opponent we have no ESPN replay fixture for.
 
-    Only Miami and Las Vegas recaps are wired into ``_RECAP_FIXTURES``. A
-    Chargers review must hold automerge instead of passing silently.
+    Miami, Las Vegas, and Seattle recaps are wired into ``_RECAP_FIXTURES``.
+    A Chargers review must hold automerge instead of passing silently.
     """
     payload = narrative or {}
     review = payload.get("lastGameReview") or {}

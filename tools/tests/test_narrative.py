@@ -12004,6 +12004,50 @@ class Oct14EditionGates(unittest.TestCase):
             )
         )
 
+    def test_seattle_week7_replay_uses_regular_season_box(self):
+        """3-20 Seattle is 401873022; 9-9 preseason stays 401873305.
+
+        Always mapping Seattle to the preseason box, or treating a Week 7
+        Review as ``replay not run``, must fail.
+        """
+        from tools.tests.archive_replay import last_game_for_edition
+
+        slate = frozen_schedule()
+        week7 = {
+            "edition": "Week 7 · Review",
+            "phase": {"mode": "review"},
+            "lastGameReview": {
+                "opponent": "Seattle Seahawks",
+                "score": "KC 3–20",
+            },
+        }
+        preseason = {
+            "lastGameReview": {
+                "opponent": "Seattle Seahawks",
+                "score": "KC 9–9",
+            },
+        }
+        last7 = last_game_for_edition(week7, slate)
+        last_pre = last_game_for_edition(preseason, slate)
+        self.assertEqual(str((last7 or {}).get("id")), "401873022")
+        self.assertEqual(
+            ((last7 or {}).get("kcScore"), (last7 or {}).get("oppScore")),
+            (3, 20),
+        )
+        self.assertEqual(str((last_pre or {}).get("id")), "401873305")
+        self.assertFalse(generate.replay_fixture_missing(week7))
+        recap = generate._recap_for_edition(week7)
+        self.assertEqual(str(recap.get("eventId")), "401873022")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "narrative.json"
+            path.write_text(json.dumps(week7) + "\n", encoding="utf-8")
+            with patch.object(generate.config, "NARRATIVE_JSON", path):
+                with redirect_stdout(io.StringIO()) as out:
+                    rc = generate.main(["--gate-replay"])
+            self.assertEqual(rc, 0, out.getvalue())
+            self.assertNotIn("replay not run", out.getvalue())
+            self.assertIn("archive replay gate: ok", out.getvalue())
+
 
 class Oct15CheckerGates(unittest.TestCase):
     """Clock-as-TD and 85.8 sentence-span fixes; no attempt/scheme exemptions."""
