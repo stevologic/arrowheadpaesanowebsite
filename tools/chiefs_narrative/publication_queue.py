@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
@@ -24,7 +25,7 @@ _CT = ZoneInfo("America/Chicago")
 PUBLICATION_HEAD_PREFIX = "narrative/update-"
 PUBLICATION_BASES = frozenset({"develop", "main"})
 STALE_AFTER = timedelta(hours=24)
-SLATE_TITLE_PREFIX = "Chiefs schedule"
+SLATE_TITLE_RE = re.compile(r"^Chiefs schedule — \d{8}-\d{4}$")
 FULL_DESK_MODE = "full"
 
 
@@ -50,18 +51,14 @@ def _normalized_desk_mode(desk_mode: str | None) -> str:
 
 
 def is_slate_only_publication_pr(pr: dict) -> bool:
-    """True when the PR is a schedule-only slate refresh, not a full edition.
+    """True only for an exact schedule-slate title.
 
-    Untitled or ambiguous publication PRs are not treated as slate-only so
-    the queue stays fail-closed.
+    Body phrases such as "schedule-only refresh" or "narrative text was
+    not regenerated" do not exempt a Chiefs Narrative PR or an untitled
+    one. The title must match ``Chiefs schedule — YYYYMMDD-HHMM``.
     """
     title = str((pr or {}).get("title") or "")
-    if title.startswith(SLATE_TITLE_PREFIX):
-        return True
-    body = str((pr or {}).get("body") or "").lower()
-    return "schedule-only refresh" in body or (
-        "narrative text was not regenerated" in body
-    )
+    return bool(SLATE_TITLE_RE.fullmatch(title))
 
 
 def is_stale_publication_pr(pr: dict, *, now: datetime | None = None) -> bool:

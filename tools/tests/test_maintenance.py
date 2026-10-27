@@ -642,9 +642,11 @@ if command == 'gh':
     def test_slate_only_pr_does_not_block_full_desk(self):
         """Same-day slate PRs must not skip the morning narrative.
 
-        Untitled publication PRs stay blocking (fail-closed). A same-day
-        full-edition PR still reprints-blocks. Schedule mode keeps slate
-        backpressure so evening windows do not pile up identical drafts.
+        Untitled publication PRs stay blocking (fail-closed). Body text
+        such as "schedule-only refresh" does not exempt a Narrative or
+        untitled PR. A same-day full-edition PR still reprints-blocks.
+        Schedule mode keeps slate backpressure so evening windows do not
+        pile up identical drafts.
         """
         now = datetime(2026, 10, 27, 15, 30, tzinfo=timezone.utc)
         slate = {
@@ -681,7 +683,7 @@ if command == 'gh':
             "base": {"ref": "develop"},
         }
         self.assertTrue(publication_queue.is_slate_only_publication_pr(slate))
-        self.assertTrue(publication_queue.is_slate_only_publication_pr(body_only_slate))
+        self.assertFalse(publication_queue.is_slate_only_publication_pr(body_only_slate))
         self.assertFalse(publication_queue.is_slate_only_publication_pr(full))
         self.assertFalse(publication_queue.is_slate_only_publication_pr(untitled))
         self.assertFalse(
@@ -689,7 +691,7 @@ if command == 'gh':
                 slate, now=now, desk_mode="full"
             )
         )
-        self.assertFalse(
+        self.assertTrue(
             publication_queue.is_blocking_publication_pr(
                 body_only_slate, now=now, desk_mode="full"
             )
@@ -714,7 +716,7 @@ if command == 'gh':
             publication_queue.pending_publication_numbers(
                 [slate, body_only_slate, untitled], now=now, desk_mode="full"
             ),
-            [267],
+            [264, 267],
         )
         self.assertEqual(
             publication_queue.pending_publication_numbers(
@@ -727,6 +729,114 @@ if command == 'gh':
                 [slate], now=now, desk_mode="schedule"
             ),
             [265],
+        )
+
+    def test_slate_exemption_is_exact_title_only(self):
+        """Kill loose title/body mutants that would skip a full desk.
+
+        ``'schedule' in title.lower()`` and ``startswith('chiefs s')`` must
+        not exempt a Narrative PR, an untitled PR, or a case-variant slate
+        stamp. Only ``^Chiefs schedule — \\d{8}-\\d{4}$`` is slate-only.
+        """
+        now = datetime(2026, 10, 27, 15, 30, tzinfo=timezone.utc)
+        body = (
+            "Automated schedule-only refresh. "
+            "Narrative text was not regenerated."
+        )
+        exact = {
+            "number": 265,
+            "title": "Chiefs schedule — 20261027-0923",
+            "body": body,
+            "created_at": "2026-10-27T09:23:30Z",
+            "head": {"ref": "narrative/update-40480031442-1"},
+            "base": {"ref": "develop"},
+        }
+        narrative = {
+            "number": 269,
+            "title": "Chiefs Narrative — 2026 Week 7 · Review",
+            "body": body,
+            "created_at": "2026-10-27T19:19:13Z",
+            "head": {"ref": "narrative/update-40566411062-1"},
+            "base": {"ref": "develop"},
+        }
+        untitled = {
+            "number": 264,
+            "title": "",
+            "body": body,
+            "created_at": "2026-10-27T09:25:16Z",
+            "head": {"ref": "narrative/update-40298926210-1"},
+            "base": {"ref": "develop"},
+        }
+        schedule_in_narrative = {
+            "number": 270,
+            "title": "Chiefs Narrative — schedule notes after Seattle",
+            "body": body,
+            "created_at": "2026-10-27T10:00:00Z",
+            "head": {"ref": "narrative/update-40522222222-1"},
+            "base": {"ref": "develop"},
+        }
+        chiefs_s_prefix = {
+            "number": 271,
+            "title": "Chiefs slate — 20261027-0923",
+            "body": body,
+            "created_at": "2026-10-27T10:01:00Z",
+            "head": {"ref": "narrative/update-40533333333-1"},
+            "base": {"ref": "develop"},
+        }
+        case_variants = (
+            "chiefs schedule — 20261027-0923",
+            "Chiefs Schedule — 20261027-0923",
+            "CHIEFS SCHEDULE — 20261027-0923",
+            "Chiefs schedule - 20261027-0923",
+            "Chiefs schedule — 20261027-092",
+            "Chiefs schedule — 20261027-0923 extra",
+        )
+        self.assertTrue(publication_queue.is_slate_only_publication_pr(exact))
+        self.assertFalse(publication_queue.is_slate_only_publication_pr(narrative))
+        self.assertFalse(publication_queue.is_slate_only_publication_pr(untitled))
+        self.assertFalse(
+            publication_queue.is_slate_only_publication_pr(schedule_in_narrative)
+        )
+        self.assertFalse(publication_queue.is_slate_only_publication_pr(chiefs_s_prefix))
+        for title in case_variants:
+            with self.subTest(title=title):
+                self.assertFalse(
+                    publication_queue.is_slate_only_publication_pr(
+                        {
+                            "number": 272,
+                            "title": title,
+                            "body": body,
+                            "created_at": "2026-10-27T10:02:00Z",
+                            "head": {"ref": "narrative/update-40544444444-1"},
+                            "base": {"ref": "develop"},
+                        }
+                    ),
+                    title,
+                )
+        self.assertFalse(
+            publication_queue.is_blocking_publication_pr(
+                exact, now=now, desk_mode="full"
+            )
+        )
+        self.assertTrue(
+            publication_queue.is_blocking_publication_pr(
+                narrative, now=now, desk_mode="full"
+            )
+        )
+        self.assertTrue(
+            publication_queue.is_blocking_publication_pr(
+                untitled, now=now, desk_mode="full"
+            )
+        )
+        self.assertTrue(
+            publication_queue.is_blocking_publication_pr(
+                schedule_in_narrative, now=now, desk_mode="full"
+            )
+        )
+        self.assertTrue(
+            publication_queue.is_blocking_publication_pr(
+                chiefs_s_prefix, now=now, desk_mode="full"
+            )
         )
 
     @unittest.skipIf(os.name == "nt", "Actual Actions bash execution is covered on Linux CI")
