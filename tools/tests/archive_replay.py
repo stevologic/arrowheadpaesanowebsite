@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import copy
 import json
-import re
 import subprocess
 from pathlib import Path
 
@@ -21,19 +20,13 @@ _EVENT_BY_OPP = {
     "miami dolphins": "401872952",
     "las vegas raiders": "401872976",
 }
-# Regular-season rematches that share an opponent with an earlier fixture.
-_EXTRA_EVENTS_BY_OPP = {
-    "seattle seahawks": ("401873022",),
-}
 _PRIOR = {
-    "401873022": "401873006",
     "401872976": "401872952",
     "401872952": "401872945",
     "401872945": "401872931",
     "401872931": "401873305",
     "401873305": "401873296",
 }
-_SCORE = re.compile(r"(\d+)\s*[–-]\s*(\d+)")
 
 
 def recap_path(event_id: str) -> Path:
@@ -67,14 +60,9 @@ def load_recap(event_id: str) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _all_event_ids() -> set[str]:
-    extra = {event for events in _EXTRA_EVENTS_BY_OPP.values() for event in events}
-    return set(_EVENT_BY_OPP.values()) | set(_PRIOR) | set(_PRIOR.values()) | extra
-
-
 def recaps_by_event() -> dict[str, dict]:
     out = {}
-    for event_id in _all_event_ids():
+    for event_id in set(_EVENT_BY_OPP.values()) | set(_PRIOR.values()):
         payload = load_recap(event_id)
         if not payload:
             continue
@@ -89,58 +77,11 @@ def recaps_by_event() -> dict[str, dict]:
     return out
 
 
-def _edition_score(review: dict) -> tuple[int, int] | None:
-    match = _SCORE.search(str((review or {}).get("score") or ""))
-    if not match:
-        return None
-    return int(match.group(1)), int(match.group(2))
-
-
-def _recap_final_score(recap: dict | None) -> tuple[int, int] | None:
-    plays = (recap or {}).get("scoringPlays") or []
-    if not plays:
-        return None
-    last = plays[-1]
-    try:
-        return int(last["kcScore"]), int(last["oppScore"])
-    except (KeyError, TypeError, ValueError):
-        return None
-
-
-def _events_for_opponent(opp: str) -> list[str]:
-    mapped = _EVENT_BY_OPP.get(opp)
-    extra = list(_EXTRA_EVENTS_BY_OPP.get(opp) or ())
-    out: list[str] = []
-    for event_id in [*extra, mapped]:
-        if event_id and event_id not in out:
-            out.append(event_id)
-    return out
-
-
 def last_game_for_edition(edition: dict, schedule: list) -> dict | None:
     review = edition.get("lastGameReview") or {}
     opp = (review.get("opponent") or "").strip().lower()
     if not opp:
         return None
-    wanted = _edition_score(review)
-    if wanted:
-        for event_id in _events_for_opponent(opp):
-            if _recap_final_score(load_recap(event_id)) != wanted:
-                continue
-            for game in schedule or []:
-                if str(game.get("id")) == event_id:
-                    row = dict(game)
-                    row["completed"] = True
-                    row["kcScore"] = wanted[0]
-                    row["oppScore"] = wanted[1]
-                    return row
-            return {
-                "id": event_id,
-                "completed": True,
-                "opponent": review.get("opponent"),
-                "kcScore": wanted[0],
-                "oppScore": wanted[1],
-            }
     event_id = _EVENT_BY_OPP.get(opp)
     for game in schedule or []:
         if str(game.get("id")) == event_id:
