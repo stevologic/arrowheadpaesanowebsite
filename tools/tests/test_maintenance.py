@@ -531,8 +531,14 @@ class PublicationPolicy(unittest.TestCase):
         queue = next(step for step in steps if step.get("id") == "queue")
         writer = next(step for step in steps if step["name"] == "Generate the Chiefs Narrative")
         slate = next(step for step in steps if step["name"] == "Refresh the published slate")
+        mode = next(step for step in steps if step.get("id") == "mode")
+        self.assertLess(steps.index(mode), steps.index(queue))
         self.assertLess(steps.index(queue), steps.index(writer))
         self.assertIn("publication_queue", queue["run"])
+        self.assertEqual(
+            (queue.get("env") or {}).get("DESK_MODE"),
+            "${{ steps.mode.outputs.mode }}",
+        )
         for pending, expected in (("true", False), ("false", True)):
             namespace = SimpleNamespace(
                 queue=SimpleNamespace(outputs=SimpleNamespace(pending=pending)),
@@ -633,6 +639,96 @@ if command == 'gh':
             [215],
         )
 
+    def test_slate_only_pr_does_not_block_full_desk(self):
+        """Same-day slate PRs must not skip the morning narrative.
+
+        Untitled publication PRs stay blocking (fail-closed). A same-day
+        full-edition PR still reprints-blocks. Schedule mode keeps slate
+        backpressure so evening windows do not pile up identical drafts.
+        """
+        now = datetime(2026, 10, 27, 15, 30, tzinfo=timezone.utc)
+        slate = {
+            "number": 265,
+            "title": "Chiefs schedule — 20261027-0923",
+            "body": (
+                "Automated schedule-only refresh. "
+                "Narrative text was not regenerated."
+            ),
+            "created_at": "2026-10-27T09:23:30Z",
+            "head": {"ref": "narrative/update-40480031442-1"},
+            "base": {"ref": "develop"},
+        }
+        body_only_slate = {
+            "number": 264,
+            "title": "",
+            "body": "Automated schedule-only refresh of the ESPN slate.",
+            "created_at": "2026-10-27T09:25:16Z",
+            "head": {"ref": "narrative/update-40298926210-1"},
+            "base": {"ref": "develop"},
+        }
+        full = {
+            "number": 266,
+            "title": "Chiefs Narrative — 2026 Week 8 · Preview",
+            "body": "Automated refresh of the Chiefs Narrative and 2026 slate.",
+            "created_at": "2026-10-27T16:00:00Z",
+            "head": {"ref": "narrative/update-40500000000-1"},
+            "base": {"ref": "develop"},
+        }
+        untitled = {
+            "number": 267,
+            "created_at": "2026-10-27T10:00:00Z",
+            "head": {"ref": "narrative/update-40511111111-1"},
+            "base": {"ref": "develop"},
+        }
+        self.assertTrue(publication_queue.is_slate_only_publication_pr(slate))
+        self.assertTrue(publication_queue.is_slate_only_publication_pr(body_only_slate))
+        self.assertFalse(publication_queue.is_slate_only_publication_pr(full))
+        self.assertFalse(publication_queue.is_slate_only_publication_pr(untitled))
+        self.assertFalse(
+            publication_queue.is_blocking_publication_pr(
+                slate, now=now, desk_mode="full"
+            )
+        )
+        self.assertFalse(
+            publication_queue.is_blocking_publication_pr(
+                body_only_slate, now=now, desk_mode="full"
+            )
+        )
+        self.assertTrue(
+            publication_queue.is_blocking_publication_pr(
+                full, now=now, desk_mode="full"
+            )
+        )
+        self.assertTrue(
+            publication_queue.is_blocking_publication_pr(
+                untitled, now=now, desk_mode="full"
+            )
+        )
+        self.assertTrue(
+            publication_queue.is_blocking_publication_pr(
+                slate, now=now, desk_mode="schedule"
+            )
+        )
+        self.assertTrue(publication_queue.is_blocking_publication_pr(slate, now=now))
+        self.assertEqual(
+            publication_queue.pending_publication_numbers(
+                [slate, body_only_slate, untitled], now=now, desk_mode="full"
+            ),
+            [267],
+        )
+        self.assertEqual(
+            publication_queue.pending_publication_numbers(
+                [slate, full], now=now, desk_mode="full"
+            ),
+            [266],
+        )
+        self.assertEqual(
+            publication_queue.pending_publication_numbers(
+                [slate], now=now, desk_mode="schedule"
+            ),
+            [265],
+        )
+
     @unittest.skipIf(os.name == "nt", "Actual Actions bash execution is covered on Linux CI")
     def test_queue_shell_is_fail_closed_and_reports_backpressure(self):
         script = next(step["run"] for step in self.narrative["jobs"]["generate"]["steps"] if step.get("id") == "queue")
@@ -688,6 +784,54 @@ if command == 'gh':
                         (root / "output").read_text().strip(),
                         f"pending={'true' if pending else 'false'}",
                     )
+
+    @unittest.skipIf(os.name == "nt", "Actual Actions bash execution is covered on Linux CI")
+    def test_queue_shell_full_desk_ignores_same_day_slate_pr(self):
+        script = next(
+            step["run"]
+            for step in self.narrative["jobs"]["generate"]["steps"]
+            if step.get("id") == "queue"
+        )
+        now = datetime.now(timezone.utc)
+        slate = [{
+            "number": 265,
+            "title": "Chiefs schedule — 20261027-0923",
+            "body": "Automated schedule-only refresh. Narrative text was not regenerated.",
+            "created_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "head": {"ref": "narrative/update-40480031442-1"},
+            "base": {"ref": "develop"},
+        }]
+        full = [{
+            "number": 266,
+            "title": "Chiefs Narrative — 2026 Week 8 · Preview",
+            "body": "Automated refresh of the Chiefs Narrative and 2026 slate.",
+            "created_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "head": {"ref": "narrative/update-40500000000-1"},
+            "base": {"ref": "develop"},
+        }]
+        cases = (
+            (json.dumps(slate), "full", False),
+            (json.dumps(slate), "schedule", True),
+            (json.dumps(full), "full", True),
+            (json.dumps(slate + full), "full", True),
+        )
+        for response, mode, pending in cases:
+            with self.subTest(mode=mode, pending=pending), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                env = self._fake_commands(root)
+                env.update(API_RESULT=response, API_EXIT="0", DESK_MODE=mode)
+                result = subprocess.run(
+                    ["bash", "-c", script],
+                    cwd=Path(__file__).resolve().parents[2],
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(
+                    (root / "output").read_text().strip(),
+                    f"pending={'true' if pending else 'false'}",
+                )
 
     @unittest.skipIf(os.name == "nt", "Actual Actions bash execution is covered on Linux CI")
     def test_publisher_shell_always_queues_draft_and_preserves_holds(self):

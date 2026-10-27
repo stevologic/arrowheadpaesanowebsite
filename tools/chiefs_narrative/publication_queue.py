@@ -1,9 +1,11 @@
 """Queue backpressure for Chiefs Narrative publication PRs.
 
-An open ``narrative/update-*`` PR to develop/main still blocks same-day
-provider work so a pending draft is not reprinted. Automation must not
-close, merge, or delete those heads (``maintenance.json`` sets
-``close/merge/delete: false`` and protects ``narrative/update-*``).
+An open same-day ``narrative/update-*`` full-edition PR to develop/main
+still blocks provider work so a pending draft is not reprinted.
+Schedule-only (slate) PRs refresh ``data/schedule_2026.json`` only and do
+not block a full-mode desk. Automation must not close, merge, or delete
+those heads (``maintenance.json`` sets ``close/merge/delete: false`` and
+protects ``narrative/update-*``).
 
 A held draft older than 24 hours, or from a previous America/Chicago
 calendar day, is treated as stale: the next scheduled desk may generate
@@ -22,6 +24,8 @@ _CT = ZoneInfo("America/Chicago")
 PUBLICATION_HEAD_PREFIX = "narrative/update-"
 PUBLICATION_BASES = frozenset({"develop", "main"})
 STALE_AFTER = timedelta(hours=24)
+SLATE_TITLE_PREFIX = "Chiefs schedule"
+FULL_DESK_MODE = "full"
 
 
 class QueueLookupError(RuntimeError):
@@ -41,6 +45,25 @@ def _parse_iso(stamp: str | None) -> datetime | None:
     return dt
 
 
+def _normalized_desk_mode(desk_mode: str | None) -> str:
+    return (desk_mode or "").strip().lower()
+
+
+def is_slate_only_publication_pr(pr: dict) -> bool:
+    """True when the PR is a schedule-only slate refresh, not a full edition.
+
+    Untitled or ambiguous publication PRs are not treated as slate-only so
+    the queue stays fail-closed.
+    """
+    title = str((pr or {}).get("title") or "")
+    if title.startswith(SLATE_TITLE_PREFIX):
+        return True
+    body = str((pr or {}).get("body") or "").lower()
+    return "schedule-only refresh" in body or (
+        "narrative text was not regenerated" in body
+    )
+
+
 def is_stale_publication_pr(pr: dict, *, now: datetime | None = None) -> bool:
     """True when a bot edition PR must not block the next scheduled run."""
     created = _parse_iso((pr or {}).get("created_at"))
@@ -52,7 +75,9 @@ def is_stale_publication_pr(pr: dict, *, now: datetime | None = None) -> bool:
     return created.astimezone(_CT).date() < now.astimezone(_CT).date()
 
 
-def is_blocking_publication_pr(pr: dict, *, now: datetime | None = None) -> bool:
+def is_blocking_publication_pr(
+    pr: dict, *, now: datetime | None = None, desk_mode: str | None = None
+) -> bool:
     """True when this open PR should skip generation."""
     head = str(((pr or {}).get("head") or {}).get("ref") or "")
     base = str(((pr or {}).get("base") or {}).get("ref") or "")
@@ -60,18 +85,24 @@ def is_blocking_publication_pr(pr: dict, *, now: datetime | None = None) -> bool
         return False
     if base not in PUBLICATION_BASES:
         return False
-    return not is_stale_publication_pr(pr, now=now)
+    if is_stale_publication_pr(pr, now=now):
+        return False
+    if _normalized_desk_mode(desk_mode) == FULL_DESK_MODE and (
+        is_slate_only_publication_pr(pr)
+    ):
+        return False
+    return True
 
 
 def pending_publication_numbers(
-    prs, *, now: datetime | None = None
+    prs, *, now: datetime | None = None, desk_mode: str | None = None
 ) -> list[int]:
-    """Fresh bot edition PR numbers, oldest first."""
+    """Fresh bot edition PR numbers that block this desk, oldest first."""
     rows = []
     for pr in prs or []:
         if not isinstance(pr, dict):
             continue
-        if not is_blocking_publication_pr(pr, now=now):
+        if not is_blocking_publication_pr(pr, now=now, desk_mode=desk_mode):
             continue
         number = pr.get("number")
         if number is None:
@@ -134,7 +165,9 @@ def _write_output(pending: list[int]) -> None:
 def main(argv=None) -> int:
     del argv
     try:
-        pending = pending_publication_numbers(_load_open_pulls())
+        pending = pending_publication_numbers(
+            _load_open_pulls(), desk_mode=os.environ.get("DESK_MODE")
+        )
     except QueueLookupError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

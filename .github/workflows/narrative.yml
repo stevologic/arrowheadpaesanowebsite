@@ -101,6 +101,7 @@ jobs:
         id: queue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DESK_MODE: ${{ steps.mode.outputs.mode }}
         run: |
           set -euo pipefail
           python -m tools.chiefs_narrative.publication_queue
