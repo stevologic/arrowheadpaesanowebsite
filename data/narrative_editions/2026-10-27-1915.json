@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-10-27T19:15:53+00:00",
-  "updatedAt": "2026-10-27T19:15:54+00:00",
+  "updatedAt": "2026-10-27T19:45:00+00:00",
   "generator": "grok:grok-4.7",
   "heroMediaId": "article-illustration",
   "phase": {
@@ -15,13 +15,13 @@
   "headline": "213 yards, a 50-yard answer, and a short week to Denver",
   "sectionTitles": {
     "lastGame": "Lumen Field film: 3-20 and no red-zone cash",
-    "currentState": "5-1 with a thin skill room and a louder trade desk",
+    "currentState": "5-1 after the first loss, with Denver on the road",
     "gamePlan": "Denver at 3:25: take the early downs back",
     "pressConferences": "Monday podium, still waiting on the official embeds"
   },
   "dek": "Kansas City is 5-1 after Seattle won 20-3 at Lumen Field, and the next kickoff is at Denver on Sun Nov 1, 3:25 PM CT on CBS with the Chiefs laying 1.5.",
   "videoHook": "Three points, 213 yards, and a division rematch that does not care how pretty the first five weeks looked.",
-  "theEdge": "ESPN FPI still gives Kansas City 55.7 percent at Denver, DraftKings lists the Chiefs at minus 1.5 on a 41.5 total, and Polymarket sits at 10.1 percent to win the championship and 17.5 percent to win the AFC — a one-score favorite after a game the offense never controlled.",
+  "theEdge": "ESPN FPI still gives Kansas City 55.7 percent at Denver and DraftKings lists the Chiefs at minus 1.5 on a 41.5 total — a one-score favorite after a game the offense never controlled.",
   "pressConferences": [
     {
       "url": "https://www.youtube.com/watch?v=zvF4g-5-wyc",
@@ -36,10 +36,9 @@
   "storyline": {
     "lede": "The 5-0 start met a Seattle team that kept the ball, ran it, and never let Patrick Mahomes find a rhythm. Kansas City finished with 11 first downs, 50 rushing yards on 16 attempts, 163 net passing yards, 213 total yards, and 24:09 of possession. Seattle finished with 24 first downs, 153 rushing yards on 41 attempts, 257 net passing yards, 410 total yards, and 35:51 of possession. Both clubs had eight drives and one turnover. The final was 3-20.",
     "body": [
-      "Seattle scored on a 25-yard field goal, a 28-yard touchdown, a 35-yard field goal, and a 21-yard touchdown. Kansas City’s scoring play was Harrison Butker’s 50-yard field goal. Butker also missed from 58 and from 45, and a late third-down throw to Travis Kelce ended in a turnover on downs. Mahomes was 19-of-33 for 165 yards with one interception, one sack, and a 58.3 rating. Seattle recorded seven quarterback hits. Kansas City recorded two. Sam Darnold was 20-of-28 with no sacks and a 96.9 rating.",
-      "Kenneth Walker III had 14 carries for 36 yards and four catches, 18 touches in a game Seattle clearly wanted to shrink. Emanuel Wilson had 24 rushes and one catch. Jaxon Smith-Njigba had nine catches and two rushes, including the 28-yard touchdown throw from Darnold. Drue Tranquill’s 12 tackles were the loudest Kansas City defensive line on the sheet, and the unit still could not get off the field: Seattle was 11-of-16 on third down, Kansas City 3-of-11.",
-      "Arrowhead Pride notes the defense still allows the second-fewest points per game in the league at 17.2, and that this was bend-don’t-break football that bent for too long. The same outlet’s power-rankings roundup has ESPN dropping the Chiefs from 2 to 4, with Kenneth Walker III listed as the best offseason addition even after a quiet rushing line.",
-      "Denver is next, and Arrowhead Pride already frames it as the louder question for a 5-1 team against a 5-2 Broncos club. Kansas City won the Week 1 meeting 31-10. This one is on the road, Sun Nov 1, 3:25 PM CT, CBS. The market still leans Kansas City. The tape says the early-down run and the third-down stop have to show up before anyone treats that number as comfort."
+      "Seattle scored on a 25-yard field goal, a 28-yard touchdown, a 35-yard field goal, and a 21-yard touchdown. Kansas City’s scoring play was Harrison Butker’s 50-yard field goal. Butker also missed from 58 and from 45, and a late 4th-and-10, 3-yard catch by Travis Kelce ended in a turnover on downs. Mahomes was 19-of-33 for 165 yards with one interception, one sack, and a 58.3 rating. Seattle recorded seven quarterback hits. Kansas City recorded two. Sam Darnold was 20-of-28 with no sacks and a 96.9 rating.",
+      "Kenneth Walker III had 14 carries for 36 yards and four catches, 18 touches in a game Seattle clearly wanted to shrink. Emanuel Wilson had 24 rushes and one catch. Jaxon Smith-Njigba had nine catches and two rushes, including the 28-yard touchdown throw from Darnold. Drue Tranquill’s 12 tackles were the loudest Kansas City defender on the sheet, and the unit still could not get off the field: Seattle was 11-of-16 on third down, Kansas City 3-of-11.",
+      "The defense has allowed 17.2 points per game through six contests (10+30+10+27+6+20). This tape was 20 allowed, 11-of-16 third downs surrendered, and 35:51 of Seattle possession. Denver is next. Kansas City won the Week 1 meeting 31-10 at Arrowhead. Week 8 is on the road at Empower Field, Sun Nov 1, 3:25 PM CT, CBS. Denver is 5-2. The market still leans Kansas City. The tape says the early-down run and the third-down stop have to show up before anyone treats that number as comfort."
     ]
   },
   "lastGameReview": {
@@ -53,19 +52,19 @@
         "body": "The rushing gap is the film. Kansas City ran 16 times for 50 yards. Walker’s 14 carries gained 36, with Mahomes adding two scrambles. Seattle ran 41 times for 153. Wilson’s volume, George Holani’s six touches, Velus Jones Jr.’s five rushes, and three AJ Barner rushes — including direct snaps — kept Darnold in manageable down-and-distance. A second-quarter Wilson carry lost three to K. Tonga, and another lost a yard to George Karlaftis and Chris Roland-Wallace. Those wins did not change the down-and-distance trend."
       },
       {
-        "body": "Mahomes’ 19-of-33, 165-yard line included two 19-yard completions to Noah Gray, one deep right in the first quarter and one deep middle in the fourth, plus four Kelce catches for 44 yards and three Xavier Worthy targets that produced three catches and multiple incompletions, including a deep right with pressure from D. Hall and a deep left with pressure from M. Morris. The interception was a short left throw intended for J. Royals, taken by T. Okada with N. Emmanwori in on the play. Creed Humphrey’s first-quarter snap was fumbled and recovered by Mahomes. Hall later sacked Mahomes for a two-yard loss and forced a fumble that Mahomes also recovered. That is one sack and seven quarterback hits, not a clean pocket."
+        "body": "Mahomes’ 19-of-33, 165-yard line included two 19-yard completions to Noah Gray, one deep right in the first quarter and one deep middle in the fourth, plus four Kelce catches for 44 yards and six Xavier Worthy targets that produced three catches for 11 yards, including a deep right with pressure from D. Hall and a deep left with pressure from M. Morris. The interception was a short left throw intended for J. Royals, taken by T. Okada with N. Emmanwori in on the play. Creed Humphrey’s first-quarter snap was fumbled and recovered by Mahomes. Hall later sacked Mahomes for a two-yard loss and forced a fumble that Mahomes also recovered. That is one sack and seven quarterback hits, not a clean pocket."
       },
       {
         "body": "Seattle’s explosive answers were specific. Darnold’s deep left to Smith-Njigba was ruled a 27-yard catch to the 1, then reversed to a 28-yard touchdown. He had already scrambled left end for seven, and Jones had a right-end carry of 11. Later Darnold scrambled right end for 10. N. Williams intercepted a short middle throw intended for Rashid Shaheed and returned it 65 yards, with Karlaftis credited on the play. That takeaway did not produce points. Butker’s 58-yard try was short, and the 45-yard try was wide right."
       },
       {
-        "body": "Special teams and penalties framed empty drives. Kelce’s illegal shift wiped a first-quarter play. Kingsley Suamataia’s holding call wiped a fourth-quarter play. Seattle had three false starts, by G. Zabel, A. Bradford, and J. Sundell. On one first-quarter snap, J. Jones and O. Oluwatimi reported eligible before a direct snap to Barner up the middle. Later Barner direct snaps are on the log without that same report. Nick Bolton was injured on a third-quarter Wilson carry. The desk does not have a follow-up designation."
+        "body": "Special teams and penalties framed empty drives. Kelce’s illegal shift wiped a first-quarter play. Kingsley Suamataia’s holding call wiped a fourth-quarter play. Seattle had three false starts, by G. Zabel, A. Bradford, and J. Sundell. On one first-quarter snap, J. Jones and O. Oluwatimi reported eligible before a direct snap to Barner up the middle. Later Barner direct snaps are on the log without that same report. Nick Bolton was injured on a third-quarter Emanuel Wilson carry at Q3 11:19 and returned at Q3 10:03. He finished with 11 tackles."
       }
     ],
     "takeaways": [
       {
         "title": "Third down decided the clock",
-        "body": "Seattle converted 11 of 16 third downs. Kansas City converted 3 of 11. Eight drives apiece, and Seattle held the ball for 35:51 to Kansas City’s 24:09. Spagnuolo’s group kept the score at 20, which matches the bend-don’t-break note from Arrowhead Pride, and still never stole a series."
+        "body": "Seattle converted 11 of 16 third downs. Kansas City converted 3 of 11. Eight drives apiece, and Seattle held the ball for 35:51 to Kansas City’s 24:09. Spagnuolo’s group kept the score at 20 and still never stole a series."
       },
       {
         "title": "Walker never got a down-and-distance friend",
@@ -84,11 +83,11 @@
     "whatDidnt": [
       "Sixteen rushes, 50 yards, and 3-of-11 on third down left Mahomes in long-yardage shotgun too often.",
       "Seven quarterback hits and one sack, plus Hall’s forced fumble on the sack, kept the timing offense late.",
-      "Two missed Butker tries and a failed fourth-down throw kept the only Kansas City points on the 50-yard make from changing the game."
+      "Two missed Butker tries and a 3-yard Kelce catch on 4th-and-10 that turned the ball over on downs kept the only Kansas City points on the 50-yard make from changing the game."
     ]
   },
   "currentState": {
-    "lede": "Kansas City is 5-1. The loss was the first of the regular season, and the national boards noticed: Arrowhead Pride’s Week 8 roundup has ESPN at 4, down from 2. The points-allowed figure through Week 7 is still 17.2, second-fewest in the league. The offense that just posted 11 first downs and 213 yards is the part that has to be rebuilt before Denver.",
+    "lede": "Kansas City is 5-1. The loss was the first of the regular season. The points-allowed figure through Week 7 is 17.2. The offense that just posted 11 first downs and 213 yards is the part that has to be rebuilt before Denver.",
     "record": "5-1",
     "workOn": [
       {
@@ -97,7 +96,7 @@
       },
       {
         "title": "Protect the 19-of-33 version of Mahomes",
-        "body": "One sack and seven hits is the count. Suamataia’s holding flag and the Humphrey bobble are operational, not theoretical. Arrowhead Addict has already framed offensive tackle as a trade-market problem. Brett Veach does not have to complete a deal this week for the staff to change help rules and keep Gray and Kelce as defined answers."
+        "body": "One sack and seven hits is the count. Suamataia’s holding flag and the Humphrey bobble are operational, not theoretical. Help rules and defined answers to Gray and Kelce are the install."
       },
       {
         "title": "Third-down stops without living on the takeaway",
@@ -106,23 +105,23 @@
     ],
     "thinkAbout": [
       {
-        "title": "Is the receiver market a this-week problem?",
-        "body": "Arrowhead Pride reports the club is calling around after failing to reach the red zone, with the Tyquan Thornton dislocated ankle already in the background of those talks. Worthy, Kelce, Gray, Justin Watson, Andrew Armstrong, Cyrus Allen, and Emmett Johnson are the catchers on this stat sheet. A deal is a front-office question. The Denver plan still has to be drawn from this room."
-      },
-      {
-        "title": "How much did the snap sheet actually move?",
-        "body": "Arrowhead Addict says the post-Seattle snap counts show trust shifting. Arrowhead Pride’s snap-count piece says L’Jarius Sneed had less playing time. Neither item hands this desk a full count, so the debate is about usage, not an invented percentage."
-      },
-      {
         "title": "Does 5-1 still own the division conversation?",
-        "body": "Arrowhead Addict’s AFC West rankings piece argues the Chiefs still have the upper hand after Week 7. Arrowhead Pride’s community thread is louder because Denver is 5-2 and next. Both can be true until Sun Nov 1, 3:25 PM CT."
+        "body": "Kansas City is 5-1. Denver is 5-2 and hosts on Sun Nov 1, 3:25 PM CT. The Week 1 meeting was 31-10 at Arrowhead. This rematch is at Empower Field."
+      },
+      {
+        "title": "Can Walker get out of 14-for-36?",
+        "body": "Fourteen carries, 36 yards, four catches. Denver will take the same invitation Seattle took if the first two downs stay behind the sticks."
+      },
+      {
+        "title": "Who rallies if Bolton is available?",
+        "body": "Bolton returned in the third quarter and finished with 11 tackles. Tranquill had 12. The Seattle third-down line is the warning for Denver."
       }
     ]
   },
   "gamePlan": {
     "opponent": "Denver Broncos",
     "lede": "Week 8 is at Denver on Sun Nov 1, 3:25 PM CT, CBS. Kansas City is a 1.5-point favorite with a 41.5 total. ESPN FPI has the Chiefs at 55.7 percent. The assignment is to look like the club that won the first meeting 31-10, not the club that just posted 50 rushing yards and 3-of-11 on third down.",
-    "howTheyMatch": "Denver has already lost once in this building’s season story, 31-10 in Week 1, and arrives at 5-2 for a rematch the Arrowhead Pride community is treating as a measuring stick. Kansas City’s defensive points rate is still a strength. The mismatch risk is offensive: if Walker is stuck in second-and-long, Mahomes will see the same seven-hit profile Seattle just produced. Spagnuolo can live in Cover 2 and sprinkle simulated pressure. Bieniemy has to give him a lead, or at least a tied game, with inside zone and defined throws to Kelce and Gray.",
+    "howTheyMatch": "Kansas City beat Denver 31-10 in Week 1 at Arrowhead. Week 8 is at Empower Field at Mile High, a different building, with Denver at 5-2. Kansas City’s defensive points rate is still 17.2 per game. The mismatch risk is offensive: if Walker is stuck in second-and-long, Mahomes will see the same seven-hit profile Seattle just produced. Spagnuolo can live in Cover 2 and sprinkle simulated pressure. Bieniemy has to give him a lead, or at least a tied game, with inside zone and defined throws to Kelce and Gray.",
     "keys": [
       {
         "title": "Make Denver defend 16-plus honest runs",
@@ -142,7 +141,7 @@
       "Second series: mesh to Kelce and Gray, Worthy on the corner route, Walker as the checkdown.",
       "If Denver shows a heavy rush on second-and-long, throw the screen and let the line get downhill in space.",
       "Play-action boot off a successful inside-zone look, Mahomes to the perimeter, Gray as the flat answer.",
-      "Defensively, Cover 2 on early downs so Tranquill and Bolton, if available, can rally.",
+      "Defensively, Cover 2 on early downs so Tranquill and Bolton can rally.",
       "Call the zone blitz once on third-and-5 to third-and-7, drop a defensive lineman, and do not tell that story as a takeaway."
     ]
   },
@@ -180,20 +179,7 @@
       "source": "ESPN / DraftKings",
       "url": "https://www.espn.com/nfl/lines"
     },
-    "futures": [
-      {
-        "label": "Pro Football: 2027 Champion",
-        "chiefsPct": 10.1,
-        "source": "Polymarket",
-        "url": "https://polymarket.com/event/pro-football-2027-champion-20260729185915366"
-      },
-      {
-        "label": "Pro Football: 2027 AFC Champion",
-        "chiefsPct": 17.5,
-        "source": "Polymarket",
-        "url": "https://polymarket.com/event/pro-football-2027-afc-champion"
-      }
-    ]
+    "futures": []
   },
   "spotlight": [
     {
@@ -215,11 +201,6 @@
       "tag": "Market",
       "title": "Still laying 1.5 after a 3-20",
       "body": "DraftKings has Kansas City minus 1.5 with a 41.5 total. FPI is at 55.7 percent. That is a lean, not a verdict, ahead of Sun Nov 1, 3:25 PM CT."
-    },
-    {
-      "tag": "Front office",
-      "title": "The phone is part of the week",
-      "body": "Arrowhead Pride says the Chiefs are calling around on a receiver. Arrowhead Addict has floated tackle targets while injuries cloud that spot. Veach’s deadline work and Bieniemy’s Sunday work are different jobs."
     }
   ],
   "matchups": [
@@ -242,16 +223,15 @@
       "chiefs": "Travis Kelce, Noah Gray",
       "opponent": "Denver linebackers and safeties",
       "edge": "KC",
-      "note": "Kelce led the club with 4 catches for 44 yards. Gray had the two 19-yard gains on the log. That is the defined answer while the verticals stay incomplete."
+      "note": "Kelce tied for the team lead with 4 catches (with Walker) and 44 yards (with Gray). Gray had the two 19-yard gains on the log. That is the defined answer while the verticals stay incomplete."
     },
     {
       "unit": "Spagnuolo vs. Denver early downs",
       "chiefs": "Steve Spagnuolo, Drue Tranquill, George Karlaftis",
       "opponent": "Denver offense",
       "edge": "KC",
-      "note": "The Chiefs still allow 17.2 points per game, second-fewest, per Arrowhead Pride. Tranquill had 12 tackles. The Seattle third-down line is the warning, not a reason to hand Denver the unit edge.",
-      "chiefsStat": "17.2 points allowed per game",
-      "statSource": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/214308/chiefs-defense-struggled-stops-seattle"
+      "note": "The Chiefs allow 17.2 points per game through six contests. Tranquill had 12 tackles. The Seattle third-down line is the warning, not a reason to hand Denver the unit edge.",
+      "chiefsStat": "17.2 points allowed per game"
     },
     {
       "unit": "Special teams",
@@ -422,46 +402,25 @@
     },
     {
       "topic": "Spagnuolo’s points rate vs. the third-down log",
-      "detail": "Arrowhead Pride is right that 17.2 points per game is still elite. Seattle’s 11-of-16 and 35:51 say the shell has to tackle and get off the field, not just keep the scoreboard polite."
+      "detail": "17.2 points per game is the season rate through six contests. Seattle’s 11-of-16 and 35:51 say the shell has to tackle and get off the field, not just keep the scoreboard polite."
     },
     {
-      "topic": "Veach’s week is adjacent, not the call sheet",
-      "detail": "Receiver calls and tackle-market pieces are on the wire. Sunday’s plan still names Kelce, Gray, Worthy, and Walker."
+      "topic": "The Seattle catch sheet is the call sheet",
+      "detail": "Sunday’s plan still names Kelce, Gray, Worthy, and Walker from this stat sheet. Kelce tied Walker at 4 catches and Gray at 44 yards."
     }
   ],
   "injuries": [
     {
-      "player": "Tyquan Thornton",
-      "status": "Dislocated ankle",
-      "note": "Arrowhead Pride ties the receiver-trade chatter to Thornton’s dislocated ankle and a red-zone-free loss.",
-      "source": "Arrowhead Pride"
-    },
-    {
       "player": "Nick Bolton",
-      "status": "Injured during play, no desk designation",
-      "note": "The play-by-play says Bolton was injured on a third-quarter Emanuel Wilson carry. No follow-up status was supplied.",
-      "source": "Arrowhead Pride"
+      "status": "Returned",
+      "note": "Injured on a third-quarter Emanuel Wilson carry at Q3 11:19 and returned at Q3 10:03. Finished with 11 tackles.",
+      "source": "ESPN play-by-play"
     }
   ],
   "personnel": [
     {
-      "move": "Sneed’s playing time dipped on the Week 7 sheet",
-      "detail": "Arrowhead Pride’s snap-count analysis says L’Jarius Sneed had less playing time in the 20-3 loss. Usage, not a transaction.",
-      "players": [
-        "L’Jarius Sneed"
-      ]
-    },
-    {
-      "move": "Receiver and tackle markets are open conversations",
-      "detail": "The club is reportedly calling around for a receiver, and separate pieces argue the tackle spot may need a deal while injuries cloud it.",
-      "players": [
-        "Patrick Mahomes",
-        "Tyquan Thornton"
-      ]
-    },
-    {
       "move": "Catch sheet from the Seattle game",
-      "detail": "Kelce, Gray, and Worthy produced the receptions that moved the ball. Watson, Armstrong, Allen, and Johnson each appear on the touch list with one or two catches.",
+      "detail": "Kelce tied Walker with 4 catches and Gray with 44 yards. Worthy had 6 targets, 3 catches, and 11 yards. Watson, Armstrong, Allen, and Johnson each appear on the touch list with one or two catches.",
       "players": [
         "Travis Kelce",
         "Noah Gray",
@@ -480,59 +439,21 @@
   ],
   "debates": [
     "Does a 1.5-point road favorite after 213 yards tell you more about Denver or about the market’s memory of Week 1?",
-    "Should Veach deal for a receiver before Bieniemy proves this catch sheet can move the ball?",
-    "Is Sneed’s reduced playing time a matchup note or a depth-chart note?",
-    "If Bolton’s in-game injury lingers, who is the rally linebacker next to Tranquill’s 12-tackle tape?",
+    "Bolton returned and finished with 11 tackles. Who is the rally linebacker next to Tranquill’s 12-tackle tape?",
     "Is 17.2 points per game enough comfort when the other club just went 11-of-16 on third down?"
   ],
   "sources": [
     {
-      "title": "The Chiefs’ defense struggled to get stops in Seattle",
-      "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/214308/chiefs-defense-struggled-stops-seattle",
-      "note": "Bend-don’t-break context and the 17.2 points-per-game figure."
+      "title": "Chiefs at Seahawks box score and play-by-play",
+      "publisher": "ESPN",
+      "url": "https://www.espn.com/nfl/game/_/gameId/401873022",
+      "note": "Week 7 final, scoring plays, box, and play-by-play for event 401873022."
     },
     {
-      "title": "NFL Power Rankings Week 8 Roundup: Chiefs drop after first loss",
-      "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-power-rankings/214334/nfl-power-rankings-week-8-roundup-chiefs-drop-first-loss",
-      "note": "ESPN drop from 2 to 4 and the Walker offseason note."
-    },
-    {
-      "title": "Chiefs News: The Chiefs are reportedly ‘calling around’ about a trade",
-      "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/214302/chiefs-news-reportedly-calling-around-trade",
-      "note": "Receiver-market chatter after a loss without a red-zone trip, with Thornton’s ankle in the background."
-    },
-    {
-      "title": "Overreaction Monday: The hottest takes after the Chiefs’ first loss",
-      "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-discussions/214270/overreaction-monday-hottest-takes-after-chiefs-first-loss",
-      "note": "Frames the 5-1 club against a 5-2 Denver team."
-    },
-    {
-      "title": "Chiefs Week 7 snap count analysis: L’Jarius Sneed has less playing time",
-      "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/214223/chiefs-week-7-snap-count-analysis-ljarius-sneed-less-playing-time",
-      "note": "Usage note on Sneed after the Seattle loss."
-    },
-    {
-      "title": "Chiefs snap counts reveal who's gaining and losing trust after Seahawks loss",
-      "publisher": "Arrowhead Addict",
-      "url": "https://arrowheadaddict.com/chiefs-snap-counts-reveal-whos-gaining-losing-trust-after-seahawks-loss?utm_source=RSS",
-      "note": "Snap-trust conversation without invented counts."
-    },
-    {
-      "title": "Chiefs have 4 realistic trade targets to solve their offensive tackle problems",
-      "publisher": "Arrowhead Addict",
-      "url": "https://arrowheadaddict.com/chiefs-have-4-realistic-trade-targets-to-solve-their-offensive-tackle-problems?utm_source=RSS",
-      "note": "Tackle-market framing while injuries cloud the spot."
-    },
-    {
-      "title": "AFC West power rankings after Week 7 prove Chiefs still have the upper hand",
-      "publisher": "Arrowhead Addict",
-      "url": "https://arrowheadaddict.com/afc-west-power-rankings-after-week-7-prove-chiefs-still-have-upper-hand?utm_source=RSS",
-      "note": "Division-standing argument after the first loss."
+      "title": "Chiefs at Broncos Week 8 preview",
+      "publisher": "ESPN",
+      "url": "https://www.espn.com/nfl/game/_/gameId/401873033",
+      "note": "Sun Nov 1, 3:25 PM CT, CBS; ESPN FPI 55.7 percent; DraftKings KC -1.5, total 41.5."
     }
   ],
   "slug": "2026-10-27-1915"
