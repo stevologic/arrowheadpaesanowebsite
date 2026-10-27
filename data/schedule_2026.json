@@ -146,10 +146,10 @@
     "homeAway": "away",
     "venue": "Lumen Field",
     "tv": "NBC",
-    "completed": false,
+    "completed": true,
     "inProgress": false,
-    "kcScore": null,
-    "oppScore": null,
+    "kcScore": 3,
+    "oppScore": 20,
     "kickoff": "Sun, Oct 25 · 7:20 PM CT"
   },
   {
