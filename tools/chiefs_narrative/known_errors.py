@@ -387,6 +387,33 @@ def check_payload(narrative: dict | None, recap: dict | None = None) -> list[str
     return check_text(_payload_text(narrative), recap)
 
 
+def _rewrite_list_form_wipes(text: str, recap: dict | None) -> str:
+    """Turn a mixed list-wipe claim into 'were enforced' when ESPN has PBP.
+
+    Remigio's fair-catch flag was enforced and did not wipe; Williams,
+    Woods, Anudike-Uzomah, and Sneed did wipe. Dropping the whole list
+    throws away true flags. 'were enforced' is true for every name.
+    No play-by-play still holds.
+    """
+    if not text or not recap:
+        return text
+
+    def _repl(match: re.Match) -> str:
+        names = _list_named_lasts(match.group("names") or "")
+        bad = _enforced_not_wipe_lasts(names, recap)
+        if not bad:
+            return match.group(0)
+        return re.sub(
+            r"\b(?:that\s+)?(?:wiped(?:\s+out)?|erased)\s+plays\b",
+            "that were enforced",
+            match.group(0),
+            count=1,
+            flags=re.I,
+        )
+
+    return _LIST_WIPED_PLAYS.sub(_repl, text)
+
+
 def apply_known_errors(
     narrative: dict | None, recap: dict | None = None
 ) -> tuple[dict, list[str]]:
@@ -416,6 +443,7 @@ def apply_known_errors(
                 continue
             text = _potw_replace(text, re.compile(raw, re.I), template)
         text = _fix_a_an(text)
+        text = _rewrite_list_form_wipes(text, recap)
         if recap and not list_wipe_holds(text):
             def _wipe_claim(match: re.Match) -> str:
                 sentence = _sentence_at(text, match.start())
@@ -439,7 +467,7 @@ def apply_known_errors(
                         for row in _penalties(recap)
                         if _last_name(row.get("player") or "") == who
                     ]
-                if named and not any(_penalty_wiped(row) for row in named):
+                if named and not all(_penalty_wiped(row) for row in named):
                     return (
                         "were enforced"
                         if match.group(0).lower().endswith("plays")
