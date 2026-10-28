@@ -581,7 +581,8 @@ def _assemble_narrative(
     x_embeds.strip_unverified_embeds(narrative)
     # Models are not given YouTube IDs and must not invent them. Attach
     # only oEmbed-verified, allowlisted, game-week press conferences.
-    # Dead candidates fail the run instead of publishing a broken iframe.
+    # Upcoming/live placeholders are dropped. Dead collected URLs still
+    # fail the run instead of publishing a broken iframe.
     press_conferences.attach_verified(narrative, signals, ph)
     # Same rule for locker-room X posts: never keep a writer-invented
     # status ID. Empty is the honest fallback when X cannot be fetched.
