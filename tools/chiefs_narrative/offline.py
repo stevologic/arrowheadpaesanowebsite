@@ -178,9 +178,13 @@ def _markets_note(markets: dict) -> str:
     if markets.get("vegas"):
         parts.append(f"Vegas has it {markets['vegas'].get('spreadDetail','')}")
     text = "; ".join(parts)
-    if text:
-        return text[0].upper() + text[1:]
-    return ""
+    if not text:
+        return ""
+    return (
+        text[0].upper()
+        + text[1:]
+        + " — a price that frames the week, not a verdict"
+    )
 
 
 def _news_about(news: list[dict], needles: list[str]) -> list[dict]:

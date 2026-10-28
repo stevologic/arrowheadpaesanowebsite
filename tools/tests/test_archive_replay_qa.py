@@ -235,6 +235,35 @@ class PredictionMarketReplay(unittest.TestCase):
         self.assertIn("prediction-market", blob)
         self.assertIn("markets.futures", blob)
 
+    def test_salvage_drops_polymarket_the_edge(self):
+        last = _slate_game("401873022")
+        recap = _load_recap("espn_401873022_recap.json")
+        narrative = {
+            "generatedAt": "2026-10-28T17:50:00+00:00",
+            "theEdge": (
+                "ESPN FPI at 69.6 percent and DraftKings listing Chiefs "
+                "-4.5, while Polymarket's 8.6 percent championship number "
+                "still taxes a 3-0 team."
+            ),
+            "lastGameReview": {
+                "opponent": "Seattle Seahawks",
+                "result": "L",
+                "score": "KC 3–20",
+                "lede": "Seattle beat Kansas City 20-3.",
+            },
+        }
+        issues = facts.check_review(
+            narrative, last, recap, schedule=frozen_schedule()
+        )
+        repaired = facts.repair_offending_copy(narrative, issues, last, recap)
+        self.assertNotIn("Polymarket", facts.edition_text(repaired))
+        leftover = facts.check_review(
+            repaired, last, recap, schedule=frozen_schedule()
+        )
+        self.assertFalse(
+            any("prediction-market" in item for item in leftover), leftover
+        )
+
 
 class ChargersPriorMutants(unittest.TestCase):
     def test_fixture_opponent_stays_lac_not_kc(self):
@@ -346,6 +375,34 @@ class ChargersPriorMutants(unittest.TestCase):
         self.assertEqual(
             archive_replay.replay_edition(
                 preview, slate, archive_replay.recaps_by_event()
+            ),
+            [],
+        )
+
+    def test_opener_score_ignores_review_header_on_prior_line(self):
+        """Miami in the review header must not steal Week 1's 31-10."""
+        last = {
+            "id": "401872952",
+            "week": 3,
+            "seasonType": "reg",
+            "date": "2026-09-27T17:00:00Z",
+            "opponent": "Miami Dolphins",
+            "completed": True,
+            "kcScore": 24,
+            "oppScore": 10,
+        }
+        recap = _load_recap("espn_401872952_recap.json")
+        narrative = {
+            "lastGameReview": {
+                "opponent": "Miami Dolphins",
+                "result": "W",
+                "score": "KC 24–10",
+                "lede": "Kansas City won the opener 31-10.",
+            }
+        }
+        self.assertEqual(
+            facts.check_review(
+                narrative, last, recap, schedule=frozen_schedule()
             ),
             [],
         )

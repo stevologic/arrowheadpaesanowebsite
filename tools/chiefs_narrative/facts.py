@@ -2593,8 +2593,18 @@ def _named_official_final(
                 sentence or "",
             )
             at = score_hit.start() if score_hit else 0
-        nearest = min(hits, key=lambda row: (abs(row[0] - at), -row[1]))
-        return nearest[2]
+        # edition_text glues fields with newlines and no periods, so a
+        # review header ("Miami Dolphins") must not bind an opener score
+        # on the next line. Same-line nearest still kills the #276
+        # Raiders/Chargers paragraph mutant.
+        line_start = (sentence or "").rfind("\n", 0, at) + 1
+        line_end = (sentence or "").find("\n", at)
+        if line_end < 0:
+            line_end = len(sentence or "")
+        local = [row for row in hits if line_start <= row[0] < line_end]
+        if local:
+            nearest = min(local, key=lambda row: (abs(row[0] - at), -row[1]))
+            return nearest[2]
     if claimed:
         if last_pair and (
             last_pair == claimed or (last_pair[1], last_pair[0]) == claimed
@@ -6916,6 +6926,13 @@ _BLOCKED_FUTURES = frozenset(
 )
 
 
+def _has_blocked_market_copy(text: str) -> bool:
+    blob = text or ""
+    return bool(
+        _PREDICTION_VENUES.search(blob) or _CHAMPIONSHIP_PRICE.search(blob)
+    )
+
+
 def _distance_bucket(distance: int) -> str:
     if distance <= 3:
         return "short"
@@ -7246,16 +7263,17 @@ def _check_prediction_markets(narrative: dict | None) -> list[str]:
         return []
     issues: list[str] = []
     text = edition_text(narrative)
-    for match in _PREDICTION_VENUES.finditer(text):
-        issues.append(
-            f"prediction-market odds are blocked from editions "
-            f"({_sentence_at(text, match.start())!r})"
-        )
-    for match in _CHAMPIONSHIP_PRICE.finditer(text):
-        issues.append(
-            f"prediction-market odds are blocked from editions "
-            f"({_sentence_at(text, match.start())!r})"
-        )
+    if _has_blocked_market_copy(text):
+        for match in _PREDICTION_VENUES.finditer(text):
+            issues.append(
+                f"prediction-market odds are blocked from editions "
+                f"({_sentence_at(text, match.start())!r})"
+            )
+        for match in _CHAMPIONSHIP_PRICE.finditer(text):
+            issues.append(
+                f"prediction-market odds are blocked from editions "
+                f"({_sentence_at(text, match.start())!r})"
+            )
     markets = (narrative or {}).get("markets") or {}
     futures = markets.get("futures") if isinstance(markets, dict) else None
     blob = str(futures or "").lower()
@@ -7869,6 +7887,8 @@ def sentence_fails_review(
     text = (sentence or "").strip()
     if not text:
         return False
+    if _has_blocked_market_copy(text):
+        return True
     probe = {
         "phase": phase or {"type": "regular"},
         "lastGameReview": {
