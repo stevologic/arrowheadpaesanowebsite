@@ -5,12 +5,16 @@ No event-specific photograph is currently cleared. The former channel-portrait
 fallback is deliberately retired: it does not illustrate an article's event.
 
 Until a matching photograph has documented reuse rights, the hero is a clearly
-labeled original vector illustration. It uses the **viewed edition's** headline,
-phase, opponent and event-date label. Preview editions use their next game;
-Review editions use their last-game review; camp and other reports retain their
-own topic. It never borrows today's opponent for an archived story. This is a
-temporary illustration, not fulfillment of the event-photograph requirement.
-It depicts no person, stadium scene, actual play or purported game outcome.
+labeled original vector illustration selected at render time from the **viewed
+edition's** phase, opponent, venue, home or away, and headline. Preview editions
+use their next game; Review editions use their last-game review; camp, bye, and
+offseason reports use a phase fallback. It never borrows today's opponent for an
+archived story. Committed scenes cover every 2026 slate opponent and venue, plus
+home Arrowhead bowls. The artwork is generated in-repo: stadium silhouettes,
+landmarks, field shapes, and helmet shapes in team colors — no likenesses, no
+league or club wordmarks, no photographs. The caption stays honest:
+illustration, not a photograph. This is not fulfillment of the
+event-photograph requirement.
 
 Photo review must match the article's event, event date and pictured identity,
 in addition to checking rights. A licensed but unrelated archival photograph is

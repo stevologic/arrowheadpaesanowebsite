@@ -13,10 +13,11 @@
   {{- end -}}
 {{- end -}}
 {{- $context := partial "nrt-event-context.html" .n -}}
-<figure class="nrt-hero-media" data-hero-kind="{{ if $licensed }}licensed-image{{ else }}article-illustration{{ end }}" data-event-subject="{{ $context.subject }}" data-event-mode="{{ $context.mode }}">
-  <div class="nrt-hero-media__visual">{{ if $licensed }}<img src="{{ $media.image | relURL }}" alt="{{ $media.alt }}" width="{{ $media.width }}" height="{{ $media.height }}" decoding="async" fetchpriority="high" />{{ else }}{{ partial "nrt-event-illustration.html" .n }}{{ end }}</div>
+{{- $scene := partial "nrt-hero-scene.html" (dict "n" .n "site" .site) -}}
+<figure class="nrt-hero-media" data-hero-kind="{{ if $licensed }}licensed-image{{ else }}article-illustration{{ end }}" data-hero-scene="{{ $scene.id }}" data-hero-mapped="{{ if $scene.mapped }}true{{ else }}false{{ end }}" data-event-subject="{{ $context.subject }}" data-event-mode="{{ $context.mode }}">
+  <div class="nrt-hero-media__visual">{{ if $licensed }}<img src="{{ $media.image | relURL }}" alt="{{ $media.alt }}" width="{{ $media.width }}" height="{{ $media.height }}" decoding="async" fetchpriority="high" />{{ else }}{{ partial "nrt-event-illustration.html" (dict "n" .n "site" .site "scene" $scene) }}{{ end }}</div>
   <figcaption class="nrt-hero-media__caption">
     {{ if $licensed }}<span class="nrt-hero-media__label">Licensed image</span><strong>{{ $media.caption }}</strong><span>{{ $media.rights.attribution }} · {{ $media.rights.license }}</span><a href="{{ $media.sourceUrl }}" target="_blank" rel="noopener">Original post on X</a>
-    {{ else }}<span class="nrt-hero-media__label">Temporary article illustration</span><strong>{{ $context.topic }}</strong><span>{{ $context.label }}</span><span>Event photograph not yet cleared.</span>{{ end }}
+    {{ else }}<span class="nrt-hero-media__label">Article illustration</span><strong>{{ $context.topic }}</strong><span>{{ $scene.caption }}</span><span>{{ $context.label }}</span><span>Not a photograph. Event photograph not yet cleared.</span>{{ end }}
   </figcaption>
 </figure>

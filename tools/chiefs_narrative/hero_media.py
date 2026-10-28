@@ -62,7 +62,7 @@ def approved(item, slug, *, root=None, now=None):
 
 
 def attach(narrative, *, root=None, now=None):
-    """Assign a reviewed catalog ID or an explicitly temporary topic illustration."""
+    """Assign a reviewed catalog ID, else the topic-matched article illustration."""
     now = now or datetime.now(timezone.utc)
     narrative["heroMediaId"] = FALLBACK_ID
     narrative["heroMediaVerifiedAt"] = ""
