@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
@@ -212,6 +212,107 @@ class PressConferenceVerification(unittest.TestCase):
             ),
             [],
         )
+
+    def test_attach_skips_upcoming_stream_and_keeps_verified(self):
+        future_url = "https://www.youtube.com/watch?v=FzPyAEhwr3U"
+        live_url = "https://www.youtube.com/watch?v=1I3b1uRI24o"
+        future_title = (
+            "Andy Reid and select players Speak to Media | OCTOBER 24, 2026"
+        )
+        live_title = (
+            "Andy Reid, Patrick Mahomes, and Select Players Speak to Media "
+            "| OCTOBER 20, 2026"
+        )
+        placeholder = {
+            "type": "video",
+            "html": '<iframe title="Andy Reid Speaks to Media"></iframe>',
+        }
+        signals = {
+            "pressConferences": [
+                {
+                    "url": future_url,
+                    "speaker": "Andy Reid",
+                    "title": future_title,
+                    "date": "2026-10-24",
+                },
+                {
+                    "url": live_url,
+                    "speaker": "Andy Reid",
+                    "title": live_title,
+                    "date": "2026-10-20",
+                },
+                {
+                    "url": REID_URL,
+                    "speaker": "Andy Reid",
+                    "title": REID_TITLE,
+                    "date": "2026-10-19",
+                },
+            ]
+        }
+
+        def fetch(url):
+            if "FzPyAEhwr3U" in url or "1I3b1uRI24o" in url:
+                return placeholder
+            if "wV0rX_GUtTg" in url:
+                return _oembed(REID_TITLE)
+            return None
+
+        narrative = {"pressConferences": []}
+        with patch.object(
+            press_conferences,
+            "_now",
+            return_value=datetime(2026, 10, 20, 16, 14, tzinfo=timezone.utc),
+        ):
+            press_conferences.attach_verified(
+                narrative, signals, WEEK_PHASE, oembed_fetch=fetch
+            )
+        self.assertEqual(len(narrative["pressConferences"]), 1)
+        self.assertEqual(narrative["pressConferences"][0]["url"], REID_URL)
+
+        published = {
+            "pressConferences": [
+                {
+                    "url": future_url,
+                    "speaker": "Andy Reid",
+                    "title": future_title,
+                    "date": "2026-10-24",
+                }
+            ]
+        }
+        issues = press_conferences.check_embeds(
+            published, oembed_fetch=lambda url: placeholder, phase=WEEK_PHASE
+        )
+        self.assertTrue(issues)
+        self.assertTrue(
+            any("unverified embed" in item for item in issues)
+        )
+        self.assertTrue(all(item.startswith("press conference:") for item in issues))
+
+    def test_collect_skips_future_session_dates(self):
+        xml = """<?xml version="1.0"?>
+<feed xmlns="http://www.w3.org/2005/Atom"
+      xmlns:yt="http://www.youtube.com/xml/schemas/2015">
+  <entry>
+    <yt:videoId>wV0rX_GUtTg</yt:videoId>
+    <title>Andy Reid Speaks to the Media | OCTOBER 19, 2026</title>
+    <published>2026-10-19T12:00:00Z</published>
+  </entry>
+  <entry>
+    <yt:videoId>FzPyAEhwr3U</yt:videoId>
+    <title>Andy Reid and select players Speak to Media | OCTOBER 30, 2026</title>
+    <published>2026-10-28T12:00:00Z</published>
+  </entry>
+</feed>
+"""
+        with patch.object(press_conferences, "_http_get", return_value=xml), patch.object(
+            press_conferences,
+            "_now",
+            return_value=datetime(2026, 10, 28, 16, 14, tzinfo=timezone.utc),
+        ):
+            rows = press_conferences.collect_candidates()
+        urls = [row["url"] for row in rows]
+        self.assertIn(REID_URL, urls)
+        self.assertFalse(any("FzPyAEhwr3U" in url for url in urls))
 
     def test_attach_overwrites_invented_clips_and_fails_closed(self):
         narrative = _normalize(
