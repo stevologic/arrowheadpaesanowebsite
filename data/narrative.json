@@ -43,7 +43,7 @@
     }
   ],
   "storyline": {
-    "lede": "The next game is Denver, not a replay of Lumen Field. Kansas City walks into Empower Field as a 1.5-point favorite on Sun Nov 1, 3:25 PM CT, CBS, at 5-1, with ESPN FPI at 55.7 percent and a championship price on Polymarket that has cooled to 10.1 percent. Seattle already cashed the blueprint other staffs will study: 24 first downs, 41 rushes for 153 yards, 35:51 of possession, and a 20-3 final.",
+    "lede": "The next game is Denver, not a replay of Lumen Field. Kansas City walks into Empower Field as a 1.5-point favorite on Sun Nov 1, 3:25 PM CT, CBS, at 5-1, with ESPN FPI at 55.7 percent. Seattle already cashed the blueprint other staffs will study: 24 first downs, 41 rushes for 153 yards, 35:51 of possession, and a 20-3 final.",
     "body": [
       "Arrowhead Pride's mailbag is the right question for this week. Will other teams follow Seattle's plan? Denver does not have to copy Sam Darnold's 20-of-28, 96.9-rated day to make Kansas City uncomfortable. It only has to keep Patrick Mahomes off schedule the way Seattle did: seven quarterback hits, one sack, 19-of-33, a 58.3 rating, and an interception by T. Okada. Eric Bieniemy and Andy Reid have six days to put answers on the call sheet before a division road kickoff.",
       "The season is not the 6-11 finish from 2025, and it is not a closed case after one loss. Arrowhead Pride's power-rankings roundup has ESPN sliding the Chiefs from 2 to 4 after the first defeat. That is a media correction, not a roster collapse. The football correction is simpler: 50 rushing yards on 16 attempts and 163 net passing yards will not travel against a team that can sit on a lead. The prior afternoon against the Chargers — 150 rushing yards, 272 net passing yards, 22 first downs, 30:26 of possession in a 22-6 win — is the identity Reid still wants. It is not the tape Denver will defend.",
@@ -61,13 +61,13 @@
         "body": "The box is the story. Kansas City had 11 first downs, 213 total yards, eight drives, one turnover, and the ball for 24:09. Seattle had 24 first downs, 410 yards, eight drives, one turnover, and 35:51. Third down was 3-of-11 for the Chiefs and 11-of-16 for Seattle. Arrowhead Pride's third-down piece is right to hang the offensive failure there: drives never became a rhythm."
       },
       {
-        "body": "Mahomes finished 19-of-33 for 165 yards with one interception and a 58.3 rating, and the team net passing line is 163. He was sacked once and absorbed seven quarterback hits. Kansas City recorded two quarterback hits and no sacks on Darnold, who went 20-of-28 with a 96.9 rating. Kenneth Walker III carried 14 times for 36 yards and finished with 18 touches. Travis Kelce led the receivers with four catches for 44 yards. The team rush total was 50 yards on 16 attempts. That is not a run game Denver has to fear until the early-down calls change."
+        "body": "Mahomes finished 19-of-33 for 165 yards with one interception and a 58.3 rating, and the team net passing line is 163. He was sacked once and absorbed seven quarterback hits. Kansas City recorded two quarterback hits and no sacks on Darnold, who went 20-of-28 with a 96.9 rating. Kenneth Walker III carried 14 times for 36 yards and finished with 18 touches. Travis Kelce tied Kenneth Walker III at four catches and tied Noah Gray at 44 receiving yards. The team rush total was 50 yards on 16 attempts. That is not a run game Denver has to fear until the early-down calls change."
       },
       {
         "body": "Seattle's explosives were real. With 1:44 left in the second quarter, Darnold hit Jaxon Smith-Njigba on a deep left throw that became a 28-yard touchdown, and the replay reversal confirmed the score. Smith-Njigba finished with 11 touches. Emanuel Wilson carried the grind: 24 rushes and one catch, 25 touches, inside a 41-carry, 153-yard team rush. AJ Barner had seven touches, including a direct-snap rush up the middle on the snap where O. Oluwatimi reported eligible. George Holani added six touches. Steve Spagnuolo's front spent the game fitting a committee, not a single back."
       },
       {
-        "body": "The takeaway ledger is narrow and it belongs to the players on the play list. Mahomes threw short left for J. Royals and T. Okada intercepted, with N. Emmanwori in on the play. N. Williams intercepted Darnold short middle, intended for Rashid Shaheed, and returned it 65 yards, with G. Karlaftis credited on the play. Creed Humphrey's fumble was recovered by Mahomes. Derick Hall forced a fumble on the sack, and Mahomes recovered it. Harrison Butker missed from 58, short, and from 45, wide right, around the 50 he made. A late third-and-short to Kelce for three yards ended in a turnover on downs. Drue Tranquill's 12 tackles and Mansoor Delane's trail work, which Arrowhead Pride flagged as the clean defensive note, were bright spots on a night the scoreboard did not reward."
+        "body": "The takeaway ledger is narrow and it belongs to the players on the play list. Mahomes threw short left for J. Royals and T. Okada intercepted, with N. Emmanwori in on the play. N. Williams intercepted Darnold short middle, intended for Rashid Shaheed, and returned it 65 yards, with G. Karlaftis credited on the play. Creed Humphrey's fumble was recovered by Mahomes. Derick Hall forced a fumble on the sack, and Mahomes recovered it. Harrison Butker missed from 58, short, and from 45, wide right, around the 50 he made. A late 4th-and-10 to Kelce for three yards ended in a turnover on downs. Drue Tranquill's 12 tackles and Mansoor Delane's trail work, which Arrowhead Pride flagged as the clean defensive note, were bright spots on a night the scoreboard did not reward."
       }
     ],
     "takeaways": [
@@ -118,8 +118,8 @@
         "body": "Arrowhead Pride's mailbag asks whether other teams follow Seattle. A 35:51 possession game with 41 rushes is copyable even if the opponent quarterback is not Darnold. Spagnuolo has to tackle the run on first down or the same third-down math returns."
       },
       {
-        "title": "How much does the championship price matter?",
-        "body": "Polymarket has the Chiefs at 10.1 percent to win the championship and 17.5 percent to win the AFC. That is a market reaction to one loss, not a scouting report. The scouting report is 213 yards and 3-of-11."
+        "title": "Does one loss rewrite the scouting report?",
+        "body": "ESPN FPI still hangs 55.7 percent on the Denver trip and DraftKings still lists Kansas City minus 1.5. That is a lean after one loss, not a scouting report. The scouting report is 213 yards and 3-of-11."
       },
       {
         "title": "What is real about the tackle depth?",
@@ -130,7 +130,7 @@
   "gamePlan": {
     "opponent": "Denver Broncos",
     "lede": "Denver is the assignment: a division road game on Sun Nov 1, 3:25 PM CT, CBS, with Kansas City laying 1.5 on a 40.5 total and FPI at 55.7 percent. The Broncos get a rested look at a 3-20 tape. Kansas City has to steal the script back before Denver sits on early-down runs and third-and-long.",
-    "howTheyMatch": "Seattle won with volume rushing, third-down efficiency, and explosives to Smith-Njigba. Denver does not need that personnel to borrow the idea. Kansas City's leverage is still Mahomes, Kelce (four catches, 44 yards), Gray's 19-yard answers, Worthy on the perimeter, and Walker if the carries come before the down-and-distance gets ugly. Spagnuolo's leverage is fitting the run with Tranquill, Nick Bolton, Leo Chenal is not in this tape — the tacklers who are: Tranquill, Bolton, K. Tonga, Jack Cochrane, George Karlaftis, and N. Williams. Give Denver credit: home field, a one-score number, and a clear film study of how to keep Mahomes at 11 first downs.",
+    "howTheyMatch": "Seattle won with volume rushing, third-down efficiency, and explosives to Smith-Njigba. Denver does not need that personnel to borrow the idea. Kansas City's leverage is still Mahomes, Kelce (four catches, 44 yards), Gray's 19-yard answers, Worthy on the perimeter, and Walker if the carries come before the down-and-distance gets ugly. Spagnuolo's leverage is fitting the run with the tacklers ESPN logged: Tranquill (12), Nick Bolton (11), Nohl Williams (10), Jack Cochrane, Khyiris Tonga, and George Karlaftis. Give Denver credit: home field, a one-score number, and a clear film study of how to keep Mahomes at 11 first downs.",
     "keys": [
       {
         "title": "Win first down so third down is not 3-of-11 again",
@@ -192,20 +192,7 @@
       "source": "ESPN / Draft Kings",
       "url": "https://www.espn.com/nfl/lines"
     },
-    "futures": [
-      {
-        "label": "Pro Football: 2027 Champion",
-        "chiefsPct": 10.1,
-        "source": "Polymarket",
-        "url": "https://polymarket.com/event/pro-football-2027-champion-20260729185915366"
-      },
-      {
-        "label": "Pro Football: 2027 AFC Champion",
-        "chiefsPct": 17.5,
-        "source": "Polymarket",
-        "url": "https://polymarket.com/event/pro-football-2027-afc-champion"
-      }
-    ]
+    "futures": []
   },
   "spotlight": [
     {
@@ -225,8 +212,8 @@
     },
     {
       "tag": "Market",
-      "title": "The title price cooled, the week did not",
-      "body": "Polymarket lists the Chiefs at 10.1 percent to win the championship and 17.5 percent to win the AFC. The week is still a division road favorite's week."
+      "title": "Still laying 1.5 after a 3-20",
+      "body": "DraftKings has Kansas City minus 1.5. ESPN FPI has the Chiefs at 55.7 percent. That is a lean, not a mandate, ahead of Sun Nov 1, 3:25 PM CT."
     },
     {
       "tag": "Rankings",
@@ -324,7 +311,7 @@
       "title": "Mesh for Kelce on third-and-medium",
       "situation": "3rd-and-4 to 6, the down Seattle won 11 times in 16 tries",
       "concept": "mesh",
-      "why": "Kansas City was 3-of-11 on third down and Kelce still led the team with 44 receiving yards on four catches. A rub gives him a window against man, with Worthy on the corner and Gray sitting if the linebacker chases the crosser.",
+      "why": "Kansas City was 3-of-11 on third down and Kelce tied Gray at 44 receiving yards, with Walker also catching four. A rub gives him a window against man, with Worthy on the corner and Gray sitting if the linebacker chases the crosser.",
       "coaching": "Kelce and Gray cross at depth with timing, not a scramble drill. Worthy bends the corner. Walker is the checkdown if both crossers are squeezed. Mahomes throws the first open window, the way the three-yard Kelce ball on the late drive needed more than three yards of separation.",
       "labels": {
         "x": "corner",
