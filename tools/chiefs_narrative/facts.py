@@ -7887,8 +7887,6 @@ def sentence_fails_review(
     text = (sentence or "").strip()
     if not text:
         return False
-    if _has_blocked_market_copy(text):
-        return True
     probe = {
         "phase": phase or {"type": "regular"},
         "lastGameReview": {
@@ -7903,12 +7901,20 @@ def sentence_fails_review(
     return _in_season_phase(probe) and _stale_preseason_claim(text)
 
 
+def _salvage_blocks_market(text: str, generated_at: str = "") -> bool:
+    """Drop Polymarket copy only on post-#269 editions."""
+    if not _has_blocked_market_copy(text):
+        return False
+    return _prediction_market_policy_applies({"generatedAt": generated_at})
+
+
 def _drop_text(
     text: str,
     snippets: list[str],
     last_game: dict | None = None,
     recap: dict | None = None,
     schedule=None,
+    generated_at: str = "",
 ) -> str:
     """Drop only sentences that contain a flagged snippet.
 
@@ -7929,7 +7935,7 @@ def _drop_text(
             continue
         if recap is not None and not sentence_fails_review(
             sent, last_game, recap, schedule
-        ):
+        ) and not _salvage_blocks_market(sent, generated_at):
             kept.append(sent)
             continue
     if len(kept) == len(sentences):
@@ -7943,13 +7949,18 @@ def _drop_value(
     last_game: dict | None = None,
     recap: dict | None = None,
     schedule=None,
+    generated_at: str = "",
 ):
     if isinstance(value, str):
-        return _drop_text(value, snippets, last_game, recap, schedule)
+        return _drop_text(
+            value, snippets, last_game, recap, schedule, generated_at
+        )
     if isinstance(value, list):
         out = []
         for item in value:
-            kept = _drop_value(item, snippets, last_game, recap, schedule)
+            kept = _drop_value(
+                item, snippets, last_game, recap, schedule, generated_at
+            )
             if kept in (None, "", [], {}):
                 continue
             out.append(kept)
@@ -7960,7 +7971,9 @@ def _drop_value(
             if key in _PROTECTED_KEYS:
                 out[key] = item
                 continue
-            kept = _drop_value(item, snippets, last_game, recap, schedule)
+            kept = _drop_value(
+                item, snippets, last_game, recap, schedule, generated_at
+            )
             if kept not in (None, "", [], {}):
                 out[key] = kept
             elif key in ("lede", "body", "why", "coaching", "note"):
@@ -8961,6 +8974,7 @@ def repair_offending_copy(
 ) -> dict:
     """Drop offending sentences, then leftover fragments in every section."""
     payload = copy.deepcopy(narrative or {})
+    generated_at = str(payload.get("generatedAt") or "")
     snippets = violation_snippets(
         [
             item
@@ -8972,7 +8986,8 @@ def repair_offending_copy(
         for key in _EDITION_KEYS:
             if key in payload:
                 payload[key] = _drop_value(
-                    payload[key], snippets, last_game, recap
+                    payload[key], snippets, last_game, recap,
+                    generated_at=generated_at,
                 )
     # A glued play-order quote (nobodyafter) can miss the sentence. Re-check
     # ESPN chronology and drop any leftover inverted after/following claim.
@@ -8992,7 +9007,7 @@ def repair_offending_copy(
     for key in _REQUIRED_COPY_KEYS:
         current = str(payload.get(key) or "").strip()
         if current and not _required_copy_fails(
-            current, last_game, recap
+            current, last_game, recap, generated_at=generated_at
         ):
             continue
         payload[key] = _safe_required_copy(key, last_game)
@@ -9004,7 +9019,10 @@ def _required_copy_fails(
     last_game: dict | None,
     recap: dict | None,
     schedule=None,
+    generated_at: str = "",
 ) -> bool:
+    if _salvage_blocks_market(text, generated_at):
+        return True
     if recap is None:
         return False
     return sentence_fails_review(text, last_game, recap, schedule)
@@ -9034,10 +9052,11 @@ def restore_required_copy(
 ) -> dict:
     """Fill empty or still-wrong headline/dek/theEdge from a clean draft."""
     payload = copy.deepcopy(target or {})
+    generated_at = str(payload.get("generatedAt") or "")
     for key in _REQUIRED_COPY_KEYS:
         current = str(payload.get(key) or "").strip()
         if current and not _required_copy_fails(
-            current, last_game, recap, schedule
+            current, last_game, recap, schedule, generated_at
         ):
             continue
         restored = False
@@ -9046,7 +9065,9 @@ def restore_required_copy(
             text = str(val or "").strip()
             if not text:
                 continue
-            if _required_copy_fails(text, last_game, recap, schedule):
+            if _required_copy_fails(
+                text, last_game, recap, schedule, generated_at
+            ):
                 continue
             payload[key] = val
             restored = True
@@ -9054,7 +9075,7 @@ def restore_required_copy(
         if not restored and not current:
             payload[key] = _safe_required_copy(key, last_game)
         elif not restored and _required_copy_fails(
-            current, last_game, recap, schedule
+            current, last_game, recap, schedule, generated_at
         ):
             payload[key] = _safe_required_copy(key, last_game)
     return payload
