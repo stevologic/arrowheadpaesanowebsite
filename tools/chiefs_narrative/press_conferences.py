@@ -5,9 +5,9 @@ must not publish a hallucinated video ID: every embed is kept only when
 YouTube oEmbed returns 200, the channel is allowlisted, the clip is from
 this game week, and the speaker field names who the video actually shows.
 Dead or unverified published embeds fail the edition gate — they are not
-stripped the way unofficial X posts are. Collected feed candidates that
-are not ready yet (upcoming/live placeholders, future session dates) are
-dropped so one scheduled stream cannot fail the edition.
+stripped the way unofficial X posts are. Future-dated oEmbed 200s with
+no channel identity are dropped so a scheduled livestream cannot fail
+the edition. A past-dated or undated identity-less 200 is unverified.
 """
 from __future__ import annotations
 
@@ -200,7 +200,7 @@ def speakers_from_title(title: str) -> str:
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(_CT)
 
 
 def session_is_future(session: datetime | None, now: datetime | None = None) -> bool:
@@ -361,14 +361,22 @@ def _session_from_item(item) -> datetime | None:
 
 
 def _candidate_in_week(item, phase: dict | None) -> bool:
-    return in_game_week(_session_from_item(item), phase)
+    session = _session_from_item(item)
+    if session is None:
+        return True
+    return in_game_week(session, phase)
 
 
 def _candidate_not_ready(item, payload: dict | None) -> bool:
-    """Upcoming/live placeholders and future sessions are dropped, not fatal."""
-    if session_is_future(_session_from_item(item)):
-        return True
-    return upcoming_placeholder(payload)
+    """Skip only future-dated oEmbed 200s that have no channel identity.
+
+    A past-dated or undated identity-less payload is unverified, not a
+    livestream placeholder. Future sessions that already have an author
+    still go through verify and fail closed.
+    """
+    return upcoming_placeholder(payload) and session_is_future(
+        _session_from_item(item)
+    )
 
 
 def collect_candidates(phase: dict | None = None) -> list[dict]:
@@ -475,12 +483,7 @@ def verify_all(
                 payload = None
         fetched = None if payload is _MISSING else payload
         if _candidate_not_ready(item, fetched):
-            kind = (
-                "future"
-                if session_is_future(_session_from_item(item))
-                else "upcoming/live"
-            )
-            print(f"  [press] skip {kind} presser {_item_url(item)}")
+            print(f"  [press] skip future placeholder {_item_url(item)}")
             continue
         verified = verify_embed(
             item, oembed_fetch=oembed_fetch, phase=phase, payload=payload
@@ -503,9 +506,10 @@ def attach_verified(
 ) -> dict:
     """Overwrite writer-invented clips with collected, oEmbed-verified pressers.
 
-    Preview and Recap (review) editions always get the field. Upcoming or
-    live placeholders are dropped. Dead collected URLs still fail closed so
-    a daily run cannot ship a broken iframe.
+    Preview and Recap (review) editions always get the field. Future-dated
+    identity-less placeholders are dropped. Past-dated or undated
+    identity-less 200s, and dead collected URLs, still fail closed so a
+    daily run cannot ship a broken iframe.
     """
     if not isinstance(narrative, dict):
         return narrative
