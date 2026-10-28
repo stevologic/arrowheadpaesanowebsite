@@ -33,6 +33,12 @@ _PRIOR = {
     "401872931": "401873305",
     "401873305": "401873296",
 }
+# Only the Chargers prior needs a full name. Abbr-only LAC/la does not
+# match "Chargers" in a 22-6 sentence, and labeling every prior city
+# rebinds older Indianapolis first-down copy onto the prior KC box.
+_FIXTURE_OPPONENT = {
+    "401873006": ("Los Angeles Chargers", "LAC"),
+}
 _SCORE = re.compile(r"(\d+)\s*[–-]\s*(\d+)")
 
 
@@ -67,6 +73,21 @@ def load_recap(event_id: str) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _label_recap(payload: dict, event_id: str) -> dict:
+    """Put the ESPN opponent name on a box so prior-game copy can bind.
+
+    Frozen slate rows for later weeks still have null scores. Abbr-only
+    labels (LAC → lac/la) do not match 'Chargers' in a 22-6 sentence.
+    """
+    attached = dict(payload)
+    name, abbr = _FIXTURE_OPPONENT.get(str(event_id), ("", ""))
+    if name:
+        attached["opponent"] = attached.get("opponent") or name
+    if abbr:
+        attached["oppAbbr"] = attached.get("oppAbbr") or abbr
+    return attached
+
+
 def _all_event_ids() -> set[str]:
     extra = {event for events in _EXTRA_EVENTS_BY_OPP.values() for event in events}
     return set(_EVENT_BY_OPP.values()) | set(_PRIOR) | set(_PRIOR.values()) | extra
@@ -83,7 +104,7 @@ def recaps_by_event() -> dict[str, dict]:
             prior = load_recap(prior_id)
             if prior:
                 payload = dict(payload)
-                payload["prior"] = dict(prior)
+                payload["prior"] = _label_recap(prior, prior_id)
                 payload["prior"].setdefault("oppAbbr", prior.get("oppAbbr"))
         out[event_id] = payload
     return out
