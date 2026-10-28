@@ -82,9 +82,9 @@ def _label_recap(payload: dict, event_id: str) -> dict:
     attached = dict(payload)
     name, abbr = _FIXTURE_OPPONENT.get(str(event_id), ("", ""))
     if name:
-        attached["opponent"] = attached.get("opponent") or name
+        attached["opponent"] = name
     if abbr:
-        attached["oppAbbr"] = attached.get("oppAbbr") or abbr
+        attached["oppAbbr"] = abbr
     return attached
 
 

@@ -390,7 +390,7 @@ def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
         "currentState": _norm_current_state(raw.get("currentState")),
         "gamePlan": _norm_game_plan(raw.get("gamePlan")),
         "nextGame": _norm_next_game(raw.get("nextGame")),
-        "markets": meta.get("markets") or {},
+        "markets": _markets_without_prediction_odds(meta.get("markets") or {}),
         "spotlight": _obj_list(
             raw.get("spotlight"),
             {"tag": "", "title": "", "body": ""},
@@ -526,6 +526,15 @@ def _norm_next_game(value) -> dict:
         "tv": _s(value.get("tv")),
         "note": _s(value.get("note")),
     }
+
+
+def _markets_without_prediction_odds(markets) -> dict:
+    """#269: published editions keep FPI/Vegas and drop Polymarket futures."""
+    if not isinstance(markets, dict):
+        return {}
+    out = dict(markets)
+    out["futures"] = []
+    return out
 
 
 def _norm_xsandos(value) -> list[dict]:
