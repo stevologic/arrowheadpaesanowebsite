@@ -581,7 +581,8 @@ def _assemble_narrative(
     x_embeds.strip_unverified_embeds(narrative)
     # Models are not given YouTube IDs and must not invent them. Attach
     # only oEmbed-verified, allowlisted, game-week press conferences.
-    # Dead candidates fail the run instead of publishing a broken iframe.
+    # Upcoming/live placeholders are dropped. Dead collected URLs still
+    # fail the run instead of publishing a broken iframe.
     press_conferences.attach_verified(narrative, signals, ph)
     # Same rule for locker-room X posts: never keep a writer-invented
     # status ID. Empty is the honest fallback when X cannot be fetched.
@@ -1254,6 +1255,8 @@ _PRIOR_RECAP_FIXTURE = {
     "espn_401872976_recap.json": "espn_401872952_recap.json",
     "espn_401872952_recap.json": "espn_401872945_recap.json",
 }
+# Full names, not just abbr. A Seattle Preview that cites "Chargers" and
+# "a 22-6 win" (ESPN 401873006) cannot bind from LAC/la on the frozen slate.
 _FIXTURE_OPPONENT = {
     "espn_401873022_recap.json": ("Seattle Seahawks", "SEA"),
     "espn_401873006_recap.json": ("Los Angeles Chargers", "LAC"),
@@ -1283,8 +1286,10 @@ def _attach_prior_recap(recap: dict, fixture_name: str, fixtures) -> dict:
         return recap
     attached = dict(prior)
     opp_name, opp_abbr = _FIXTURE_OPPONENT.get(prior_name, ("", ""))
-    attached.setdefault("opponent", attached.get("opponent") or opp_name)
-    attached.setdefault("oppAbbr", attached.get("oppAbbr") or opp_abbr)
+    if opp_name:
+        attached["opponent"] = opp_name
+    if opp_abbr:
+        attached["oppAbbr"] = opp_abbr
     payload = dict(recap)
     payload["prior"] = attached
     return payload

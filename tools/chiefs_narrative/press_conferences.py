@@ -5,7 +5,9 @@ must not publish a hallucinated video ID: every embed is kept only when
 YouTube oEmbed returns 200, the channel is allowlisted, the clip is from
 this game week, and the speaker field names who the video actually shows.
 Dead or unverified published embeds fail the edition gate — they are not
-stripped the way unofficial X posts are.
+stripped the way unofficial X posts are. Future-dated oEmbed 200s with
+no channel identity are dropped so a scheduled livestream cannot fail
+the edition. A past-dated or undated identity-less 200 is unverified.
 """
 from __future__ import annotations
 
@@ -22,6 +24,7 @@ from . import config, phase as phase_mod, schema
 OEMBED_ENDPOINT = "https://www.youtube.com/oembed"
 OEMBED_TIMEOUT_SEC = 8
 _CT = ZoneInfo("America/Chicago")
+_MISSING = object()
 
 # Official + clearly labeled news-desk channels. Compared lowercase
 # without a leading @. Fan edits and clip channels are not accepted.
@@ -196,6 +199,27 @@ def speakers_from_title(title: str) -> str:
     return ""
 
 
+def _now() -> datetime:
+    return datetime.now(_CT)
+
+
+def session_is_future(session: datetime | None, now: datetime | None = None) -> bool:
+    """True when the session's America/Chicago calendar day is after today."""
+    if session is None:
+        return False
+    now_ct = (now or _now()).astimezone(_CT)
+    return session.astimezone(_CT).date() > now_ct.date()
+
+
+def upcoming_placeholder(payload: dict | None) -> bool:
+    """oEmbed 200 with no channel identity — typical of scheduled livestreams."""
+    if not isinstance(payload, dict):
+        return False
+    name = str(payload.get("author_name") or "").strip()
+    url = str(payload.get("author_url") or "").strip()
+    return not name and not url
+
+
 def _parse_dt(raw: str | None) -> datetime | None:
     if not raw:
         return None
@@ -320,22 +344,39 @@ def _parse_youtube_feed(xml_text: str, fallback_channel: str) -> list[dict]:
     return items
 
 
-def _candidate_in_week(item, phase: dict | None) -> bool:
+def _session_from_item(item) -> datetime | None:
     if not isinstance(item, dict):
-        return False
-    session = None
-    if item.get("date"):
+        return None
+    raw_date = item.get("date")
+    if raw_date:
         try:
-            session = datetime.strptime(item["date"][:10], "%Y-%m-%d").replace(
+            return datetime.strptime(str(raw_date)[:10], "%Y-%m-%d").replace(
                 tzinfo=_CT
             )
         except ValueError:
-            session = None
+            pass
+    return session_date_from_title(
+        item.get("title") or "", _parse_dt(item.get("published"))
+    )
+
+
+def _candidate_in_week(item, phase: dict | None) -> bool:
+    session = _session_from_item(item)
     if session is None:
-        session = session_date_from_title(
-            item.get("title") or "", _parse_dt(item.get("published"))
-        )
+        return True
     return in_game_week(session, phase)
+
+
+def _candidate_not_ready(item, payload: dict | None) -> bool:
+    """Skip only future-dated oEmbed 200s that have no channel identity.
+
+    A past-dated or undated identity-less payload is unverified, not a
+    livestream placeholder. Future sessions that already have an author
+    still go through verify and fail closed.
+    """
+    return upcoming_placeholder(payload) and session_is_future(
+        _session_from_item(item)
+    )
 
 
 def collect_candidates(phase: dict | None = None) -> list[dict]:
@@ -353,6 +394,9 @@ def collect_candidates(phase: dict | None = None) -> list[dict]:
             if not _PRESS_HINT.search(item["title"]):
                 continue
             session = session_date_from_title(item["title"], item.get("_published"))
+            if session_is_future(session):
+                print(f"  [collect] skip future presser {item['url']}")
+                continue
             if phase and not in_game_week(session, phase):
                 continue
             speaker = speakers_from_title(item["title"])
@@ -376,16 +420,19 @@ def collect_candidates(phase: dict | None = None) -> list[dict]:
     return out
 
 
-def verify_embed(value, *, oembed_fetch=None, phase: dict | None = None) -> dict | None:
+def verify_embed(
+    value, *, oembed_fetch=None, phase: dict | None = None, payload=_MISSING
+) -> dict | None:
     """Keep an embed only when oEmbed 200s, the author is allowlisted, and it fits."""
     embed = schema._norm_press_conference(value)
     if not embed:
         return None
-    fetch = fetch_oembed if oembed_fetch is None else oembed_fetch
-    try:
-        payload = fetch(embed["url"])
-    except Exception:  # noqa: BLE001 — unverified is a failure, not a guess
-        return None
+    if payload is _MISSING:
+        fetch = fetch_oembed if oembed_fetch is None else oembed_fetch
+        try:
+            payload = fetch(embed["url"])
+        except Exception:  # noqa: BLE001 — unverified is a failure, not a guess
+            return None
     if not payload or not author_is_allowlisted(payload):
         return None
     oembed_title = str(payload.get("title") or "").strip()
@@ -403,38 +450,50 @@ def verify_embed(value, *, oembed_fetch=None, phase: dict | None = None) -> dict
     first = embed["speaker"].split(",")[0].split(" and ")[0].strip().lower()
     if first and first not in title_l:
         return None
-    session = None
-    if embed.get("date"):
-        try:
-            session = datetime.strptime(embed["date"], "%Y-%m-%d").replace(tzinfo=_CT)
-        except ValueError:
-            session = None
-    if session is None:
-        session = session_date_from_title(embed.get("title") or "", None)
+    session = _session_from_item(embed)
+    if session_is_future(session):
+        return None
     if phase and not in_game_week(session, phase):
         return None
     return embed
 
 
+def _item_url(item) -> str:
+    if isinstance(item, dict):
+        return str(item.get("url") or item.get("videoId") or "").strip()
+    if isinstance(item, str):
+        return item.strip()
+    return ""
+
+
 def verify_all(
     items, *, oembed_fetch=None, phase: dict | None = None
 ) -> tuple[list[dict], list[str]]:
-    """Return (kept, errors). Any candidate that fails verification is an error."""
+    """Return (kept, errors). Upcoming/live placeholders are skipped; dead embeds error."""
     kept: list[dict] = []
     errors: list[str] = []
+    fetch = fetch_oembed if oembed_fetch is None else oembed_fetch
     for item in items or []:
-        verified = verify_embed(item, oembed_fetch=oembed_fetch, phase=phase)
+        embed = schema._norm_press_conference(item)
+        payload = _MISSING
+        if embed:
+            try:
+                payload = fetch(embed["url"])
+            except Exception:  # noqa: BLE001 — unverified is a failure, not a guess
+                payload = None
+        fetched = None if payload is _MISSING else payload
+        if _candidate_not_ready(item, fetched):
+            print(f"  [press] skip future placeholder {_item_url(item)}")
+            continue
+        verified = verify_embed(
+            item, oembed_fetch=oembed_fetch, phase=phase, payload=payload
+        )
         if verified:
-            if item.get("quote") and not verified.get("quote"):
+            if isinstance(item, dict) and item.get("quote") and not verified.get("quote"):
                 verified["quote"] = str(item["quote"]).strip()
             kept.append(verified)
             continue
-        url = ""
-        if isinstance(item, dict):
-            url = item.get("url") or item.get("videoId") or ""
-        elif isinstance(item, str):
-            url = item
-        errors.append(f"press conference: unverified embed {url}".strip())
+        errors.append(f"press conference: unverified embed {_item_url(item)}".strip())
     return kept, errors
 
 
@@ -447,8 +506,10 @@ def attach_verified(
 ) -> dict:
     """Overwrite writer-invented clips with collected, oEmbed-verified pressers.
 
-    Preview and Recap (review) editions always get the field. Dead candidates
-    fail closed so a daily run cannot ship a broken iframe.
+    Preview and Recap (review) editions always get the field. Future-dated
+    identity-less placeholders are dropped. Past-dated or undated
+    identity-less 200s, and dead collected URLs, still fail closed so a
+    daily run cannot ship a broken iframe.
     """
     if not isinstance(narrative, dict):
         return narrative

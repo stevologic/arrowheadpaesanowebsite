@@ -624,10 +624,6 @@ def _markets_brief(markets: dict) -> str:
             f"  Vegas ({vegas.get('provider','book')}): {vegas.get('spreadDetail','')}, "
             f"O/U {vegas.get('overUnder')}, KC ML per book — source {vegas['source']}."
         )
-    for fut in markets.get("futures", []) or []:
-        lines.append(
-            f"  Prediction market: {fut['label']} — Chiefs {fut['chiefsPct']}% (Polymarket)."
-        )
     lines.append(
         "  Use these to frame expectations honestly (favored/underdog, value vs. narrative). "
         "Do not overstate certainty."

@@ -177,14 +177,14 @@ def _markets_note(markets: dict) -> str:
         parts.append(f"the model gives KC {markets['model']['kcWin']}%")
     if markets.get("vegas"):
         parts.append(f"Vegas has it {markets['vegas'].get('spreadDetail','')}")
-    fut = markets.get("futures") or []
-    sb = next((f for f in fut if "champion" in f["label"].lower() and "afc" not in f["label"].lower()), None)
-    if sb:
-        parts.append(f"Polymarket prices the Chiefs at {sb['chiefsPct']}% to win it all")
     text = "; ".join(parts)
-    if text:
-        return text[0].upper() + text[1:]
-    return ""
+    if not text:
+        return ""
+    return (
+        text[0].upper()
+        + text[1:]
+        + " — a price that frames the week, not a verdict"
+    )
 
 
 def _news_about(news: list[dict], needles: list[str]) -> list[dict]:

@@ -1,28 +1,37 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-10-27T19:15:53+00:00",
-  "updatedAt": "2026-10-27T19:45:00+00:00",
+  "generatedAt": "2026-10-28T17:50:00+00:00",
+  "updatedAt": "2026-10-28T17:50:01+00:00",
   "generator": "grok:grok-4.7",
   "heroMediaId": "article-illustration",
   "phase": {
     "type": "regular",
-    "label": "Week 7",
-    "week": 7,
-    "mode": "review"
+    "label": "Week 8",
+    "week": 8,
+    "mode": "preview"
   },
-  "edition": "2026 Week 7 · Review",
+  "edition": "2026 Week 8 · Preview",
   "record": "5-1",
-  "headline": "213 yards, a 50-yard answer, and a short week to Denver",
+  "headline": "Denver is the assignment after 213 yards and a 3-20 night at Lumen",
   "sectionTitles": {
-    "lastGame": "Lumen Field film: 3-20 and no red-zone cash",
-    "currentState": "5-1 after the first loss, with Denver on the road",
-    "gamePlan": "Denver at 3:25: take the early downs back",
-    "pressConferences": "Monday podium, still waiting on the official embeds"
+    "lastGame": "What 3-20 at Lumen actually showed",
+    "currentState": "A 5-1 room with a kicking question and a short reset",
+    "gamePlan": "How Kansas City attacks a one-point road number in Denver",
+    "pressConferences": "Week 8 podium notes, filed separately"
   },
-  "dek": "Kansas City is 5-1 after Seattle won 20-3 at Lumen Field, and the next kickoff is at Denver on Sun Nov 1, 3:25 PM CT on CBS with the Chiefs laying 1.5.",
-  "videoHook": "Three points, 213 yards, and a division rematch that does not care how pretty the first five weeks looked.",
-  "theEdge": "ESPN FPI still gives Kansas City 55.7 percent at Denver and DraftKings lists the Chiefs at minus 1.5 on a 41.5 total — a one-score favorite after a game the offense never controlled.",
+  "dek": "Kansas City is 5-1 after a 3-20 loss at Seattle, and the next kickoff is at Denver on Sun Nov 1, 3:25 PM CT on CBS with the Chiefs laying 1.5.",
+  "videoHook": "Seattle just showed the league a 213-yard tape. Denver gets the next swing at it, and Andy Reid's room is a one-point road favorite anyway.",
+  "theEdge": "ESPN FPI still gives Kansas City 55.7 percent at Denver and DraftKings lists the Chiefs at minus 1.5 on a 40.5 total — a one-score road favorite after an offense that posted 11 first downs and 3-of-11 on third down.",
   "pressConferences": [
+    {
+      "url": "https://www.youtube.com/watch?v=1I3b1uRI24o",
+      "videoId": "1I3b1uRI24o",
+      "speaker": "Andy Reid and Patrick Mahomes",
+      "channel": "Kansas City Chiefs",
+      "title": "Andy Reid, Patrick Mahomes, and Select Players Speak to Media | OCTOBER 28, 2026",
+      "date": "2026-10-28",
+      "dateLabel": "Wed Oct 28, 2026"
+    },
     {
       "url": "https://www.youtube.com/watch?v=zvF4g-5-wyc",
       "videoId": "zvF4g-5-wyc",
@@ -34,11 +43,11 @@
     }
   ],
   "storyline": {
-    "lede": "The 5-0 start met a Seattle team that kept the ball, ran it, and never let Patrick Mahomes find a rhythm. Kansas City finished with 11 first downs, 50 rushing yards on 16 attempts, 163 net passing yards, 213 total yards, and 24:09 of possession. Seattle finished with 24 first downs, 153 rushing yards on 41 attempts, 257 net passing yards, 410 total yards, and 35:51 of possession. Both clubs had eight drives and one turnover. The final was 3-20.",
+    "lede": "The next game is Denver, not a replay of Lumen Field. Kansas City walks into Empower Field as a 1.5-point favorite on Sun Nov 1, 3:25 PM CT, CBS, at 5-1, with ESPN FPI at 55.7 percent. Seattle already cashed the blueprint other staffs will study: 24 first downs, 41 rushes for 153 yards, 35:51 of possession, and a 20-3 final.",
     "body": [
-      "Seattle scored on a 25-yard field goal, a 28-yard touchdown, a 35-yard field goal, and a 21-yard touchdown. Kansas City’s scoring play was Harrison Butker’s 50-yard field goal. Butker also missed from 58 and from 45, and a late 4th-and-10, 3-yard catch by Travis Kelce ended in a turnover on downs. Mahomes was 19-of-33 for 165 yards with one interception, one sack, and a 58.3 rating. Seattle recorded seven quarterback hits. Kansas City recorded two. Sam Darnold was 20-of-28 with no sacks and a 96.9 rating.",
-      "Kenneth Walker III had 14 carries for 36 yards and four catches, 18 touches in a game Seattle clearly wanted to shrink. Emanuel Wilson had 24 rushes and one catch. Jaxon Smith-Njigba had nine catches and two rushes, including the 28-yard touchdown throw from Darnold. Drue Tranquill’s 12 tackles were the loudest Kansas City defender on the sheet, and the unit still could not get off the field: Seattle was 11-of-16 on third down, Kansas City 3-of-11.",
-      "The defense has allowed 17.2 points per game through six contests (10+30+10+27+6+20). This tape was 20 allowed, 11-of-16 third downs surrendered, and 35:51 of Seattle possession. Denver is next. Kansas City won the Week 1 meeting 31-10 at Arrowhead. Week 8 is on the road at Empower Field, Sun Nov 1, 3:25 PM CT, CBS. Denver is 5-2. The market still leans Kansas City. The tape says the early-down run and the third-down stop have to show up before anyone treats that number as comfort."
+      "Arrowhead Pride's mailbag is the right question for this week. Will other teams follow Seattle's plan? Denver does not have to copy Sam Darnold's 20-of-28, 96.9-rated day to make Kansas City uncomfortable. It only has to keep Patrick Mahomes off schedule the way Seattle did: seven quarterback hits, one sack, 19-of-33, a 58.3 rating, and an interception by T. Okada. Eric Bieniemy and Andy Reid have six days to put answers on the call sheet before a division road kickoff.",
+      "The season is not the 6-11 finish from 2025, and it is not a closed case after one loss. Arrowhead Pride's power-rankings roundup has ESPN sliding the Chiefs from 2 to 4 after the first defeat. That is a media correction, not a roster collapse. The football correction is simpler: 50 rushing yards on 16 attempts and 163 net passing yards will not travel against a team that can sit on a lead. The prior afternoon against the Chargers — 150 rushing yards, 272 net passing yards, 22 first downs, 30:26 of possession in a 22-6 win — is the identity Reid still wants. It is not the tape Denver will defend.",
+      "Arrowhead Pride and Arrowhead Addict both report Justin Tucker signed to the practice squad as competition. Special teams is now part of the Denver plan, not a side note. So is the offensive line story around Kingsley Suamataia, whose holding penalty wiped a play in the fourth quarter, and the open question Ian Rapoport has raised about Josh Simmons. None of that changes the number. Kansas City is laying 1.5. It has to play like it."
     ]
   },
   "lastGameReview": {
@@ -46,103 +55,107 @@
     "label": "Week 7 · Sun, Oct 25 · 7:20 PM CT",
     "result": "L",
     "score": "KC 3–20",
-    "lede": "At Lumen Field, Seattle controlled both lines. Kansas City managed 213 yards and 24:09 of possession. Seattle managed 410 yards and 35:51 of possession. The visitors scored on Butker’s 50-yard field goal. Seattle scored 20.",
+    "lede": "At Lumen Field on Sun Oct 25, 7:20 PM CT, Seattle beat Kansas City 20-3. The Seahawks opened the scoring with a 25-yard field goal with 8:22 left in the second quarter, added a 28-yard touchdown with 1:44 left in the half, kicked a 35-yard field goal with 8:09 left in the third, and closed with a 21-yard touchdown with 3:47 left. Kansas City's points were a 50-yard field goal with 1:42 left in the third.",
     "analysis": [
       {
-        "body": "The rushing gap is the film. Kansas City ran 16 times for 50 yards. Walker’s 14 carries gained 36, with Mahomes adding two scrambles. Seattle ran 41 times for 153. Wilson’s volume, George Holani’s six touches, Velus Jones Jr.’s five rushes, and three AJ Barner rushes — including direct snaps — kept Darnold in manageable down-and-distance. A second-quarter Wilson carry lost three to K. Tonga, and another lost a yard to George Karlaftis and Chris Roland-Wallace. Those wins did not change the down-and-distance trend."
+        "body": "The box is the story. Kansas City had 11 first downs, 213 total yards, eight drives, one turnover, and the ball for 24:09. Seattle had 24 first downs, 410 yards, eight drives, one turnover, and 35:51. Third down was 3-of-11 for the Chiefs and 11-of-16 for Seattle. Arrowhead Pride's third-down piece is right to hang the offensive failure there: drives never became a rhythm."
       },
       {
-        "body": "Mahomes’ 19-of-33, 165-yard line included two 19-yard completions to Noah Gray, one deep right in the first quarter and one deep middle in the fourth, plus four Kelce catches for 44 yards and six Xavier Worthy targets that produced three catches for 11 yards, including a deep right with pressure from D. Hall and a deep left with pressure from M. Morris. The interception was a short left throw intended for J. Royals, taken by T. Okada with N. Emmanwori in on the play. Creed Humphrey’s first-quarter snap was fumbled and recovered by Mahomes. Hall later sacked Mahomes for a two-yard loss and forced a fumble that Mahomes also recovered. That is one sack and seven quarterback hits, not a clean pocket."
+        "body": "Mahomes finished 19-of-33 for 165 yards with one interception and a 58.3 rating, and the team net passing line is 163. He was sacked once and absorbed seven quarterback hits. Kansas City recorded two quarterback hits and no sacks on Darnold, who went 20-of-28 with a 96.9 rating. Kenneth Walker III carried 14 times for 36 yards and finished with 18 touches. Travis Kelce tied Kenneth Walker III at four catches and tied Noah Gray at 44 receiving yards. The team rush total was 50 yards on 16 attempts. That is not a run game Denver has to fear until the early-down calls change."
       },
       {
-        "body": "Seattle’s explosive answers were specific. Darnold’s deep left to Smith-Njigba was ruled a 27-yard catch to the 1, then reversed to a 28-yard touchdown. He had already scrambled left end for seven, and Jones had a right-end carry of 11. Later Darnold scrambled right end for 10. N. Williams intercepted a short middle throw intended for Rashid Shaheed and returned it 65 yards, with Karlaftis credited on the play. That takeaway did not produce points. Butker’s 58-yard try was short, and the 45-yard try was wide right."
+        "body": "Seattle's explosives were real. With 1:44 left in the second quarter, Darnold hit Jaxon Smith-Njigba on a deep left throw that became a 28-yard touchdown, and the replay reversal confirmed the score. Smith-Njigba finished with 11 touches. Emanuel Wilson carried the grind: 24 rushes and one catch, 25 touches, inside a 41-carry, 153-yard team rush. AJ Barner had seven touches, including a direct-snap rush up the middle on the snap where O. Oluwatimi reported eligible. George Holani added six touches. Steve Spagnuolo's front spent the game fitting a committee, not a single back."
       },
       {
-        "body": "Special teams and penalties framed empty drives. Kelce’s illegal shift wiped a first-quarter play. Kingsley Suamataia’s holding call wiped a fourth-quarter play. Seattle had three false starts, by G. Zabel, A. Bradford, and J. Sundell. On one first-quarter snap, J. Jones and O. Oluwatimi reported eligible before a direct snap to Barner up the middle. Later Barner direct snaps are on the log without that same report. Nick Bolton was injured on a third-quarter Emanuel Wilson carry at Q3 11:19 and returned at Q3 10:03. He finished with 11 tackles."
+        "body": "The takeaway ledger is narrow and it belongs to the players on the play list. Mahomes threw short left for J. Royals and T. Okada intercepted, with N. Emmanwori in on the play. N. Williams intercepted Darnold short middle, intended for Rashid Shaheed, and returned it 65 yards, with G. Karlaftis credited on the play. Creed Humphrey's fumble was recovered by Mahomes. Derick Hall forced a fumble on the sack, and Mahomes recovered it. Harrison Butker missed from 58, short, and from 45, wide right, around the 50 he made. A late 4th-and-10 to Kelce for three yards ended in a turnover on downs. Drue Tranquill's 12 tackles and Mansoor Delane's trail work, which Arrowhead Pride flagged as the clean defensive note, were bright spots on a night the scoreboard did not reward."
       }
     ],
     "takeaways": [
       {
-        "title": "Third down decided the clock",
-        "body": "Seattle converted 11 of 16 third downs. Kansas City converted 3 of 11. Eight drives apiece, and Seattle held the ball for 35:51 to Kansas City’s 24:09. Spagnuolo’s group kept the score at 20 and still never stole a series."
+        "title": "Third down decided the yardage gap",
+        "body": "Kansas City was 3-of-11. Seattle was 11-of-16. That is how eight drives apiece became 213 yards against 410 and 24:09 against 35:51. Denver will try to live in that down-and-distance window."
       },
       {
-        "title": "Walker never got a down-and-distance friend",
-        "body": "Eighteen touches, 14 of them carries, 36 rushing yards. Seattle’s front, not a mystery gap, is what the coaches have on film."
+        "title": "The run game never became a down-and-distance weapon",
+        "body": "Walker had 14 carries for 36 yards and 18 touches. The team rushed 16 times for 50. Seattle rushed 41 times for 153. Early downs have to look different before third-and-long becomes the Denver plan."
       },
       {
-        "title": "The takeaways did not cash",
-        "body": "Williams’ interception was a real defensive play. It did not become points. Butker made the 50-yarder and missed from 58 and 45. A three-yard Kelce catch on fourth down turned the ball over on downs."
+        "title": "The scoreboard was field goals until Seattle's two touchdowns",
+        "body": "Seattle scored on a 25-yard field goal, a 28-yard touchdown, a 35-yard field goal, and a 21-yard touchdown. Kansas City's answer was the 50-yard field goal. Butker also missed from 58 and from 45."
       }
     ],
     "whatWorked": [
-      "Gray’s two 19-yard catches gave Mahomes an intermediate answer when the deep shots to Worthy and Kelce were incomplete.",
-      "Williams’ interception and 65-yard return, with Karlaftis involved, was the defense’s cleanest event.",
-      "Tonga, Karlaftis, Bolton, and Tranquill each showed up on Seattle runs for negative or short yardage, and Tranquill finished with 12 tackles."
+      "N. Williams' interception of Darnold, returned 65 yards, with Karlaftis on the play.",
+      "Noah Gray's two 19-yard catches, one deep right and one deep middle, gave Mahomes a middle-of-the-field answer when the vertical shots to Xavier Worthy were incomplete.",
+      "Tranquill's 12 tackles and Delane's trail position, noted by Arrowhead Pride, were the defensive details that held up while Seattle still controlled the clock."
     ],
     "whatDidnt": [
-      "Sixteen rushes, 50 yards, and 3-of-11 on third down left Mahomes in long-yardage shotgun too often.",
-      "Seven quarterback hits and one sack, plus Hall’s forced fumble on the sack, kept the timing offense late.",
-      "Two missed Butker tries and a 3-yard Kelce catch on 4th-and-10 that turned the ball over on downs kept the only Kansas City points on the 50-yard make from changing the game."
+      "Third-and-long offense: 3-of-11, 11 first downs, eight drives, 213 yards.",
+      "The run fit against Wilson's 25 touches and a 41-carry Seattle rush plan. Kansas City had two quarterback hits and no sacks.",
+      "Kicking: misses from 58 and 45 around one make from 50, which is why the Tucker practice-squad report is now on the week."
     ]
   },
   "currentState": {
-    "lede": "Kansas City is 5-1. The loss was the first of the regular season. The points-allowed figure through Week 7 is 17.2. The offense that just posted 11 first downs and 213 yards is the part that has to be rebuilt before Denver.",
+    "lede": "The Chiefs are 5-1, a one-score road favorite at Denver, and a week removed from their worst offensive yardage line of this season. The staff's job is to keep the Chargers identity — 422 yards, 22 first downs, a 22-6 win — from being treated as ancient history, and to stop Seattle's 20-3 tape from becoming the league's template.",
     "record": "5-1",
     "workOn": [
       {
-        "title": "Early-down carries that are not heroic",
-        "body": "Walker needs a carry count that is not stuck at 14 for 36. Denver will take the same invitation Seattle took if the first two downs stay behind the sticks."
+        "title": "Early-down carries for Walker",
+        "body": "Fourteen carries and 36 yards will not stress a defense that can rush four and hit the quarterback seven times. Bieniemy needs Walker on schedule before third down, not as a checkdown after the pocket is already noisy."
       },
       {
-        "title": "Protect the 19-of-33 version of Mahomes",
-        "body": "One sack and seven hits is the count. Suamataia’s holding flag and the Humphrey bobble are operational, not theoretical. Help rules and defined answers to Gray and Kelce are the install."
+        "title": "Third-down answers under seven hits",
+        "body": "Mahomes was 19-of-33 with one sack and seven hits. Quick width to Worthy, Kelce, and Gray has to be the answer before another deep incompletion to Worthy becomes the series."
       },
       {
-        "title": "Third-down stops without living on the takeaway",
-        "body": "Seattle was 11-of-16. Kansas City had two quarterback hits. Cover-2 rally tackles and a called zone blitz are the install, not a claim that pressure created Williams’ interception."
+        "title": "The kicking competition, in public",
+        "body": "Denver's 40.5 total means one kick can swing the 1.5."
       }
     ],
     "thinkAbout": [
       {
-        "title": "Does 5-1 still own the division conversation?",
-        "body": "Kansas City is 5-1. Denver is 5-2 and hosts on Sun Nov 1, 3:25 PM CT. The Week 1 meeting was 31-10 at Arrowhead. This rematch is at Empower Field."
+        "title": "Does Denver copy the clock game?",
+        "body": "Arrowhead Pride's mailbag asks whether other teams follow Seattle. A 35:51 possession game with 41 rushes is copyable even if the opponent quarterback is not Darnold. Spagnuolo has to tackle the run on first down or the same third-down math returns."
       },
       {
-        "title": "Can Walker get out of 14-for-36?",
-        "body": "Fourteen carries, 36 yards, four catches. Denver will take the same invitation Seattle took if the first two downs stay behind the sticks."
+        "title": "Does one loss rewrite the scouting report?",
+        "body": "ESPN FPI still hangs 55.7 percent on the Denver trip and DraftKings still lists Kansas City minus 1.5. That is a lean after one loss, not a scouting report. The scouting report is 213 yards and 3-of-11."
       },
       {
-        "title": "Who rallies if Bolton is available?",
-        "body": "Bolton returned in the third quarter and finished with 11 tackles. Tranquill had 12. The Seattle third-down line is the warning for Denver."
+        "title": "What is real about the tackle depth?",
+        "body": "Suamataia's holding penalty wiped a fourth-quarter play. Arrowhead Addict reports Ian Rapoport raising doubts about Josh Simmons playing for the Chiefs again. Reid cannot treat tackle stability as settled heading into a division road game."
       }
     ]
   },
   "gamePlan": {
     "opponent": "Denver Broncos",
-    "lede": "Week 8 is at Denver on Sun Nov 1, 3:25 PM CT, CBS. Kansas City is a 1.5-point favorite with a 41.5 total. ESPN FPI has the Chiefs at 55.7 percent. The assignment is to look like the club that won the first meeting 31-10, not the club that just posted 50 rushing yards and 3-of-11 on third down.",
-    "howTheyMatch": "Kansas City beat Denver 31-10 in Week 1 at Arrowhead. Week 8 is at Empower Field at Mile High, a different building, with Denver at 5-2. Kansas City’s defensive points rate is still 17.2 per game. The mismatch risk is offensive: if Walker is stuck in second-and-long, Mahomes will see the same seven-hit profile Seattle just produced. Spagnuolo can live in Cover 2 and sprinkle simulated pressure. Bieniemy has to give him a lead, or at least a tied game, with inside zone and defined throws to Kelce and Gray.",
+    "lede": "Denver is the assignment: a division road game on Sun Nov 1, 3:25 PM CT, CBS, with Kansas City laying 1.5 on a 40.5 total and FPI at 55.7 percent. The Broncos get a rested look at a 3-20 tape. Kansas City has to steal the script back before Denver sits on early-down runs and third-and-long.",
+    "howTheyMatch": "Seattle won with volume rushing, third-down efficiency, and explosives to Smith-Njigba. Denver does not need that personnel to borrow the idea. Kansas City's leverage is still Mahomes, Kelce (four catches, 44 yards), Gray's 19-yard answers, Worthy on the perimeter, and Walker if the carries come before the down-and-distance gets ugly. Spagnuolo's leverage is fitting the run with the tacklers ESPN logged: Tranquill (12), Nick Bolton (11), Nohl Williams (10), Jack Cochrane, Khyiris Tonga, and George Karlaftis. Give Denver credit: home field, a one-score number, and a clear film study of how to keep Mahomes at 11 first downs.",
     "keys": [
       {
-        "title": "Make Denver defend 16-plus honest runs",
-        "body": "Sixteen attempts were not a run game. Script Walker under center and in shotgun on early downs, with Mahomes’ legs as a constraint, not the identity."
+        "title": "Win first down so third down is not 3-of-11 again",
+        "body": "Inside zone and a defined screen keep Walker, who had 18 touches, from becoming a 14-carry, 36-yard afterthought. If Denver plays the Seattle rush-four plan, the ball has to come out before the seventh hit."
       },
       {
-        "title": "Answer before the vertical",
-        "body": "Mesh and the screen are the answers to a rush that hunts. Four verticals can wait until Denver is light in the box. Worthy remains the outside vertical; he does not have to be the first read."
+        "title": "Take the deep middle without living there",
+        "body": "Worthy had three catches and three charted incompletions deep. Gray was the completion. Mesh and a boot give Kelce and Gray the easy answers; four verticals is a shot, not the identity."
       },
       {
-        "title": "Rally, then rush on your terms",
-        "body": "Two deep, five under takes away the shot that Smith-Njigba just cashed from another quarterback. The zone blitz is a call for a known third-and-medium, with a lineman dropping and a second-level rusher."
+        "title": "Rally fits on early-down runs",
+        "body": "Cover 2 takes away the shot Seattle hit for 28 yards to Smith-Njigba. A zone blitz is a call to change the picture on third down, not a claim that pressure created either interception."
+      },
+      {
+        "title": "Treat the kick as a possession weapon",
+        "body": "A 40.5 total and a 1.5 spread mean Butker's 50-yard make and the two misses are game-plan facts. Do not ask for 58 if the drive can steal four."
       }
     ],
     "script": [
-      "Open with under-center inside zone to Walker, then a Mahomes keep only if the edge widens.",
-      "Second series: mesh to Kelce and Gray, Worthy on the corner route, Walker as the checkdown.",
-      "If Denver shows a heavy rush on second-and-long, throw the screen and let the line get downhill in space.",
-      "Play-action boot off a successful inside-zone look, Mahomes to the perimeter, Gray as the flat answer.",
-      "Defensively, Cover 2 on early downs so Tranquill and Bolton can rally.",
-      "Call the zone blitz once on third-and-5 to third-and-7, drop a defensive lineman, and do not tell that story as a takeaway."
+      "Open with under-center inside zone to Walker and a shotgun check to Kelce so Denver cannot sit in the Seattle third-and-long look.",
+      "Call the screen to Walker on an early second-and-medium if the rush shows the same heat that produced seven hits.",
+      "Use mesh versus man on third-and-4 to 6, with Worthy on the corner route and Gray as the sit.",
+      "Save four verticals for a clean pocket look after a run fake has moved a safety, not as the answer to pressure.",
+      "Play Cover 2 on early downs against a shot team that just watched Smith-Njigba win deep left.",
+      "Call the zone blitz on a Denver third-and-medium, dropping a defensive lineman and rushing the second level, with Karlaftis and Tranquill as the fitters."
     ]
   },
   "nextGame": {
@@ -150,7 +163,7 @@
     "opponent": "Denver Broncos",
     "at": "@ Empower Field at Mile High",
     "tv": "CBS",
-    "note": "AFC West rematch, Chiefs -1.5, kickoff Sun Nov 1, 3:25 PM CT."
+    "note": "Division road game, Chiefs -1.5, total 40.5, FPI 55.7 percent, kickoff Sun Nov 1, 3:25 PM CT."
   },
   "markets": {
     "game": {
@@ -159,7 +172,7 @@
       "homeAway": "away",
       "kcWin": 55.7,
       "spreadDetail": "KC -1.5",
-      "overUnder": 41.5,
+      "overUnder": 40.5,
       "source": "ESPN FPI win probability; ESPN / DraftKings spread",
       "url": "https://www.espn.com/nfl/game/_/gameId/401873033"
     },
@@ -171,83 +184,87 @@
       "url": "https://www.espn.com/nfl/fpi"
     },
     "vegas": {
-      "provider": "DraftKings",
+      "provider": "Draft Kings",
       "spreadDetail": "KC -1.5",
-      "overUnder": 41.5,
-      "homeMoneyline": 102.0,
-      "awayMoneyline": -122.0,
-      "source": "ESPN / DraftKings",
+      "overUnder": 40.5,
+      "homeMoneyline": -102.0,
+      "awayMoneyline": -118.0,
+      "source": "ESPN / Draft Kings",
       "url": "https://www.espn.com/nfl/lines"
     },
     "futures": []
   },
   "spotlight": [
     {
-      "tag": "Run gap in the stat line",
-      "title": "Walker’s 18 touches did not move the line of scrimmage",
-      "body": "Fourteen carries, 36 yards, four catches. Team rushing was 50 on 16 attempts. Seattle’s 41 attempts and 153 yards are the contrast, and Denver will copy the down-and-distance if Kansas City allows it."
+      "tag": "Next kick",
+      "title": "A one-point favorite with a 213-yard tape",
+      "body": "DraftKings has Kansas City minus 1.5. ESPN FPI has the Chiefs at 55.7 percent. That is a lean, not a mandate, after Seattle posted 410 yards and 35:51."
     },
     {
-      "tag": "Pocket count",
-      "title": "One sack, seven hits, a 58.3 rating",
-      "body": "Mahomes was 19-of-33 for 165 with an interception. Hall forced the sack fumble. Mahomes recovered it, just as he recovered the Humphrey snap fumble. The count is the story. The adjective is not."
+      "tag": "Third down",
+      "title": "3-of-11 is the number Denver will chase",
+      "body": "Arrowhead Pride centered the Seattle loss on third-down failure. Eight drives and 11 first downs will not beat a team that can play keep-away."
     },
     {
-      "tag": "Clock",
-      "title": "24:09 against 35:51",
-      "body": "Those clocks stay with the clubs on the box. Kansas City had the 24:09. Seattle had the 35:51, 24 first downs, and an 11-of-16 third-down line."
+      "tag": "Kicker",
+      "title": "Tucker is on the practice squad",
+      "body": "Arrowhead Pride and Arrowhead Addict report Justin Tucker signed while Butker missed from 58 and 45 and made from 50. The 40.5 total makes that a Denver variable."
     },
     {
       "tag": "Market",
       "title": "Still laying 1.5 after a 3-20",
-      "body": "DraftKings has Kansas City minus 1.5 with a 41.5 total. FPI is at 55.7 percent. That is a lean, not a verdict, ahead of Sun Nov 1, 3:25 PM CT."
+      "body": "DraftKings has Kansas City minus 1.5. ESPN FPI has the Chiefs at 55.7 percent. That is a lean, not a mandate, ahead of Sun Nov 1, 3:25 PM CT."
+    },
+    {
+      "tag": "Rankings",
+      "title": "ESPN moved Kansas City from 2 to 4",
+      "body": "Arrowhead Pride's Week 8 roundup logged the drop after the first loss. Walker is still the best-offseason-addition note in that same sampling. He needs carries that match the label."
     }
   ],
   "matchups": [
     {
-      "unit": "Chiefs run game vs. Denver front",
-      "chiefs": "Kenneth Walker III, Eric Bieniemy",
-      "opponent": "Denver run defense",
-      "edge": "PUSH",
-      "note": "Walker was held to 36 yards on 14 carries in Seattle. The Chiefs rushed for 50. Denver does not get a free pass, but Kansas City has not earned the edge until the attempt count looks like the 27-carry, 150-yard prior game."
+      "unit": "Chiefs early-down run vs. a defense that just watched 50 yards",
+      "chiefs": "Kenneth Walker III, 14 carries, 36 yards, 18 touches; team rush 50 on 16",
+      "opponent": "A Denver front that can sit on the Seattle tape and dare Kansas City to throw on third-and-long",
+      "edge": "OPP",
+      "note": "Until the carry count and the yards move together, the run is the side Denver can crowd."
     },
     {
-      "unit": "Mahomes vs. pressure",
-      "chiefs": "Patrick Mahomes, offensive line",
-      "opponent": "Denver pass rush",
+      "unit": "Mahomes vs. pressure picture",
+      "chiefs": "Patrick Mahomes, 19-of-33, 165 yards, 1 INT, 1 sack, 7 QB hits, rating 58.3",
+      "opponent": "Whatever rush Denver borrows from a game that produced seven hits and one sack",
       "edge": "OPP",
-      "note": "Seattle recorded seven quarterback hits and one sack. Mahomes’ rating was 58.3. Until protection rules change, the edge sits with the rush."
+      "note": "The quick game has to travel. Another 19-of-33 day on the road is how a 1.5 favorite becomes a one-score loser."
     },
     {
       "unit": "Kelce and Gray vs. intermediate coverage",
-      "chiefs": "Travis Kelce, Noah Gray",
-      "opponent": "Denver linebackers and safeties",
+      "chiefs": "Travis Kelce, 4 receptions, 44 yards; Noah Gray, two 19-yard completions on the play list",
+      "opponent": "Denver's linebackers and safeties, asked to squeeze crossers after Seattle took away explosives",
       "edge": "KC",
-      "note": "Kelce tied for the team lead with 4 catches (with Walker) and 44 yards (with Gray). Gray had the two 19-yard gains on the log. That is the defined answer while the verticals stay incomplete."
+      "note": "Gray was the completed deep answer. Kelce remains the third-down target, including the three-yard catch that ended a drive on downs."
     },
     {
-      "unit": "Spagnuolo vs. Denver early downs",
-      "chiefs": "Steve Spagnuolo, Drue Tranquill, George Karlaftis",
-      "opponent": "Denver offense",
-      "edge": "KC",
-      "note": "The Chiefs allow 17.2 points per game through six contests. Tranquill had 12 tackles. The Seattle third-down line is the warning, not a reason to hand Denver the unit edge.",
-      "chiefsStat": "17.2 points allowed per game"
-    },
-    {
-      "unit": "Special teams",
-      "chiefs": "Harrison Butker",
-      "opponent": "Denver field position",
+      "unit": "Spagnuolo's run fit vs. a copycat ground game",
+      "chiefs": "Drue Tranquill, 12 tackles; two team QB hits and no sacks on Darnold",
+      "opponent": "Seattle's model: 41 rushes, 153 yards, Emanuel Wilson 25 touches, 11-of-16 on third down",
       "edge": "PUSH",
-      "note": "Butker made a 50-yard field goal and missed from 58 and from 45. A 41.5 total means those kicks can decide a one-score game either way."
+      "note": "Kansas City can tackle. It did not sack the quarterback or steal the clock. Denver gets a real edge if it runs on first down and Kansas City cannot create a third-and-long of its own."
+    },
+    {
+      "unit": "Kicking game inside a 40.5 total",
+      "chiefs": "Harrison Butker made from 50, missed from 58 and 45; Justin Tucker on the practice squad per club reporting",
+      "opponent": "A one-score home environment where one kick covers the 1.5",
+      "edge": "PUSH",
+      "note": "The make from 50 shows the leg. The two misses are why the competition exists. Do not over-credit either side until Sunday's kickers are the ones on the field."
     }
   ],
   "xsandos": [
     {
-      "title": "Walker inside zone on first down",
-      "situation": "1st-and-10 at Denver, before the down-and-distance gets Seattle-long",
+      "title": "Walker downhill before the down gets long",
+      "situation": "1st-and-10 early, at Denver, before the defense can replay Seattle's third-and-long rush",
       "concept": "inside_zone",
-      "why": "Sixteen attempts and 50 yards cannot be the Week 8 identity. Walker’s 14-for-36 needs a zone path with a hat on the first second-level defender.",
-      "coaching": "Bieniemy: under center, zone steps, one cut. Walker presses the midline and bends only after the combo climbs. Mahomes is the constraint, not the carry.",
+      "why": "Kansas City rushed for 50 yards on 16 attempts, and Walker had 14 of those carries for 36 yards. Denver will expect Mahomes to throw into seven-hit math. An under-center zone carry gives Walker a one-cut downhill look and gives Bieniemy a down that is not already third-and-7.",
+      "coaching": "Reid and Bieniemy: call it under center, zone steps, one cut. Walker presses the point of attack and bends off the first free hat. Do not wait for shotgun on every early down the way the Lumen tape lived in shotgun.",
       "labels": {
         "x": "stalk",
         "z": "stalk",
@@ -260,50 +277,22 @@
         },
         {
           "name": "Patrick Mahomes",
-          "role": "mesh-point constraint"
+          "role": "under-center mesh handoff"
         }
       ],
-      "diagram": "images/narrative/2026-10-27-1915/xo-inside_zone.svg",
+      "diagram": "images/narrative/2026-10-28-1750/xo-inside_zone.svg",
       "side": "offense"
     },
     {
-      "title": "Kelce-Gray mesh vs. man",
-      "situation": "2nd-and-6 to 2nd-and-8, after a modest Walker gain",
-      "concept": "mesh",
-      "why": "Kelce’s four catches for 44 and Gray’s 19-yarders were the timing answers in a 19-of-33 game. Rubs give Mahomes a throw before a seventh-hit rush arrives.",
-      "coaching": "Kelce and Gray cross at five yards with a legal pick spacing. Worthy sits the corner. Walker is the outlet if the linebacker trails.",
-      "labels": {
-        "x": "corner sit",
-        "z": "clear",
-        "te": "shallow cross"
-      },
-      "playmakers": [
-        {
-          "name": "Travis Kelce",
-          "role": "shallow cross"
-        },
-        {
-          "name": "Noah Gray",
-          "role": "return cross"
-        },
-        {
-          "name": "Xavier Worthy",
-          "role": "corner sit"
-        }
-      ],
-      "diagram": "images/narrative/2026-10-27-1915/xo-mesh.svg",
-      "side": "offense"
-    },
-    {
-      "title": "Walker screen when the rush declares",
-      "situation": "2nd-and-long if Denver sells out up the field",
+      "title": "Screen the rush that produced seven hits",
+      "situation": "2nd-and-6 to 8 after a modest gain, if Denver shows four heat",
       "concept": "spacing_screen",
-      "why": "Seattle’s seven hits came when Kansas City was behind the sticks. A screen lets the line lead and gives Walker a touch that is not a stacked box carry.",
-      "coaching": "Mahomes takes a hitch, not a hero ball. The tackle and guard release. Walker catches on the move and gets vertical only after the first block.",
+      "why": "Mahomes took seven quarterback hits and one sack. Walker already has the hands for a four-catch game. A screen lets the line get out in space and turns pressure into a catch-and-run instead of another incompletion deep to Worthy.",
+      "coaching": "Bieniemy: sell the five-step, then let the guards and the back work the same side. Walker catches on the move. Kelce stays in to help if the end crashes. This is an answer to hits, not a shot play.",
       "labels": {
-        "x": "stalk replace",
-        "z": "alert vertical",
-        "te": "slip to edge"
+        "x": "clear",
+        "z": "clear",
+        "te": "block-down"
       },
       "playmakers": [
         {
@@ -312,149 +301,217 @@
         },
         {
           "name": "Patrick Mahomes",
-          "role": "quick distributor"
+          "role": "quick thrower"
         }
       ],
-      "diagram": "images/narrative/2026-10-27-1915/xo-spacing_screen.svg",
+      "diagram": "images/narrative/2026-10-28-1750/xo-spacing_screen.svg",
       "side": "offense"
     },
     {
-      "title": "Boot off the zone look",
-      "situation": "Play-action after two honest inside-zone carries have moved the line",
-      "concept": "play_action_boot",
-      "why": "This is a Denver call, not a label on any Seattle throw. The boot moves the pocket after the run has been sold, which is how you keep a one-sack, seven-hit tape from repeating.",
-      "coaching": "Reid and Bieniemy: sell Walker, boot Mahomes to the boundary, Gray in the flat, Kelce bending into the void. Throw the flat if the edge chases.",
+      "title": "Mesh for Kelce on third-and-medium",
+      "situation": "3rd-and-4 to 6, the down Seattle won 11 times in 16 tries",
+      "concept": "mesh",
+      "why": "Kansas City was 3-of-11 on third down and Kelce tied Gray at 44 receiving yards, with Walker also catching four. A rub gives him a window against man, with Worthy on the corner and Gray sitting if the linebacker chases the crosser.",
+      "coaching": "Kelce and Gray cross at depth with timing, not a scramble drill. Worthy bends the corner. Walker is the checkdown if both crossers are squeezed. Mahomes throws the first open window, the way the three-yard Kelce ball on the late drive needed more than three yards of separation.",
       "labels": {
-        "x": "post",
+        "x": "corner",
+        "z": "cross",
+        "te": "shallow cross"
+      },
+      "playmakers": [
+        {
+          "name": "Travis Kelce",
+          "role": "mesh crosser"
+        },
+        {
+          "name": "Noah Gray",
+          "role": "opposite crosser"
+        },
+        {
+          "name": "Xavier Worthy",
+          "role": "corner route"
+        }
+      ],
+      "diagram": "images/narrative/2026-10-28-1750/xo-mesh.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Boot after the run has been honored",
+      "situation": "2nd-and-5 on the opening drive, once Walker has a carry on the sheet",
+      "concept": "play_action_boot",
+      "why": "This is a call for Denver, not a label on the Seattle throws. The Lumen tape did not give Denver a boot to study. Selling Walker, then moving Mahomes to the perimeter, is how Reid changes the picture after a pocket that absorbed seven hits.",
+      "coaching": "Under center, sell the zone, boot Mahomes away from the rush. Kelce leaks to the flat. Gray runs the over. Worthy stretches the corner. Mahomes takes the flat if the second level sits.",
+      "labels": {
+        "x": "go",
         "z": "comeback",
-        "te": "flat"
+        "te": "flat leak"
       },
       "playmakers": [
         {
           "name": "Patrick Mahomes",
-          "role": "bootleg quarterback"
+          "role": "boot quarterback"
         },
         {
-          "name": "Noah Gray",
-          "role": "flat"
+          "name": "Travis Kelce",
+          "role": "flat leak"
         },
         {
           "name": "Kenneth Walker III",
-          "role": "play fake"
+          "role": "play fake back"
         }
       ],
-      "diagram": "images/narrative/2026-10-27-1915/xo-play_action_boot.svg",
+      "diagram": "images/narrative/2026-10-28-1750/xo-play_action_boot.svg",
       "side": "offense"
     },
     {
-      "title": "Cover 2 on Denver’s first down",
-      "situation": "1st-and-10, two-deep shell, rally to the run",
+      "title": "Cover 2 against the shot Seattle just hit",
+      "situation": "1st-and-10 after a Denver completion, protecting the deep left that became a 28-yard touchdown",
       "concept": "cover_two",
-      "why": "Smith-Njigba’s 28-yard touchdown was a deep left shot. Cover 2 takes that window first and asks Tranquill’s tackling — 12 in Seattle — to finish the run.",
-      "coaching": "Spagnuolo: corners sink, safeties stay on top, linebackers fit downhill. Karlaftis and Tonga hold the point so the second level is not tackling in the alley every snap.",
+      "why": "Smith-Njigba's 28-yard touchdown and his 11 touches are the film Denver's offense will enjoy. Two deep safeties take the go-ball off the table and let Tranquill, who had 12 tackles, rally with Bolton and Cochrane.",
+      "coaching": "Spagnuolo: two deep, five under. Corners jam and sink. Safeties stay on top of the vertical. Linebackers fit the run so a 41-carry plan cannot be repeated. This shell is about rally tackles, not a gambling single-high look.",
       "labels": {
-        "x": "deep half",
-        "z": "deep half",
-        "te": "hook curl"
+        "x": "sink",
+        "z": "sink",
+        "te": "hook"
       },
       "playmakers": [
         {
           "name": "Drue Tranquill",
-          "role": "hook rally"
+          "role": "hook fitter"
         },
         {
-          "name": "George Karlaftis",
-          "role": "edge set"
+          "name": "N. Williams",
+          "role": "deep half"
+        },
+        {
+          "name": "Nick Bolton",
+          "role": "run fit"
         }
       ],
-      "diagram": "images/narrative/2026-10-27-1915/xo-cover_two.svg",
+      "diagram": "images/narrative/2026-10-28-1750/xo-cover_two.svg",
       "side": "defense"
     },
     {
       "title": "Zone blitz on third-and-medium",
-      "situation": "3rd-and-5 to 3rd-and-7, simulated pressure, no takeaway claim attached",
+      "situation": "3rd-and-5 to 7, Denver in shotgun, Kansas City needing a stop that does not give up the shot",
       "concept": "zone_blitz",
-      "why": "Seattle converted 11 of 16 third downs while Kansas City managed two quarterback hits. The call is to show heat, drop a lineman, and rush a second-level player so Denver’s protection slides the wrong way.",
-      "coaching": "Spagnuolo’s signature: declare a four-man look, drop the interior, and have the second-level rusher arrive after the protection sets. Tackle what you do not sack. Do not grade this card off Williams’ interception.",
+      "why": "Seattle converted 11 of 16 third downs while Kansas City recorded two quarterback hits and no sacks. The zone blitz is a call to change the rush picture in Denver. It is not a claim that a blitz created Williams' interception or Okada's.",
+      "coaching": "Show heat, drop a defensive lineman into the hook, and rush a second-level player. Karlaftis sets an edge. Tranquill triggers only if the call sends him. The dropper has to carry the crosser so a checkdown does not become a first down the way Seattle's short game did.",
       "labels": {
-        "x": "deep zone",
-        "z": "flat zone",
-        "te": "hook replace"
+        "x": "curl-flat",
+        "z": "curl-flat",
+        "te": "hook drop"
       },
       "playmakers": [
         {
-          "name": "Steve Spagnuolo",
-          "role": "caller"
+          "name": "George Karlaftis",
+          "role": "edge on the simulated pressure"
         },
         {
-          "name": "George Karlaftis",
-          "role": "rushed or dropped on the call"
+          "name": "Drue Tranquill",
+          "role": "second-level rusher or hook, by the call"
         }
       ],
-      "diagram": "images/narrative/2026-10-27-1915/xo-zone_blitz.svg",
+      "diagram": "images/narrative/2026-10-28-1750/xo-zone_blitz.svg",
       "side": "defense"
     }
   ],
   "coaching": [
     {
-      "topic": "Reid and Bieniemy after 213 yards",
-      "detail": "The prior game produced 422 yards, 22 first downs, and 30:26 of possession against the Chargers. This game produced 213, 11 first downs, and 24:09. The install is early-down honesty, not a new identity."
+      "topic": "Reid and Bieniemy vs. the Seattle template",
+      "detail": "The mailbag question is the week: other teams will try to keep Mahomes in third-and-long. The answer is early-down runs and defined quick game, not more 19-of-33 volume."
     },
     {
-      "topic": "Spagnuolo’s points rate vs. the third-down log",
-      "detail": "17.2 points per game is the season rate through six contests. Seattle’s 11-of-16 and 35:51 say the shell has to tackle and get off the field, not just keep the scoreboard polite."
+      "topic": "Spagnuolo vs. a 41-carry idea",
+      "detail": "Two quarterback hits and no sacks will not steal a 35:51 game. Fits from Tranquill, Bolton, Tonga, and Cochrane have to win first down so the zone blitz is a changeup, not the only way to get off the field."
     },
     {
-      "topic": "The Seattle catch sheet is the call sheet",
-      "detail": "Sunday’s plan still names Kelce, Gray, Worthy, and Walker from this stat sheet. Kelce tied Walker at 4 catches and Gray at 44 yards."
-    }
-  ],
-  "injuries": [
-    {
-      "player": "Nick Bolton",
-      "status": "Returned",
-      "note": "Injured on a third-quarter Emanuel Wilson carry at Q3 11:19 and returned at Q3 10:03. Finished with 11 tackles.",
-      "source": "ESPN play-by-play"
+      "topic": "Special teams is on the call sheet",
+      "detail": "Butker made from 50 and missed from 58 and 45. Tucker is practice-squad competition per Arrowhead Pride. In a 40.5 game, Reid should know the makeable kick before the drive starts."
     }
   ],
   "personnel": [
     {
-      "move": "Catch sheet from the Seattle game",
-      "detail": "Kelce tied Walker with 4 catches and Gray with 44 yards. Worthy had 6 targets, 3 catches, and 11 yards. Watson, Armstrong, Allen, and Johnson each appear on the touch list with one or two catches.",
+      "move": "Justin Tucker signed to the practice squad",
+      "detail": "Arrowhead Pride and Arrowhead Addict report Tucker brought in as competition for Harrison Butker after the misses in Seattle. Butker remains the kicker who made the 50 and missed from 58 and 45 until the club says otherwise.",
       "players": [
-        "Travis Kelce",
-        "Noah Gray",
-        "Xavier Worthy",
-        "Justin Watson"
+        "Justin Tucker",
+        "Harrison Butker"
+      ]
+    },
+    {
+      "move": "Josh Simmons future questioned in reporting",
+      "detail": "Arrowhead Addict cites Ian Rapoport raising doubts about Simmons playing for the Chiefs again. That is a reported question, not a Week 8 availability line. Suamataia's holding penalty is the on-field tackle note from the Seattle game.",
+      "players": [
+        "Josh Simmons",
+        "Kingsley Suamataia"
       ]
     }
   ],
   "strategies": [
-    "Script at least a Chargers-week attempt volume for Walker before asking Mahomes to play from second-and-long.",
-    "Use Gray and Kelce as the first answers; keep Worthy as the alert, not the required shot.",
-    "Boot only after the inside zone has been shown, so the fake is a real constraint.",
-    "Stay in Cover 2 on Denver’s early downs and rally with Tranquill.",
-    "Call one zone blitz on third-and-medium and grade it on the stop, not on a turnover.",
-    "Treat the 41.5 total as a field-position game: the 50-yard make counts, and the 58 and 45 misses are the reminder."
+    "Steal first down with Walker so Denver cannot live in the 3-of-11 window.",
+    "Throw the screen and the mesh before asking Worthy to win another deep ball into tight coverage.",
+    "Use Cover 2 on early downs to take away the 28-yard shot Seattle just scored.",
+    "Call the zone blitz as a third-down changeup, with a dropper assigned to the checkdown.",
+    "Bank field goals inside Butker's made range and avoid another 58-yard try if four yards of field position are available.",
+    "Keep Kelce and Gray as the intermediate answers; they were the completed answers when the explosives were not."
   ],
   "debates": [
-    "Does a 1.5-point road favorite after 213 yards tell you more about Denver or about the market’s memory of Week 1?",
-    "Bolton returned and finished with 11 tackles. Who is the rally linebacker next to Tranquill’s 12-tackle tape?",
-    "Is 17.2 points per game enough comfort when the other club just went 11-of-16 on third down?"
+    "Does a 1.5 road number overrate a team that just managed 213 yards?",
+    "Should Bieniemy script Walker on the first three early downs, even if Denver loads the box?",
+    "Is Tucker a real Week 8 factor, or a practice-squad message to Butker?",
+    "If Denver copies the 41-carry plan, is Cover 2 enough or does Spagnuolo have to live in the zone blitz?",
+    "Does the ESPN drop from 2 to 4 change how you watch a 5-1 team?"
   ],
   "sources": [
     {
-      "title": "Chiefs at Seahawks box score and play-by-play",
-      "publisher": "ESPN",
-      "url": "https://www.espn.com/nfl/game/_/gameId/401873022",
-      "note": "Week 7 final, scoring plays, box, and play-by-play for event 401873022."
+      "title": "Third-down failures doomed the Chiefs’ offense in Seattle",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/214371/third-down-failures-doomed-chiefs-offense-seattle",
+      "note": "Third-down frame for the 3-of-11 offensive showing."
     },
     {
-      "title": "Chiefs at Broncos Week 8 preview",
-      "publisher": "ESPN",
-      "url": "https://www.espn.com/nfl/game/_/gameId/401873033",
-      "note": "Sun Nov 1, 3:25 PM CT, CBS; ESPN FPI 55.7 percent; DraftKings KC -1.5, total 41.5."
+      "title": "The Good and the Bad from Chiefs’ loss in Seattle",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/214326/good-bad-from-chiefs-loss-seattle",
+      "note": "Delane trail note and the thin list of things that held up."
+    },
+    {
+      "title": "Chiefs Mailbag: Will other teams follow Seattle’s game plan?",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/214370/chiefs-mailbag-other-teams-follow-seattles-game-plan",
+      "note": "The Denver-week question: whether the 20-3 plan travels."
+    },
+    {
+      "title": "What to know about the Chiefs signing Justin Tucker to the practice squad",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/214447/what-know-chiefs-signing-justin-tucker-practice-squad",
+      "note": "Tucker practice-squad signing amid Butker's kicking conversation."
+    },
+    {
+      "title": "Chiefs bring in Justin Tucker as Harrison Butker's struggles reach a breaking point",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/chiefs-bring-in-justin-tucker-harrison-butker-struggles-reach-breaking-point?utm_source=RSS",
+      "note": "Second report on the kicker competition."
+    },
+    {
+      "title": "NFL Power Rankings Week 8 Roundup: Chiefs drop after first loss",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-power-rankings/214334/nfl-power-rankings-week-8-roundup-chiefs-drop-first-loss",
+      "note": "ESPN ranking move from 2 to 4 after the loss."
+    },
+    {
+      "title": "Ian Rapoport raises doubts about Josh Simmons ever playing for Chiefs again",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/ian-rapoport-raises-doubts-about-josh-simmons-ever-playing-for-chiefs-again?utm_source=RSS",
+      "note": "Reported question on Simmons, not a listed game status."
+    },
+    {
+      "title": "Chiefs Fall to Seahawks, 20-3, on Sunday Night Football",
+      "publisher": "Chiefs.com",
+      "url": "https://www.chiefs.com/news/chiefs-fall-to-seahawks-20-3-on-sunday-night-football",
+      "note": "Club recap of the 20-3 final."
     }
   ],
-  "slug": "2026-10-27-1915"
+  "slug": "2026-10-28-1750"
 }

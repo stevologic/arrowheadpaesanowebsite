@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
@@ -213,6 +213,77 @@ class PressConferenceVerification(unittest.TestCase):
             [],
         )
 
+    def test_attach_skips_future_placeholder_and_keeps_verified(self):
+        future_url = "https://www.youtube.com/watch?v=FzPyAEhwr3U"
+        future_title = (
+            "Andy Reid and select players Speak to Media | OCTOBER 24, 2026"
+        )
+        placeholder = {
+            "type": "video",
+            "html": '<iframe title="Andy Reid Speaks to Media"></iframe>',
+        }
+        signals = {
+            "pressConferences": [
+                {
+                    "url": future_url,
+                    "speaker": "Andy Reid",
+                    "title": future_title,
+                    "date": "2026-10-24",
+                },
+                {
+                    "url": REID_URL,
+                    "speaker": "Andy Reid",
+                    "title": REID_TITLE,
+                    "date": "2026-10-19",
+                },
+            ]
+        }
+
+        def fetch(url):
+            if "FzPyAEhwr3U" in url:
+                return placeholder
+            if "wV0rX_GUtTg" in url:
+                return _oembed(REID_TITLE)
+            return None
+
+        narrative = {"pressConferences": []}
+        with patch.object(
+            press_conferences,
+            "_now",
+            return_value=datetime(2026, 10, 20, 16, 14, tzinfo=timezone.utc),
+        ):
+            press_conferences.attach_verified(
+                narrative, signals, WEEK_PHASE, oembed_fetch=fetch
+            )
+        self.assertEqual(len(narrative["pressConferences"]), 1)
+        self.assertEqual(narrative["pressConferences"][0]["url"], REID_URL)
+
+    def test_collect_skips_future_session_dates(self):
+        xml = """<?xml version="1.0"?>
+<feed xmlns="http://www.w3.org/2005/Atom"
+      xmlns:yt="http://www.youtube.com/xml/schemas/2015">
+  <entry>
+    <yt:videoId>wV0rX_GUtTg</yt:videoId>
+    <title>Andy Reid Speaks to the Media | OCTOBER 19, 2026</title>
+    <published>2026-10-19T12:00:00Z</published>
+  </entry>
+  <entry>
+    <yt:videoId>FzPyAEhwr3U</yt:videoId>
+    <title>Andy Reid and select players Speak to Media | OCTOBER 30, 2026</title>
+    <published>2026-10-28T12:00:00Z</published>
+  </entry>
+</feed>
+"""
+        with patch.object(press_conferences, "_http_get", return_value=xml), patch.object(
+            press_conferences,
+            "_now",
+            return_value=datetime(2026, 10, 28, 16, 14, tzinfo=timezone.utc),
+        ):
+            rows = press_conferences.collect_candidates()
+        urls = [row["url"] for row in rows]
+        self.assertIn(REID_URL, urls)
+        self.assertFalse(any("FzPyAEhwr3U" in url for url in urls))
+
     def test_attach_overwrites_invented_clips_and_fails_closed(self):
         narrative = _normalize(
             {
@@ -249,6 +320,283 @@ class PressConferenceVerification(unittest.TestCase):
                 WEEK_PHASE,
                 oembed_fetch=lambda url: None,
             )
+
+    def test_author_name_missing_allowlists_via_url(self):
+        """author_name missing on its own is still official if author_url is."""
+        payload = {
+            "title": REID_TITLE,
+            "author_url": "https://www.youtube.com/@KansasCityChiefs",
+            "type": "video",
+            "html": "<iframe></iframe>",
+        }
+        narrative = {"pressConferences": []}
+        press_conferences.attach_verified(
+            narrative,
+            {
+                "pressConferences": [
+                    {
+                        "url": REID_URL,
+                        "speaker": "Andy Reid",
+                        "title": REID_TITLE,
+                        "date": "2026-10-19",
+                    }
+                ]
+            },
+            WEEK_PHASE,
+            oembed_fetch=lambda url: payload,
+        )
+        self.assertEqual(narrative["pressConferences"][0]["url"], REID_URL)
+
+    def test_author_url_missing_allowlists_via_name(self):
+        """author_url missing on its own is still official if author_name is."""
+        payload = {
+            "title": REID_TITLE,
+            "author_name": "Kansas City Chiefs",
+            "type": "video",
+            "html": "<iframe></iframe>",
+        }
+        narrative = {"pressConferences": []}
+        press_conferences.attach_verified(
+            narrative,
+            {
+                "pressConferences": [
+                    {
+                        "url": REID_URL,
+                        "speaker": "Andy Reid",
+                        "title": REID_TITLE,
+                        "date": "2026-10-19",
+                    }
+                ]
+            },
+            WEEK_PHASE,
+            oembed_fetch=lambda url: payload,
+        )
+        self.assertEqual(narrative["pressConferences"][0]["url"], REID_URL)
+
+    def test_today_presser_is_kept_when_future_uses_strict_greater_than(self):
+        """`>=` instead of `>` would treat today's CT date as future and drop it."""
+        today_title = "Andy Reid Speaks to the Media | OCTOBER 20, 2026"
+        signals = {
+            "pressConferences": [
+                {
+                    "url": REID_URL,
+                    "speaker": "Andy Reid",
+                    "title": today_title,
+                    "date": "2026-10-20",
+                }
+            ]
+        }
+        narrative = {"pressConferences": []}
+        with patch.object(
+            press_conferences,
+            "_now",
+            return_value=datetime(2026, 10, 20, 16, 14, tzinfo=timezone.utc),
+        ):
+            press_conferences.attach_verified(
+                narrative,
+                signals,
+                WEEK_PHASE,
+                oembed_fetch=lambda url: _oembed(today_title),
+            )
+        self.assertEqual(narrative["pressConferences"][0]["url"], REID_URL)
+
+        xml = """<?xml version="1.0"?>
+<feed xmlns="http://www.w3.org/2005/Atom"
+      xmlns:yt="http://www.youtube.com/xml/schemas/2015">
+  <entry>
+    <yt:videoId>wV0rX_GUtTg</yt:videoId>
+    <title>Andy Reid Speaks to the Media | OCTOBER 20, 2026</title>
+    <published>2026-10-20T12:00:00Z</published>
+  </entry>
+</feed>
+"""
+        with patch.object(press_conferences, "_http_get", return_value=xml), patch.object(
+            press_conferences,
+            "_now",
+            return_value=datetime(2026, 10, 20, 16, 14, tzinfo=timezone.utc),
+        ):
+            rows = press_conferences.collect_candidates()
+        self.assertIn(REID_URL, [row["url"] for row in rows])
+
+    def test_future_single_identity_field_is_unverified_not_skipped(self):
+        """Name-only or url-only is identity; a future date must raise, not skip."""
+        future = {
+            "url": "https://www.youtube.com/watch?v=FzPyAEhwr3U",
+            "speaker": "Andy Reid",
+            "title": "Andy Reid Speaks to the Media | OCTOBER 24, 2026",
+            "date": "2026-10-24",
+        }
+        name_only = {
+            "title": future["title"],
+            "author_name": "Kansas City Chiefs",
+            "type": "video",
+            "html": "<iframe></iframe>",
+        }
+        url_only = {
+            "title": future["title"],
+            "author_url": "https://www.youtube.com/@KansasCityChiefs",
+            "type": "video",
+            "html": "<iframe></iframe>",
+        }
+        now = datetime(2026, 10, 20, 16, 14, tzinfo=timezone.utc)
+        for payload in (name_only, url_only):
+            with patch.object(press_conferences, "_now", return_value=now):
+                with self.assertRaises(press_conferences.UnverifiedPressConferenceError):
+                    press_conferences.attach_verified(
+                        {"pressConferences": []},
+                        {"pressConferences": [future]},
+                        WEEK_PHASE,
+                        oembed_fetch=lambda url, _p=payload: _p,
+                    )
+
+    def test_missing_date_identityless_raises_not_skipped_as_future(self):
+        """A missing date is not future; an identity-less 200 must raise."""
+        placeholder = {
+            "type": "video",
+            "html": '<iframe title="Andy Reid Speaks to Media"></iframe>',
+        }
+        signals = {
+            "pressConferences": [
+                {
+                    "url": REID_URL,
+                    "speaker": "Andy Reid",
+                    "title": "Andy Reid Speaks to the Media",
+                }
+            ]
+        }
+        with self.assertRaises(press_conferences.UnverifiedPressConferenceError):
+            press_conferences.attach_verified(
+                {"pressConferences": []},
+                signals,
+                WEEK_PHASE,
+                oembed_fetch=lambda url: placeholder,
+            )
+        session = press_conferences._session_from_item(signals["pressConferences"][0])
+        self.assertIsNone(session)
+        self.assertFalse(press_conferences.session_is_future(session))
+
+    def test_past_dated_identityless_oembed_raises(self):
+        placeholder = {
+            "type": "video",
+            "html": '<iframe title="Andy Reid Speaks to Media"></iframe>',
+        }
+        signals = {
+            "pressConferences": [
+                {
+                    "url": "https://www.youtube.com/watch?v=1I3b1uRI24o",
+                    "speaker": "Andy Reid",
+                    "title": (
+                        "Andy Reid, Patrick Mahomes, and Select Players "
+                        "Speak to Media | OCTOBER 20, 2026"
+                    ),
+                    "date": "2026-10-20",
+                }
+            ]
+        }
+        with patch.object(
+            press_conferences,
+            "_now",
+            return_value=datetime(2026, 10, 20, 16, 14, tzinfo=timezone.utc),
+        ):
+            with self.assertRaises(press_conferences.UnverifiedPressConferenceError):
+                press_conferences.attach_verified(
+                    {"pressConferences": []},
+                    signals,
+                    WEEK_PHASE,
+                    oembed_fetch=lambda url: placeholder,
+                )
+
+    def test_published_future_allowlisted_embed_fails_closed(self):
+        """Removing the published-embed future gate would let this pass."""
+        future_title = "Andy Reid Speaks to the Media | OCTOBER 21, 2026"
+        published = {
+            "pressConferences": [
+                {
+                    "url": REID_URL,
+                    "speaker": "Andy Reid",
+                    "title": future_title,
+                    "date": "2026-10-21",
+                }
+            ]
+        }
+        with patch.object(
+            press_conferences,
+            "_now",
+            return_value=datetime(2026, 10, 20, 16, 14, tzinfo=timezone.utc),
+        ):
+            issues = press_conferences.check_embeds(
+                published,
+                oembed_fetch=lambda url: _oembed(future_title),
+                phase=WEEK_PHASE,
+            )
+        self.assertTrue(issues)
+        self.assertTrue(any("unverified embed" in item for item in issues))
+
+    def test_fetch_exception_is_unverified_not_empty_placeholder(self):
+        """Turning a fetch exception into {} would skip a future identity-less."""
+        future_url = "https://www.youtube.com/watch?v=FzPyAEhwr3U"
+        signals = {
+            "pressConferences": [
+                {
+                    "url": future_url,
+                    "speaker": "Andy Reid",
+                    "title": (
+                        "Andy Reid and select players Speak to Media | "
+                        "OCTOBER 24, 2026"
+                    ),
+                    "date": "2026-10-24",
+                }
+            ]
+        }
+
+        def boom(url):
+            raise RuntimeError("oembed down")
+
+        with patch.object(
+            press_conferences,
+            "_now",
+            return_value=datetime(2026, 10, 20, 16, 14, tzinfo=timezone.utc),
+        ):
+            with self.assertRaises(press_conferences.UnverifiedPressConferenceError):
+                press_conferences.attach_verified(
+                    {"pressConferences": []},
+                    signals,
+                    WEEK_PHASE,
+                    oembed_fetch=boom,
+                )
+
+    def test_today_is_america_chicago_not_utc(self):
+        """04:00 UTC Oct 29 is still Oct 28 in Chicago; Oct 29 is tomorrow."""
+        xml = """<?xml version="1.0"?>
+<feed xmlns="http://www.w3.org/2005/Atom"
+      xmlns:yt="http://www.youtube.com/xml/schemas/2015">
+  <entry>
+    <yt:videoId>wV0rX_GUtTg</yt:videoId>
+    <title>Andy Reid Speaks to the Media | OCTOBER 28, 2026</title>
+    <published>2026-10-28T12:00:00Z</published>
+  </entry>
+  <entry>
+    <yt:videoId>FzPyAEhwr3U</yt:videoId>
+    <title>Andy Reid Speaks to the Media | OCTOBER 29, 2026</title>
+    <published>2026-10-29T03:00:00Z</published>
+  </entry>
+</feed>
+"""
+        evening_utc = datetime(2026, 10, 29, 4, 0, tzinfo=timezone.utc)
+        self.assertEqual(evening_utc.astimezone(_CT).date().isoformat(), "2026-10-28")
+        with patch.object(press_conferences, "_http_get", return_value=xml), patch.object(
+            press_conferences,
+            "_now",
+            return_value=evening_utc,
+        ):
+            rows = press_conferences.collect_candidates()
+        urls = [row["url"] for row in rows]
+        self.assertIn(REID_URL, urls)
+        self.assertFalse(any("FzPyAEhwr3U" in url for url in urls))
+        oct29 = datetime(2026, 10, 29, tzinfo=_CT)
+        self.assertTrue(press_conferences.session_is_future(oct29, now=evening_utc))
+        oct28 = datetime(2026, 10, 28, tzinfo=_CT)
+        self.assertFalse(press_conferences.session_is_future(oct28, now=evening_utc))
 
     def test_check_edition_fails_press_issues_even_when_held(self):
         payload = {
