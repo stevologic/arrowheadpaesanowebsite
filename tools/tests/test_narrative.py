@@ -12048,6 +12048,69 @@ class Oct14EditionGates(unittest.TestCase):
             self.assertNotIn("replay not run", out.getvalue())
             self.assertIn("archive replay gate: ok", out.getvalue())
 
+    def test_seattle_preview_binds_chargers_prior_22_6(self):
+        """22-6 next to Chargers is ESPN 401873006, not Seattle 3-20.
+
+        Week 8 Preview copy is a real prior Chiefs result. Archive replay
+        used to attach that box with only oppAbbr=LAC, so 'a 22-6 win'
+        failed official-final. Opponent name on the prior (same as
+        ``_attach_prior_recap``) must bind it. Stripping the name must fail.
+        """
+        from tools.tests.archive_replay import (
+            last_game_for_edition,
+            recaps_by_event,
+            replay_edition,
+        )
+
+        slate = frozen_schedule()
+        preview = {
+            "edition": "Week 8 · Preview",
+            "phase": {"mode": "preview", "week": 8},
+            "lastGameReview": {
+                "opponent": "Seattle Seahawks",
+                "result": "L",
+                "score": "KC 3–20",
+                "lede": "Seattle beat Kansas City 20-3.",
+            },
+            "currentState": {
+                "lede": (
+                    "The staff's job is to keep the Chargers identity — "
+                    "422 yards, 22 first downs, a 22-6 win — from being "
+                    "treated as ancient history."
+                )
+            },
+            "storyline": {
+                "body": [
+                    "The prior afternoon against the Chargers — 150 rushing "
+                    "yards, 272 net passing yards, 22 first downs, 30:26 of "
+                    "possession in a 22-6 win — is the identity Reid still wants."
+                ]
+            },
+        }
+        last = last_game_for_edition(preview, slate)
+        self.assertEqual(str((last or {}).get("id")), "401873022")
+        recaps = recaps_by_event()
+        recap = recaps.get("401873022") or {}
+        prior = recap.get("prior") or {}
+        self.assertEqual(str(prior.get("eventId")), "401873006")
+        self.assertEqual(prior.get("opponent"), "Los Angeles Chargers")
+        self.assertEqual((prior.get("oppAbbr") or "").upper(), "LAC")
+        self.assertEqual(
+            replay_edition(preview, slate, recaps),
+            [],
+        )
+        grecap = generate._recap_for_edition(preview)
+        self.assertEqual((grecap.get("prior") or {}).get("opponent"), "Los Angeles Chargers")
+        unlabeled = dict(recap)
+        unlabeled["prior"] = dict(prior)
+        unlabeled["prior"].pop("opponent", None)
+        unlabeled["prior"]["oppAbbr"] = "LAC"
+        leftover = replay_edition(preview, slate, {"401873022": unlabeled})
+        self.assertTrue(
+            any("22-6" in item and "official final" in item for item in leftover),
+            leftover,
+        )
+
 
 class Oct15CheckerGates(unittest.TestCase):
     """Clock-as-TD and 85.8 sentence-span fixes; no attempt/scheme exemptions."""

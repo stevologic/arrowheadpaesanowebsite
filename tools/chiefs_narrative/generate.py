@@ -1255,6 +1255,8 @@ _PRIOR_RECAP_FIXTURE = {
     "espn_401872976_recap.json": "espn_401872952_recap.json",
     "espn_401872952_recap.json": "espn_401872945_recap.json",
 }
+# Full names, not just abbr. A Seattle Preview that cites "Chargers" and
+# "a 22-6 win" (ESPN 401873006) cannot bind from LAC/la on the frozen slate.
 _FIXTURE_OPPONENT = {
     "espn_401873022_recap.json": ("Seattle Seahawks", "SEA"),
     "espn_401873006_recap.json": ("Los Angeles Chargers", "LAC"),
