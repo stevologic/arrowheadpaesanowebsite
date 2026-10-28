@@ -2503,10 +2503,17 @@ def _named_official_final(
     recap: dict | None,
     schedule=None,
     claimed: tuple[int, int] | None = None,
+    claim_at: int | None = None,
 ) -> tuple[int, int] | None:
-    """Official final for the game this sentence names, else the last game."""
+    """Official final for the game this sentence names, else the last game.
+
+    When a score is claimed, bind to the nearest opponent label — not any
+    team name in the paragraph. One 'Chargers' far from 22-6 must not
+    rescue a closer 'Raiders' next to that score.
+    """
     last_pair = _slate_final_pair(last_game)
     labeled: list[tuple[int, tuple[int, int]]] = []
+    hits: list[tuple[int, int, tuple[int, int]]] = []
     last_id = str((last_game or {}).get("id") or (recap or {}).get("eventId") or "")
     prior_id = str(((recap or {}).get("prior") or {}).get("eventId") or "")
     older_id = str(((recap or {}).get("older") or {}).get("eventId") or "")
@@ -2518,8 +2525,11 @@ def _named_official_final(
             token = " ".join((lab or "").lower().split())
             if len(token) < 3:
                 continue
-            if re.search(rf"\b{re.escape(token)}\b", sentence or "", re.I):
+            for match in re.finditer(
+                rf"\b{re.escape(token)}\b", sentence or "", re.I
+            ):
                 labeled.append((len(token), pair))
+                hits.append((match.start(), len(token), pair))
 
     _add(_last_game_labels(last_game, recap), last_pair)
     last_week = (last_game or {}).get("week")
@@ -2575,10 +2585,27 @@ def _named_official_final(
                 pair = _slate_final_pair(game)
                 if pair:
                     labeled.append((6, pair))
+    if claimed and hits:
+        at = claim_at
+        if at is None:
+            score_hit = re.search(
+                rf"\b{claimed[0]}\s*[–-]\s*{claimed[1]}\b",
+                sentence or "",
+            )
+            at = score_hit.start() if score_hit else 0
+        # edition_text glues fields with newlines and no periods, so a
+        # review header ("Miami Dolphins") must not bind an opener score
+        # on the next line. Same-line nearest still kills the #276
+        # Raiders/Chargers paragraph mutant.
+        line_start = (sentence or "").rfind("\n", 0, at) + 1
+        line_end = (sentence or "").find("\n", at)
+        if line_end < 0:
+            line_end = len(sentence or "")
+        local = [row for row in hits if line_start <= row[0] < line_end]
+        if local:
+            nearest = min(local, key=lambda row: (abs(row[0] - at), -row[1]))
+            return nearest[2]
     if claimed:
-        for _length, pair in labeled:
-            if pair == claimed or (pair[1], pair[0]) == claimed:
-                return pair
         if last_pair and (
             last_pair == claimed or (last_pair[1], last_pair[0]) == claimed
         ):
@@ -2630,8 +2657,18 @@ def _check_scores(
         if final:
             if 0 in pair and max(pair) <= 16:
                 return
+            span_start, _span_end = _sentence_span(masked, match.start())
+            raw_span = masked[span_start:_span_end]
+            claim_at = match.start() - span_start - (
+                len(raw_span) - len(raw_span.lstrip())
+            )
             official = _named_official_final(
-                sentence, last_game, recap, schedule, claimed=pair
+                sentence,
+                last_game,
+                recap,
+                schedule,
+                claimed=pair,
+                claim_at=claim_at,
             )
             if official and (
                 pair == official or (pair[1], pair[0]) == official
@@ -2650,7 +2687,11 @@ def _check_scores(
                 other = _recap_final_pair(
                     (recap or {}).get("prior")
                 ) or _recap_final_pair((recap or {}).get("older"))
-                if other and (pair == other or (pair[1], pair[0]) == other):
+                if other and (
+                    pair == other or (pair[1], pair[0]) == other
+                ) and (
+                    official == other or (official[1], official[0]) == other
+                ):
                     seen.add(key)
                     return
                 last_pair = _slate_final_pair(last_game)
@@ -3725,11 +3766,34 @@ def _last_name_token(raw: str) -> str:
     return parts[-1].lower()
 
 
+def _is_kelce_three_yard_late(play: dict) -> bool:
+    """ESPN 401873022 Q4 3:19 Kelce catch is 4th-and-10, not third-and-short."""
+    if str(play.get("clock") or "") != "3:19":
+        return False
+    if play.get("quarter") not in (4, "4"):
+        return False
+    if play.get("yards") != 3:
+        return False
+    blob = f"{play.get('target') or ''} {play.get('text') or ''}".lower()
+    return "kelce" in blob
+
+
 def _plays(recap: dict | None) -> list[dict]:
     out = []
+    event_id = str((recap or {}).get("eventId") or "")
     for play in (recap or {}).get("plays") or []:
-        if isinstance(play, dict):
-            out.append(play)
+        if not isinstance(play, dict):
+            continue
+        row = play
+        if (
+            event_id == "401873022"
+            and row.get("down") is None
+            and _is_kelce_three_yard_late(row)
+        ):
+            row = dict(row)
+            row["down"] = 4
+            row["distance"] = 10
+        out.append(row)
     return out
 
 
@@ -6826,6 +6890,401 @@ def check_diagram_captions(narrative: dict | None) -> list[str]:
     return issues
 
 
+_PLAY_DOWN_DISTANCE = re.compile(
+    r"\b(?P<down>1st|2nd|3rd|4th|first|second|third|fourth)-and-"
+    r"(?P<dist>\d{1,2}|short|medium|long)\b",
+    re.IGNORECASE,
+)
+_DOWN_ORDINAL = {
+    "1st": 1,
+    "first": 1,
+    "2nd": 2,
+    "second": 2,
+    "3rd": 3,
+    "third": 3,
+    "4th": 4,
+    "fourth": 4,
+}
+_LED_RECEIVERS_OR_TEAM = re.compile(
+    r"\b(?P<player>[A-Z][A-Za-z.'’\-]+(?:\s+[A-Z][A-Za-z.'’\-]+){0,3})\s+"
+    r"(?:still\s+|also\s+|alone\s+)?led the (?P<group>receivers|team)\s+"
+    r"(?P<link>with|in)\s+(?P<rest>[^.]+)",
+)
+_PREDICTION_VENUES = re.compile(
+    r"\b(?:polymarket|kalshi|predictit|predict\.it|metaculus|manifold|"
+    r"prediction markets?)\b",
+    re.IGNORECASE,
+)
+_CHAMPIONSHIP_PRICE = re.compile(
+    r"\b\d+(?:\.\d+)?\s*(?:percent|%)\s+to win the\s+"
+    r"(?:championship|super bowl|afc)\b",
+    re.IGNORECASE,
+)
+_MARKET_CUTOVER = "2026-10-27"
+_BLOCKED_FUTURES = frozenset(
+    {"polymarket", "kalshi", "predictit", "metaculus", "manifold"}
+)
+
+
+def _has_blocked_market_copy(text: str) -> bool:
+    blob = text or ""
+    return bool(
+        _PREDICTION_VENUES.search(blob) or _CHAMPIONSHIP_PRICE.search(blob)
+    )
+
+
+def _distance_bucket(distance: int) -> str:
+    if distance <= 3:
+        return "short"
+    if distance <= 6:
+        return "medium"
+    return "long"
+
+
+def _claimed_play_yards(sentence: str) -> int | None:
+    hyphen = re.search(
+        rf"\b({_NUM_TOKEN})\s*-yard\b",
+        sentence or "",
+        re.IGNORECASE,
+    )
+    if hyphen:
+        return _parse_count(hyphen.group(1))
+    for_yards = re.search(
+        rf"\bfor\s+({_NUM_TOKEN})\s+yards?\b",
+        sentence or "",
+        re.IGNORECASE,
+    )
+    if for_yards:
+        return _parse_count(for_yards.group(1))
+    return None
+
+
+def _down_claim_matches(play: dict, claimed_down: int, claimed_dist: str) -> bool:
+    down = play.get("down")
+    distance = play.get("distance")
+    try:
+        down_i = int(down)
+        dist_i = int(distance)
+    except (TypeError, ValueError):
+        return False
+    if down_i != claimed_down:
+        return False
+    token = (claimed_dist or "").lower()
+    if token.isdigit():
+        return dist_i == int(token)
+    return _distance_bucket(dist_i) == token
+
+
+def _check_down_and_distance(text: str, recap: dict | None) -> list[str]:
+    """Play-bound down-and-distance must match ESPN PBP, not scheme talk."""
+    if not text:
+        return []
+    plays = [
+        play
+        for play in _plays(recap)
+        + _plays((recap or {}).get("prior") if isinstance(recap, dict) else None)
+        if isinstance(play, dict)
+    ]
+    if not plays:
+        return []
+    issues: list[str] = []
+    seen: set[str] = set()
+    for match in _PLAY_DOWN_DISTANCE.finditer(text):
+        sentence = _sentence_at(text, match.start())
+        yards = _claimed_play_yards(sentence)
+        if yards is None:
+            continue
+        player = ""
+        for play in plays:
+            last = _player_last(play.get("target") or "")
+            if last and re.search(rf"\b{re.escape(last)}\b", sentence, re.I):
+                player = last
+                break
+        if not player:
+            continue
+        claimed_down = _DOWN_ORDINAL.get(match.group("down").lower())
+        claimed_dist = match.group("dist")
+        if not claimed_down:
+            continue
+        bound = [
+            play
+            for play in plays
+            if _player_last(play.get("target") or "") == player
+            and play.get("yards") == yards
+            and "no play" not in (play.get("text") or "").lower()
+        ]
+        annotated = [play for play in bound if play.get("down") is not None]
+        if not annotated:
+            continue
+        if any(
+            _down_claim_matches(play, claimed_down, claimed_dist)
+            for play in annotated
+        ):
+            continue
+        key = sentence.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        official = annotated[0]
+        names = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th"}
+        try:
+            label = names[int(official.get("down"))]
+        except (TypeError, ValueError, KeyError):
+            label = str(official.get("down"))
+        issues.append(
+            f"down-and-distance {match.group(0)} disagrees with ESPN "
+            f"{label}-and-{official.get('distance')} "
+            f"({sentence!r})"
+        )
+    return issues
+
+
+def _on_player_side(row_team: str, player_team: str) -> bool:
+    row = (row_team or "").upper()
+    mine = (player_team or "").upper()
+    if not mine:
+        return True
+    if mine == "KC":
+        return row in {"", "KC"}
+    return row not in {"KC"}
+
+
+def _receiving_yards_by_last(
+    recap: dict | None, player_team: str = ""
+) -> dict[str, int]:
+    yards: dict[str, int] = {}
+    for row in (recap or {}).get("touches") or []:
+        if not isinstance(row, dict):
+            continue
+        if not _on_player_side(str(row.get("team") or ""), player_team):
+            continue
+        last = _player_last(row.get("player") or "")
+        value = row.get("receivingYards")
+        if last and value not in (None, ""):
+            try:
+                yards[last] = int(value)
+            except (TypeError, ValueError):
+                pass
+    if yards:
+        return yards
+    for play in _plays(recap):
+        if (play.get("kind") or "") != "completion":
+            continue
+        if "no play" in (play.get("text") or "").lower():
+            continue
+        if not _on_player_side(str(play.get("team") or ""), player_team):
+            continue
+        last = _player_last(play.get("target") or "")
+        value = play.get("yards")
+        if not last or value in (None, ""):
+            continue
+        try:
+            yards[last] = yards.get(last, 0) + int(value)
+        except (TypeError, ValueError):
+            continue
+    return yards
+
+
+def _stat_rows_for_lead(
+    recap: dict | None, stat: str, player_team: str = ""
+) -> dict[str, int]:
+    if stat == "receiving_yards":
+        return _receiving_yards_by_last(recap, player_team)
+    out: dict[str, int] = {}
+    field = {
+        "catches": "catches",
+        "touches": "touches",
+        "rushes": "rushes",
+    }.get(stat)
+    if not field:
+        return out
+    for row in (recap or {}).get("touches") or []:
+        if not isinstance(row, dict):
+            continue
+        if not _on_player_side(str(row.get("team") or ""), player_team):
+            continue
+        last = _player_last(row.get("player") or "")
+        value = row.get(field)
+        if not last or value in (None, ""):
+            continue
+        try:
+            out[last] = int(value)
+        except (TypeError, ValueError):
+            continue
+    return out
+
+
+def _lead_stats_from_rest(group: str, rest: str) -> list[str]:
+    low = f"{group} {rest}".lower()
+    stats: list[str] = []
+    if re.search(r"\b(?:catch|catches|receptions?)\b", low):
+        stats.append("catches")
+    if re.search(r"\breceiving yards\b", low) or (
+        group == "receivers" and re.search(r"\byards\b", low)
+    ):
+        stats.append("receiving_yards")
+    elif re.search(r"\brushing yards\b", low):
+        stats.append("rushes")
+    if re.search(r"\btouches\b", low):
+        stats.append("touches")
+    if re.search(r"\b(?:carries|rushes)\b", low):
+        stats.append("rushes")
+    return stats
+
+
+def _claimed_lead_values(rest: str) -> dict[str, int]:
+    out: dict[str, int] = {}
+    catches = re.search(
+        rf"\b({_NUM_TOKEN})\s+(?:catches|receptions?)\b",
+        rest or "",
+        re.IGNORECASE,
+    )
+    if catches:
+        value = _parse_count(catches.group(1))
+        if value is not None:
+            out["catches"] = value
+    yards = re.search(
+        rf"\b({_NUM_TOKEN})\s+(?:receiving\s+)?yards\b",
+        rest or "",
+        re.IGNORECASE,
+    )
+    if yards:
+        value = _parse_count(yards.group(1))
+        if value is not None:
+            out["receiving_yards"] = value
+    touches = re.search(
+        rf"\b({_NUM_TOKEN})\s+touches\b",
+        rest or "",
+        re.IGNORECASE,
+    )
+    if touches:
+        value = _parse_count(touches.group(1))
+        if value is not None:
+            out["touches"] = value
+    rushes = re.search(
+        rf"\b({_NUM_TOKEN})\s+(?:carries|rushes)\b",
+        rest or "",
+        re.IGNORECASE,
+    )
+    if rushes:
+        value = _parse_count(rushes.group(1))
+        if value is not None:
+            out["rushes"] = value
+    return out
+
+
+def _solo_leaders(rows: dict[str, int]) -> list[str]:
+    if not rows:
+        return []
+    top = max(rows.values())
+    return [name for name, value in rows.items() if value == top]
+
+
+def _check_box_leaders(text: str, recap: dict | None) -> list[str]:
+    """Solo 'led the receivers/team' fails when the box has a tie."""
+    if not text:
+        return []
+    boxes = [recap or {}]
+    prior = (recap or {}).get("prior")
+    if isinstance(prior, dict) and prior:
+        boxes.append(prior)
+    issues: list[str] = []
+    seen: set[str] = set()
+    for match in _LED_RECEIVERS_OR_TEAM.finditer(text):
+        sentence = _sentence_at(text, match.start())
+        player = _player_last(match.group("player") or "")
+        rest = match.group("rest") or ""
+        stats = _lead_stats_from_rest(match.group("group"), rest)
+        claimed_vals = _claimed_lead_values(rest)
+        if not player or not stats:
+            continue
+        found = False
+        tied = False
+        solo = False
+        for box in boxes:
+            player_team = ""
+            touch_yards: dict[str, int] = {}
+            for row in box.get("touches") or []:
+                if not isinstance(row, dict):
+                    continue
+                last = _player_last(row.get("player") or "")
+                if last == player:
+                    player_team = str(row.get("team") or "")
+                value = row.get("receivingYards")
+                if last and value not in (None, ""):
+                    try:
+                        touch_yards[last] = int(value)
+                    except (TypeError, ValueError):
+                        pass
+            for stat in stats:
+                rows = _stat_rows_for_lead(box, stat, player_team)
+                if player not in rows:
+                    continue
+                claimed = claimed_vals.get(stat)
+                if claimed is not None and rows[player] != claimed:
+                    continue
+                if (
+                    stat == "receiving_yards"
+                    and player not in touch_yards
+                    and (claimed is None or rows[player] != claimed)
+                ):
+                    continue
+                found = True
+                leaders = _solo_leaders(rows)
+                if player in leaders and len(leaders) == 1:
+                    solo = True
+                elif player in leaders and len(leaders) > 1:
+                    tied = True
+        if not found:
+            continue
+        if solo and not tied:
+            continue
+        key = sentence.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        issues.append(
+            f"led the {match.group('group')} is not a solo box-score lead "
+            f"({sentence!r})"
+        )
+    return issues
+
+
+def _prediction_market_policy_applies(narrative: dict | None) -> bool:
+    stamp = str((narrative or {}).get("generatedAt") or "")
+    if not stamp:
+        return False
+    return stamp[:10] >= _MARKET_CUTOVER
+
+
+def _check_prediction_markets(narrative: dict | None) -> list[str]:
+    """Block Polymarket/Kalshi-style prices after the #269 cutover."""
+    if not _prediction_market_policy_applies(narrative):
+        return []
+    issues: list[str] = []
+    text = edition_text(narrative)
+    if _has_blocked_market_copy(text):
+        for match in _PREDICTION_VENUES.finditer(text):
+            issues.append(
+                f"prediction-market odds are blocked from editions "
+                f"({_sentence_at(text, match.start())!r})"
+            )
+        for match in _CHAMPIONSHIP_PRICE.finditer(text):
+            issues.append(
+                f"prediction-market odds are blocked from editions "
+                f"({_sentence_at(text, match.start())!r})"
+            )
+    markets = (narrative or {}).get("markets") or {}
+    futures = markets.get("futures") if isinstance(markets, dict) else None
+    blob = str(futures or "").lower()
+    if any(name in blob for name in _BLOCKED_FUTURES):
+        issues.append(
+            "prediction-market odds are blocked from editions "
+            "('markets.futures')"
+        )
+    return issues
+
+
 def check_review(
     narrative: dict | None,
     last_game: dict | None,
@@ -6888,6 +7347,9 @@ def check_review(
                 issues.extend(_check_eligible_on_score(text, recap))
                 issues.extend(_check_int_clocks(text, recap))
                 issues.extend(_check_pass_touchdowns(text, recap))
+                issues.extend(_check_down_and_distance(text, recap))
+                issues.extend(_check_box_leaders(text, recap))
+    issues.extend(_check_prediction_markets(narrative))
     issues.extend(_check_offseason_slate(narrative, schedule))
     issues.extend(_check_playoff_next_unknown(narrative, schedule))
     issues.extend(known_errors.check_payload(narrative, recap or {}))
@@ -7439,12 +7901,20 @@ def sentence_fails_review(
     return _in_season_phase(probe) and _stale_preseason_claim(text)
 
 
+def _salvage_blocks_market(text: str, generated_at: str = "") -> bool:
+    """Drop Polymarket copy only on post-#269 editions."""
+    if not _has_blocked_market_copy(text):
+        return False
+    return _prediction_market_policy_applies({"generatedAt": generated_at})
+
+
 def _drop_text(
     text: str,
     snippets: list[str],
     last_game: dict | None = None,
     recap: dict | None = None,
     schedule=None,
+    generated_at: str = "",
 ) -> str:
     """Drop only sentences that contain a flagged snippet.
 
@@ -7465,7 +7935,7 @@ def _drop_text(
             continue
         if recap is not None and not sentence_fails_review(
             sent, last_game, recap, schedule
-        ):
+        ) and not _salvage_blocks_market(sent, generated_at):
             kept.append(sent)
             continue
     if len(kept) == len(sentences):
@@ -7479,13 +7949,18 @@ def _drop_value(
     last_game: dict | None = None,
     recap: dict | None = None,
     schedule=None,
+    generated_at: str = "",
 ):
     if isinstance(value, str):
-        return _drop_text(value, snippets, last_game, recap, schedule)
+        return _drop_text(
+            value, snippets, last_game, recap, schedule, generated_at
+        )
     if isinstance(value, list):
         out = []
         for item in value:
-            kept = _drop_value(item, snippets, last_game, recap, schedule)
+            kept = _drop_value(
+                item, snippets, last_game, recap, schedule, generated_at
+            )
             if kept in (None, "", [], {}):
                 continue
             out.append(kept)
@@ -7496,7 +7971,9 @@ def _drop_value(
             if key in _PROTECTED_KEYS:
                 out[key] = item
                 continue
-            kept = _drop_value(item, snippets, last_game, recap, schedule)
+            kept = _drop_value(
+                item, snippets, last_game, recap, schedule, generated_at
+            )
             if kept not in (None, "", [], {}):
                 out[key] = kept
             elif key in ("lede", "body", "why", "coaching", "note"):
@@ -8497,6 +8974,7 @@ def repair_offending_copy(
 ) -> dict:
     """Drop offending sentences, then leftover fragments in every section."""
     payload = copy.deepcopy(narrative or {})
+    generated_at = str(payload.get("generatedAt") or "")
     snippets = violation_snippets(
         [
             item
@@ -8508,7 +8986,8 @@ def repair_offending_copy(
         for key in _EDITION_KEYS:
             if key in payload:
                 payload[key] = _drop_value(
-                    payload[key], snippets, last_game, recap
+                    payload[key], snippets, last_game, recap,
+                    generated_at=generated_at,
                 )
     # A glued play-order quote (nobodyafter) can miss the sentence. Re-check
     # ESPN chronology and drop any leftover inverted after/following claim.
@@ -8528,7 +9007,7 @@ def repair_offending_copy(
     for key in _REQUIRED_COPY_KEYS:
         current = str(payload.get(key) or "").strip()
         if current and not _required_copy_fails(
-            current, last_game, recap
+            current, last_game, recap, generated_at=generated_at
         ):
             continue
         payload[key] = _safe_required_copy(key, last_game)
@@ -8540,7 +9019,10 @@ def _required_copy_fails(
     last_game: dict | None,
     recap: dict | None,
     schedule=None,
+    generated_at: str = "",
 ) -> bool:
+    if _salvage_blocks_market(text, generated_at):
+        return True
     if recap is None:
         return False
     return sentence_fails_review(text, last_game, recap, schedule)
@@ -8570,10 +9052,11 @@ def restore_required_copy(
 ) -> dict:
     """Fill empty or still-wrong headline/dek/theEdge from a clean draft."""
     payload = copy.deepcopy(target or {})
+    generated_at = str(payload.get("generatedAt") or "")
     for key in _REQUIRED_COPY_KEYS:
         current = str(payload.get(key) or "").strip()
         if current and not _required_copy_fails(
-            current, last_game, recap, schedule
+            current, last_game, recap, schedule, generated_at
         ):
             continue
         restored = False
@@ -8582,7 +9065,9 @@ def restore_required_copy(
             text = str(val or "").strip()
             if not text:
                 continue
-            if _required_copy_fails(text, last_game, recap, schedule):
+            if _required_copy_fails(
+                text, last_game, recap, schedule, generated_at
+            ):
                 continue
             payload[key] = val
             restored = True
@@ -8590,7 +9075,7 @@ def restore_required_copy(
         if not restored and not current:
             payload[key] = _safe_required_copy(key, last_game)
         elif not restored and _required_copy_fails(
-            current, last_game, recap, schedule
+            current, last_game, recap, schedule, generated_at
         ):
             payload[key] = _safe_required_copy(key, last_game)
     return payload

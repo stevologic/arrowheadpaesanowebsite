@@ -1286,8 +1286,10 @@ def _attach_prior_recap(recap: dict, fixture_name: str, fixtures) -> dict:
         return recap
     attached = dict(prior)
     opp_name, opp_abbr = _FIXTURE_OPPONENT.get(prior_name, ("", ""))
-    attached.setdefault("opponent", attached.get("opponent") or opp_name)
-    attached.setdefault("oppAbbr", attached.get("oppAbbr") or opp_abbr)
+    if opp_name:
+        attached["opponent"] = opp_name
+    if opp_abbr:
+        attached["oppAbbr"] = opp_abbr
     payload = dict(recap)
     payload["prior"] = attached
     return payload

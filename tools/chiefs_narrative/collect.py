@@ -543,6 +543,21 @@ def _play_yards(play: dict):
     return int(match.group(1)) if match else None
 
 
+def _play_down_distance(play: dict) -> tuple[int | None, int | None]:
+    """ESPN start.down / start.distance on a play-by-play row."""
+    start = play.get("start") if isinstance(play.get("start"), dict) else {}
+    raw_down = start.get("down", play.get("down"))
+    raw_distance = start.get("distance", play.get("distance"))
+    try:
+        down = int(raw_down)
+        distance = int(raw_distance)
+    except (TypeError, ValueError):
+        return None, None
+    if down < 1 or down > 4 or distance < 0:
+        return None, None
+    return down, distance
+
+
 def _kc_home_from_summary(data: dict) -> bool | None:
     comps = ((data.get("header") or {}).get("competitions") or [])
     if comps and isinstance(comps[0], dict):
@@ -770,6 +785,10 @@ def parse_plays(drives) -> list[dict]:
                 "interceptedBy": (intercepted.group(1) if intercepted else "").strip(),
                 "target": (target.group(1) if target else "").strip(),
             }
+            down, distance = _play_down_distance(play)
+            if down is not None:
+                row["down"] = down
+                row["distance"] = distance
             out.append(row)
     return out
 
@@ -892,7 +911,9 @@ def parse_player_usage(box: dict | None) -> dict:
                 if not player:
                     continue
                 key = (player, side)
-                slot = usage.setdefault(key, {"rushes": 0, "catches": 0})
+                slot = usage.setdefault(
+                    key, {"rushes": 0, "catches": 0, "receivingYards": 0}
+                )
                 if name == "rushing":
                     slot["rushes"] = _to_int(
                         _stat_at(stats, index_by, "rushingAttempts")
@@ -900,6 +921,9 @@ def parse_player_usage(box: dict | None) -> dict:
                 elif name == "receiving":
                     slot["catches"] = _to_int(
                         _stat_at(stats, index_by, "receptions")
+                    ) or 0
+                    slot["receivingYards"] = _to_int(
+                        _stat_at(stats, index_by, "receivingYards", "yards")
                     ) or 0
                 elif name == "passing":
                     comp_att = _stat_at(
@@ -949,15 +973,16 @@ def parse_player_usage(box: dict | None) -> dict:
         rushes = slot["rushes"]
         catches = slot["catches"]
         if rushes or catches:
-            touches.append(
-                {
-                    "player": player,
-                    "team": team,
-                    "rushes": rushes,
-                    "catches": catches,
-                    "touches": rushes + catches,
-                }
-            )
+            row = {
+                "player": player,
+                "team": team,
+                "rushes": rushes,
+                "catches": catches,
+                "touches": rushes + catches,
+            }
+            if slot.get("receivingYards"):
+                row["receivingYards"] = slot["receivingYards"]
+            touches.append(row)
     return {
         "touches": touches,
         "passing": passing,
