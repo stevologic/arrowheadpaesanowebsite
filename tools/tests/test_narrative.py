@@ -4279,6 +4279,7 @@ class FactCheck(unittest.TestCase):
             facts.should_hold_automerge([], narrative, leftover=issues)
         )
         self.assertTrue(known_errors.is_hold_only_issue(issues[0]))
+        self.assertFalse(facts.sentence_fails_review(sentence, None, None))
         body = drop_body.drop_body(
             {"holdAutomerge": True, "leftoverIssues": issues}
         )
@@ -4288,6 +4289,55 @@ class FactCheck(unittest.TestCase):
         buf = io.StringIO()
         generate.emit_held(issues, stream=buf)
         self.assertIn(sentence, buf.getvalue())
+
+    def test_generate_build_keeps_leak_leftover_and_emits_it(self):
+        """A leftover strip after replay would drop the hold signal."""
+        sentence = (
+            "It is not a claim that a blitz created Williams' interception."
+        )
+        edge = "Kansas City won 24-10 in Miami and now turns to Denver. " * 20
+        story = "The slot job and the right tackle race are the camp questions. " * 20
+        state = "The secondary has to settle before the opener in Denver. " * 20
+        plan = "Stay on early downs and keep play-action in the call sheet. " * 20
+        review = "The 24-10 Miami tape is the only box this camp edition cites. " * 20
+        draft = {
+            "headline": "A unique camp clock: Denver, the slot, and the tape",
+            "dek": sentence,
+            "theEdge": edge,
+            "storyline": story,
+            "currentState": state,
+            "gamePlan": plan,
+            "lastGameReview": {"lede": review},
+            "edition": "2026 Training Camp",
+        }
+        llm = Mock(return_value=(draft, "grok"))
+        buf = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "narrative_archive.json"
+            editions = root / "narrative_editions"
+            editions.mkdir()
+            archive.write_text("[]\n", encoding="utf-8")
+            with HeadlineUniqueness()._generation_stack(
+                llm=llm, archive=archive, editions=editions
+            ):
+                with redirect_stdout(buf):
+                    result = generate.build("grok", persist_schedule=False)
+        leftover = result["leftoverIssues"]
+        self.assertTrue(
+            any("fact-checker note leaked" in item for item in leftover),
+            leftover,
+        )
+        self.assertTrue(any(sentence in item for item in leftover), leftover)
+        self.assertEqual(result["narrative"]["dek"], sentence)
+        self.assertIn(sentence, buf.getvalue())
+        self.assertTrue(
+            facts.should_hold_automerge(
+                result.get("droppedSentences") or [],
+                result["narrative"],
+                leftover=leftover,
+            )
+        )
 
     def _build_hugo_site(self, tmp: Path, *, mutate_rss: bool = False):
         hugo_bin = _hugo_bin()
@@ -12538,7 +12588,17 @@ class Oct14EditionGates(unittest.TestCase):
         self.assertNotIn("two touchdowns on the season ledger", blob)
         self.assertNotIn("Allegiant interception", blob)
         self.assertNotIn("zone blitz on third down without treating", blob)
-        self.assertEqual(facts.check_review(repaired, self.LAST, recap), [])
+        leftover_after = facts.check_review(repaired, self.LAST, recap)
+        self.assertTrue(
+            leftover_after
+            and all(known_errors.is_hold_only_issue(item) for item in leftover_after),
+            leftover_after,
+        )
+        self.assertTrue(
+            any("fact-checker note leaked" in item for item in leftover_after),
+            leftover_after,
+        )
+        self.assertIn("not a story about the Nwankpa interception", blob)
         self.assertTrue(
             any("Allegiant" in line and "Nwankpa" in line for line in logs)
             or "Allegiant interception" not in blob,

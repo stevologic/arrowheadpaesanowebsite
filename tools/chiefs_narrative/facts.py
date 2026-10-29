@@ -8145,7 +8145,10 @@ def sentence_fails_review(
     schedule=None,
     phase: dict | None = None,
 ) -> bool:
-    """True when this sentence, alone, still disagrees with ESPN."""
+    """True when this sentence, alone, still disagrees with ESPN.
+
+    Hold-only leaks stay in copy. They must not count as a salvage drop.
+    """
     text = (sentence or "").strip()
     if not text:
         return False
@@ -8158,7 +8161,12 @@ def sentence_fails_review(
             "score": "",
         },
     }
-    if check_review(probe, last_game, recap, schedule=schedule):
+    issues = [
+        item
+        for item in check_review(probe, last_game, recap, schedule=schedule)
+        if not known_errors.is_hold_only_issue(item)
+    ]
+    if issues:
         return True
     return _in_season_phase(probe) and _stale_preseason_claim(text)
 
