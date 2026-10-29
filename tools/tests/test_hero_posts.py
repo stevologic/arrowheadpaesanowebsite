@@ -43,6 +43,7 @@ def _clean_pin(**overrides):
         "text": "Rashee Rice and Omarr Norman-Lott were limited in practice today.",
         "alt": "Official Kansas City Chiefs injury report from Denver week practice.",
         "sponsored": False,
+        "mediaReviewed": True,
     }
     row.update(overrides)
     return row
@@ -76,6 +77,15 @@ def _temp_sidecar(payload=None):
     return tmp, root
 
 
+def _write_unsigned_edition(root: Path, edition: dict):
+    editions = "narrative" + "_editions"
+    path = root / "data" / editions / f"{edition['slug']}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = dict(edition)
+    payload.setdefault("slug", edition["slug"])
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
 def _copy_signed_tree(root: Path):
     editions_name = "narrative" + "_editions"
     editions = root / "data" / editions_name
@@ -97,7 +107,8 @@ def _copy_signed_tree(root: Path):
         shutil.copyfile(pubkey, dest / pubkey.name)
 
 
-def render_hero_fixtures(fixtures, *, pins=None, layouts=None, css_text=None):
+def render_hero_fixtures(fixtures, *, pins=None, layouts=None, css_text=None,
+                         signoff_slugs=None):
     """Render narrative hero partials through a temporary Hugo site."""
     temp = tempfile.TemporaryDirectory()
     source = Path(temp.name) / "source"
@@ -108,6 +119,10 @@ def render_hero_fixtures(fixtures, *, pins=None, layouts=None, css_text=None):
     shutil.copyfile(ROOT / "data" / "hero_scenes.json", source / "data" / "hero_scenes.json")
     shutil.copyfile(ROOT / "data" / "schedule_2026.json", source / "data" / "schedule_2026.json")
     shutil.copyfile(ROOT / "data" / "hero_media.json", source / "data" / "hero_media.json")
+    signoff = source / "signoff" / "review"
+    signoff.mkdir(parents=True, exist_ok=True)
+    for slug in signoff_slugs or (SIGNED_SLUG,):
+        (signoff / f"{slug}.sig").write_text("fixture-sig\n", encoding="utf-8")
     sidecar = {
         "schemaVersion": 1,
         "allowlist": list(hero_posts.ALLOWLIST_DISPLAY),
@@ -191,9 +206,16 @@ class HeroPostAllowlist(unittest.TestCase):
         self.assertIsNone(hero_posts.normalize_pin({**good, "url": "https://x.com/Chiefs/status/nope"}))
         self.assertIsNone(hero_posts.normalize_pin("https://x.com/Chiefs/status/" + CLEAN_ID))
         self.assertIsNone(hero_posts.normalize_pin({**good, "sponsored": True}))
+        self.assertIsNone(hero_posts.normalize_pin({**good, "mediaReviewed": False}))
+        self.assertIsNone(hero_posts.normalize_pin({k: v for k, v in good.items() if k != "mediaReviewed"}))
         for text in ("DraftKings Over/Under", "FanDuel odds", "O/U 40.5",
                      "presented by a partner", "sponsored graphic", "bet the total"):
             self.assertIsNone(hero_posts.normalize_pin({**good, "text": text}), text)
+        self.assertIsNone(hero_posts.normalize_pin({**good, "text": "clean", "caption": "DraftKings board"}))
+        self.assertIsNone(hero_posts.normalize_pin({
+            **good, "handle": "Chiefs", "url": f"https://x.com/NFL/status/{CLEAN_ID}",
+        }))
+        self.assertIsNone(hero_posts.normalize_pin({**good, "id": "123456789"}))
 
     def test_validate_sidecar_is_offline(self):
         with patch("urllib.request.urlopen", side_effect=AssertionError("network")):
@@ -221,10 +243,16 @@ class HeroPostAllowlist(unittest.TestCase):
         finally:
             tmp.cleanup()
 
-    def test_signed_edition_pin_fails_unless_whitelisted(self):
+    def test_signed_and_missing_editions_fail_closed(self):
         tmp, root = _temp_sidecar()
         try:
             _copy_signed_tree(root)
+            editions = "narrative" + "_editions"
+            week8_src = ROOT / "data" / editions / f"{WEEK8_SLUG}.json"
+            if week8_src.is_file():
+                dest = root / "data" / editions / f"{WEEK8_SLUG}.json"
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(week8_src, dest)
             payload = json.loads((root / "data" / "hero_posts.json").read_text(encoding="utf-8"))
             payload["pins"][SIGNED_SLUG] = _clean_pin(
                 handle="NFL",
@@ -238,6 +266,11 @@ class HeroPostAllowlist(unittest.TestCase):
             self.assertTrue(any(SIGNED_SLUG in item and "signed" in item for item in issues), issues)
             self.assertFalse(any(WEEK8_SLUG in item and "signed" in item for item in issues), issues)
             self.assertIsNone(hero_posts.pin_for_slug(SIGNED_SLUG, root=root))
+            self.assertFalse(hero_posts.edition_pin_allowed("1999-01-01-0000", root=root))
+            broken = root / "data" / ("narrative" + "_editions") / "1999-01-02-0000.json"
+            broken.parent.mkdir(parents=True, exist_ok=True)
+            broken.write_text("{not json", encoding="utf-8")
+            self.assertFalse(hero_posts.edition_pin_allowed("1999-01-02-0000", root=root))
         finally:
             tmp.cleanup()
 
@@ -250,6 +283,7 @@ class HeroPostAllowlist(unittest.TestCase):
         })
         try:
             den = _preview(slug="2026-10-29-1200")
+            _write_unsigned_edition(root, den)
             before = json.dumps(den)
             pin = hero_posts.attach_sidecar(den, root=root)
             self.assertIsNotNone(pin)
@@ -259,11 +293,44 @@ class HeroPostAllowlist(unittest.TestCase):
             self.assertEqual(written["id"], CLEAN_ID)
             sea = _preview(opponent="Seattle Seahawks", week=8, at="@ Lumen Field",
                            slug="2026-10-29-1300")
+            _write_unsigned_edition(root, sea)
             self.assertIsNone(hero_posts.attach_sidecar(sea, root=root))
             self.assertIsNone(hero_posts.pin_for_slug("2026-10-29-1300", root=root))
             self.assertIsNone(hero_posts.pin_for_slug(SIGNED_SLUG, root=root))
             committed = json.loads((ROOT / "data" / "hero_posts.json").read_text(encoding="utf-8"))
             self.assertNotIn("2026-10-29-1200", committed.get("pins") or {})
+            (root / "data" / "hero_posts.json").write_text(json.dumps({
+                "schemaVersion": 1,
+                "allowlist": list(hero_posts.ALLOWLIST_DISPLAY),
+                "catalog": [_catalog_row(mode="review")],
+                "pins": {},
+            }), encoding="utf-8")
+            preview_on_review_catalog = _preview(slug="2026-10-29-1500")
+            _write_unsigned_edition(root, preview_on_review_catalog)
+            self.assertIsNone(hero_posts.attach_sidecar(preview_on_review_catalog, root=root))
+            (root / "data" / "hero_posts.json").write_text(json.dumps({
+                "schemaVersion": 1,
+                "allowlist": list(hero_posts.ALLOWLIST_DISPLAY),
+                "catalog": [_catalog_row(week=None)],
+                "pins": {},
+            }), encoding="utf-8")
+            noweek = _preview(slug="2026-10-29-1400")
+            noweek["phase"] = {"mode": "preview", "type": "regular", "label": "Preview"}
+            _write_unsigned_edition(root, noweek)
+            self.assertIsNone(hero_posts.attach_sidecar(noweek, root=root))
+        finally:
+            tmp.cleanup()
+
+    def test_allowlist_drift_fails_the_gate(self):
+        tmp, root = _temp_sidecar({
+            "schemaVersion": 1,
+            "allowlist": list(hero_posts.ALLOWLIST_DISPLAY) + ["Arians"],
+            "catalog": [],
+            "pins": {},
+        })
+        try:
+            issues = hero_posts.validate_sidecar(root)
+            self.assertTrue(any("allowlist" in item for item in issues), issues)
         finally:
             tmp.cleanup()
 
@@ -273,11 +340,12 @@ class HeroPostAllowlist(unittest.TestCase):
         self.assertIn("nfl", hero_posts.ALLOWLIST)
         self.assertIn("theathletic", hero_posts.ALLOWLIST)
         self.assertIn("espn", hero_posts.ALLOWLIST)
-        self.assertEqual(hero_posts.SIGNED_PIN_WHITELIST, frozenset({WEEK8_SLUG}))
+        self.assertFalse(hasattr(hero_posts, "SIGNED_PIN_WHITELIST") and hero_posts.SIGNED_PIN_WHITELIST)
         src = (ROOT / "tools" / "chiefs_narrative" / "hero_posts.py").read_text(encoding="utf-8")
         self.assertIn("ALLOWLIST", src)
-        self.assertIn("SIGNED_PIN_WHITELIST", src)
+        self.assertNotIn("SIGNED_PIN_WHITELIST", src)
         self.assertIn("BETTING_DENY_RE", src)
+        self.assertIn("mediaReviewed", src)
         self.assertNotIn("arrowheadpride", hero_posts.ALLOWLIST)
         self.assertNotIn("polymarket", hero_posts.ALLOWLIST)
 
@@ -330,12 +398,57 @@ class HeroPostRendering(unittest.TestCase):
             _week8_fixture(slug="offlist-pin"),
             _week8_fixture(slug="week-mismatch", opponent="Seattle Seahawks",
                            at="@ Lumen Field"),
+            _week8_fixture(slug="betting-caption"),
+            _week8_fixture(slug="sponsored-pin"),
+            _week8_fixture(slug="short-id"),
+            _week8_fixture(slug="url-mismatch"),
+            {
+                "slug": "at-only-away",
+                "headline": "Denver is the assignment",
+                "generatedAt": "2026-10-28T17:50:00Z",
+                "phase": {"mode": "preview", "type": "regular", "label": "Preview"},
+                "record": "5-1",
+                "edition": "2026 Week 8 · Preview",
+                "nextGame": {"opponent": "Denver Broncos", "at": "@ the visiting stadium"},
+                "injuries": [],
+                "pressConferenceLinks": [],
+                "pressConferences": [],
+            },
+            {
+                "slug": "markets-away",
+                "headline": "Denver is the assignment",
+                "generatedAt": "2026-10-28T17:50:00Z",
+                "phase": {"mode": "preview", "type": "regular", "label": "Preview"},
+                "record": "5-1",
+                "edition": "Preview",
+                "nextGame": {"opponent": "Denver Broncos"},
+                "markets": {"game": {"opponent": "Denver Broncos", "homeAway": "away"}},
+                "injuries": [],
+                "pressConferenceLinks": [],
+                "pressConferences": [],
+            },
+            {
+                "slug": "training-camp",
+                "headline": "Camp is the work",
+                "generatedAt": "2026-08-01T12:00:00Z",
+                "phase": {"mode": "training-camp", "type": "training-camp", "label": "Training Camp"},
+                "record": "0-0",
+                "edition": "Training Camp",
+                "injuries": [],
+                "pressConferenceLinks": [],
+                "pressConferences": [],
+            },
         ]
         pins = {
             "clean-pin": _clean_pin(),
             "deleted-pin": _clean_pin(id=DELETED_ID, url=DELETED_URL,
                                       text="This post will 404.",
                                       alt="Deleted-post fixture."),
+            "betting-caption": _clean_pin(text="clean copy", caption="DraftKings board"),
+            "sponsored-pin": _clean_pin(sponsored=True),
+            "short-id": _clean_pin(id="123456789", url="https://x.com/Chiefs/status/123456789"),
+            "url-mismatch": _clean_pin(url=f"https://x.com/NFL/status/{CLEAN_ID}"),
+            SIGNED_SLUG: _clean_pin(handle="NFL", url=f"https://x.com/NFL/status/{CLEAN_ID}"),
             "offlist-pin": {
                 "id": CLEAN_ID,
                 "handle": "ArrowheadPride",
@@ -354,7 +467,9 @@ class HeroPostRendering(unittest.TestCase):
                 ))
                 for item in (
                     WEEK8_SLUG, SIGNED_SLUG, "clean-pin", "deleted-pin",
-                    "offlist-pin", "week-mismatch",
+                    "offlist-pin", "week-mismatch", "betting-caption",
+                    "sponsored-pin", "short-id", "url-mismatch",
+                    "at-only-away", "markets-away", "training-camp",
                 )
             )
             if match
@@ -387,7 +502,14 @@ class HeroPostRendering(unittest.TestCase):
         self.assertIn("preview-away-den.svg", den)
         self.assertIn("nrt-hero-media__visual--embed", den)
         self.assertRegex(self.page, r'<script\s+async\s+src="?https://platform\.twitter\.com/widgets\.js"?')
+        media_src = (ROOT / "layouts" / "partials" / "nrt-hero-media.html").read_text(encoding="utf-8")
         self.assertIn("unavailable", self.page)
+        self.assertIn("embedHeight", media_src)
+        self.assertIn("8000", media_src)
+        self.assertIn("data-hero-min-embed", den)
+        self.assertIn("if (!iframe) return 0;", media_src)
+        self.assertIn("embedHeight(fig) >= MIN", media_src)
+        self.assertNotIn("if (fig.querySelector(\"iframe\")) {\n      settle(fig, \"ready\");", media_src)
         self.assertIn("twitter-tweet", self.page)
         self.assertIn("640px", self.css)
         self.assertIn("560px", self.css)
@@ -411,6 +533,29 @@ class HeroPostRendering(unittest.TestCase):
         mismatch = self.blocks["week-mismatch"]
         self.assertIn("preview-away-sea.svg", mismatch)
         self.assertNotIn("preview-away-den.svg", mismatch)
+
+    def test_hugo_denylist_signed_lock_and_id_url_checks(self):
+        for slug in ("betting-caption", "sponsored-pin", "short-id", "url-mismatch"):
+            block = self.blocks[slug]
+            self.assertRegex(block, r'data-hero-kind="?article-illustration"?', slug)
+            self.assertNotIn("twitter-tweet", block, slug)
+        signed = self.blocks[SIGNED_SLUG]
+        self.assertRegex(signed, r'data-hero-kind="?article-illustration"?')
+        self.assertNotIn("twitter-tweet", signed)
+
+    def test_hugo_at_prefix_markets_and_training_camp(self):
+        self.assertIn("preview-away-den.svg", self.blocks["at-only-away"])
+        self.assertIn("preview-away-den.svg", self.blocks["markets-away"])
+        self.assertIn("camp-fallback.svg", self.blocks["training-camp"])
+
+    def test_unpinned_only_page_does_not_load_widgets(self):
+        temp, page, _ = render_hero_fixtures([_week8_fixture()], pins={})
+        try:
+            self.assertNotIn("widgets.js", page)
+            self.assertNotIn("platform.twitter.com", page)
+            self.assertIn("preview-away-den.svg", page)
+        finally:
+            temp.cleanup()
 
     def test_hero_partial_only_mentions_platform_twitter(self):
         media = (ROOT / "layouts" / "partials" / "nrt-hero-media.html").read_text(encoding="utf-8")

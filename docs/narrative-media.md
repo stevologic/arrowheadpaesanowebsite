@@ -10,16 +10,27 @@ credentialed Chiefs beat writers. Fan, meme, parody, betting, Polymarket, and
 sponsored handles fail the gate. Validation is offline (allowlist + snowflake
 id). Build and gate time do not fetch X.
 
+The betting/sponsored denylist reads **text fields only** (`text`, `alt`,
+`caption`, `note`, plus optional `ocr` / `mediaAlt` / `imageText`). It cannot
+see pixels. Pin review must open the media: look at the actual photo or
+graphic, write an alt that describes that image, and set `mediaReviewed: true`.
+A sportsbook panel that only lives in the image will pass the text gate if
+the alt is dishonest. There is no paid OCR and no network at build; the
+`mediaReviewed` flag is the offline image-content attestation.
+
 The embed is a server-rendered blockquote with the visible source credit and
 the post link inside a reserved-height box (about 640px on desktop, 560px on
 a 390px phone) so the widget footer is not cropped. `widgets.js` loads async,
 only on pages that have a pinned post, and only from
-`https://platform.twitter.com`. The SVG illustration, credit, and post link
-stay in the document: they are the visible hero when JavaScript is off, when
-`widgets.js` fails, or when X reports the post unavailable. Sponsored or
+`https://platform.twitter.com`. The SVG illustration stays visible behind or
+under the embed until the iframe's rendered height is above 240px (or X's
+`rendered` event confirms that height). A missing iframe, a tombstone, a
+deleted/unavailable post, a widgets.js failure, or JS-off never hides the
+SVG. Credit and the post link stay in the caption. Sponsored or
 betting copy (a `sponsored` flag or DraftKings / FanDuel / odds / O/U /
 Over/Under / presented by / bet) is rejected offline. Media is never
-downloaded or rehosted.
+downloaded or rehosted. Pins are refused on already-signed Reviews and on
+a missing or unreadable edition file.
 
 Archived editions without a pin, and any pin that fails the allowlist or id
 shape, use the original vector illustration selected at render time from the
@@ -55,8 +66,8 @@ A pinned official embed loads only `platform.twitter.com/widgets.js`. Nothing
 else third-party is added for the hero. If a Content-Security-Policy is
 introduced, it must allow exactly that origin for the widget script. The
 generator writes a new edition's pin into the sidecar from the offline
-catalog; it does not invent status IDs and it does not rewrite historic
-edition JSON. A removed or expired licensed-image permission must be removed
+catalog only when week and opponent both match; it does not invent status IDs
+and it does not rewrite historic edition JSON. A removed or expired licensed-image permission must be removed
 from `data/hero_media.json`; the template also checks scope, permission dates
 and asset hash at build time. Historic signed narrative JSON is not rewritten
 to add heroes.

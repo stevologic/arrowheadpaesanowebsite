@@ -366,6 +366,24 @@ class HeroSceneSelectorFixes(unittest.TestCase):
                 self.assertTrue(all(0 < x < hero_scenes.W for x in xs), xs)
                 self.assertNotIn("translate(-492", svg)
 
+    def test_at_prefix_and_markets_home_away_and_training_camp(self):
+        at_only = hero_scenes.resolve(
+            _edition("preview", "Denver Broncos", phase_type="postseason",
+                     at="@ the visiting stadium"),
+            schedule=self.schedule, catalog=self.catalog,
+        )
+        self.assertEqual(at_only["id"], "preview-away-den")
+        markets = hero_scenes.resolve(
+            _edition("preview", "Miami Dolphins", home_away="neutral"),
+            schedule=self.schedule, catalog=self.catalog,
+        )
+        self.assertEqual(markets["id"], "preview-neutral-mia")
+        camp = hero_scenes.resolve(
+            {"headline": "Camp", "phase": {"mode": "training-camp", "type": "training-camp"}},
+            schedule=self.schedule, catalog=self.catalog,
+        )
+        self.assertEqual(camp["id"], "camp-fallback")
+
     def test_alt_mentions_two_helmets_for_matchups(self):
         scene = self.catalog["scenes"]["preview-away-den"]
         self.assertIn("two helmet", scene["alt"].lower())

@@ -3,7 +3,8 @@
 Edition JSON and Review signatures are never rewritten. Pins live in
 ``data/hero_posts.json`` keyed by edition slug. Build and gate time do
 not touch the network: validation is allowlist + snowflake-id shape,
-sponsored/betting denylist, and signed-edition rules.
+sponsored/betting denylist, a curator mediaReviewed flag, and
+signed-edition rules. Missing or unreadable edition files fail closed.
 """
 from __future__ import annotations
 
@@ -47,10 +48,6 @@ DENIED_HANDLES = frozenset(
         "chiefskingdommemes",
     }
 )
-
-# Pins may land on unsigned editions, plus this explicit Review/Preview
-# whitelist. Already-signed editions outside the list fail the gate.
-SIGNED_PIN_WHITELIST = frozenset({"2026-10-28-1750"})
 
 POST_ID_RE = re.compile(r"^[0-9]{10,20}$")
 HANDLE_RE = re.compile(r"^[A-Za-z0-9_]{1,15}$")
@@ -113,9 +110,13 @@ def status_url(handle: str, post_id: str) -> str:
 
 
 def _betting_blob(value: dict) -> str:
+    """Text fields only. Image pixels are never fetched; reviewers must open media."""
     return " ".join(
         _s(value.get(key) or "")
-        for key in ("text", "alt", "caption", "note")
+        for key in (
+            "text", "alt", "caption", "note",
+            "ocr", "mediaAlt", "imageText", "imageAlt",
+        )
     )
 
 
@@ -129,22 +130,23 @@ def is_sponsored_or_betting(value: dict) -> bool:
 
 
 def edition_pin_allowed(slug: str, *, root=None) -> bool:
-    """Pins are allowed on unsigned editions plus the explicit whitelist."""
+    """Pins are allowed only on a readable unsigned edition. Missing files fail closed."""
     key = _s(slug)
-    if key in SIGNED_PIN_WHITELIST:
-        return True
     base = Path(root or config.REPO_ROOT)
     path = base / "data" / "narrative_editions" / f"{key}.json"
     if not path.is_file():
-        return True
+        return False
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return True
+        return False
     if not isinstance(payload, dict):
-        return True
+        return False
     payload.setdefault("slug", key)
-    return not review_gate.review_signed_off(payload, root=base, edition_file=path)
+    try:
+        return not review_gate.review_signed_off(payload, root=base, edition_file=path)
+    except review_gate.GateError:
+        return False
 
 
 def normalize_pin(value) -> dict | None:
@@ -152,6 +154,8 @@ def normalize_pin(value) -> dict | None:
     if not isinstance(value, dict):
         return None
     if is_sponsored_or_betting(value):
+        return None
+    if not _truthy(value.get("mediaReviewed")):
         return None
     handle = _handle(value.get("handle") or value.get("account") or "")
     post_id = _s(value.get("id") or value.get("postId") or "")
@@ -186,6 +190,7 @@ def normalize_pin(value) -> dict | None:
         "text": text,
         "alt": alt,
         "sponsored": False,
+        "mediaReviewed": True,
     }
     return pin
 
@@ -317,6 +322,7 @@ def write_sidecar_pin(slug: str, pin: dict, *, root=None) -> dict:
         "alt": pin.get("alt") or "",
         "url": pin["url"],
         "sponsored": False,
+        "mediaReviewed": True,
     }
     payload = {
         "schemaVersion": SCHEMA_VERSION,

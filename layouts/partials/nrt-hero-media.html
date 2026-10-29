@@ -19,7 +19,7 @@
 {{- $scene := partial "nrt-hero-scene.html" (dict "n" .n "site" .site) -}}
 {{- $illustration := partial "nrt-event-illustration.html" (dict "n" .n "site" .site "scene" $scene) -}}
 {{- if $pin.id -}}
-<figure class="nrt-hero-media" data-hero-kind="x-embed" data-hero-state="pending" data-hero-post-id="{{ $pin.id }}" data-hero-scene="{{ $scene.id }}" data-hero-mapped="{{ if $scene.mapped }}true{{ else }}false{{ end }}" data-event-subject="{{ $context.subject }}" data-event-mode="{{ $context.mode }}">
+<figure class="nrt-hero-media" data-hero-kind="x-embed" data-hero-state="pending" data-hero-min-embed="240" data-hero-post-id="{{ $pin.id }}" data-hero-scene="{{ $scene.id }}" data-hero-mapped="{{ if $scene.mapped }}true{{ else }}false{{ end }}" data-event-subject="{{ $context.subject }}" data-event-mode="{{ $context.mode }}">
   <div class="nrt-hero-media__visual nrt-hero-media__visual--embed">
     <div class="nrt-hero-media__fallback" data-hero-fallback>{{ $illustration }}</div>
     <div class="nrt-hero-media__embed" data-hero-embed>
@@ -41,11 +41,18 @@
 <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
 <script>
 (function () {
+  var MIN = 240;
   var figures = document.querySelectorAll("figure.nrt-hero-media[data-hero-kind='x-embed'][data-hero-state='pending']");
   if (!figures.length) return;
   function unavailable(node) {
     var text = (node && node.textContent) || "";
     return /this (?:post|tweet) is unavailable/i.test(text);
+  }
+  function embedHeight(fig) {
+    var iframe = fig.querySelector("iframe");
+    if (!iframe) return 0;
+    var box = iframe.getBoundingClientRect ? iframe.getBoundingClientRect() : { height: 0 };
+    return Math.max(iframe.offsetHeight || 0, iframe.clientHeight || 0, box.height || 0);
   }
   function settle(fig, state) {
     if (fig.getAttribute("data-hero-state") === "ready" || fig.getAttribute("data-hero-state") === "fallback") return;
@@ -56,7 +63,7 @@
       settle(fig, "fallback");
       return;
     }
-    if (fig.querySelector("iframe")) {
+    if (embedHeight(fig) >= MIN) {
       settle(fig, "ready");
     }
   }
@@ -82,6 +89,7 @@
       var n = 0;
       var poll = setInterval(function () {
         n += 1;
+        inspect(fig);
         if (bind() || n > 40) clearInterval(poll);
       }, 200);
     }
