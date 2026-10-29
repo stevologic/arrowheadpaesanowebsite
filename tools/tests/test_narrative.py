@@ -30,6 +30,7 @@ from tools.chiefs_narrative import (
     config,
     diagrams,
     drop_body,
+    edition_merge,
     edition_overlay,
     facts,
     generate,
@@ -59,6 +60,15 @@ def _fixture(name: str) -> Path:
 
 def _load_fixture(name: str):
     return json.loads(_fixture(name).read_text(encoding="utf-8"))
+
+
+def _hugo_output_text(dest: Path) -> str:
+    """All built text Hugo can leak into: html, xml, json, txt."""
+    chunks: list[str] = []
+    for path in dest.rglob("*"):
+        if path.is_file() and path.suffix.lower() in {".html", ".xml", ".json", ".txt"}:
+            chunks.append(path.read_text(encoding="utf-8", errors="replace"))
+    return "\n".join(chunks)
 
 
 def _hugo_bin() -> str | None:
@@ -212,16 +222,20 @@ def _sign_message(priv: Path, message: bytes) -> bytes:
         return sigbin.read_bytes()
 
 
-def _job_step_script(parsed, job: str, *, name=None, step_id=None) -> str:
+def _job_step(parsed, job: str, *, name=None, step_id=None) -> dict:
     job_doc = ((parsed or {}).get("jobs") or {}).get(job) or {}
     for step in job_doc.get("steps") or []:
         if not isinstance(step, dict):
             continue
         if name and step.get("name") == name:
-            return str(step.get("run") or "")
+            return step
         if step_id and step.get("id") == step_id:
-            return str(step.get("run") or "")
-    return ""
+            return step
+    return {}
+
+
+def _job_step_script(parsed, job: str, *, name=None, step_id=None) -> str:
+    return str(_job_step(parsed, job, name=name, step_id=step_id).get("run") or "")
 
 
 def _narrative_review_hold_wiring(parsed) -> dict:
@@ -801,10 +815,13 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("gh pr create --draft", yaml)
         self.assertIn('BASE="develop"', yaml)
         self.assertNotIn("gh workflow run ci.yml", yaml)
-        self.assertNotIn("gh pr merge", yaml)
+        update_half = yaml.split("publish:")[0]
+        self.assertNotIn("gh pr merge", update_half)
+        self.assertIn("gh pr merge", yaml.split("publish:")[1])
         self.assertNotIn("APPEAR_DEADLINE", yaml)
         self.assertNotIn("DONE_DEADLINE", yaml)
-        self.assertNotIn("actions: write", yaml)
+        self.assertNotIn("actions: write", update_half)
+        self.assertIn("actions: write", yaml.split("publish:")[1])
         self.assertNotIn("secrets.GH_PAT", yaml)
         self.assertNotIn("secrets.PAT", yaml)
 
@@ -841,6 +858,9 @@ class GrokModelSelection(unittest.TestCase):
             ci.index("--diagrams-only"),
             ci.index("git diff --exit-code -- public/images/narrative"),
         )
+        self.assertIn("fetch-depth: 0", gates)
+        self.assertIn("Fetch develop for edition diffs", gates)
+        self.assertIn("git fetch --no-tags origin develop", gates)
 
     def test_edition_ci_uses_approved_pr_event_without_dispatch_merge(self):
         """Dispatch success cannot satisfy PR checks; retain human approval."""
@@ -855,7 +875,8 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("head.repo.full_name == github.repository", automerge)
         self.assertIn("--match-head-commit", automerge)
         self.assertNotIn("gh workflow run ci.yml", narrative)
-        self.assertNotIn("gh pr merge", narrative)
+        self.assertNotIn("gh pr merge", narrative.split("publish:")[0])
+        self.assertIn("gh pr merge", narrative.split("publish:")[1])
         self.assertIn("gh pr create --draft", narrative)
         self.assertIn('BASE="develop"', narrative)
         self.assertGreaterEqual(narrative.count("ref: develop"), 3)
@@ -4124,6 +4145,714 @@ class FactCheck(unittest.TestCase):
         self.assertIn("echoed writer instruction", blob)
         self.assertFalse(any("kickoff is midday" in item for item in issues), issues)
 
+    def _meta_note_issues(self, line, last=None, recap=None, **kwargs):
+        payload = {
+            "lastGameReview": {"lede": "Kansas City won 24-10. " + line},
+        }
+        payload.update(kwargs)
+        return [
+            item
+            for item in facts.check_review(payload, last, recap)
+            if "fact-checker note leaked" in item
+        ]
+
+    def test_known_real_archive_leaks_are_all_caught(self):
+        """Every known real leak sentence is a regression fixture (Karen ruling A)."""
+        fixture = _load_fixture("known_meta_leaks.json")
+        rows = fixture["leaks"]
+        self.assertEqual(len(rows), 33)
+        missed = []
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        for row in rows:
+            line = row["sentence"]
+            if not self._meta_note_issues(line):
+                missed.append((row["edition"], line))
+            if not self._meta_note_issues(line, last=last, recap=recap):
+                missed.append((row["edition"] + "+espn", line))
+        self.assertEqual(missed, [])
+
+    def test_meta_note_false_positives_stay_clean(self):
+        fixture = _load_fixture("known_meta_leaks.json")
+        hits = []
+        for line in fixture["false_positives"]:
+            issues = self._meta_note_issues(line)
+            if issues:
+                hits.append((line, issues))
+        self.assertEqual(hits, [])
+        coaching = (
+            "Do not ask a single corner to win every vertical. "
+            "That is the special-teams file Toub is working before Denver."
+        )
+        self.assertFalse(self._meta_note_issues(coaching), coaching)
+
+    def test_tight_referent_hedge_union_still_catches_meta_forms(self):
+        """Referent+hedge is additive; lone sports referents stay clean."""
+        self.assertTrue(
+            self._meta_note_issues("No return date is in the wire.")
+        )
+        self.assertTrue(
+            self._meta_note_issues("The nickel isn't in the wire.")
+        )
+        self.assertTrue(
+            self._meta_note_issues("The nickel isn’t in the wire.")
+        )
+        self.assertTrue(
+            self._meta_note_issues("That name is not stated in the recap.")
+        )
+        self.assertTrue(
+            self._meta_note_issues("Status is not in the supplied data.")
+        )
+        self.assertFalse(
+            self._meta_note_issues("The supplied depth chart is the Week 8 sheet.")
+        )
+        self.assertFalse(
+            self._meta_note_issues("Nothing in the packet of play-action calls names him.")
+        )
+
+    def test_without_inventing_archive_lines_are_clean(self):
+        """Archive 'without inventing' football copy is not a leak."""
+        editions = Path("data") / "narrative_editions"
+        found = []
+        hits = []
+        for path in sorted(editions.glob("*.json")):
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            text = facts.edition_text(payload)
+            if "without inventing" not in text.lower():
+                continue
+            for sentence in facts._split_sentences(text):
+                if "without inventing" not in sentence.lower():
+                    continue
+                found.append(sentence)
+                issues = self._meta_note_issues(sentence)
+                if issues:
+                    hits.append((path.name, sentence, issues))
+        self.assertGreaterEqual(len(found), 3, found)
+        self.assertEqual(hits, [])
+
+    def test_editor_notes_are_never_rendered_or_scanned(self):
+        canary = "stated in the supplied wire, so none is listed here"
+        payload = {
+            "headline": "Visible headline",
+            "theEdge": "Visible edge.",
+            "editorNotes": [canary],
+            "lastGameReview": {"lede": "Kansas City won 24-10."},
+        }
+        self.assertNotIn(canary, facts.edition_text(payload))
+        self.assertFalse(
+            any(
+                "fact-checker note leaked" in item
+                for item in facts.check_review(payload, None, None, changed=True)
+            )
+        )
+        normalized = schema.normalize(
+            {"editorNotes": [canary], "headline": "Visible headline"},
+            phase={"type": "regular", "mode": "preview"},
+            meta={"generator": "test"},
+        )
+        self.assertEqual(normalized["editorNotes"], [canary])
+        self.assertIn("belong only in editorNotes", prompts.SYSTEM_PROMPT)
+        hint = json.loads(prompts._schema_hint({"type": "regular", "mode": "preview"}, ""))
+        self.assertIn("editorNotes", hint)
+        self.assertNotIn("editorNotes", facts._EDITION_KEYS)
+        self.assertFalse(hasattr(facts, "park_editor_notes"))
+
+    def test_detected_leak_holds_and_keeps_published_copy(self):
+        """A leak HOLDs. Copy is not moved or deleted, even as a whole field."""
+        sentence = (
+            "It is not a claim that a blitz created Williams' interception."
+        )
+        narrative = {
+            "headline": "Visible headline",
+            "dek": sentence,
+            "generatedAt": "2026-10-29T18:00:00Z",
+        }
+        before = copy.deepcopy(narrative)
+        issues = facts.check_review(narrative, None, None, changed=True)
+        self.assertTrue(
+            any("fact-checker note leaked" in item for item in issues), issues
+        )
+        self.assertTrue(any(sentence in item for item in issues), issues)
+        self.assertEqual(narrative["dek"], before["dek"])
+        self.assertTrue(
+            facts.should_hold_automerge([], narrative, leftover=issues)
+        )
+        self.assertTrue(known_errors.is_hold_only_issue(issues[0]))
+        self.assertFalse(facts.sentence_fails_review(sentence, None, None))
+        body = drop_body.drop_body(
+            {"holdAutomerge": True, "leftoverIssues": issues}
+        )
+        self.assertIn(sentence, body)
+        self.assertIn("Leaked fact-checker notes", body)
+        self.assertIn("Automerge is held.", body)
+        buf = io.StringIO()
+        generate.emit_held(issues, stream=buf)
+        self.assertIn(sentence, buf.getvalue())
+
+    def test_generate_build_keeps_leak_leftover_and_emits_it(self):
+        """A leftover strip after replay would drop the hold signal."""
+        sentence = (
+            "It is not a claim that a blitz created Williams' interception."
+        )
+        edge = "Kansas City won 24-10 in Miami and now turns to Denver. " * 20
+        story = "The slot job and the right tackle race are the camp questions. " * 20
+        state = "The secondary has to settle before the opener in Denver. " * 20
+        plan = "Stay on early downs and keep play-action in the call sheet. " * 20
+        review = "The 24-10 Miami tape is the only box this camp edition cites. " * 20
+        draft = {
+            "headline": "A unique camp clock: Denver, the slot, and the tape",
+            "dek": sentence,
+            "theEdge": edge,
+            "storyline": story,
+            "currentState": state,
+            "gamePlan": plan,
+            "lastGameReview": {"lede": review},
+            "edition": "2026 Training Camp",
+        }
+        llm = Mock(return_value=(draft, "grok"))
+        buf = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "narrative_archive.json"
+            editions = root / "narrative_editions"
+            editions.mkdir()
+            archive.write_text("[]\n", encoding="utf-8")
+            with HeadlineUniqueness()._generation_stack(
+                llm=llm, archive=archive, editions=editions
+            ):
+                with redirect_stdout(buf):
+                    result = generate.build("grok", persist_schedule=False)
+        leftover = result["leftoverIssues"]
+        self.assertTrue(
+            any("fact-checker note leaked" in item for item in leftover),
+            leftover,
+        )
+        self.assertTrue(any(sentence in item for item in leftover), leftover)
+        self.assertEqual(result["narrative"]["dek"], sentence)
+        self.assertIn(sentence, buf.getvalue())
+        self.assertTrue(
+            facts.should_hold_automerge(
+                result.get("droppedSentences") or [],
+                result["narrative"],
+                leftover=leftover,
+            )
+        )
+
+    def _leak_only_hold_edition(self, *sentences):
+        """Preview fat enough to hold only because leftover leaks."""
+        lines = list(sentences) or [
+            "It is not a claim that a blitz created Williams' interception.",
+            "Do not tell that story as the reason for a takeaway.",
+        ]
+        edge = "Kansas City won 24-10 in Miami and now turns to Denver. " * 120
+        story = "The slot job and the right tackle race are the camp questions. " * 120
+        state = "The secondary has to settle before the opener in Denver. " * 120
+        plan = "Stay on early downs and keep play-action in the call sheet. " * 120
+        review = "The 24-10 Miami tape is the only box this preview cites. " * 80
+        return {
+            "headline": "Week 8 Preview: Denver on the tape",
+            "dek": lines[0],
+            "theEdge": edge,
+            "storyline": story,
+            "currentState": state,
+            "gamePlan": plan + " " + " ".join(lines[1:]),
+            "lastGameReview": {"lede": review},
+            "phase": {"type": "regular", "mode": "preview", "week": 8},
+            "edition": "2026 Week 8 · Preview",
+            "generatedAt": "2026-10-29T18:00:00Z",
+            "slug": "2026-10-29-1800",
+        }, lines
+
+    def test_leak_only_hold_refuses_automerge_and_lists_every_sentence(self):
+        """Hold, label, refusal, and summary exist only because of the leak."""
+        edition, lines = self._leak_only_hold_edition()
+        self.assertGreaterEqual(facts.edition_word_count(edition), facts.PUBLISH_WORD_FLOOR)
+        self.assertFalse(facts.is_review_edition(edition))
+        self.assertFalse(facts.review_requires_human(edition))
+        self.assertFalse(
+            facts.should_hold_automerge([], edition, leftover=[]),
+            "fixture must not hold for thin/review/empty-title reasons",
+        )
+        issues = [
+            item
+            for item in facts.check_review(edition, None, None, changed=True)
+            if "fact-checker note leaked" in item
+        ]
+        self.assertTrue(issues)
+        for line in lines:
+            self.assertTrue(any(line in item for item in issues), (line, issues))
+        self.assertTrue(facts.should_hold_automerge([], edition, leftover=issues))
+        self.assertTrue(all(known_errors.is_hold_only_issue(item) for item in issues))
+        self.assertEqual(edition["dek"], lines[0])
+
+        body = drop_body.drop_body(
+            {"holdAutomerge": True, "leftoverIssues": issues}
+        )
+        self.assertIn("## Leaked fact-checker notes", body)
+        self.assertIn("Automerge is held.", body)
+        for line in lines:
+            self.assertIn(line, body)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            summary = Path(tmp) / "summary.md"
+            env = {
+                "GITHUB_ACTIONS": "true",
+                "GITHUB_STEP_SUMMARY": str(summary),
+            }
+            buf = io.StringIO()
+            with patch.dict(os.environ, env, clear=False):
+                generate.emit_held(issues, stream=buf)
+            listed = summary.read_text(encoding="utf-8")
+            self.assertIn("### Held edition", listed)
+            for line in lines:
+                self.assertIn(line, listed)
+                self.assertIn(line, buf.getvalue())
+            for item in issues:
+                self.assertIn(f"::warning title=held edition::{item}", buf.getvalue())
+
+        self.assertEqual(
+            edition_merge.refuse_reason(labels=[{"name": "hold"}]),
+            "hold label",
+        )
+        self.assertTrue(
+            edition_merge.merge_refused(labels=[{"name": "hold"}])
+        )
+        workflow = (
+            Path(__file__).resolve().parents[2]
+            / ".github"
+            / "workflows"
+            / "narrative.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn('gh pr edit "$PR_URL" --add-label hold', workflow)
+        self.assertIn("Holding automerge", workflow)
+
+    def test_generate_build_emits_leak_notes_to_run_summary(self):
+        """Removing leak_notes emit or emptying it must fail this listing."""
+        edition, lines = self._leak_only_hold_edition(
+            "It is not a claim that a blitz created Williams' interception."
+        )
+        llm = Mock(return_value=(edition, "grok"))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "narrative_archive.json"
+            editions = root / "narrative_editions"
+            editions.mkdir()
+            archive.write_text("[]\n", encoding="utf-8")
+            summary = root / "summary.md"
+            env = {
+                "GITHUB_ACTIONS": "true",
+                "GITHUB_STEP_SUMMARY": str(summary),
+            }
+            buf = io.StringIO()
+            with HeadlineUniqueness()._generation_stack(
+                llm=llm, archive=archive, editions=editions
+            ):
+                with patch.dict(os.environ, env, clear=False):
+                    with redirect_stdout(buf):
+                        result = generate.build("grok", persist_schedule=False)
+            leftover = [
+                item
+                for item in result["leftoverIssues"]
+                if "fact-checker note leaked" in item
+            ]
+            listed = summary.read_text(encoding="utf-8") if summary.is_file() else ""
+        self.assertTrue(leftover, result["leftoverIssues"])
+        self.assertEqual(result["narrative"]["dek"], lines[0])
+        self.assertTrue(
+            facts.should_hold_automerge(
+                result.get("droppedSentences") or [],
+                result["narrative"],
+                leftover=leftover,
+            )
+        )
+        self.assertIn(lines[0], listed)
+        self.assertIn(lines[0], buf.getvalue())
+
+    def test_check_edition_fails_red_on_a_held_leak(self):
+        """A leaked edition is a red --check-edition, plus the hold label."""
+        edition, lines = self._leak_only_hold_edition()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            narrative_json = root / "narrative.json"
+            repair_json = root / "repair.json"
+            narrative_json.write_text(json.dumps(edition) + "\n", encoding="utf-8")
+            repair_json.write_text(
+                json.dumps({"holdAutomerge": True, "leftoverIssues": []}) + "\n",
+                encoding="utf-8",
+            )
+            summary = root / "summary.md"
+            env = {
+                "GITHUB_ACTIONS": "true",
+                "GITHUB_STEP_SUMMARY": str(summary),
+            }
+            with patch.object(generate.config, "NARRATIVE_JSON", narrative_json), patch.object(
+                generate.config, "REPAIR_JSON", repair_json
+            ), patch.object(
+                facts, "changed_edition_paths", return_value=None
+            ), patch.object(
+                generate, "_last_game_from_edition", return_value=None
+            ), patch.object(
+                generate, "_recap_for_edition", return_value={}
+            ), patch.object(
+                collect, "load_cached_schedule", return_value=[]
+            ), patch.object(
+                facts, "check_diagram_captions", return_value=[]
+            ), patch.object(
+                generate.press_conferences, "check_embeds", return_value=[]
+            ), patch.object(
+                generate.locker_room, "check_posts", return_value=[]
+            ), patch.object(
+                generate.hero_posts, "validate_sidecar", return_value=[]
+            ), patch.dict(os.environ, env, clear=False):
+                buf = io.StringIO()
+                with redirect_stdout(buf):
+                    rc = generate.main(["--check-edition"])
+            self.assertEqual(rc, 1)
+            listed = summary.read_text(encoding="utf-8") if summary.is_file() else ""
+            for line in lines:
+                self.assertIn(line, listed)
+
+    def _build_hugo_site(self, tmp: Path, *, mutate_rss: bool = False):
+        hugo_bin = _hugo_bin()
+        if not hugo_bin:
+            self.skipTest("hugo is not on PATH or ~/.local/hugo/hugo")
+        repo = Path(__file__).resolve().parents[2]
+        canary = "EDITORNOTE_CANARY_7f3c9e2a_never_render"
+        site = tmp / "site"
+        site.mkdir()
+        for name in (
+            "layouts",
+            "content",
+            "static",
+            "assets",
+            "archetypes",
+            "public",
+            "hugo.yaml",
+        ):
+            src = repo / name
+            if not src.exists():
+                continue
+            if name == "layouts" and mutate_rss:
+                shutil.copytree(src, site / name)
+                rss = site / "layouts" / "_default" / "rss.xml"
+                rss.write_text(
+                    rss.read_text(encoding="utf-8")
+                    + '\n{{ with index site.Data.narrative (printf "%s%s" "editor" "Notes") }}'
+                    + "{{ . }}{{ end }}\n",
+                    encoding="utf-8",
+                )
+            else:
+                (site / name).symlink_to(src)
+        (site / "data").mkdir()
+        for path in (repo / "data").iterdir():
+            if not path.is_file():
+                continue
+            if path.name == "narrative.json":
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                payload["editorNotes"] = [
+                    canary,
+                    "stated in the supplied wire, so none is listed here",
+                ]
+                (site / "data" / path.name).write_text(
+                    json.dumps(payload, indent=2) + "\n", encoding="utf-8"
+                )
+            else:
+                shutil.copy2(path, site / "data" / path.name)
+        dest = tmp / "dist"
+        result = subprocess.run(
+            [hugo_bin, "--gc", "--destination", str(dest)],
+            cwd=site,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return dest, canary
+
+    def test_editor_notes_never_appear_in_hugo_output(self):
+        repo = Path(__file__).resolve().parents[2]
+        for path in (repo / "layouts").rglob("*"):
+            if not path.is_file():
+                continue
+            text = path.read_text(encoding="utf-8")
+            self.assertNotIn("editorNotes", text, path)
+            self.assertNotRegex(
+                text,
+                r'printf\s+"%s%s"\s+"editor"\s+"Notes"',
+                msg=path,
+            )
+        with tempfile.TemporaryDirectory() as tmp:
+            dest, canary = self._build_hugo_site(Path(tmp))
+            blob = _hugo_output_text(dest)
+            for rel in ("index.xml", "narrative/index.xml", "sitemap.xml"):
+                xml = dest / rel
+                self.assertTrue(xml.is_file(), rel)
+                self.assertNotIn(canary, xml.read_text(encoding="utf-8"), rel)
+            self.assertNotIn(canary, blob)
+            self.assertNotIn("stated in the supplied wire", blob)
+            self.assertNotIn("editorNotes", blob)
+
+    def test_hugo_canary_scan_catches_rss_editor_notes_read(self):
+        """A template that reads editorNotes into RSS must fail the canary scan."""
+        with tempfile.TemporaryDirectory() as tmp:
+            dest, canary = self._build_hugo_site(Path(tmp), mutate_rss=True)
+            blob = _hugo_output_text(dest)
+            html_only = "\n".join(
+                path.read_text(encoding="utf-8")
+                for path in dest.rglob("*.html")
+                if path.is_file()
+            )
+            self.assertNotIn(canary, html_only)
+            self.assertIn(canary, blob)
+            index_xml = dest / "index.xml"
+            self.assertTrue(index_xml.is_file())
+            self.assertIn(canary, index_xml.read_text(encoding="utf-8"))
+
+    def test_not_a_verdict_is_ordinary_archive_prose(self):
+        """Karen: 'not a verdict' / 'lean, not a verdict' are published copy."""
+        archive_lines = [
+            "Chalk, not a verdict",
+            "Favored at home is not a verdict: keep Walker's 189-yard identity",
+            "still treat 1-0 as a sample size, not a verdict.",
+            "That is a lean, not a verdict, ahead of Sun Nov 1, 3:25 PM CT.",
+            "Home chalk is a price, not a verdict.",
+            "this is a sample size, not a verdict.",
+            "Treat it as a snapshot, not a verdict; the Rams game is the first tape that can move names.",
+        ]
+        for line in archive_lines:
+            self.assertFalse(self._meta_note_issues(line), line)
+
+        verdict_hits = []
+        editions = Path("data") / "narrative_editions"
+        for path in sorted(editions.glob("*.json")):
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            for item in facts.check_review(payload, None, None, changed=True):
+                if "fact-checker note leaked" in item and "verdict" in item.lower():
+                    verdict_hits.append(f"{path.name}: {item}")
+        self.assertEqual(verdict_hits, [])
+
+    def test_preview_without_final_still_scans_meta_notes(self):
+        """Preview path (no usable final) must still run the leak scan."""
+        narrative = {
+            "phase": {"mode": "preview", "week": 8},
+            "gamePlan": {
+                "lede": "No other player is stated in the supplied wire.",
+            },
+        }
+        live = {"completed": False, "kcScore": None, "oppScore": None}
+        issues = facts.check_review(narrative, live, {})
+        self.assertTrue(
+            any("fact-checker note leaked" in item for item in issues),
+            issues,
+        )
+        none = facts.check_review(narrative, None, None)
+        self.assertTrue(
+            any("fact-checker note leaked" in item for item in none),
+            none,
+        )
+
+    def test_changed_edition_is_rechecked_whatever_its_stamp(self):
+        leak = {
+            "slug": "2026-10-29-1754",
+            "generatedAt": "2026-10-29T17:54:31+00:00",
+            "lastGameReview": {
+                "lede": "Kansas City lost 3-20. No other player is stated in the supplied wire."
+            },
+        }
+        old_handset = dict(leak)
+        old_handset["generatedAt"] = "2026-10-01T00:00:00Z"
+        for payload in (leak, old_handset):
+            issues = facts.check_review(payload, None, None, changed=True)
+            self.assertTrue(
+                any("fact-checker note leaked" in item for item in issues),
+                payload["generatedAt"],
+            )
+        same_z = facts.check_review(
+            {**leak, "generatedAt": "2026-10-29T17:54:31Z"},
+            None,
+            None,
+            changed=False,
+        )
+        self.assertTrue(
+            any("fact-checker note leaked" in item for item in same_z),
+            same_z,
+        )
+        older = facts.check_review(
+            {**leak, "generatedAt": "2026-10-27T19:15:53Z"},
+            None,
+            None,
+            changed=False,
+        )
+        self.assertFalse(
+            any("fact-checker note leaked" in item for item in older),
+            older,
+        )
+        unknown = facts.check_review(
+            {**leak, "generatedAt": "2026-10-27T19:15:53Z"},
+            None,
+            None,
+            changed=None,
+        )
+        self.assertTrue(
+            any("fact-checker note leaked" in item for item in unknown),
+            unknown,
+        )
+        # String-sorts after the cutoff, datetime is 1s before. Must grandfather.
+        offset_before = facts.check_review(
+            {**leak, "generatedAt": "2026-10-29T18:54:30+01:00"},
+            None,
+            None,
+            changed=False,
+        )
+        self.assertFalse(
+            any("fact-checker note leaked" in item for item in offset_before),
+            offset_before,
+        )
+
+    def test_unknown_git_state_is_none_not_empty(self):
+        with patch.object(facts, "_diff_base", return_value=None):
+            self.assertIsNone(facts.changed_edition_paths(base=""))
+        with patch.object(facts, "_diff_base", return_value="origin/develop"):
+            with patch.object(facts, "_git_name_only", return_value=None):
+                self.assertIsNone(facts.changed_edition_paths(base=""))
+        self.assertTrue(facts._fact_checker_notes_enabled(
+            {"generatedAt": "2026-10-27T19:15:53Z"}, changed=None
+        ))
+
+    def test_diff_base_fetches_develop_or_fails_closed(self):
+        """Shallow CI without develop must fetch it or return None."""
+        with patch.object(facts, "_rev_exists", return_value=False):
+            with patch.object(
+                facts.subprocess,
+                "check_output",
+                side_effect=subprocess.CalledProcessError(1, ["git", "fetch"]),
+            ):
+                self.assertIsNone(facts._diff_base("/tmp"))
+        fetched = []
+
+        def exists(_root, ref):
+            return bool(fetched) and ref == "origin/develop"
+
+        def fetch(cmd, **_kwargs):
+            fetched.append(list(cmd))
+            return b""
+
+        with patch.object(facts, "_rev_exists", side_effect=exists):
+            with patch.object(facts.subprocess, "check_output", side_effect=fetch):
+                self.assertEqual(facts._diff_base("/tmp"), "origin/develop")
+        self.assertTrue(fetched)
+        self.assertEqual(
+            fetched[0], ["git", "fetch", "--no-tags", "origin", "develop"]
+        )
+
+    def test_check_published_edition_scans_when_git_is_unknown(self):
+        captured = []
+
+        def fake_check(*args, changed=None, **kwargs):
+            captured.append(changed)
+            return []
+
+        with patch.object(facts, "changed_edition_paths", return_value=None):
+            with patch.object(facts, "check_review", side_effect=fake_check):
+                with patch.object(facts, "check_diagram_captions", return_value=[]):
+                    with patch.object(
+                        generate.press_conferences, "check_embeds", return_value=[]
+                    ):
+                        with patch.object(
+                            generate.locker_room, "check_posts", return_value=[]
+                        ):
+                            with patch.object(
+                                generate.hero_posts, "validate_sidecar", return_value=[]
+                            ):
+                                generate.check_published_edition()
+        self.assertEqual(captured, [True])
+
+    def test_archive_replay_issues_always_rechecks(self):
+        leak = {
+            "generatedAt": "2026-10-01T00:00:00Z",
+            "lastGameReview": {
+                "lede": (
+                    "It is not a claim that a blitz created "
+                    "Williams' interception."
+                )
+            },
+        }
+        self.assertFalse(
+            any(
+                "fact-checker note leaked" in item
+                for item in facts.check_review(leak, None, None, changed=False)
+            )
+        )
+        captured = []
+        real = facts.check_review
+
+        def spy(*args, **kwargs):
+            captured.append(kwargs.get("changed"))
+            return real(*args, **kwargs)
+
+        with patch.object(generate, "_last_game_from_edition", return_value=None):
+            with patch.object(generate, "_recap_for_edition", return_value={}):
+                with patch.object(facts, "check_review", side_effect=spy):
+                    issues = generate.archive_replay_issues(leak)
+        self.assertEqual(captured, [True])
+        self.assertTrue(
+            any("fact-checker note leaked" in item for item in issues),
+            issues,
+        )
+
+    def test_changed_2026_10_29_1754_leak_is_rejected(self):
+        payload = {
+            "slug": "2026-10-29-1754",
+            "generatedAt": "2026-10-29T17:54:31+00:00",
+            "lastGameReview": {
+                "lede": (
+                    "Kansas City lost 3-20. No other player is stated "
+                    "in the supplied wire."
+                )
+            },
+        }
+        issues = facts.check_review(payload, None, None, changed=True)
+        self.assertTrue(
+            any("fact-checker note leaked" in item for item in issues),
+            issues,
+        )
+
+    def test_untouched_older_archive_leak_passes_replay(self):
+        from tools.tests.archive_replay import salvage_edition_file
+
+        row = salvage_edition_file("2026-10-27-1915.json", changed=False)
+        self.assertFalse(
+            any("fact-checker note leaked" in item for item in row["issues"]),
+            row["issues"],
+        )
+        self.assertIn("do not tell that story", row["before"].lower())
+
+    def test_pr286_corrected_edition_passes_meta_note_gate(self):
+        payload = None
+        edition_blob = "data" + "/narrative.json"
+        for rev in (
+            "095e7a8e2438c6dd05ec22219a66d8c989195e60",
+            "origin/cursor/week8-edition-nnamdi-meta-668f",
+        ):
+            try:
+                raw = subprocess.check_output(
+                    ["git", "show", f"{rev}:{edition_blob}"],
+                    text=True,
+                    stderr=subprocess.DEVNULL,
+                )
+            except (OSError, subprocess.CalledProcessError):
+                continue
+            payload = json.loads(raw)
+            break
+        if payload is None:
+            payload = _load_fixture("edition_2026-10-29-1754_pr286.json")
+        issues = facts.check_review(payload, None, None, changed=True)
+        self.assertFalse(
+            any("fact-checker note leaked" in item for item in issues),
+            issues,
+        )
+
     def test_week4_review_mid_scores_and_cousins_hits_are_espn_backed(self):
         """Run 37358660165: 17-13 / 30-19 are LV score-afters; 10 hits is Cousins."""
         recap = _load_fixture("espn_401872976_recap.json")
@@ -6158,7 +6887,8 @@ class FactCheck(unittest.TestCase):
             for body in _quoted_py_heredoc_bodies(script):
                 compile(body, f"{job_name}/{step_name}", "exec")
         self.assertNotIn("deploy", parsed["jobs"])
-        self.assertNotIn("gh pr merge", workflow)
+        self.assertNotIn("gh pr merge", update_scripts)
+        self.assertIn("gh pr merge", workflow.split("publish:")[1])
         self.assertNotIn('echo "publish=true"', workflow)
         self.assertIn("gh pr create --draft", update_scripts)
         hold_block = update_scripts[update_scripts.index('if [ "$HOLD_MERGE" = '):]
@@ -6195,6 +6925,17 @@ class FactCheck(unittest.TestCase):
         self.assertIn("## Corrected sentences", rewritten)
         self.assertIn("29 first downs", rewritten)
         self.assertIn("Automerge is held.", rewritten)
+        leaked = drop_body.drop_body(
+            {
+                "holdAutomerge": True,
+                "leftoverIssues": [
+                    "fact-checker note leaked ('this wire'): There is no Week 4 report on this wire."
+                ],
+            }
+        )
+        self.assertIn("## Leaked fact-checker notes", leaked)
+        self.assertIn("There is no Week 4 report on this wire.", leaked)
+        self.assertIn("Automerge is held.", leaked)
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "narrative_repair.json"
             path.write_text(
@@ -6243,6 +6984,371 @@ class FactCheck(unittest.TestCase):
         self.assertNotEqual(mutated["review_hold_equals"], "true")
         mutated["hold_merge_equals"] = "never"
         self.assertNotEqual(mutated["hold_merge_equals"], "true")
+
+    def test_edition_merge_refuses_hold_and_open_reviews(self):
+        self.assertTrue(
+            edition_merge.merge_refused(labels=[{"name": "hold"}])
+        )
+        self.assertEqual(
+            edition_merge.refuse_reason(labels=["hold", "ready"]),
+            "hold label",
+        )
+        self.assertEqual(
+            edition_merge.refuse_reason(
+                reviews=[{"state": "CHANGES_REQUESTED"}]
+            ),
+            "requested-changes review",
+        )
+        self.assertEqual(
+            edition_merge.refuse_reason(review_decision="CHANGES_REQUESTED"),
+            "requested-changes review",
+        )
+        self.assertEqual(
+            edition_merge.refuse_reason(
+                threads=[{"isResolved": False}, {"isResolved": True}]
+            ),
+            "unresolved review thread",
+        )
+        self.assertIsNone(
+            edition_merge.refuse_reason(
+                labels=[{"name": "ready"}],
+                reviews=[{"state": "COMMENTED"}],
+                threads=[{"isResolved": True}],
+                review_decision="",
+            )
+        )
+        self.assertFalse(
+            edition_merge.merge_refused(
+                labels=[],
+                reviews=[{"state": "APPROVED"}],
+                threads=[{"isResolved": True}],
+            )
+        )
+        self.assertEqual(
+            edition_merge.refuse_reason(
+                labels=[],
+                reviews=[{"state": "APPROVED", "commit": "old-head"}],
+                threads=[{"isResolved": True}],
+                head_sha="new-head",
+                require_head_approval=True,
+            ),
+            "no approval at current head",
+        )
+        self.assertIsNone(
+            edition_merge.refuse_reason(
+                labels=[],
+                reviews=[{"state": "APPROVED", "commit": "new-head"}],
+                threads=[{"isResolved": True}],
+                head_sha="new-head",
+                require_head_approval=True,
+            )
+        )
+
+    def test_edition_merge_lookup_errors_fail_closed(self):
+        with patch.object(
+            edition_merge.subprocess, "check_output", side_effect=OSError("gh down")
+        ):
+            with self.assertRaises(edition_merge.MergeLookupError):
+                edition_merge._gh_json(["pr", "view", "1"])
+            self.assertEqual(edition_merge.main(["--pr", "1"]), 1)
+        with patch.object(
+            edition_merge.subprocess, "check_output", return_value="not-json"
+        ):
+            with self.assertRaises(edition_merge.MergeLookupError):
+                edition_merge._gh_json(["pr", "view", "1"])
+            self.assertEqual(edition_merge.main(["--pr", "1"]), 1)
+        with patch.object(edition_merge.subprocess, "check_output", return_value=""):
+            with self.assertRaises(edition_merge.MergeLookupError):
+                edition_merge._gh_json(["pr", "view", "1"])
+        with patch.object(
+            edition_merge,
+            "inspect_pr",
+            side_effect=edition_merge.MergeLookupError("boom"),
+        ):
+            self.assertEqual(edition_merge.main(["--pr", "1"]), 1)
+
+    def test_inspect_pr_requires_approval_at_current_head(self):
+        pr = {
+            "number": 12,
+            "url": "https://example.test/12",
+            "labels": [],
+            "reviews": [{"state": "APPROVED", "commit": "old-head"}],
+            "reviewDecision": "APPROVED",
+            "headRefOid": "new-head",
+        }
+        with patch.object(edition_merge, "fetch_pr", return_value=pr):
+            with patch.object(edition_merge, "fetch_review_threads", return_value=[]):
+                result = edition_merge.inspect_pr("12")
+        self.assertTrue(result["refused"])
+        self.assertEqual(result["reason"], "no approval at current head")
+        pr["reviews"] = [{"state": "APPROVED", "commit": "new-head"}]
+        with patch.object(edition_merge, "fetch_pr", return_value=pr):
+            with patch.object(edition_merge, "fetch_review_threads", return_value=[]):
+                ok = edition_merge.inspect_pr("12")
+        self.assertFalse(ok["refused"])
+        self.assertTrue(edition_merge.REQUIRE_HEAD_APPROVAL)
+
+    def test_inspect_pr_missing_number_fails_closed(self):
+        with patch.object(
+            edition_merge,
+            "fetch_pr",
+            return_value={"labels": [], "reviews": [], "headRefOid": "abc"},
+        ):
+            with self.assertRaises(edition_merge.MergeLookupError):
+                edition_merge.inspect_pr("12")
+            self.assertEqual(edition_merge.main(["--pr", "12"]), 1)
+
+    def test_review_threads_paginate_past_100(self):
+        pages = [
+            {
+                "data": {
+                    "repository": {
+                        "pullRequest": {
+                            "reviewThreads": {
+                                "nodes": [{"isResolved": True}] * 100,
+                                "pageInfo": {
+                                    "hasNextPage": True,
+                                    "endCursor": "cursor-1",
+                                },
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                "data": {
+                    "repository": {
+                        "pullRequest": {
+                            "reviewThreads": {
+                                "nodes": [{"isResolved": False}],
+                                "pageInfo": {
+                                    "hasNextPage": False,
+                                    "endCursor": "cursor-2",
+                                },
+                            }
+                        }
+                    }
+                }
+            },
+        ]
+
+        def fake_gh(args):
+            if args[:2] == ["api", "graphql"]:
+                blob = " ".join(args)
+                if "cursor=cursor-1" in blob:
+                    return pages[1]
+                return pages[0]
+            raise AssertionError(args)
+
+        with patch.dict(os.environ, {"GITHUB_REPOSITORY": "org/repo"}):
+            with patch.object(edition_merge, "_gh_json", side_effect=fake_gh):
+                threads = edition_merge.fetch_review_threads(12)
+        self.assertEqual(len(threads), 101)
+        self.assertTrue(edition_merge.open_review_threads(threads))
+
+    def test_review_thread_missing_page_cursor_fails_closed(self):
+        page = {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {
+                            "nodes": [{"isResolved": True}],
+                            "pageInfo": {"hasNextPage": True, "endCursor": ""},
+                        }
+                    }
+                }
+            }
+        }
+        with patch.dict(os.environ, {"GITHUB_REPOSITORY": "org/repo"}):
+            with patch.object(edition_merge, "_gh_json", return_value=page):
+                with self.assertRaises(edition_merge.MergeLookupError):
+                    edition_merge.fetch_review_threads(12)
+
+    def test_daily_publish_refuses_hold_or_open_reviews_before_merge(self):
+        root = Path(__file__).resolve().parents[2] / ".github" / "workflows"
+        raw = (root / "narrative.yml").read_text(encoding="utf-8")
+        parsed = yaml.safe_load(raw)
+        publish = (parsed.get("jobs") or {}).get("publish") or {}
+        self.assertTrue(publish)
+        condition = str(publish.get("if") or "")
+        self.assertIn("pull_request", condition)
+        self.assertIn("develop", condition)
+        self.assertIn("narrative/update-", condition)
+        self.assertIn("draft == false", condition)
+        scripts = "\n".join(
+            str(step.get("run") or "")
+            for step in publish.get("steps") or []
+            if isinstance(step, dict)
+        )
+        self.assertIn("edition_merge", scripts)
+        self.assertIn("--pr", scripts)
+        self.assertLess(scripts.index("edition_merge"), scripts.index("gh pr merge"))
+        self.assertIn("Refusing edition auto-merge and promote", scripts)
+        self.assertIn("Promote develop to main", " ".join(
+            str(step.get("name") or "") for step in publish.get("steps") or []
+            if isinstance(step, dict)
+        ))
+        self.assertIn("--head develop", scripts)
+        self.assertIn("--base main", scripts)
+        refuse_step = _job_step(
+            parsed, "publish", name="Refuse hold or unresolved review findings"
+        )
+        merge_step = _job_step(
+            parsed, "publish", name="Squash-merge the edition pull request"
+        )
+        promote_step = _job_step(
+            parsed, "publish", name="Promote develop to main"
+        )
+        refuse = str(refuse_step.get("run") or "")
+        merge = str(merge_step.get("run") or "")
+        promote = str(promote_step.get("run") or "")
+        self.assertIn("edition_merge", refuse)
+        self.assertIn('echo "refused=true"', refuse)
+        self.assertIn("exit 1", refuse)
+        self.assertNotIn("exit 0", refuse)
+        self.assertIn("--disable-auto", refuse)
+        self.assertNotIn("gh pr close", refuse)
+        self.assertIn("gh pr merge", merge)
+        self.assertEqual(
+            merge_step.get("if"), "steps.refuse.outputs.refused != 'true'"
+        )
+        self.assertEqual(
+            promote_step.get("if"), "steps.refuse.outputs.refused != 'true'"
+        )
+        self.assertIn("edition_merge", promote)
+        self.assertIn("gh pr merge", promote)
+        self.assertIn("gh pr close", promote)
+        self.assertIn("exit 1", promote)
+        self.assertLess(promote.index("edition_merge"), promote.index("gh pr create"))
+        self.assertLess(promote.index("edition_merge"), promote.index("gh pr merge"))
+        self.assertRegex(
+            promote, r"edition_merge[\s\S]+exit 1[\s\S]+gh pr merge"
+        )
+        first_promote = promote.split("gh pr create", 1)[0]
+        self.assertIn("exit 1", first_promote)
+        self.assertNotIn("exit 0", first_promote)
+        self.assertIn("PROMOTE_TITLE", first_promote)
+        self.assertIn("gh pr close", first_promote)
+        self.assertNotIn(".[].url", first_promote)
+        self.assertNotIn(".[].url", refuse)
+        self.assertNotIn('PYTHONPATH="${GITHUB_WORKSPACE}"', promote)
+        self.assertNotIn('PYTHONPATH="$GITHUB_WORKSPACE"', promote)
+        self.assertNotIn("--promote-url", promote)
+        self.assertIn("jq -r --arg t", promote)
+        self.assertIn("select(.title == $t)", promote)
+        self.assertIn('if [ -n "$PROMOTE_TITLE" ]', promote)
+        self.assertIn("--head develop", promote)
+        self.assertIn("--base main", promote)
+        self.assertIn('gh pr close "$PROMOTE_URL"', promote)
+        self.assertIn('gh pr close "$EXISTING"', promote)
+        second_promote = promote.split("gh pr create", 1)[1]
+        self.assertIn("exit 1", second_promote)
+        self.assertNotIn("exit 0", second_promote)
+        self.assertIn("--arg t \"$PROMOTE_TITLE\"", promote)
+        generate_if = str(((parsed.get("jobs") or {}).get("generate") or {}).get("if") or "")
+        self.assertIn("pull_request", generate_if)
+
+    def test_promote_lookup_uses_url_for_this_edition_title(self):
+        """Stubbed gh: match this edition's title, return url, survive quotes."""
+        title = 'Promote develop to main: Week 8 "Preview"'
+        prs = [
+            {
+                "url": "https://example.test/99",
+                "title": title,
+                "number": 99,
+            },
+            {
+                "url": "https://example.test/100",
+                "title": "Promote develop to main: other",
+                "number": 100,
+            },
+        ]
+        self.assertEqual(edition_merge.promote_pr_url(title, prs=prs), "https://example.test/99")
+        self.assertEqual(edition_merge.promote_pr_url("missing", prs=prs), "")
+        self.assertEqual(edition_merge.promote_pr_url("", prs=prs), "")
+        titled = [{"title": title, "url": ""}]
+        self.assertEqual(edition_merge.promote_pr_url(title, prs=titled), "")
+        fetched = []
+
+        def fake_gh(args):
+            fetched.append(list(args))
+            return prs
+
+        self.assertEqual(
+            edition_merge.promote_pr_url(title, runner=fake_gh),
+            "https://example.test/99",
+        )
+        self.assertEqual(fetched[0][:4], ["pr", "list", "--base", "main"])
+        self.assertIn("--head", fetched[0])
+        self.assertIn("develop", fetched[0])
+        self.assertIn("url,title,number", fetched[0])
+        with patch.object(
+            edition_merge, "promote_pr_url", return_value="https://example.test/99"
+        ):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                rc = edition_merge.main(["--promote-url", "--title", title])
+            self.assertEqual(rc, 0)
+            self.assertEqual(buf.getvalue(), "https://example.test/99")
+
+    def test_promote_lookup_blank_or_title_field_is_not_a_url(self):
+        title = "Promote develop to main: Week 8"
+        self.assertEqual(edition_merge.promote_pr_url(title, prs=[]), "")
+        self.assertEqual(
+            edition_merge.promote_pr_url(
+                title, prs=[{"title": title, "url": title}]
+            ),
+            "",
+        )
+        url = edition_merge.promote_pr_url(
+            title, prs=[{"title": title, "url": "https://example.test/1"}]
+        )
+        self.assertTrue(url.startswith("http"))
+        self.assertNotEqual(url, title)
+
+    def test_promote_empty_title_does_not_match_a_blank_pr(self):
+        """Empty-title guard: a blank wanted title must not return a URL."""
+        blank = [{"title": "", "url": "https://example.test/bad", "number": 1}]
+        self.assertEqual(edition_merge.promote_pr_url("", prs=blank), "")
+        self.assertEqual(edition_merge.promote_pr_url("   ", prs=blank), "")
+
+    def test_promote_none_lookup_fails_closed(self):
+        """A None gh payload must raise, not become an empty list."""
+
+        def fake(_args):
+            return None
+
+        with self.assertRaises(edition_merge.MergeLookupError):
+            edition_merge.list_open_promote_prs(runner=fake)
+        with self.assertRaises(edition_merge.MergeLookupError):
+            edition_merge.promote_pr_url("Promote develop to main: Week 8", runner=fake)
+
+    def test_promote_jq_arg_matches_quoted_title_and_http_url(self):
+        """Workflow lookup is gh JSON + jq --arg, not PR-head Python."""
+        jq = shutil.which("jq")
+        if not jq:
+            self.skipTest("jq is not on PATH")
+        title = 'Promote develop to main: Week 8 "Preview"'
+        payload = json.dumps(
+            [
+                {"title": title, "url": "https://example.test/99"},
+                {"title": title, "url": "not-a-url"},
+                {"title": "Promote develop to main: other", "url": "https://example.test/100"},
+            ]
+        )
+        filt = '.[] | select(.title == $t) | .url | select(test("^https?://"))'
+        matched = subprocess.check_output(
+            [jq, "-r", "--arg", "t", title, filt],
+            input=payload,
+            text=True,
+        ).split()
+        self.assertEqual(matched, ["https://example.test/99"])
+        empty = subprocess.check_output(
+            [jq, "-r", "--arg", "t", "", filt],
+            input=payload,
+            text=True,
+        ).strip()
+        self.assertEqual(empty, "")
 
     def test_automerge_and_pages_refuse_unsigned_reviews(self):
         """G1–G3 / G6–G8: YAML-parsed wiring. Named mutations in the PR body."""
@@ -6435,6 +7541,21 @@ class FactCheck(unittest.TestCase):
                     "develop",
                     job_name,
                 )
+        publish_checkouts = [
+            step
+            for step in ((narrative.get("jobs") or {}).get("publish") or {}).get(
+                "steps"
+            )
+            or []
+            if isinstance(step, dict)
+            and "actions/checkout" in str(step.get("uses") or "")
+        ]
+        self.assertTrue(publish_checkouts)
+        for step in publish_checkouts:
+            self.assertEqual(
+                (step.get("with") or {}).get("persist-credentials"),
+                False,
+            )
 
     def test_review_gate_blocks_unsigned_review_json(self):
         gate_src = (
@@ -7662,6 +8783,14 @@ class FactCheck(unittest.TestCase):
                 "pull-requests": "write",
             },
         )
+        self.assertEqual(
+            (jobs.get("publish") or {}).get("permissions"),
+            {
+                "contents": "write",
+                "pull-requests": "write",
+                "actions": "write",
+            },
+        )
         self.assertNotIn("deploy", jobs)
         for job_name in ("generate", "test"):
             blob = "\n".join(
@@ -7680,6 +8809,22 @@ class FactCheck(unittest.TestCase):
             self.assertNotIn("pip install -r", blob, job_name)
             self.assertIn("GATE_BASE", blob, job_name)
             self.assertIn("python -P -m tools.chiefs_narrative.review_gate", blob, job_name)
+        publish_blob = "\n".join(
+            str(step.get("run") or "")
+            for step in (jobs.get("publish") or {}).get("steps") or []
+            if isinstance(step, dict)
+        )
+        self.assertTrue(publish_blob)
+        self.assertNotIn("unittest", publish_blob)
+        self.assertNotIn("pip install -r", publish_blob)
+        self.assertIn("GATE_BASE", publish_blob)
+        self.assertIn(
+            "python -P -m tools.chiefs_narrative.edition_merge", publish_blob
+        )
+        self.assertLess(
+            publish_blob.index("edition_merge"),
+            publish_blob.index("gh pr merge"),
+        )
         with tempfile.TemporaryDirectory() as tmp:
             scratch = Path(tmp)
             wf = scratch / ".github" / "workflows"
@@ -7697,6 +8842,35 @@ class FactCheck(unittest.TestCase):
             self.assertTrue(any("pip" in item for item in found), found)
             self.assertTrue(
                 any("persist-credentials" in item for item in found), found
+            )
+            (wf / "head.yml").write_text(
+                "name: Head\npermissions:\n  contents: write\njobs:\n"
+                "  publish:\n    runs-on: ubuntu-latest\n    steps:\n"
+                "      - uses: actions/checkout@v6\n"
+                "        with:\n          persist-credentials: false\n"
+                "      - run: |\n"
+                '          EXISTING="$(PYTHONPATH="${GITHUB_WORKSPACE}" python -P -m '
+                "tools.chiefs_narrative.edition_merge --promote-url --title "
+                '"$PROMOTE_TITLE")"\n',
+                encoding="utf-8",
+            )
+            head = check_workflows.audit_write_jobs(scratch)
+            self.assertTrue(
+                any("GITHUB_WORKSPACE" in item or "PR head" in item for item in head),
+                head,
+            )
+            (wf / "flags.yml").write_text(
+                "name: Flags\npermissions:\n  contents: write\njobs:\n"
+                "  publish:\n    runs-on: ubuntu-latest\n    steps:\n"
+                "      - uses: actions/checkout@v6\n"
+                "        with:\n          persist-credentials: false\n"
+                "      - run: python -P -B -m tools.chiefs_narrative.generate --check-edition\n",
+                encoding="utf-8",
+            )
+            flags = check_workflows.audit_write_jobs(scratch)
+            self.assertTrue(
+                any("tools.chiefs_narrative.generate" in item for item in flags),
+                flags,
             )
 
     def test_public_staticdir_census_misses_are_must_fail(self):
@@ -11672,7 +12846,17 @@ class Oct14EditionGates(unittest.TestCase):
         self.assertNotIn("two touchdowns on the season ledger", blob)
         self.assertNotIn("Allegiant interception", blob)
         self.assertNotIn("zone blitz on third down without treating", blob)
-        self.assertEqual(facts.check_review(repaired, self.LAST, recap), [])
+        leftover_after = facts.check_review(repaired, self.LAST, recap)
+        self.assertTrue(
+            leftover_after
+            and all(known_errors.is_hold_only_issue(item) for item in leftover_after),
+            leftover_after,
+        )
+        self.assertTrue(
+            any("fact-checker note leaked" in item for item in leftover_after),
+            leftover_after,
+        )
+        self.assertIn("not a story about the Nwankpa interception", blob)
         self.assertTrue(
             any("Allegiant" in line and "Nwankpa" in line for line in logs)
             or "Allegiant interception" not in blob,

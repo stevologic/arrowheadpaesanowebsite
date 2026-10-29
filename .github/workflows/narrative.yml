@@ -47,6 +47,9 @@ on:
         description: "full = narrative + slate; schedule = slate only"
         required: false
         default: "full"
+  pull_request:
+    types: [ready_for_review, labeled, unlabeled, reopened, synchronize]
+    branches: [develop]
 
 permissions:
   contents: read
@@ -57,6 +60,7 @@ concurrency:
 
 jobs:
   generate:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 65
     permissions:
@@ -189,7 +193,7 @@ jobs:
 
   test:
     needs: generate
-    if: needs.generate.outputs.changed == 'true'
+    if: github.event_name != 'pull_request' && needs.generate.outputs.changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -320,7 +324,7 @@ jobs:
 
   update:
     needs: [generate, test]
-    if: needs.generate.outputs.changed == 'true' && needs.test.result == 'success'
+    if: github.event_name != 'pull_request' && needs.generate.outputs.changed == 'true' && needs.test.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -442,6 +446,126 @@ jobs:
             gh pr edit "$PR_URL" --add-label hold || true
           fi
 
-          echo "Queued $PR_URL for approved PR-event gates and manual develop/main promotion."
+          echo "Queued $PR_URL for approved PR-event gates and edition auto-merge/promote."
           echo "### Publication queued" >> "$GITHUB_STEP_SUMMARY"
-          echo "$PR_URL — draft on develop. Approve any waiting PR workflow in Actions; review and promote through main before deployment." >> "$GITHUB_STEP_SUMMARY"
+          echo "$PR_URL — draft on develop. Approve any waiting PR workflow in Actions. Auto-merge and promote refuse a hold label or unresolved review findings." >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    # Ready narrative/update-* PRs to develop. Refuse hold or open review
+    # findings; otherwise squash-merge to develop and promote to main.
+    if: >-
+      ${{ github.event_name == 'pull_request' &&
+          github.base_ref == 'develop' &&
+          startsWith(github.head_ref, 'narrative/update-') &&
+          github.event.pull_request.draft == false &&
+          github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+
+      - name: Refuse hold or unresolved review findings
+        id: refuse
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin develop
+          GATE_BASE="${RUNNER_TEMP}/gate-base"
+          git worktree add --detach "$GATE_BASE" "origin/develop"
+          cd "$GATE_BASE"
+          if ! PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.edition_merge \
+            --pr "${{ github.event.pull_request.html_url }}"; then
+            echo "Refusing edition auto-merge and promote: hold label or unresolved review findings"
+            echo "refused=true" >> "$GITHUB_OUTPUT"
+            gh pr merge "${{ github.event.pull_request.html_url }}" --disable-auto || true
+            exit 1
+          fi
+          echo "refused=false" >> "$GITHUB_OUTPUT"
+
+      - name: Squash-merge the edition pull request
+        if: steps.refuse.outputs.refused != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh pr merge "${{ github.event.pull_request.html_url }}" \
+            --squash --auto \
+            --match-head-commit ${{ github.event.pull_request.head.sha }} \
+            || gh pr merge "${{ github.event.pull_request.html_url }}" \
+              --squash \
+              --match-head-commit ${{ github.event.pull_request.head.sha }}
+
+      - name: Promote develop to main
+        if: steps.refuse.outputs.refused != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin develop
+          GATE_BASE="${RUNNER_TEMP}/gate-base"
+          if [ ! -d "$GATE_BASE" ]; then
+            git worktree add --detach "$GATE_BASE" "origin/develop"
+          fi
+          TITLE="$(gh pr view "${{ github.event.pull_request.html_url }}" --json title --jq .title)"
+          PROMOTE_TITLE="Promote develop to main: ${TITLE}"
+          BODY_FILE="${RUNNER_TEMP}/narrative-promote-body.md"
+          printf '%s\n' \
+            "Promotes ${{ github.event.pull_request.html_url }}." \
+            "Merge, not squash." > "$BODY_FILE"
+          # Title match in jq --arg, not PR-head Python. An empty title
+          # must not close some other develop→main PR.
+          EXISTING=""
+          if [ -n "$PROMOTE_TITLE" ]; then
+            EXISTING="$(gh pr list --base main --head develop --state open --json url,title \
+              | jq -r --arg t "$PROMOTE_TITLE" \
+                '.[] | select(.title == $t) | .url | select(test("^https?://"))' \
+              | head -n 1)"
+          fi
+          cd "$GATE_BASE"
+          if ! PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.edition_merge \
+            --pr "${{ github.event.pull_request.html_url }}"; then
+            echo "Refusing promote: hold label or unresolved review findings"
+            if [ -n "$EXISTING" ]; then
+              gh pr close "$EXISTING" --comment "Refusing promote: hold or unresolved review findings"
+            fi
+            exit 1
+          fi
+          PROMOTE_URL=""
+          if [ -n "$PROMOTE_TITLE" ]; then
+            PROMOTE_URL="$(gh pr list --base main --head develop --state open --json url,title \
+              | jq -r --arg t "$PROMOTE_TITLE" \
+                '.[] | select(.title == $t) | .url | select(test("^https?://"))' \
+              | head -n 1)"
+          fi
+          if [ -z "$PROMOTE_URL" ]; then
+            PROMOTE_URL="$(gh pr create --base main --head develop \
+              --title "$PROMOTE_TITLE" \
+              --body-file "$BODY_FILE")"
+          fi
+          if ! PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.edition_merge \
+            --pr "${{ github.event.pull_request.html_url }}"; then
+            echo "Refusing promote: hold label or unresolved review findings"
+            gh pr close "$PROMOTE_URL" --comment "Refusing promote: hold or unresolved review findings"
+            exit 1
+          fi
+          gh pr merge "$PROMOTE_URL" --merge --auto \
+            || gh pr merge "$PROMOTE_URL" --merge
+          gh workflow run "Deploy Hugo site to GitHub Pages" \
+            --repo "${GITHUB_REPOSITORY}" --ref main

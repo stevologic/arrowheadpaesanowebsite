@@ -1179,13 +1179,21 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         for item in held:
             if item not in leftover_issues:
                 leftover_issues.append(item)
-        if held:
-            emit_held(held)
+        other_held = [
+            item for item in held if "fact-checker note leaked" not in item
+        ]
+        if other_held:
+            emit_held(other_held)
         if hard:
             raise FactCheckError(
                 "edition would fail archive replay; refusing to publish: "
                 + "; ".join(hard)
             )
+    leak_notes = [
+        item for item in leftover_issues if "fact-checker note leaked" in item
+    ]
+    if leak_notes:
+        emit_held(leak_notes)
 
     # 6. Render diagrams only after uniqueness and fact-check have passed.
     _render_diagrams(narrative)
@@ -1436,7 +1444,9 @@ def archive_replay_issues(narrative: dict, schedule=None) -> list[str]:
     recap = _recap_for_edition(narrative)
     if schedule is None:
         schedule = collect.load_cached_schedule()
-    return facts.check_review(narrative, last, recap, schedule=schedule)
+    return facts.check_review(
+        narrative, last, recap, schedule=schedule, changed=True
+    )
 
 
 def split_replay_issues(issues: list[str] | None) -> tuple[list[str], list[str]]:
@@ -1478,7 +1488,19 @@ def check_published_edition() -> list[str]:
     last = _last_game_from_edition(narrative)
     recap = _recap_for_edition(narrative)
     schedule = collect.load_cached_schedule()
-    issues = facts.check_review(narrative, last, recap, schedule=schedule)
+    slug = str(narrative.get("slug") or "").strip()
+    paths = facts.changed_edition_paths()
+    # Unknown git state (missing develop, failed diff) fail-closed: scan.
+    if paths is None:
+        changed = True
+    else:
+        posix = {item.replace("\\", "/") for item in paths}
+        changed = "data/narrative.json" in posix or (
+            bool(slug) and f"data/narrative_editions/{slug}.json" in posix
+        )
+    issues = facts.check_review(
+        narrative, last, recap, schedule=schedule, changed=changed
+    )
     issues.extend(facts.check_diagram_captions(narrative))
     issues.extend(press_conferences.check_embeds(narrative, schedule=schedule))
     issues.extend(locker_room.check_posts(narrative, schedule=schedule))
@@ -1571,6 +1593,18 @@ def main(argv=None) -> int:
             print("ERROR: published edition failed gates:", file=sys.stderr)
             for item in other:
                 print(f"  - {item}", file=sys.stderr)
+            leak_hold = [
+                item
+                for item in other
+                if "fact-checker note leaked" in item
+            ]
+            if leak_hold:
+                emit_held(leak_hold)
+                print(
+                    "  edition gates: held leak; failing the run",
+                    file=sys.stderr,
+                )
+                return 1
             repair = {}
             if config.REPAIR_JSON.is_file():
                 try:

@@ -9,7 +9,10 @@ Every generated section is scanned — not just lastGameReview.
 from __future__ import annotations
 
 import copy
+import os
 import re
+import subprocess
+from datetime import datetime, timezone
 
 from . import collect, config, diagrams, known_errors, phase as phase_mod
 
@@ -197,6 +200,73 @@ _ECHO_INSTRUCTION = re.compile(
     r"|FACT CHECK RETRY"
     r"|SENTENCE REPAIR"
     r"|\[PRIVATE",
+    re.IGNORECASE,
+)
+# Process / fact-checker asides that must not ship in published copy.
+# Grandfathering is only for untouched archive editions stamped strictly
+# before the 2026-10-29-1754 leak. A changed edition is always re-checked,
+# whatever its stamp. Unit tests omit generatedAt and are always scanned.
+# Compare parsed datetimes, not strings, so Z and offsets are the same instant.
+_FACT_CHECKER_NOTE_BEFORE = datetime(2026, 10, 29, 17, 54, 31, tzinfo=timezone.utc)
+_EDITION_DIFF_PATHS = (
+    "data/narrative.json",
+    "data/narrative_editions",
+)
+# Known process-vs-tape leaks from published editions (ce7eeebc coverage).
+# Keep those alts, then add a tight referent+hedge union. Do not use a
+# bare "not a label/description/verdict" or a lone "the wire"/"supplied".
+_FACT_CHECKER_NOTE = re.compile(
+    r"\bunlisted by name\b"
+    r"|\bnone is listed here\b"
+    r"|\bnot listed here\b"
+    r"|\bsupplied wire\b"
+    r"|\bsupplied data\b"
+    r"|\bsource packet\b"
+    r"|\bper the supplied\b"
+    r"|\bthis wire(?!-to-wire)\b"
+    r"|\bin this file\b"
+    r"|\bnot stated in the\b"
+    r"|\b(?:not|isn['’]t) credit for\b"
+    r"|\bnot a claim that\b"
+    r"|\bdo(?: not|n['’]t) tell that story\b"
+    r"|\bdo(?: not|n['’]t) sell it as\b"
+    r"|\bnothing here says\b"
+    r"|\bnothing in the source packet\b"
+    r"|\bthat(?:['’]s| is) a recovered snap\b"
+    r"|\bnot a lost fumble\b"
+    r"|\bwithout inventing a (?:sack |snap )?total\b"
+    r"|\bnot a story about how\b"
+    r"|\bnot a story about\b[^.\n]{0,80}"
+    r"\b(?:takeaway|takeaways|interception|throw|throws|pick)\b"
+    r"|\b(?:install|call)\b[^.\n]{0,80}"
+    r"\b(?:not|isn['’]t) a(?:n)?\b[^.\n]{0,48}"
+    r"\b(?:description|label|story)\b[^.\n]{0,80}"
+    r"\b(?:throw|throws|interception|takeaway|takeaways|pick)\b",
+    re.IGNORECASE,
+)
+# Meta-specific referents only. Lone "the wire" / "the packet" / "supplied"
+# / "listed here" are ordinary football.
+_META_REFERENT = re.compile(
+    r"\bin this file\b"
+    r"|\bin this wire\b"
+    r"|\bthis wire(?!-to-wire)\b"
+    r"|\bin the wire\b"
+    r"|\bfrom the wire\b"
+    r"|\bsupplied (?:data|wire)\b"
+    r"|\bper the supplied\b"
+    r"|\bsource packet\b"
+    r"|\bthe source packet\b"
+    r"|\bstated in the\b"
+    r"|\bnot listed here\b"
+    r"|\bnone is listed here\b"
+    r"|\bunlisted by name\b",
+    re.IGNORECASE,
+)
+_META_HEDGE = re.compile(
+    r"\b(?:not|no|none|nothing|nobody|never|neither|without|unlisted|omitted|silent|untested)\b"
+    r"|n['’]t\b"
+    r"|\bdo(?: not|n['’]t)\b"
+    r"|\bno other\b",
     re.IGNORECASE,
 )
 _GARBLED_RECORD = re.compile(
@@ -3354,6 +3424,188 @@ def _check_echoed_instructions(text: str) -> list[str]:
             continue
         seen.add(key)
         issues.append(f"echoed writer instruction ({snippet!r})")
+    return issues
+
+
+def _git_name_only(args: list[str], root) -> list[str] | None:
+    try:
+        out = subprocess.check_output(
+            ["git", *args],
+            cwd=root,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return [
+        line.strip().replace("\\", "/")
+        for line in out.splitlines()
+        if line.strip()
+    ]
+
+
+def _rev_exists(root, ref: str) -> bool:
+    try:
+        subprocess.check_output(
+            ["git", "rev-parse", "--verify", ref],
+            cwd=root,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return False
+    return True
+
+
+def _diff_base(root) -> str | None:
+    """develop tip for PR diffs. Fetch if missing; None if still unknown."""
+    override = (os.environ.get("NARRATIVE_DIFF_BASE") or "").strip()
+    if override:
+        return override
+    for candidate in ("origin/develop", "develop"):
+        if _rev_exists(root, candidate):
+            return candidate
+    try:
+        subprocess.check_output(
+            ["git", "fetch", "--no-tags", "origin", "develop"],
+            cwd=root,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    for candidate in ("origin/develop", "develop"):
+        if _rev_exists(root, candidate):
+            return candidate
+    return None
+
+
+def changed_edition_paths(
+    *, root=None, base: str | None = None
+) -> set[str] | None:
+    """Edition files that differ in this PR, commit, or worktree.
+
+    None means git could not say (missing develop, failed diff). Callers
+    must not treat that as an empty change set or grandfather.
+    """
+    root = config.REPO_ROOT if root is None else root
+    resolved = (base or "").strip() or _diff_base(root)
+    if not resolved:
+        return None
+    triple = _git_name_only(
+        ["diff", "--name-only", f"{resolved}...HEAD", "--", *_EDITION_DIFF_PATHS],
+        root,
+    )
+    two_dot = _git_name_only(
+        ["diff", "--name-only", resolved, "--", *_EDITION_DIFF_PATHS],
+        root,
+    )
+    if triple is None and two_dot is None:
+        return None
+    found = set(triple or ()) | set(two_dot or ())
+    for extra in (
+        ["diff", "--name-only", "--", *_EDITION_DIFF_PATHS],
+        ["diff", "--cached", "--name-only", "--", *_EDITION_DIFF_PATHS],
+    ):
+        rows = _git_name_only(extra, root)
+        if rows:
+            found.update(rows)
+    return found
+
+
+def edition_content_changed(
+    name: str | None,
+    narrative: dict | None,
+    *,
+    changed_paths: set[str] | None = None,
+    live_slug: str | None = None,
+    root=None,
+    base: str | None = None,
+) -> bool | None:
+    """True when this edition's files changed in the PR or commit being checked."""
+    paths = changed_paths
+    if paths is None:
+        paths = changed_edition_paths(root=root, base=base)
+        if paths is None:
+            return None
+    posix = {item.replace("\\", "/") for item in paths}
+    filename = (name or "").strip()
+    slug = str((narrative or {}).get("slug") or "").strip()
+    if filename and (
+        filename in posix or f"data/narrative_editions/{filename}" in posix
+    ):
+        return True
+    if slug and f"data/narrative_editions/{slug}.json" in posix:
+        return True
+    if "data/narrative.json" in posix and live_slug:
+        if filename == f"{live_slug}.json" or slug == live_slug:
+            return True
+    return False
+
+
+def _parse_generated_at(value) -> datetime | None:
+    """Parse an edition stamp to UTC. None if missing or unreadable."""
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.endswith("Z") or text.endswith("z"):
+        text = text[:-1] + "+00:00"
+    try:
+        stamp = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=timezone.utc)
+    return stamp.astimezone(timezone.utc)
+
+
+def _fact_checker_notes_enabled(
+    narrative: dict | None, *, changed: bool | None = None
+) -> bool:
+    """True unless this is an untouched archive stamped strictly before the leak."""
+    if changed is True:
+        return True
+    stamp = _parse_generated_at((narrative or {}).get("generatedAt"))
+    if stamp is None:
+        return True
+    if changed is False and stamp < _FACT_CHECKER_NOTE_BEFORE:
+        return False
+    return True
+
+
+def _is_meta_note_sentence(sentence: str) -> bool:
+    """True for a known process-vs-tape leak or a tight referent+hedge pair."""
+    if not sentence or not sentence.strip():
+        return False
+    if _FACT_CHECKER_NOTE.search(sentence):
+        return True
+    return bool(_META_REFERENT.search(sentence) and _META_HEDGE.search(sentence))
+
+
+def _meta_note_snippet(sentence: str) -> str:
+    match = _FACT_CHECKER_NOTE.search(sentence) or _META_REFERENT.search(sentence)
+    return match.group(0) if match else sentence.strip()[:48]
+
+
+def _check_fact_checker_notes(
+    text: str,
+    narrative: dict | None = None,
+    *,
+    changed: bool | None = None,
+) -> list[str]:
+    if not text or not _fact_checker_notes_enabled(narrative, changed=changed):
+        return []
+    issues = []
+    seen: set[str] = set()
+    for sentence in _split_sentences(text):
+        if not _is_meta_note_sentence(sentence):
+            continue
+        snippet = _meta_note_snippet(sentence)
+        key = " ".join(sentence.lower().split())
+        if key in seen:
+            continue
+        seen.add(key)
+        issues.append(
+            f"fact-checker note leaked ({snippet!r}): {sentence.strip()}"
+        )
     return issues
 
 
@@ -7292,6 +7544,7 @@ def check_review(
     *,
     schedule=None,
     copy_gates: bool = False,
+    changed: bool | None = None,
 ) -> list[str]:
     """Return human-readable violations, or an empty list when the edition is clean.
 
@@ -7316,6 +7569,9 @@ def check_review(
             issues.extend(_check_halftime_scores(text, last_game, recap, schedule))
             issues.extend(_check_part_of_day(text, last_game, recap))
             issues.extend(_check_echoed_instructions(text))
+            issues.extend(
+                _check_fact_checker_notes(text, narrative, changed=changed)
+            )
             issues.extend(_check_record_phrasing(text))
             if recap.get("scoringPlays") or recap.get("leaders") or recap.get("kc") or recap.get("plays"):
                 issues.extend(_check_td_yards(text, recap, last_game, schedule))
@@ -7349,6 +7605,12 @@ def check_review(
                 issues.extend(_check_pass_touchdowns(text, recap))
                 issues.extend(_check_down_and_distance(text, recap))
                 issues.extend(_check_box_leaders(text, recap))
+    else:
+        issues.extend(
+            _check_fact_checker_notes(
+                edition_text(narrative), narrative, changed=changed
+            )
+        )
     issues.extend(_check_prediction_markets(narrative))
     issues.extend(_check_offseason_slate(narrative, schedule))
     issues.extend(_check_playoff_next_unknown(narrative, schedule))
@@ -7883,7 +8145,10 @@ def sentence_fails_review(
     schedule=None,
     phase: dict | None = None,
 ) -> bool:
-    """True when this sentence, alone, still disagrees with ESPN."""
+    """True when this sentence, alone, still disagrees with ESPN.
+
+    Hold-only leaks stay in copy. They must not count as a salvage drop.
+    """
     text = (sentence or "").strip()
     if not text:
         return False
@@ -7896,7 +8161,12 @@ def sentence_fails_review(
             "score": "",
         },
     }
-    if check_review(probe, last_game, recap, schedule=schedule):
+    issues = [
+        item
+        for item in check_review(probe, last_game, recap, schedule=schedule)
+        if not known_errors.is_hold_only_issue(item)
+    ]
+    if issues:
         return True
     return _in_season_phase(probe) and _stale_preseason_claim(text)
 
