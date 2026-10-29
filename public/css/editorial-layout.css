@@ -10,16 +10,16 @@
   background: #171416;
 }
 html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="pending"] .nrt-hero-media__visual--embed,
-html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="ready"] .nrt-hero-media__visual--embed {
+html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="ready"] .nrt-hero-media__visual--embed,
+html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fallback"] .nrt-hero-media__visual--embed {
   min-height: var(--nrt-embed-reserve);
   overflow: visible;
 }
-html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="pending"] .nrt-hero-media__fallback .nrt-event-illustration {
+html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="pending"] .nrt-hero-media__fallback .nrt-event-illustration,
+html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fallback"] .nrt-hero-media__fallback .nrt-event-illustration {
   height: var(--nrt-embed-reserve);
-  object-fit: cover;
-}
-html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fallback"] .nrt-hero-media__visual--embed {
-  min-height: 0;
+  object-fit: contain;
+  object-position: center;
 }
 .nrt-hero-media[data-hero-kind="x-embed"] .nrt-hero-media__fallback {
   position: relative;

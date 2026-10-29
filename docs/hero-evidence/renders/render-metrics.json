@@ -1,33 +1,22 @@
 {
-  "fallback-404-390x844-js-on.png": {
-    "state": "fallback",
-    "jsClass": true,
-    "cardH": 299,
-    "blankPx": 0
-  },
-  "fallback-404-1280x800-js-on.png": {
-    "state": "fallback",
-    "jsClass": true,
-    "cardH": 401,
-    "visualW": 686,
-    "visualH": 270,
-    "svgH": 270,
-    "iframeH": 0,
-    "blankPx": 0
-  },
-  "fallback-blocked-390x844-js-on.png": {
-    "state": "fallback",
-    "jsClass": true,
-    "cardH": 299,
-    "blankPx": 0
-  },
-  "wait-390x844-js-on.png": {
+  "wait-cdnonly-390x844-js-on.png": {
+    "bytes": 38313,
+    "js": true,
+    "url": "http://127.0.0.1:35199/",
     "state": "pending",
     "jsClass": true,
     "cardH": 675,
-    "blankPx": 0
+    "visualW": 466,
+    "visualH": 560,
+    "svgH": 560,
+    "iframeH": 0,
+    "blankPx": 0,
+    "cls": 0
   },
-  "wait-1280x800-js-on.png": {
+  "wait-cdnonly-1280x800-js-on.png": {
+    "bytes": 51370,
+    "js": true,
+    "url": "http://127.0.0.1:35199/",
     "state": "pending",
     "jsClass": true,
     "cardH": 770,
@@ -35,27 +24,205 @@
     "visualH": 640,
     "svgH": 640,
     "iframeH": 0,
-    "blankPx": 0
+    "blankPx": 0,
+    "cls": 0
+  },
+  "wait-all404-390x844-js-on.png": {
+    "bytes": 38313,
+    "js": true,
+    "url": "http://127.0.0.1:35199/",
+    "state": "pending",
+    "jsClass": true,
+    "cardH": 675,
+    "visualW": 466,
+    "visualH": 560,
+    "svgH": 560,
+    "iframeH": 0,
+    "blankPx": 0,
+    "cls": 0
+  },
+  "wait-all404-1280x800-js-on.png": {
+    "bytes": 51370,
+    "js": true,
+    "url": "http://127.0.0.1:35199/",
+    "state": "pending",
+    "jsClass": true,
+    "cardH": 770,
+    "visualW": 686,
+    "visualH": 640,
+    "svgH": 640,
+    "iframeH": 0,
+    "blankPx": 0,
+    "cls": 0
+  },
+  "wait-blocked-390x844-js-on.png": {
+    "bytes": 38313,
+    "js": true,
+    "url": "http://127.0.0.1:35199/",
+    "state": "pending",
+    "jsClass": true,
+    "cardH": 675,
+    "visualW": 466,
+    "visualH": 560,
+    "svgH": 560,
+    "iframeH": 0,
+    "blankPx": 0,
+    "cls": 0
+  },
+  "wait-blocked-1280x800-js-on.png": {
+    "bytes": 51370,
+    "js": true,
+    "url": "http://127.0.0.1:35199/",
+    "state": "pending",
+    "jsClass": true,
+    "cardH": 770,
+    "visualW": 686,
+    "visualH": 640,
+    "svgH": 640,
+    "iframeH": 0,
+    "blankPx": 0,
+    "cls": 0
+  },
+  "fallback-cdnonly-390x844-js-on.png": {
+    "bytes": 38265,
+    "js": true,
+    "url": "http://127.0.0.1:35199/",
+    "state": "fallback",
+    "jsClass": true,
+    "cardH": 675,
+    "visualW": 466,
+    "visualH": 560,
+    "svgH": 560,
+    "iframeH": 0,
+    "blankPx": 0,
+    "cls": 0
+  },
+  "fallback-cdnonly-1280x800-js-on.png": {
+    "bytes": 51636,
+    "js": true,
+    "url": "http://127.0.0.1:35199/",
+    "state": "fallback",
+    "jsClass": true,
+    "cardH": 770,
+    "visualW": 686,
+    "visualH": 640,
+    "svgH": 640,
+    "iframeH": 0,
+    "blankPx": 0,
+    "cls": 0
+  },
+  "fallback-all404-390x844-js-on.png": {
+    "bytes": 38265,
+    "js": true,
+    "url": "http://127.0.0.1:35199/",
+    "state": "fallback",
+    "jsClass": true,
+    "cardH": 675,
+    "visualW": 466,
+    "visualH": 560,
+    "svgH": 560,
+    "iframeH": 0,
+    "blankPx": 0,
+    "cls": 0
+  },
+  "fallback-all404-1280x800-js-on.png": {
+    "bytes": 51636,
+    "js": true,
+    "url": "http://127.0.0.1:35199/",
+    "state": "fallback",
+    "jsClass": true,
+    "cardH": 770,
+    "visualW": 686,
+    "visualH": 640,
+    "svgH": 640,
+    "iframeH": 0,
+    "blankPx": 0,
+    "cls": 0
+  },
+  "fallback-blocked-390x844-js-on.png": {
+    "bytes": 38265,
+    "js": true,
+    "url": "http://127.0.0.1:35199/",
+    "state": "fallback",
+    "jsClass": true,
+    "cardH": 675,
+    "visualW": 466,
+    "visualH": 560,
+    "svgH": 560,
+    "iframeH": 0,
+    "blankPx": 0,
+    "cls": 0
+  },
+  "fallback-blocked-1280x800-js-on.png": {
+    "bytes": 51636,
+    "js": true,
+    "url": "http://127.0.0.1:35199/",
+    "state": "fallback",
+    "jsClass": true,
+    "cardH": 770,
+    "visualW": 686,
+    "visualH": 640,
+    "svgH": 640,
+    "iframeH": 0,
+    "blankPx": 0,
+    "cls": 0
   },
   "working-390x844-js-on.png": {
+    "bytes": 43956,
+    "js": true,
+    "url": "http://127.0.0.1:45837/",
     "state": "ready",
     "jsClass": true,
     "cardH": 675,
-    "blankPx": 0
+    "visualW": 466,
+    "visualH": 560,
+    "svgH": 184,
+    "iframeH": 540,
+    "blankPx": 20,
+    "cls": 0
   },
   "working-1280x800-js-on.png": {
+    "bytes": 47893,
+    "js": true,
+    "url": "http://127.0.0.1:45837/",
     "state": "ready",
     "jsClass": true,
-    "cardH": 779,
+    "cardH": 770,
     "visualW": 686,
     "visualH": 640,
-    "svgH": 278,
+    "svgH": 270,
     "iframeH": 609,
-    "blankPx": 31
+    "blankPx": 31,
+    "cls": 0
   },
-  "js-off": {
-    "note": "scripts stripped; box sizes to the SVG at both widths. Same layout for 404, blocked, wait, and working.",
-    "390": "card matches fallback SVG (~299px)",
-    "1280": "card matches fallback SVG (~401px)"
+  "wait-blocked-390x844-js-off.png": {
+    "bytes": 37523,
+    "js": false,
+    "url": "http://127.0.0.1:35199/index-js-off.html"
+  },
+  "wait-blocked-1280x800-js-off.png": {
+    "bytes": 54355,
+    "js": false,
+    "url": "http://127.0.0.1:35199/index-js-off.html"
+  },
+  "fallback-cdnonly-390x844-js-off.png": {
+    "bytes": 37523,
+    "js": false,
+    "url": "http://127.0.0.1:35199/index-js-off.html"
+  },
+  "fallback-cdnonly-1280x800-js-off.png": {
+    "bytes": 54355,
+    "js": false,
+    "url": "http://127.0.0.1:35199/index-js-off.html"
+  },
+  "working-390x844-js-off.png": {
+    "bytes": 37523,
+    "js": false,
+    "url": "http://127.0.0.1:45837/index-js-off.html"
+  },
+  "working-1280x800-js-off.png": {
+    "bytes": 54355,
+    "js": false,
+    "url": "http://127.0.0.1:45837/index-js-off.html"
   }
 }

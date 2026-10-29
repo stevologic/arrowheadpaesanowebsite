@@ -1,6 +1,6 @@
 # Hero mutation report (Karen IDs)
 
-Evaluated 43 named mutants. Survivors are listed below.
+Evaluated 44 named mutants. Survivors are listed below.
 
 | Mutant | Killer | Result |
 | --- | --- | --- |
@@ -42,8 +42,9 @@ Evaluated 43 named mutants. Survivors are listed below.
 | S7 | Hugo must refuse a pin on a signed Review | killed |
 | N4 | a pinned embed must still keep the SVG in the document | killed |
 | N5 | the embed box must reserve ~640px and not crop at 16:10 | killed |
-| N17 | fallback must drop the reserved embed height | killed |
-| N18 | JS-off and fallback must not keep a reserved embed box | killed |
+| N17 | fallback must keep the reserved embed height | killed |
+| N18 | JS-off must not keep an unguarded reserved embed box | killed |
+| N19 | wait and fallback must contain the SVG so both helmets stay in frame | killed |
 | N15 | edition_overlay must allow data/hero_posts.json | killed |
 | N1 | the daily workflow must git-add data/hero_posts.json | killed |
 | S2 | attach_sidecar must refuse already-signed editions | killed |

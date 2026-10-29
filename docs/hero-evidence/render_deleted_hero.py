@@ -13,7 +13,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 ROOT = Path(__file__).resolve().parents[2]
 HUGO = shutil.which("hugo") or str(Path.home() / ".local" / "hugo" / "hugo")
@@ -70,6 +70,18 @@ WIDGETS_MOCK = """
   setTimeout(paint, 50);
 })();
 """
+CLS_HEAD = """
+<script>
+window.__nrtCls = 0;
+try {
+  new PerformanceObserver(function (list) {
+    list.getEntries().forEach(function (entry) {
+      if (!entry.hadRecentInput) window.__nrtCls += entry.value;
+    });
+  }).observe({type: "layout-shift", buffered: true});
+} catch (err) {}
+</script>
+"""
 MEASURE_SNIPPET = """
 <div id="hero-measure" style="position:fixed;bottom:0;left:0;right:0;background:#111;color:#ffcf53;font:12px/1.4 ui-monospace,monospace;padding:6px 10px;z-index:99"></div>
 <script>
@@ -94,11 +106,15 @@ MEASURE_SNIPPET = """
       visualH: Math.round(vb.height),
       svgH: Math.round(sb.height),
       iframeH: Math.round(ib.height),
-      blankPx: Math.max(0, Math.round(vb.height - fill))
+      blankPx: Math.max(0, Math.round(vb.height - fill)),
+      cls: Math.round((window.__nrtCls || 0) * 10000) / 10000
     };
     fig.setAttribute("data-measure", JSON.stringify(payload));
     document.documentElement.setAttribute("data-hero-measure", JSON.stringify(payload));
     out.textContent = JSON.stringify(payload);
+    try {
+      fetch("/__cls?" + encodeURIComponent(JSON.stringify(payload)));
+    } catch (err) {}
   }
   report();
   setInterval(report, 200);
@@ -165,11 +181,15 @@ def _build_fixture(post_id: str, *, mock_widgets: bool) -> tuple[tempfile.Tempor
         '<link rel="stylesheet" href="{{ "css/narrative.css" | relURL }}">'
         '<link rel="stylesheet" href="{{ "css/editorial-layout.css" | relURL }}">'
         '<style>body{margin:0;background:#0d0c0d;color:#eee5d4;font-family:Georgia,serif}'
-        '.wrap{max-width:720px;margin:0 auto;padding:16px}</style></head>'
+        '.wrap{max-width:720px;margin:0 auto;padding:16px}</style>'
+        + CLS_HEAD + '</head>'
         '<body><main class="wrap">{{ range .Site.Data.fixtures }}'
         '<section data-hero-slug="{{ .slug }}">'
         '{{ partial "nrt-hero-media.html" (dict "n" . "site" $.Site) }}'
-        "</section>{{ end }}</main>" + MEASURE_SNIPPET + "</body></html>\n",
+        "</section>{{ end }}"
+        "<section data-below><p>Copy under the hero so a late collapse would shift the page.</p>"
+        "<p>Second paragraph of below-the-fold text for CLS.</p></section>"
+        "</main>" + MEASURE_SNIPPET + "</body></html>\n",
         encoding="utf-8",
     )
     dist = Path(temp.name) / "site"
@@ -198,15 +218,25 @@ def _build_fixture(post_id: str, *, mock_widgets: bool) -> tuple[tempfile.Tempor
     return temp, dist
 
 
-def _serve(directory: Path) -> tuple[ThreadingHTTPServer, int]:
+def _serve(directory: Path) -> tuple[ThreadingHTTPServer, int, dict]:
     port = _free_port()
+    store: dict = {"latest": None}
 
     class Static(BaseHTTPRequestHandler):
         def log_message(self, *_args):
             return
 
         def do_GET(self):
-            path = directory / urlsplit(self.path).path.lstrip("/")
+            parsed = urlsplit(self.path)
+            if parsed.path == "/__cls":
+                try:
+                    store["latest"] = json.loads(unquote(parsed.query))
+                except (ValueError, TypeError):
+                    store["latest"] = {"error": "bad-cls", "raw": parsed.query}
+                self.send_response(204)
+                self.end_headers()
+                return
+            path = directory / parsed.path.lstrip("/")
             if path.is_dir():
                 path = path / "index.html"
             if not path.is_file():
@@ -229,7 +259,7 @@ def _serve(directory: Path) -> tuple[ThreadingHTTPServer, int]:
 
     server = ThreadingHTTPServer(("127.0.0.1", port), Static)
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    return server, port
+    return server, port, store
 
 
 def _chrome(url: str, png: Path, w: int, h: int, hosts: tuple[str, ...], *,
@@ -274,14 +304,18 @@ def main() -> int:
     if not Path(HUGO).is_file() or not CHROME:
         print("hugo or chrome missing", file=sys.stderr)
         return 1
+    cdn = ("cdn.syndication.twimg.com", "syndication.twitter.com")
+    all404 = cdn + ("platform.twitter.com", "platform.x.com")
     cases = (
-        ("fallback-404", PIN_ID, ("cdn.syndication.twimg.com", "syndication.twitter.com"), False, True, 9500),
+        ("wait-cdnonly", PIN_ID, cdn, False, True, 2500),
+        ("wait-all404", PIN_ID, all404, False, True, 2500),
+        ("wait-blocked", PIN_ID, X_HOSTS, False, True, 2500),
+        ("fallback-cdnonly", PIN_ID, cdn, False, True, 9500),
+        ("fallback-all404", PIN_ID, all404, False, True, 9500),
         ("fallback-blocked", PIN_ID, X_HOSTS, False, True, 9500),
-        ("wait", PIN_ID, X_HOSTS, False, True, 2500),
         ("working", WORKING_ID, X_HOSTS, True, True, 2500),
-        ("fallback-404", PIN_ID, ("cdn.syndication.twimg.com", "syndication.twitter.com"), False, False, 1500),
-        ("fallback-blocked", PIN_ID, X_HOSTS, False, False, 1500),
-        ("wait", PIN_ID, X_HOSTS, False, False, 1500),
+        ("wait-blocked", PIN_ID, X_HOSTS, False, False, 1500),
+        ("fallback-cdnonly", PIN_ID, cdn, False, False, 1500),
         ("working", WORKING_ID, X_HOSTS, True, False, 1500),
     )
     sizes = (("390x844", 390, 844), ("1280x800", 1280, 800))
@@ -292,30 +326,38 @@ def main() -> int:
         for key in (("fail", PIN_ID, False), ("work", WORKING_ID, True)):
             label, post_id, mock = key
             temp, dist = _build_fixture(post_id, mock_widgets=mock)
-            static, port = _serve(dist)
-            built[label] = (temp, dist, static, port)
+            static, port, store = _serve(dist)
+            built[label] = (temp, dist, static, port, store)
             servers.append(static)
         for name, post_id, hosts, mock, js, budget in cases:
             site = built["work" if mock else "fail"]
+            store = site[4]
             url = f"http://127.0.0.1:{site[3]}/{'index-js-off.html' if not js else ''}"
             js_label = "js-on" if js else "js-off"
             for label, w, h in sizes:
+                store["latest"] = None
                 png = OUT / f"{name}-{label}-{js_label}.png"
                 _chrome(url, png, w, h, hosts, budget_ms=budget)
                 if not png.is_file() or png.stat().st_size < 8000:
                     raise SystemExit(f"{png.name}: screenshot missing or empty")
+                measured = store["latest"] or {}
                 metrics[png.name] = {
                     "bytes": png.stat().st_size,
                     "js": js,
                     "url": url,
+                    **measured,
                 }
-                print(f"ok {png.name} bytes={png.stat().st_size}")
+                print(f"ok {png.name} bytes={png.stat().st_size} measure={measured}")
                 aliases = {
-                    "fallback-404": f"deleted-cdnonly-{label}-{js_label}.png",
+                    "fallback-cdnonly": f"deleted-cdnonly-{label}-{js_label}.png",
                     "fallback-blocked": f"deleted-blocked-{label}-{js_label}.png",
+                    "wait-blocked": f"wait-{label}-{js_label}.png",
+                    "fallback-cdnonly-legacy": f"fallback-404-{label}-{js_label}.png",
                 }
                 if name in aliases:
                     shutil.copyfile(png, OUT / aliases[name])
+                if name == "fallback-cdnonly":
+                    shutil.copyfile(png, OUT / f"fallback-404-{label}-{js_label}.png")
         (OUT / "render-metrics.json").write_text(
             json.dumps(metrics, indent=2) + "\n", encoding="utf-8"
         )
@@ -324,7 +366,7 @@ def main() -> int:
     finally:
         for server in servers:
             server.shutdown()
-        for temp, _dist, _static, _port in built.values():
+        for temp, _dist, _static, _port, _store in built.values():
             temp.cleanup()
         _assert_published_clean()
 

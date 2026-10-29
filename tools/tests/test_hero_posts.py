@@ -553,6 +553,11 @@ class HeroPostRendering(unittest.TestCase):
         self.assertIn("html.nrt-hero-js", self.css)
         self.assertIn('[data-hero-state="fallback"]', self.css)
         self.assertIn("min-height: 0", self.css)
+        self.assertIn("object-fit: contain", self.css)
+        self.assertIn(
+            '[data-hero-state="fallback"] .nrt-hero-media__visual--embed',
+            self.css,
+        )
         self.assertNotIn("aspect-ratio: 16 / 10", self.css)
         self.assertNotIn("pbs.twimg.com", den)
         self.assertNotIn("video.twimg.com", den)

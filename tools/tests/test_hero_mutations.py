@@ -517,12 +517,33 @@ def _kill_css(css_text: str) -> str | None:
         return None
     if "html.nrt-hero-js" not in css_text:
         return None
-    fallback_zero = False
-    for part in css_text.split('[data-hero-state="fallback"]')[1:]:
-        if "min-height: 0" in part[:280]:
-            fallback_zero = True
+    fallback_reserved = False
+    idx = 0
+    while True:
+        pos = css_text.find('[data-hero-state="fallback"]', idx)
+        if pos < 0:
             break
-    if not fallback_zero:
+        after = css_text[pos:pos + 360]
+        brace = after.find("{")
+        if 0 <= brace < 220:
+            body = after[brace:brace + 160]
+            if "min-height: var(--nrt-embed-reserve)" in body:
+                fallback_reserved = True
+                break
+        idx = pos + 1
+    if not fallback_reserved:
+        return None
+    illus = css_text.split(
+        "html.nrt-hero-js .nrt-hero-media[data-hero-kind=\"x-embed\"][data-hero-state=\"pending\"] "
+        ".nrt-hero-media__fallback .nrt-event-illustration",
+        1,
+    )
+    if len(illus) < 2:
+        return None
+    illus_body = illus[1].split("}", 1)[0]
+    if "object-fit: contain" not in illus_body or "object-fit: cover" in illus_body:
+        return None
+    if '[data-hero-state="fallback"]' not in illus[1].split("{", 1)[0]:
         return None
     idx = 0
     while True:
@@ -982,9 +1003,10 @@ MUTANTS = (
     {
         "name": "N17",
         "path": CSS_SRC,
-        "old": "html.nrt-hero-js .nrt-hero-media[data-hero-kind=\"x-embed\"][data-hero-state=\"fallback\"] .nrt-hero-media__visual--embed {\n  min-height: 0;\n}\n",
-        "new": "",
-        "killer": "fallback must drop the reserved embed height",
+        "old": "html.nrt-hero-js .nrt-hero-media[data-hero-kind=\"x-embed\"][data-hero-state=\"ready\"] .nrt-hero-media__visual--embed,\n"
+               "html.nrt-hero-js .nrt-hero-media[data-hero-kind=\"x-embed\"][data-hero-state=\"fallback\"] .nrt-hero-media__visual--embed {\n",
+        "new": "html.nrt-hero-js .nrt-hero-media[data-hero-kind=\"x-embed\"][data-hero-state=\"ready\"] .nrt-hero-media__visual--embed {\n",
+        "killer": "fallback must keep the reserved embed height",
         "kind": "css",
         "check": "css",
     },
@@ -993,7 +1015,16 @@ MUTANTS = (
         "path": CSS_SRC,
         "old": "  height: auto;\n  min-height: 0;\n  overflow: visible;\n  background: #171416;\n",
         "new": "  height: auto;\n  min-height: var(--nrt-embed-reserve);\n  overflow: visible;\n  background: #171416;\n",
-        "killer": "JS-off and fallback must not keep a reserved embed box",
+        "killer": "JS-off must not keep an unguarded reserved embed box",
+        "kind": "css",
+        "check": "css",
+    },
+    {
+        "name": "N19",
+        "path": CSS_SRC,
+        "old": "  object-fit: contain;\n  object-position: center;\n",
+        "new": "  object-fit: cover;\n  object-position: center;\n",
+        "killer": "wait and fallback must contain the SVG so both helmets stay in frame",
         "kind": "css",
         "check": "css",
     },
@@ -1120,6 +1151,11 @@ class HeroMutations(unittest.TestCase):
         css = CSS_SRC.read_text(encoding="utf-8")
         self.assertIn("html.nrt-hero-js", css)
         self.assertIn('[data-hero-state="fallback"]', css)
+        self.assertIn("object-fit: contain", css)
+        self.assertIn(
+            '[data-hero-state="fallback"] .nrt-hero-media__visual--embed',
+            css,
+        )
         self.assertNotIn("SIGNED_PIN_WHITELIST", POSTS_SRC.read_text(encoding="utf-8"))
         self.assertIn("has no readable edition", POSTS_SRC.read_text(encoding="utf-8"))
         self.assertIn("edition signature check failed", POSTS_SRC.read_text(encoding="utf-8"))

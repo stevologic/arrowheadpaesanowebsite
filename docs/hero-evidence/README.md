@@ -17,15 +17,9 @@ fixture only inside `render_deleted_hero.py`; published `pins` stay `{}`.
 | 390×844 Week 8, JS off | `renders/week8-390x844-js-off.png` |
 | 1280×800 Week 8, JS on | `renders/week8-1280x800-js-on.png` |
 | 1280×800 Week 8, JS off | `renders/week8-1280x800-js-off.png` |
-| 390×844 fallback 404, JS on/off | `renders/fallback-404-390x844-js-{on,off}.png` |
-| 1280×800 fallback 404, JS on/off | `renders/fallback-404-1280x800-js-{on,off}.png` |
-| 390×844 fallback all-X-blocked, JS on/off | `renders/fallback-blocked-390x844-js-{on,off}.png` |
-| 1280×800 fallback all-X-blocked, JS on/off | `renders/fallback-blocked-1280x800-js-{on,off}.png` |
-| 390×844 8s wait, JS on/off | `renders/wait-390x844-js-{on,off}.png` |
-| 1280×800 8s wait, JS on/off | `renders/wait-1280x800-js-{on,off}.png` |
-| 390×844 working pin, JS on/off | `renders/working-390x844-js-{on,off}.png` |
-| 1280×800 working pin, JS on/off | `renders/working-1280x800-js-{on,off}.png` |
-| Box metrics for those renders | `renders/render-metrics.json` |
+| Wait + fallback, cdnonly / all-X-404 / blocked | `renders/wait-*.png`, `renders/fallback-*.png` |
+| Working pin, JS on/off | `renders/working-*-js-{on,off}.png` |
+| CLS and box metrics | `renders/render-metrics.json` |
 | Mutation report | `mutation-report.md` |
 | Python vs Hugo parity | `parity-table.md` |
 | Fixed SVGs + alt text | `svgs-and-alts.md` |

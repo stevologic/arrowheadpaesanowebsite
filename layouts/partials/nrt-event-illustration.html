@@ -5,7 +5,7 @@
 {{- if and $scene.asset (fileExists $path) -}}
 <img class="nrt-event-illustration" src="{{ $scene.asset | relURL }}" alt="{{ $scene.alt }}" width="660" height="260" decoding="async" />
 {{- else -}}
-<svg class="nrt-event-illustration" viewBox="0 0 660 260" role="img" aria-label="{{ $scene.alt | default "Original article illustration of a football field. Not a photograph." }}">
+<svg class="nrt-event-illustration" viewBox="0 0 660 260" preserveAspectRatio="xMidYMid meet" role="img" aria-label="{{ $scene.alt | default "Original article illustration of a football field. Not a photograph." }}">
   <rect width="660" height="260" fill="#2A6A38"/>
   <path d="M0 0h660v170H0z" fill="#7EB6E8"/>
   <path d="M150 110h360l20 70H130z" fill="#4A1420"/>
