@@ -315,6 +315,33 @@ class HeroSceneSelectorFixes(unittest.TestCase):
         )
         self.assertEqual(review["id"], "review-home-buf")
 
+    def test_mexico_city_and_levis_are_neutral_not_road(self):
+        mexico = hero_scenes.resolve(
+            _edition("preview", "Los Angeles Chargers",
+                     at="Estadio Azteca, Mexico City"),
+            schedule=self.schedule, catalog=self.catalog,
+        )
+        self.assertEqual(mexico["homeAway"] or "", "")
+        self.assertEqual(mexico["id"], "preview-fallback")
+        self.assertNotIn("road venue", mexico["alt"].lower())
+        levis = hero_scenes.resolve(
+            _edition("preview", "San Francisco 49ers", phase_type="postseason",
+                     at="Levi's Stadium"),
+            schedule=self.schedule, catalog=self.catalog,
+        )
+        self.assertEqual(levis["id"], "preview-neutral-sf")
+        self.assertEqual(levis["homeAway"], "neutral")
+        self.assertIn("neutral site", levis["alt"].lower())
+        self.assertNotIn("road venue", levis["alt"].lower())
+
+    def test_postseason_den_without_venue_does_not_steal_week8(self):
+        scene = hero_scenes.resolve(
+            _edition("preview", "Denver Broncos", phase_type="postseason"),
+            schedule=self.schedule, catalog=self.catalog,
+        )
+        self.assertEqual(scene["id"], "preview-fallback")
+        self.assertNotEqual(scene["id"], "preview-away-den")
+
     def test_fallback_caption_has_no_arrowhead(self):
         for mode in hero_scenes.PHASE_MODES:
             scene = hero_scenes._fallback_scene(mode)
@@ -376,12 +403,18 @@ class HeroSceneParity(unittest.TestCase):
                      home_away="home", at="Arrowhead Stadium"),
             _edition("review", "Buffalo Bills", phase_type="postseason",
                      home_away="home", at="Arrowhead Stadium"),
+            _edition("preview", "Los Angeles Chargers",
+                     at="Estadio Azteca, Mexico City"),
+            _edition("preview", "San Francisco 49ers", phase_type="postseason",
+                     at="Levi's Stadium"),
+            _edition("preview", "Denver Broncos", phase_type="postseason"),
             _edition("preview", "Test Sharks"),
         ]
         labels = (
             "neutral-mia-preview", "neutral-mia-review",
             "sb-sf-preview", "sb-sf-review",
             "post-home-buf-preview", "post-home-buf-review",
+            "mexico-city-preview", "levis-sb-preview", "post-den-preview",
             "unknown-preview",
         )
         for edition, slug in zip(extras, labels):

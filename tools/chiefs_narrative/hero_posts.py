@@ -2,7 +2,8 @@
 
 Edition JSON and Review signatures are never rewritten. Pins live in
 ``data/hero_posts.json`` keyed by edition slug. Build and gate time do
-not touch the network: validation is allowlist + snowflake-id shape.
+not touch the network: validation is allowlist + snowflake-id shape,
+sponsored/betting denylist, and signed-edition rules.
 """
 from __future__ import annotations
 
@@ -10,7 +11,8 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-from . import config, hero_scenes
+
+from . import config, hero_scenes, review_gate
 
 SIDECAR_PATH = config.DATA_DIR / "hero_posts.json"
 SCHEMA_VERSION = 1
@@ -46,10 +48,18 @@ DENIED_HANDLES = frozenset(
     }
 )
 
+# Pins may land on unsigned editions, plus this explicit Review/Preview
+# whitelist. Already-signed editions outside the list fail the gate.
+SIGNED_PIN_WHITELIST = frozenset({"2026-10-28-1750"})
+
 POST_ID_RE = re.compile(r"^[0-9]{10,20}$")
 HANDLE_RE = re.compile(r"^[A-Za-z0-9_]{1,15}$")
 _STATUS_RE = re.compile(
     r"^https://(?:www\.)?(?:twitter|x)\.com/([A-Za-z0-9_]+)/status/(\d+)/?(?:\?.*)?$",
+    re.IGNORECASE,
+)
+BETTING_DENY_RE = re.compile(
+    r"draftkings|fanduel|\bodds\b|o/u|over\s*/\s*under|sponsored|presented by|\bbet\b",
     re.IGNORECASE,
 )
 _MONTHS = (
@@ -64,6 +74,14 @@ def _s(value) -> str:
 
 def _handle(value) -> str:
     return _s(value).lstrip("@")
+
+
+def _truthy(value) -> bool:
+    if value is True:
+        return True
+    if value is False or value is None:
+        return False
+    return _s(value).lower() in {"true", "1", "yes"}
 
 
 def _norm_posted(value) -> str:
@@ -94,9 +112,46 @@ def status_url(handle: str, post_id: str) -> str:
     return f"https://x.com/{handle}/status/{post_id}"
 
 
+def _betting_blob(value: dict) -> str:
+    return " ".join(
+        _s(value.get(key) or "")
+        for key in ("text", "alt", "caption", "note")
+    )
+
+
+def is_sponsored_or_betting(value: dict) -> bool:
+    """True when pin metadata flags a sponsor or betting copy."""
+    if not isinstance(value, dict):
+        return True
+    if _truthy(value.get("sponsored")):
+        return True
+    return bool(BETTING_DENY_RE.search(_betting_blob(value)))
+
+
+def edition_pin_allowed(slug: str, *, root=None) -> bool:
+    """Pins are allowed on unsigned editions plus the explicit whitelist."""
+    key = _s(slug)
+    if key in SIGNED_PIN_WHITELIST:
+        return True
+    base = Path(root or config.REPO_ROOT)
+    path = base / "data" / "narrative_editions" / f"{key}.json"
+    if not path.is_file():
+        return True
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return True
+    if not isinstance(payload, dict):
+        return True
+    payload.setdefault("slug", key)
+    return not review_gate.review_signed_off(payload, root=base, edition_file=path)
+
+
 def normalize_pin(value) -> dict | None:
     """Keep a pin only when the handle is allowlisted and the id is a snowflake."""
     if not isinstance(value, dict):
+        return None
+    if is_sponsored_or_betting(value):
         return None
     handle = _handle(value.get("handle") or value.get("account") or "")
     post_id = _s(value.get("id") or value.get("postId") or "")
@@ -130,6 +185,7 @@ def normalize_pin(value) -> dict | None:
         "postedLabel": posted_label(posted) if posted else "",
         "text": text,
         "alt": alt,
+        "sponsored": False,
     }
     return pin
 
@@ -151,6 +207,8 @@ def pin_for_slug(slug: str, *, root=None) -> dict | None:
     payload = load_sidecar(root)
     pins = payload.get("pins") or {}
     if not isinstance(pins, dict):
+        return None
+    if not edition_pin_allowed(slug, root=root):
         return None
     return normalize_pin(pins.get(slug))
 
@@ -179,11 +237,18 @@ def validate_sidecar(root=None) -> list[str]:
                 f"hero pin {slug} failed allowlist or id format"
                 + (f" (@{handle})" if handle else "")
             )
+            continue
+        if not edition_pin_allowed(str(slug), root=root):
+            issues.append(f"hero pin {slug} is attached to a signed edition")
     return issues
 
 
 def select_catalog_pin(edition: dict, *, root=None) -> dict | None:
-    """Pick a topic-matched catalog pin for a new edition. No network."""
+    """Pick a topic-matched catalog pin for a new edition. No network.
+
+    A catalog row is used only when week and opponent both match. Season
+    alone is not enough. No match leaves the edition unpinned.
+    """
     payload = load_sidecar(root)
     mode = hero_scenes.mode_of(edition)
     event = hero_scenes.event_of(edition, mode)
@@ -195,6 +260,8 @@ def select_catalog_pin(edition: dict, *, root=None) -> dict | None:
         week = raw_week
     elif isinstance(raw_week, str) and raw_week.isdigit():
         week = int(raw_week)
+    if not week or not abbr:
+        return None
     season = hero_scenes.season_code(phase.get("type") or "")
     venue = hero_scenes.venue_key(hero_scenes._venue_blob(edition, event))
     home_away = hero_scenes._home_away(edition, event, mode, venue)
@@ -205,18 +272,15 @@ def select_catalog_pin(edition: dict, *, root=None) -> dict | None:
             continue
         if _s(row.get("mode") or "preview") != mode:
             continue
-        score = 0
         row_abbr = _s(row.get("opponentAbbr") or "").upper()
-        if abbr and row_abbr == abbr:
-            score += 8
-        if week and row.get("week") == week:
-            score += 8
+        if row_abbr != abbr or row.get("week") != week:
+            continue
+        score = 16
         if season and _s(row.get("seasonType") or "") == season:
             score += 3
         if home_away and _s(row.get("homeAway") or "") == home_away:
             score += 4
-        if score:
-            ranked.append((score, pin))
+        ranked.append((score, pin))
     if not ranked:
         return None
     ranked.sort(key=lambda item: -item[0])
@@ -227,6 +291,8 @@ def attach_sidecar(narrative: dict, *, root=None) -> dict | None:
     """Pin a new edition in the unsigned sidecar. Never writes edition JSON."""
     slug = _s(narrative.get("slug"))
     if not slug:
+        return None
+    if not edition_pin_allowed(slug, root=root):
         return None
     pin = select_catalog_pin(narrative, root=root)
     if not pin:
@@ -250,6 +316,7 @@ def write_sidecar_pin(slug: str, pin: dict, *, root=None) -> dict:
         "text": pin.get("text") or "",
         "alt": pin.get("alt") or "",
         "url": pin["url"],
+        "sponsored": False,
     }
     payload = {
         "schemaVersion": SCHEMA_VERSION,

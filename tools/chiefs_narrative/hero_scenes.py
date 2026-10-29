@@ -49,6 +49,13 @@ VENUE_KEYS = {
     "wembley": "wembley",
     "tottenham hotspur stadium": "wembley",
     "london stadium": "wembley",
+    "estadio azteca": "mexico-city",
+    "azteca stadium": "mexico-city",
+    "mexico city": "mexico-city",
+    "azteca": "mexico-city",
+    "levi's stadium": "super-bowl",
+    "levis stadium": "super-bowl",
+    "levi stadium": "super-bowl",
     "super bowl": "super-bowl",
     "allegiant stadium": "allegiant",
     "raymond james stadium": "raymond-james",
@@ -65,6 +72,7 @@ VENUE_LABELS = {
     "lumen-field": "a covered Pacific Northwest stadium",
     "hard-rock": "an open coastal stadium with palms",
     "wembley": "a neutral-site stadium under a steel arch",
+    "mexico-city": "a neutral-site stadium in Mexico City",
     "super-bowl": "a neutral championship stadium under night lights",
     "allegiant": "a black dome in the desert",
     "raymond-james": "an open Gulf-coast stadium",
@@ -76,7 +84,7 @@ VENUE_LABELS = {
 
 PHASE_MODES = ("preview", "review", "camp", "offseason", "bye")
 FALLBACK_IDS = {mode: f"{mode}-fallback" for mode in PHASE_MODES}
-NEUTRAL_VENUES = frozenset({"wembley", "super-bowl"})
+NEUTRAL_VENUES = frozenset({"wembley", "super-bowl", "mexico-city"})
 # Not on the 2026 slate: London vs MIA, Super Bowl vs SF, postseason home vs BUF.
 EXTRA_MATCHUPS = (
     {
@@ -272,6 +280,10 @@ def _match_schedule(edition: dict, event: dict, schedule: list[dict], mode: str)
     for game in schedule:
         if opponent_abbr(game.get("opponent") or game.get("opponentAbbr")) != abbr:
             continue
+        if phase_season and game.get("seasonType") != phase_season:
+            continue
+        if home_away and game.get("homeAway") and game.get("homeAway") != home_away:
+            continue
         score = 1
         if week and game.get("week") == week:
             score += 8
@@ -310,7 +322,12 @@ def _scene_alt(mode: str, venue: str, home_away: str, team: dict | None) -> str:
     colors = "red and gold versus a visiting color set"
     if team:
         colors = f"red and gold versus {team['colors']}"
-    side = "a home bowl" if home_away == "home" else "a road venue"
+    if home_away == "home":
+        side = "a home bowl"
+    elif home_away == "neutral":
+        side = "a neutral site"
+    else:
+        side = "a road venue"
     return (
         f"Original illustration of a {lighting} scene at {place} ({side}), "
         f"with {weather}, a stadium silhouette, field shapes, and two helmet silhouettes in {colors}. "
@@ -454,6 +471,7 @@ def build_catalog(schedule: list[dict] | None = None) -> dict:
         "byOpponentVenue": by_venue,
         "aliases": aliases(),
         "venueHints": dict(VENUE_KEYS),
+        "neutralVenues": sorted(NEUTRAL_VENUES),
         "fallbacks": dict(FALLBACK_IDS),
         "scenes": scenes,
         "matchups": matchups,
@@ -684,6 +702,9 @@ def _palette(mode: str, venue: str, _away: dict | None) -> dict:
     if venue == "wembley":
         return {"sky": [("0%", "#1A2030"), ("100%", "#4A5A6A")] if night else [("0%", "#6A8AAA"), ("100%", "#D4DEE8")],
                 "grass": ("#1A4A32", "#123826"), "bowl": "#2A3038", "hash": "#D0D6DC"}
+    if venue == "mexico-city":
+        return {"sky": [("0%", "#1A2038"), ("100%", "#C45A28")] if night else [("0%", "#4A7CB0"), ("100%", "#E8B36A")],
+                "grass": ("#1A4A32", "#123826"), "bowl": "#2A3038", "hash": "#E6D2A0"}
     if venue == "super-bowl":
         return {"sky": [("0%", "#140828"), ("100%", "#6A2048")] if night else [("0%", "#2A1848"), ("100%", "#C45A88")],
                 "grass": ("#1A4A32", "#123826"), "bowl": "#2A1838", "hash": "#E6C36A"}
@@ -731,6 +752,11 @@ def _landmarks(venue: str, mode: str, pal: dict, uid: str) -> str:
             f'<path d="M70 180 Q330 8 590 180" fill="none" stroke="#8A96A4" stroke-width="12"/>'
             f'<path d="M70 180 Q330 28 590 180" fill="none" stroke="#C8D0D8" stroke-width="4"/>'
             + ("" if night else _sun(96, 46, "#F4E2A0"))
+        )
+    if venue == "mexico-city":
+        return (
+            f'<path d="M40 168 L90 110 L140 168 L200 96 L270 168 L340 88 L410 168 L490 104 L560 168 L620 120 V176 H0Z" fill="#6A7A88"/>'
+            + ("" if night else _sun(88, 44, "#F6D48A"))
         )
     if venue == "super-bowl":
         return _lights_wash() + (
@@ -826,6 +852,7 @@ def catalog_for_hugo(catalog: dict) -> dict:
         "byOpponentVenue": catalog["byOpponentVenue"],
         "aliases": catalog["aliases"],
         "venueHints": catalog["venueHints"],
+        "neutralVenues": sorted(NEUTRAL_VENUES),
         "fallbacks": catalog["fallbacks"],
         "scenes": scenes,
         "matchups": catalog["matchups"],

@@ -17,26 +17,80 @@
 {{- end -}}
 {{- $context := partial "nrt-event-context.html" .n -}}
 {{- $scene := partial "nrt-hero-scene.html" (dict "n" .n "site" .site) -}}
+{{- $illustration := partial "nrt-event-illustration.html" (dict "n" .n "site" .site "scene" $scene) -}}
 {{- if $pin.id -}}
-<figure class="nrt-hero-media" data-hero-kind="x-embed" data-hero-post-id="{{ $pin.id }}" data-hero-scene="{{ $scene.id }}" data-hero-mapped="{{ if $scene.mapped }}true{{ else }}false{{ end }}" data-event-subject="{{ $context.subject }}" data-event-mode="{{ $context.mode }}">
+<figure class="nrt-hero-media" data-hero-kind="x-embed" data-hero-state="pending" data-hero-post-id="{{ $pin.id }}" data-hero-scene="{{ $scene.id }}" data-hero-mapped="{{ if $scene.mapped }}true{{ else }}false{{ end }}" data-event-subject="{{ $context.subject }}" data-event-mode="{{ $context.mode }}">
   <div class="nrt-hero-media__visual nrt-hero-media__visual--embed">
-    <blockquote class="twitter-tweet" data-dnt="true" data-conversation="none">
-      {{- with $pin.text -}}<p lang="en" dir="ltr">{{ . }}</p>{{- end -}}
-      &mdash; {{ $pin.account }}
-      <a href="{{ $pin.url }}">{{ with $pin.postedLabel }}{{ . }}{{ else }}View post on X{{ end }}</a>
-    </blockquote>
+    <div class="nrt-hero-media__fallback" data-hero-fallback>{{ $illustration }}</div>
+    <div class="nrt-hero-media__embed" data-hero-embed>
+      <blockquote class="twitter-tweet" data-dnt="true" data-conversation="none">
+        {{- with $pin.text -}}<p lang="en" dir="ltr">{{ . }}</p>{{- end -}}
+        &mdash; {{ $pin.account }}
+        <a href="{{ $pin.url }}">{{ with $pin.postedLabel }}{{ . }}{{ else }}View post on X{{ end }}</a>
+      </blockquote>
+    </div>
   </div>
   <figcaption class="nrt-hero-media__caption">
     <span class="nrt-hero-media__label">Official post</span>
     <strong>{{ $pin.alt }}</strong>
     <span>Source: {{ $pin.account }}</span>
     <a href="{{ $pin.url }}" target="_blank" rel="noopener">View post on X</a>
+    <span>{{ $scene.caption }}</span>
   </figcaption>
 </figure>
 <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+<script>
+(function () {
+  var figures = document.querySelectorAll("figure.nrt-hero-media[data-hero-kind='x-embed'][data-hero-state='pending']");
+  if (!figures.length) return;
+  function unavailable(node) {
+    var text = (node && node.textContent) || "";
+    return /this (?:post|tweet) is unavailable/i.test(text);
+  }
+  function settle(fig, state) {
+    if (fig.getAttribute("data-hero-state") === "ready" || fig.getAttribute("data-hero-state") === "fallback") return;
+    fig.setAttribute("data-hero-state", state);
+  }
+  function inspect(fig) {
+    if (unavailable(fig)) {
+      settle(fig, "fallback");
+      return;
+    }
+    if (fig.querySelector("iframe")) {
+      settle(fig, "ready");
+    }
+  }
+  Array.prototype.forEach.call(figures, function (fig) {
+    var timer = setTimeout(function () { settle(fig, "fallback"); }, 8000);
+    var obs = new MutationObserver(function () {
+      inspect(fig);
+      if (fig.getAttribute("data-hero-state") !== "pending") {
+        clearTimeout(timer);
+        obs.disconnect();
+      }
+    });
+    obs.observe(fig, { childList: true, subtree: true, characterData: true });
+    function bind() {
+      if (!window.twttr || !twttr.ready) return false;
+      twttr.ready(function (twttr) {
+        twttr.events.bind("rendered", function () { inspect(fig); });
+        inspect(fig);
+      });
+      return true;
+    }
+    if (!bind()) {
+      var n = 0;
+      var poll = setInterval(function () {
+        n += 1;
+        if (bind() || n > 40) clearInterval(poll);
+      }, 200);
+    }
+  });
+})();
+</script>
 {{- else -}}
 <figure class="nrt-hero-media" data-hero-kind="{{ if $licensed }}licensed-image{{ else }}article-illustration{{ end }}" data-hero-scene="{{ $scene.id }}" data-hero-mapped="{{ if $scene.mapped }}true{{ else }}false{{ end }}" data-event-subject="{{ $context.subject }}" data-event-mode="{{ $context.mode }}">
-  <div class="nrt-hero-media__visual">{{ if $licensed }}<img src="{{ $media.image | relURL }}" alt="{{ $media.alt }}" width="{{ $media.width }}" height="{{ $media.height }}" decoding="async" fetchpriority="high" />{{ else }}{{ partial "nrt-event-illustration.html" (dict "n" .n "site" .site "scene" $scene) }}{{ end }}</div>
+  <div class="nrt-hero-media__visual">{{ if $licensed }}<img src="{{ $media.image | relURL }}" alt="{{ $media.alt }}" width="{{ $media.width }}" height="{{ $media.height }}" decoding="async" fetchpriority="high" />{{ else }}{{ $illustration }}{{ end }}</div>
   <figcaption class="nrt-hero-media__caption">
     {{ if $licensed }}<span class="nrt-hero-media__label">Licensed image</span><strong>{{ $media.caption }}</strong><span>{{ $media.rights.attribution }} · {{ $media.rights.license }}</span><a href="{{ $media.sourceUrl }}" target="_blank" rel="noopener">Original post on X</a>
     {{ else }}<span class="nrt-hero-media__label">Article illustration</span><strong>{{ $context.topic }}</strong><span>{{ $scene.caption }}</span><span>{{ $context.label }}</span><span>Not a photograph. Event photograph not yet cleared.</span>{{ end }}

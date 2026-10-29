@@ -9,40 +9,6 @@
     "ESPN",
     "ESPNNFL"
   ],
-  "catalog": [
-    {
-      "week": 8,
-      "seasonType": "reg",
-      "opponentAbbr": "DEN",
-      "homeAway": "away",
-      "mode": "preview",
-      "id": "2115471247190438112",
-      "handle": "Chiefs",
-      "postedAt": "2026-10-28T15:50:23Z",
-      "postedLabel": "October 28, 2026",
-      "text": "Sights set on Denver.",
-      "alt": "Official Kansas City Chiefs post: Sights set on Denver.",
-      "url": "https://x.com/Chiefs/status/2115471247190438112"
-    }
-  ],
-  "pins": {
-    "2026-10-28-1750": {
-      "id": "2115471247190438112",
-      "handle": "Chiefs",
-      "postedAt": "2026-10-28T15:50:23Z",
-      "postedLabel": "October 28, 2026",
-      "text": "Sights set on Denver.",
-      "alt": "Official Kansas City Chiefs post: Sights set on Denver.",
-      "url": "https://x.com/Chiefs/status/2115471247190438112"
-    },
-    "2026-10-29-0230": {
-      "id": "2115471247190438112",
-      "handle": "Chiefs",
-      "postedAt": "2026-10-28T15:50:23Z",
-      "postedLabel": "October 28, 2026",
-      "text": "Sights set on Denver.",
-      "alt": "Official Kansas City Chiefs post: Sights set on Denver.",
-      "url": "https://x.com/Chiefs/status/2115471247190438112"
-    }
-  }
+  "catalog": [],
+  "pins": {}
 }

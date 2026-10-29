@@ -48,4 +48,7 @@
 | sb-sf-review | review-neutral-sf | review-neutral-sf | yes |
 | post-home-buf-preview | preview-home-buf | preview-home-buf | yes |
 | post-home-buf-review | review-home-buf | review-home-buf | yes |
+| mexico-city-preview | preview-fallback | preview-fallback | yes |
+| levis-sb-preview | preview-neutral-sf | preview-neutral-sf | yes |
+| post-den-preview | preview-fallback | preview-fallback | yes |
 | unknown-preview | preview-fallback | preview-fallback | yes |

@@ -29,7 +29,8 @@
 {{- range $hint, $key := $catalog.venueHints | default dict -}}
   {{- if and (in $blob $hint) (gt (len $hint) $hintLen) -}}{{- $venue = $key -}}{{- $hintLen = len $hint -}}{{- end -}}
 {{- end -}}
-{{- if or (eq $venue "wembley") (eq $venue "super-bowl") -}}{{- $ha = "neutral" -}}{{- end -}}
+{{- $neutral := $catalog.neutralVenues | default (slice "wembley" "super-bowl" "mexico-city") -}}
+{{- if in $neutral $venue -}}{{- $ha = "neutral" -}}{{- end -}}
 {{- if and (not $ha) (hasPrefix (strings.TrimSpace $at) "@") -}}{{- $ha = "away" -}}{{- end -}}
 {{- if eq $mode "preview" -}}
   {{- with $n.markets -}}
@@ -43,7 +44,7 @@
   {{- end -}}
 {{- end -}}
 {{- if and (in $blob "arrowhead") (not $ha) -}}{{- $ha = "home" -}}{{- end -}}
-{{- if and $venue (ne $venue "arrowhead") (ne $venue "wembley") (ne $venue "super-bowl") (not $ha) -}}{{- $ha = "away" -}}{{- end -}}
+{{- if and $venue (ne $venue "arrowhead") (not (in $neutral $venue)) (not $ha) -}}{{- $ha = "away" -}}{{- end -}}
 
 {{- $season := "" -}}
 {{- with $n.phase.type -}}

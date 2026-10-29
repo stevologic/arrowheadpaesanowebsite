@@ -1,22 +1,12 @@
-=== python -m unittest discover -s tools/tests -q ===
-477 tests OK (see prior local run)
+python -m unittest discover -s tools/tests
+Ran 482 tests in 115.068s
+OK
 
-=== python -m tools.chiefs_narrative.generate --check-edition ===
+python -m tools.chiefs_narrative.generate --check-edition
   edition gates: ok
 
-=== hugo --gc --minify ===
-Start building sites … 
-hugo v0.152.2-6abdacad3f3fe944ea42177844469139e81feda6+extended linux/amd64 BuildDate=2025-10-24T15:31:49Z VendorInfo=gohugoio
-
-
-                  │ EN  
-──────────────────┼─────
- Pages            │  98 
- Paginator pages  │   0 
- Non-page files   │   0 
- Static files     │ 632 
- Processed images │   0 
- Aliases          │   7 
- Cleaned          │   0 
-
-Total in 288 ms
+hugo --gc --minify
+hugo v0.152.2+extended
+Pages 98
+Total in 229 ms
+exit 0

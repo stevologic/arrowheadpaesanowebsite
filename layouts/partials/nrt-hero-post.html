@@ -1,6 +1,7 @@
 {{- /*
-  Unsigned sidecar pin for this edition slug. Offline allowlist + id shape.
-  Returns a dict; callers treat a missing id as "no pin" (SVG fallback).
+  Unsigned sidecar pin for this edition slug. Offline allowlist + id shape
+  + sponsored/betting denylist. Returns a dict; callers treat a missing id
+  as "no pin" (SVG fallback).
 */ -}}
 {{- $n := .n | default . -}}
 {{- $site := .site -}}
@@ -23,7 +24,13 @@
   {{- if $url -}}
     {{- $urlOK = findRE (printf `^https://(?:www\.)?(?:x|twitter)\.com/%s/status/%s/?$` $handle $id) $url -}}
   {{- end -}}
-  {{- if and $idOK $listed $urlOK $handle -}}
+  {{- $sponsored := false -}}
+  {{- with .sponsored -}}
+    {{- if or (eq . true) (eq (lower (printf "%v" .)) "true") -}}{{- $sponsored = true -}}{{- end -}}
+  {{- end -}}
+  {{- $blob := lower (printf "%s %s %s" (.text | default "") (.alt | default "") (.note | default "")) -}}
+  {{- $denied := findRE `(?i)draftkings|fanduel|\bodds\b|o/u|over\s*/\s*under|sponsored|presented by|\bbet\b` $blob -}}
+  {{- if and $idOK $listed $urlOK $handle (not $sponsored) (not $denied) -}}
     {{- $postedLabel := .postedLabel | default "" -}}
     {{- if and (not $postedLabel) .postedAt -}}
       {{- $postedLabel = time.Format "January 2, 2006" (.postedAt | time.AsTime) -}}

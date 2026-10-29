@@ -491,6 +491,11 @@
       "week": null
     }
   ],
+  "neutralVenues": [
+    "mexico-city",
+    "super-bowl",
+    "wembley"
+  ],
   "scenes": {
     "bye-fallback": {
       "alt": "Original illustration of an empty practice field and a single red-and-gold helmet silhouette during a quiet week. Not a photograph.",
@@ -818,7 +823,7 @@
       "venueKey": "arrowhead"
     },
     "preview-neutral-mia": {
-      "alt": "Original illustration of a game-day light scene at a neutral-site stadium under a steel arch (a road venue), with clear stadium geometry, a stadium silhouette, field shapes, and two helmet silhouettes in red and gold versus aqua and orange. Not a photograph.",
+      "alt": "Original illustration of a game-day light scene at a neutral-site stadium under a steel arch (a neutral site), with clear stadium geometry, a stadium silhouette, field shapes, and two helmet silhouettes in red and gold versus aqua and orange. Not a photograph.",
       "asset": "images/hero-scenes/preview-neutral-mia.svg",
       "caption": "Game-day preview illustration \u00b7 a neutral-site stadium under a steel arch",
       "homeAway": "neutral",
@@ -831,7 +836,7 @@
       "venueKey": "wembley"
     },
     "preview-neutral-sf": {
-      "alt": "Original illustration of a game-day light scene at a neutral championship stadium under night lights (a road venue), with clear stadium geometry, a stadium silhouette, field shapes, and two helmet silhouettes in red and gold versus red and gold. Not a photograph.",
+      "alt": "Original illustration of a game-day light scene at a neutral championship stadium under night lights (a neutral site), with clear stadium geometry, a stadium silhouette, field shapes, and two helmet silhouettes in red and gold versus red and gold. Not a photograph.",
       "asset": "images/hero-scenes/preview-neutral-sf.svg",
       "caption": "Game-day preview illustration \u00b7 a neutral championship stadium under night lights",
       "homeAway": "neutral",
@@ -1130,7 +1135,7 @@
       "venueKey": "arrowhead"
     },
     "review-neutral-mia": {
-      "alt": "Original illustration of a night recap light scene at a neutral-site stadium under a steel arch (a road venue), with clear stadium geometry, a stadium silhouette, field shapes, and two helmet silhouettes in red and gold versus aqua and orange. Not a photograph.",
+      "alt": "Original illustration of a night recap light scene at a neutral-site stadium under a steel arch (a neutral site), with clear stadium geometry, a stadium silhouette, field shapes, and two helmet silhouettes in red and gold versus aqua and orange. Not a photograph.",
       "asset": "images/hero-scenes/review-neutral-mia.svg",
       "caption": "Night review illustration \u00b7 a neutral-site stadium under a steel arch",
       "homeAway": "neutral",
@@ -1143,7 +1148,7 @@
       "venueKey": "wembley"
     },
     "review-neutral-sf": {
-      "alt": "Original illustration of a night recap light scene at a neutral championship stadium under night lights (a road venue), with clear stadium geometry, a stadium silhouette, field shapes, and two helmet silhouettes in red and gold versus red and gold. Not a photograph.",
+      "alt": "Original illustration of a night recap light scene at a neutral championship stadium under night lights (a neutral site), with clear stadium geometry, a stadium silhouette, field shapes, and two helmet silhouettes in red and gold versus red and gold. Not a photograph.",
       "asset": "images/hero-scenes/review-neutral-sf.svg",
       "caption": "Night review illustration \u00b7 a neutral championship stadium under night lights",
       "homeAway": "neutral",
@@ -1160,15 +1165,22 @@
   "venueHints": {
     "allegiant stadium": "allegiant",
     "arrowhead stadium": "arrowhead",
+    "azteca": "mexico-city",
+    "azteca stadium": "mexico-city",
     "empower field": "empower-field",
     "empower field at mile high": "empower-field",
+    "estadio azteca": "mexico-city",
     "geha field at arrowhead stadium": "arrowhead",
     "hard rock stadium": "hard-rock",
     "highmark stadium": "highmark",
+    "levi stadium": "super-bowl",
+    "levi's stadium": "super-bowl",
+    "levis stadium": "super-bowl",
     "london stadium": "wembley",
     "lumen field": "lumen-field",
     "mercedes benz stadium": "mercedes-benz",
     "mercedes-benz stadium": "mercedes-benz",
+    "mexico city": "mexico-city",
     "mile high": "empower-field",
     "paycor stadium": "paycor",
     "raymond james stadium": "raymond-james",

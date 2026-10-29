@@ -11,10 +11,15 @@ sponsored handles fail the gate. Validation is offline (allowlist + snowflake
 id). Build and gate time do not fetch X.
 
 The embed is a server-rendered blockquote with the visible source credit and
-the post link inside a reserved 16:10 box. `widgets.js` loads async, only on
-pages that have a pinned post, and only from `https://platform.twitter.com`.
-With JavaScript off the page is still complete: credit, link, and text stay
-visible and the box does not collapse. Media is never downloaded or rehosted.
+the post link inside a reserved-height box (about 640px on desktop, 560px on
+a 390px phone) so the widget footer is not cropped. `widgets.js` loads async,
+only on pages that have a pinned post, and only from
+`https://platform.twitter.com`. The SVG illustration, credit, and post link
+stay in the document: they are the visible hero when JavaScript is off, when
+`widgets.js` fails, or when X reports the post unavailable. Sponsored or
+betting copy (a `sponsored` flag or DraftKings / FanDuel / odds / O/U /
+Over/Under / presented by / bet) is rejected offline. Media is never
+downloaded or rehosted.
 
 Archived editions without a pin, and any pin that fails the allowlist or id
 shape, use the original vector illustration selected at render time from the
