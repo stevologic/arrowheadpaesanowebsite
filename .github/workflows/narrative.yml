@@ -163,6 +163,7 @@ jobs:
             data/narrative_editions \
             data/wire.json \
             data/schedule_2026.json \
+            data/hero_posts.json \
             public/images/narrative
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -380,6 +381,7 @@ jobs:
             data/narrative_editions \
             data/wire.json \
             data/schedule_2026.json \
+            data/hero_posts.json \
             public/images/narrative
           git checkout -b "$BRANCH"
 

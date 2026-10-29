@@ -1,0 +1,105 @@
+{{- /*
+  Pick a committed hero scene from this edition's existing fields.
+  Never borrows the live slate for an archived story.
+  A week key is used only when it agrees with the stated opponent
+  (and home/away when that is known).
+*/ -}}
+{{- $n := .n | default . -}}
+{{- $site := .site -}}
+{{- $mode := lower ($n.phase.mode | default $n.phase.type | default "preview") -}}
+{{- if or (eq $mode "training-camp") (eq $mode "camp") -}}{{- $mode = "camp" -}}{{- end -}}
+{{- if eq $mode "season-complete" -}}{{- $mode = "offseason" -}}{{- end -}}
+{{- $catalog := dict -}}
+{{- with $site -}}{{- $catalog = .Data.hero_scenes | default dict -}}{{- end -}}
+{{- $scenes := $catalog.scenes | default dict -}}
+{{- $fallbacks := $catalog.fallbacks | default dict -}}
+{{- $id := index $fallbacks $mode | default "preview-fallback" -}}
+{{- $mapped := false -}}
+
+{{- $event := dict -}}
+{{- if eq $mode "preview" -}}{{- $event = $n.nextGame | default dict -}}{{- end -}}
+{{- if eq $mode "review" -}}{{- $event = $n.lastGameReview | default dict -}}{{- end -}}
+{{- $opponent := lower ($event.opponent | default "") -}}
+{{- $abbr := index ($catalog.aliases | default dict) $opponent -}}
+{{- $ha := lower ($event.homeAway | default "") -}}
+{{- $at := $event.at | default $event.venue | default "" -}}
+{{- $blob := lower (printf "%s %s %s %s %s %s" $at ($event.label | default "") ($event.lede | default "") ($event.note | default "") ($n.headline | default "") ($n.dek | default "")) -}}
+{{- $venue := "" -}}
+{{- $hintLen := 0 -}}
+{{- range $hint, $key := $catalog.venueHints | default dict -}}
+  {{- if and (in $blob $hint) (gt (len $hint) $hintLen) -}}{{- $venue = $key -}}{{- $hintLen = len $hint -}}{{- end -}}
+{{- end -}}
+{{- $neutral := $catalog.neutralVenues | default (slice "wembley" "super-bowl" "mexico-city") -}}
+{{- if in $neutral $venue -}}{{- $ha = "neutral" -}}{{- end -}}
+{{- if and (not $ha) (hasPrefix (strings.TrimSpace $at) "@") -}}{{- $ha = "away" -}}{{- end -}}
+{{- if eq $mode "preview" -}}
+  {{- with $n.markets -}}
+    {{- with .game -}}
+      {{- $marketOpp := lower (.opponent | default "") -}}
+      {{- $marketHa := lower (.homeAway | default "") -}}
+      {{- if and $marketHa (or (eq $marketOpp "") (eq $marketOpp $opponent)) -}}
+        {{- if not $ha -}}{{- $ha = $marketHa -}}{{- end -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+{{- if and (in $blob "arrowhead") (not $ha) -}}{{- $ha = "home" -}}{{- end -}}
+{{- if and $venue (ne $venue "arrowhead") (not (in $neutral $venue)) (not $ha) -}}{{- $ha = "away" -}}{{- end -}}
+
+{{- $season := "" -}}
+{{- with $n.phase.type -}}
+  {{- if eq . "preseason" -}}{{- $season = "pre" -}}{{- end -}}
+  {{- if eq . "regular" -}}{{- $season = "reg" -}}{{- end -}}
+  {{- if eq . "postseason" -}}{{- $season = "post" -}}{{- end -}}
+{{- end -}}
+{{- if and $season $n.phase.week -}}
+  {{- $weekKey := printf "%s-%v-%s" $season $n.phase.week $mode -}}
+  {{- with index ($catalog.byWeek | default dict) $weekKey -}}
+    {{- $weekScene := index $scenes . | default dict -}}
+    {{- $weekAbbr := lower ($weekScene.opponentAbbr | default "") -}}
+    {{- $weekHa := lower ($weekScene.homeAway | default "") -}}
+    {{- $oppOK := or (not $abbr) (eq (lower $abbr) $weekAbbr) -}}
+    {{- $haOK := or (not $ha) (eq $ha $weekHa) -}}
+    {{- if and $oppOK $haOK -}}
+      {{- $id = . -}}
+      {{- $mapped = true -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- if not $mapped -}}
+  {{- if and $abbr $ha -}}
+    {{- with index ($catalog.byOpponentHomeAway | default dict) (printf "%s-%s-%s" (lower $abbr) $ha $mode) -}}
+      {{- $id = . -}}
+      {{- $mapped = true -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if and (not $mapped) $abbr $venue -}}
+    {{- with index ($catalog.byOpponentVenue | default dict) (printf "%s-%s-%s" (lower $abbr) $venue $mode) -}}
+      {{- $id = . -}}
+      {{- $mapped = true -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+{{- $scene := index $scenes $id | default dict -}}
+{{- if not $scene.id -}}
+  {{- $id = index $fallbacks $mode | default "preview-fallback" -}}
+  {{- $scene = index $scenes $id | default dict -}}
+  {{- $mapped = false -}}
+{{- end -}}
+{{- $topic := $n.headline | default "Chiefs report" -}}
+{{- $label := "" -}}
+{{- if eq $mode "preview" -}}{{- $label = ($n.nextGame.label | default "") -}}{{- end -}}
+{{- if eq $mode "review" -}}{{- $label = ($n.lastGameReview.label | default "") -}}{{- end -}}
+{{- $label = $label | default ($n.phase.label | default "") -}}
+{{- $alt := $scene.alt | default "Original article illustration of a football scene. Not a photograph." -}}
+{{- if $topic -}}{{- $alt = printf "%s Edition topic: %s. %s" $alt $topic $label -}}{{- end -}}
+{{- return (dict
+  "id" ($scene.id | default $id)
+  "asset" ($scene.asset | default (printf "images/hero-scenes/%s.svg" $id))
+  "alt" $alt
+  "caption" ($scene.caption | default "Article illustration · not a photograph")
+  "mapped" $mapped
+  "mode" $mode
+) -}}

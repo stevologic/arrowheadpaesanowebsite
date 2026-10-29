@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "allowlist": [
+    "Chiefs",
+    "ChiefsPR",
+    "NFL",
+    "TheAthletic",
+    "TheAthleticNFL",
+    "ESPN",
+    "ESPNNFL"
+  ],
+  "catalog": [],
+  "pins": {}
+}
