@@ -367,6 +367,10 @@ def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
         "dek": _s(raw.get("dek")),
         "videoHook": _s(raw.get("videoHook")),
         "theEdge": _s(raw.get("theEdge")),
+        "editorNotes": _str_list(
+            raw.get("editorNotes") or raw.get("editor_notes"),
+            limit=24,
+        ),
         "playerEmbeds": _norm_x_embeds(
             raw.get("playerEmbeds") or raw.get("player_embeds"),
             limit=2,

@@ -504,11 +504,27 @@ class PublicationPolicy(unittest.TestCase):
         jobs = self.narrative["jobs"]
         self.assertNotIn("deploy", jobs)
         self.assertEqual(jobs["update"]["permissions"], {"contents": "write", "pull-requests": "write"})
-        scripts = "\n".join(step.get("run", "") for job in jobs.values() for step in job["steps"])
+        self.assertEqual(
+            jobs["publish"]["permissions"],
+            {"contents": "write", "pull-requests": "write", "actions": "write"},
+        )
+        desk_scripts = "\n".join(
+            step.get("run", "")
+            for job_name in ("generate", "test", "update")
+            for step in jobs[job_name]["steps"]
+        )
         for forbidden in ("gh workflow run", "gh pr merge", "gh run approve", "sleep 5", "--delete-branch"):
-            self.assertNotIn(forbidden, scripts)
-        self.assertIn("--draft", scripts)
-        self.assertIn('BASE="develop"', scripts)
+            self.assertNotIn(forbidden, desk_scripts)
+        publish_scripts = "\n".join(
+            step.get("run", "") for step in jobs["publish"]["steps"]
+        )
+        self.assertIn("edition_merge", publish_scripts)
+        self.assertLess(
+            publish_scripts.index("edition_merge"),
+            publish_scripts.index("gh pr merge"),
+        )
+        self.assertIn("--draft", desk_scripts)
+        self.assertIn('BASE="develop"', desk_scripts)
         for job_name in ("generate", "test", "update"):
             checkouts = [
                 step
