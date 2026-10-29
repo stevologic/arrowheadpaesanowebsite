@@ -284,7 +284,7 @@ class PressConferenceVerification(unittest.TestCase):
         self.assertIn(REID_URL, urls)
         self.assertFalse(any("FzPyAEhwr3U" in url for url in urls))
 
-    def test_attach_overwrites_invented_clips_and_fails_closed(self):
+    def test_attach_overwrites_invented_clips_and_omits_unverified(self):
         narrative = _normalize(
             {
                 "pressConferences": [
@@ -313,13 +313,14 @@ class PressConferenceVerification(unittest.TestCase):
         )
         self.assertEqual(narrative["pressConferences"][0]["url"], REID_URL)
 
-        with self.assertRaises(press_conferences.UnverifiedPressConferenceError):
-            press_conferences.attach_verified(
-                {"pressConferences": []},
-                signals,
-                WEEK_PHASE,
-                oembed_fetch=lambda url: None,
-            )
+        dead = {"pressConferences": []}
+        press_conferences.attach_verified(
+            dead,
+            signals,
+            WEEK_PHASE,
+            oembed_fetch=lambda url: None,
+        )
+        self.assertEqual(dead["pressConferences"], [])
 
     def test_author_name_missing_allowlists_via_url(self):
         """author_name missing on its own is still official if author_url is."""
@@ -418,8 +419,8 @@ class PressConferenceVerification(unittest.TestCase):
             rows = press_conferences.collect_candidates()
         self.assertIn(REID_URL, [row["url"] for row in rows])
 
-    def test_future_single_identity_field_is_unverified_not_skipped(self):
-        """Name-only or url-only is identity; a future date must raise, not skip."""
+    def test_future_single_identity_field_is_omitted_not_published(self):
+        """Name-only or url-only is identity; a future date is omitted, not shipped."""
         future = {
             "url": "https://www.youtube.com/watch?v=FzPyAEhwr3U",
             "speaker": "Andy Reid",
@@ -440,17 +441,24 @@ class PressConferenceVerification(unittest.TestCase):
         }
         now = datetime(2026, 10, 20, 16, 14, tzinfo=timezone.utc)
         for payload in (name_only, url_only):
+            narrative = {"pressConferences": []}
             with patch.object(press_conferences, "_now", return_value=now):
-                with self.assertRaises(press_conferences.UnverifiedPressConferenceError):
-                    press_conferences.attach_verified(
-                        {"pressConferences": []},
-                        {"pressConferences": [future]},
-                        WEEK_PHASE,
-                        oembed_fetch=lambda url, _p=payload: _p,
-                    )
+                press_conferences.attach_verified(
+                    narrative,
+                    {"pressConferences": [future]},
+                    WEEK_PHASE,
+                    oembed_fetch=lambda url, _p=payload: _p,
+                )
+                issues = press_conferences.check_embeds(
+                    {"pressConferences": [future]},
+                    oembed_fetch=lambda url, _p=payload: _p,
+                    phase=WEEK_PHASE,
+                )
+            self.assertEqual(narrative["pressConferences"], [])
+            self.assertTrue(any("unverified embed" in item for item in issues))
 
-    def test_missing_date_identityless_raises_not_skipped_as_future(self):
-        """A missing date is not future; an identity-less 200 must raise."""
+    def test_missing_date_identityless_is_omitted_not_skipped_as_future(self):
+        """A missing date is not future; an identity-less 200 is omitted, not shipped."""
         placeholder = {
             "type": "video",
             "html": '<iframe title="Andy Reid Speaks to Media"></iframe>',
@@ -464,18 +472,24 @@ class PressConferenceVerification(unittest.TestCase):
                 }
             ]
         }
-        with self.assertRaises(press_conferences.UnverifiedPressConferenceError):
-            press_conferences.attach_verified(
-                {"pressConferences": []},
-                signals,
-                WEEK_PHASE,
-                oembed_fetch=lambda url: placeholder,
-            )
+        narrative = {"pressConferences": []}
+        press_conferences.attach_verified(
+            narrative,
+            signals,
+            WEEK_PHASE,
+            oembed_fetch=lambda url: placeholder,
+        )
+        self.assertEqual(narrative["pressConferences"], [])
         session = press_conferences._session_from_item(signals["pressConferences"][0])
         self.assertIsNone(session)
         self.assertFalse(press_conferences.session_is_future(session))
+        self.assertFalse(
+            press_conferences._candidate_not_ready(
+                signals["pressConferences"][0], placeholder
+            )
+        )
 
-    def test_past_dated_identityless_oembed_raises(self):
+    def test_past_dated_identityless_oembed_is_omitted(self):
         placeholder = {
             "type": "video",
             "html": '<iframe title="Andy Reid Speaks to Media"></iframe>',
@@ -493,18 +507,19 @@ class PressConferenceVerification(unittest.TestCase):
                 }
             ]
         }
+        narrative = {"pressConferences": []}
         with patch.object(
             press_conferences,
             "_now",
             return_value=datetime(2026, 10, 20, 16, 14, tzinfo=timezone.utc),
         ):
-            with self.assertRaises(press_conferences.UnverifiedPressConferenceError):
-                press_conferences.attach_verified(
-                    {"pressConferences": []},
-                    signals,
-                    WEEK_PHASE,
-                    oembed_fetch=lambda url: placeholder,
-                )
+            press_conferences.attach_verified(
+                narrative,
+                signals,
+                WEEK_PHASE,
+                oembed_fetch=lambda url: placeholder,
+            )
+        self.assertEqual(narrative["pressConferences"], [])
 
     def test_published_future_allowlisted_embed_fails_closed(self):
         """Removing the published-embed future gate would let this pass."""
@@ -552,18 +567,145 @@ class PressConferenceVerification(unittest.TestCase):
         def boom(url):
             raise RuntimeError("oembed down")
 
+        narrative = {"pressConferences": []}
         with patch.object(
             press_conferences,
             "_now",
             return_value=datetime(2026, 10, 20, 16, 14, tzinfo=timezone.utc),
         ):
-            with self.assertRaises(press_conferences.UnverifiedPressConferenceError):
-                press_conferences.attach_verified(
-                    {"pressConferences": []},
-                    signals,
-                    WEEK_PHASE,
-                    oembed_fetch=boom,
-                )
+            press_conferences.attach_verified(
+                narrative,
+                signals,
+                WEEK_PHASE,
+                oembed_fetch=boom,
+            )
+        self.assertEqual(narrative["pressConferences"], [])
+        self.assertFalse(
+            press_conferences.upcoming_placeholder(None)
+        )
+
+    def test_today_identityless_collect_candidate_does_not_abort_edition(self):
+        """Run 40911045488: JcLyxvT2pkU passed collect then failed verify.
+
+        Collect skips only future session dates. A today-dated Chiefs
+        livestream still in the identity-less oEmbed-200 placeholder
+        state must be omitted after write, not raise and abort the
+        edition. A verified sibling stays. Publishing it still fails.
+        """
+        today_url = "https://www.youtube.com/watch?v=JcLyxvT2pkU"
+        today_title = "Coordinators and Chris Jones Speak to Media | OCTOBER 29, 2026"
+        week8 = {
+            "type": "regular",
+            "label": "Week 8",
+            "week": 8,
+            "mode": "preview",
+            "lastGame": {
+                "date": "2026-10-25T00:20:00Z",
+                "opponent": "Seattle Seahawks",
+                "completed": True,
+            },
+            "nextGame": {
+                "date": "2026-11-01T20:25:00Z",
+                "opponent": "Denver Broncos",
+            },
+        }
+        placeholder = {
+            "type": "video",
+            "html": (
+                '<iframe title="Coordinators and Chris Jones Speak to Media '
+                '| OCTOBER 29, 2026"></iframe>'
+            ),
+        }
+        run_at = datetime(2026, 10, 29, 16, 23, tzinfo=timezone.utc)
+        today_item = {
+            "url": today_url,
+            "speaker": "Chris Jones",
+            "title": today_title,
+            "date": "2026-10-29",
+        }
+        session = press_conferences._session_from_item(today_item)
+        self.assertFalse(press_conferences.session_is_future(session, now=run_at))
+        self.assertTrue(press_conferences.in_game_week(session, week8))
+        self.assertFalse(
+            press_conferences._candidate_not_ready(today_item, placeholder)
+        )
+
+        xml = """<?xml version="1.0"?>
+<feed xmlns="http://www.w3.org/2005/Atom"
+      xmlns:yt="http://www.youtube.com/xml/schemas/2015">
+  <entry>
+    <yt:videoId>wV0rX_GUtTg</yt:videoId>
+    <title>Andy Reid Speaks to the Media | OCTOBER 28, 2026</title>
+    <published>2026-10-28T17:50:00Z</published>
+  </entry>
+  <entry>
+    <yt:videoId>JcLyxvT2pkU</yt:videoId>
+    <title>Coordinators and Chris Jones Speak to Media | OCTOBER 29, 2026</title>
+    <published>2026-10-29T15:00:00Z</published>
+  </entry>
+  <entry>
+    <yt:videoId>FzPyAEhwr3U</yt:videoId>
+    <title>Andy Reid and select players Speak to Media | OCTOBER 30, 2026</title>
+    <published>2026-10-29T15:00:00Z</published>
+  </entry>
+</feed>
+"""
+        with patch.object(press_conferences, "_http_get", return_value=xml), patch.object(
+            press_conferences,
+            "_now",
+            return_value=run_at,
+        ):
+            rows = press_conferences.collect_candidates()
+        urls = [row["url"] for row in rows]
+        self.assertIn(today_url, urls)
+        self.assertIn(REID_URL, urls)
+        self.assertFalse(any("FzPyAEhwr3U" in url for url in urls))
+
+        def fetch(url):
+            if "JcLyxvT2pkU" in url:
+                return placeholder
+            if "wV0rX_GUtTg" in url:
+                return _oembed("Andy Reid Speaks to the Media | OCTOBER 28, 2026")
+            return None
+
+        narrative = {"pressConferences": []}
+        with patch.object(press_conferences, "_now", return_value=run_at):
+            press_conferences.attach_verified(
+                narrative,
+                {
+                    "pressConferences": [
+                        today_item,
+                        {
+                            "url": REID_URL,
+                            "speaker": "Andy Reid",
+                            "title": "Andy Reid Speaks to the Media | OCTOBER 28, 2026",
+                            "date": "2026-10-28",
+                        },
+                    ]
+                },
+                week8,
+                oembed_fetch=fetch,
+            )
+        self.assertEqual(len(narrative["pressConferences"]), 1)
+        self.assertEqual(narrative["pressConferences"][0]["url"], REID_URL)
+
+        published = {
+            "pressConferences": [
+                {
+                    "url": today_url,
+                    "speaker": "Chris Jones",
+                    "title": today_title,
+                    "date": "2026-10-29",
+                }
+            ]
+        }
+        with patch.object(press_conferences, "_now", return_value=run_at):
+            issues = press_conferences.check_embeds(
+                published,
+                oembed_fetch=lambda url: placeholder,
+                phase=week8,
+            )
+        self.assertTrue(any("unverified embed" in item for item in issues))
 
     def test_today_is_america_chicago_not_utc(self):
         """04:00 UTC Oct 29 is still Oct 28 in Chicago; Oct 29 is tomorrow."""
