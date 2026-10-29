@@ -5,9 +5,11 @@ must not publish a hallucinated video ID: every embed is kept only when
 YouTube oEmbed returns 200, the channel is allowlisted, the clip is from
 this game week, and the speaker field names who the video actually shows.
 Dead or unverified published embeds fail the edition gate — they are not
-stripped the way unofficial X posts are. Future-dated oEmbed 200s with
-no channel identity are dropped so a scheduled livestream cannot fail
-the edition. A past-dated or undated identity-less 200 is unverified.
+stripped the way unofficial X posts are. Collected candidates that the
+verifier would reject — including today's identity-less livestream
+placeholders — are omitted so one unverifiable clip cannot abort the
+edition. Future-dated oEmbed 200s with no channel identity are dropped
+the same way. Nothing unverified is written into the published list.
 """
 from __future__ import annotations
 
@@ -469,9 +471,9 @@ def _item_url(item) -> str:
 def verify_all(
     items, *, oembed_fetch=None, phase: dict | None = None
 ) -> tuple[list[dict], list[str]]:
-    """Return (kept, errors). Upcoming/live placeholders are skipped; dead embeds error."""
+    """Return (kept, omitted). Unverified collected candidates are dropped, not fatal."""
     kept: list[dict] = []
-    errors: list[str] = []
+    omitted: list[str] = []
     fetch = fetch_oembed if oembed_fetch is None else oembed_fetch
     for item in items or []:
         embed = schema._norm_press_conference(item)
@@ -479,7 +481,7 @@ def verify_all(
         if embed:
             try:
                 payload = fetch(embed["url"])
-            except Exception:  # noqa: BLE001 — unverified is a failure, not a guess
+            except Exception:  # noqa: BLE001 — unverified is omitted, not guessed
                 payload = None
         fetched = None if payload is _MISSING else payload
         if _candidate_not_ready(item, fetched):
@@ -493,8 +495,10 @@ def verify_all(
                 verified["quote"] = str(item["quote"]).strip()
             kept.append(verified)
             continue
-        errors.append(f"press conference: unverified embed {_item_url(item)}".strip())
-    return kept, errors
+        note = f"press conference: unverified embed {_item_url(item)}".strip()
+        print(f"  [press] omit {note}")
+        omitted.append(note)
+    return kept, omitted
 
 
 def attach_verified(
@@ -506,10 +510,11 @@ def attach_verified(
 ) -> dict:
     """Overwrite writer-invented clips with collected, oEmbed-verified pressers.
 
-    Preview and Recap (review) editions always get the field. Future-dated
-    identity-less placeholders are dropped. Past-dated or undated
-    identity-less 200s, and dead collected URLs, still fail closed so a
-    daily run cannot ship a broken iframe.
+    Preview and Recap (review) editions always get the field. Collected
+    candidates that fail verification — future or today identity-less
+    placeholders, past-dated identity-less 200s, dead URLs — are omitted
+    so one unverifiable clip cannot abort the edition. check_embeds still
+    fail-closes on anything that remains in the published list.
     """
     if not isinstance(narrative, dict):
         return narrative
@@ -522,9 +527,7 @@ def attach_verified(
         for item in list((signals or {}).get("pressConferences") or [])
         if _candidate_in_week(item, phase)
     ]
-    kept, errors = verify_all(collected, oembed_fetch=oembed_fetch, phase=phase)
-    if errors:
-        raise UnverifiedPressConferenceError("; ".join(errors))
+    kept, _omitted = verify_all(collected, oembed_fetch=oembed_fetch, phase=phase)
     narrative["pressConferences"] = kept
     return narrative
 
