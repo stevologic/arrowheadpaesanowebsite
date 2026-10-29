@@ -529,8 +529,15 @@ jobs:
           printf '%s\n' \
             "Promotes ${{ github.event.pull_request.html_url }}." \
             "Merge, not squash." > "$BODY_FILE"
-          EXISTING="$(PYTHONPATH="${GITHUB_WORKSPACE}" python -P -m tools.chiefs_narrative.edition_merge \
-            --promote-url --title "$PROMOTE_TITLE")"
+          # Title match in jq --arg, not PR-head Python. An empty title
+          # must not close some other develop→main PR.
+          EXISTING=""
+          if [ -n "$PROMOTE_TITLE" ]; then
+            EXISTING="$(gh pr list --base main --head develop --state open --json url,title \
+              | jq -r --arg t "$PROMOTE_TITLE" \
+                '.[] | select(.title == $t) | .url | select(test("^https?://"))' \
+              | head -n 1)"
+          fi
           cd "$GATE_BASE"
           if ! PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.edition_merge \
             --pr "${{ github.event.pull_request.html_url }}"; then
@@ -540,8 +547,13 @@ jobs:
             fi
             exit 1
           fi
-          PROMOTE_URL="$(PYTHONPATH="${GITHUB_WORKSPACE}" python -P -m tools.chiefs_narrative.edition_merge \
-            --promote-url --title "$PROMOTE_TITLE")"
+          PROMOTE_URL=""
+          if [ -n "$PROMOTE_TITLE" ]; then
+            PROMOTE_URL="$(gh pr list --base main --head develop --state open --json url,title \
+              | jq -r --arg t "$PROMOTE_TITLE" \
+                '.[] | select(.title == $t) | .url | select(test("^https?://"))' \
+              | head -n 1)"
+          fi
           if [ -z "$PROMOTE_URL" ]; then
             PROMOTE_URL="$(gh pr create --base main --head develop \
               --title "$PROMOTE_TITLE" \

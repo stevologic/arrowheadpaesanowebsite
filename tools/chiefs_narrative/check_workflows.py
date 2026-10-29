@@ -17,17 +17,24 @@ from tools.chiefs_narrative import config
 
 _FORBIDDEN_WRITE = (
     re.compile(r"\bunittest\s+discover\b"),
-    re.compile(r"\bpython(?:3)?\s+-m\s+unittest\b"),
+    re.compile(r"\bpython(?:3)?(?:\s+-\S+)*\s+-m\s+unittest\b"),
     re.compile(r"\bpip(?:3)?\s+install\s+-r\b"),
-    re.compile(r"\bpython(?:3)?\s+-m\s+tools\.chiefs_narrative\.generate\b"),
-    re.compile(r"\bpython(?:3)?\s+-m\s+tools\.tests\b"),
+    re.compile(r"\bpython(?:3)?(?:\s+-\S+)*\s+-m\s+tools\.chiefs_narrative\.generate\b"),
+    re.compile(r"\bpython(?:3)?(?:\s+-\S+)*\s+-m\s+tools\.tests\b"),
 )
-_ALLOWED_WRITE_PY = re.compile(
-    r"python(?:3)?\s+-P\s+-m\s+tools\.chiefs_narrative\."
-    r"(?:review_gate|edition_merge)"
-    r"|python(?:3)?\s+-m\s+tools\.chiefs_narrative\."
-    r"(?:review_gate|edition_merge)"
-    r"|python(?:3)?\s+-c\s+\"import json;"
+_ALLOWED_WRITE_MODULES = frozenset(
+    {
+        "tools.chiefs_narrative.review_gate",
+        "tools.chiefs_narrative.edition_merge",
+    }
+)
+# python -m, python -P -m, python -P -B -m, and other flag combos.
+_REPO_PY_MODULE = re.compile(
+    r"\bpython(?:3)?(?:\s+-\S+)*\s+-m\s+(tools\.[A-Za-z0-9_.]+)"
+)
+_PR_HEAD_PY_MODULE = re.compile(
+    r'PYTHONPATH="\$\{?GITHUB_WORKSPACE\}?"[^\n]*'
+    r"\bpython(?:3)?(?:\s+-\S+)*\s+-m\s+tools\."
 )
 _TOOLS_IMPORT = re.compile(
     r"from tools(?:\.chiefs_narrative)? import|import tools\."
@@ -117,21 +124,18 @@ def audit_write_jobs(root: Path | None = None) -> list[str]:
                     f"{path.name}:{job_name}: write-token job imports repo tools "
                     "without GATE_BASE"
                 )
-            if "python -m tools." in blob or "python3 -m tools." in blob:
-                if not _ALLOWED_WRITE_PY.search(blob):
+            if _PR_HEAD_PY_MODULE.search(blob):
+                errors.append(
+                    f"{path.name}:{job_name}: write-token job runs repo "
+                    "python from GITHUB_WORKSPACE (PR head)"
+                )
+            for match in _REPO_PY_MODULE.finditer(blob):
+                module = match.group(1)
+                token = match.group(0)
+                if module not in _ALLOWED_WRITE_MODULES:
                     errors.append(
-                        f"{path.name}:{job_name}: write-token job runs repo "
-                        "python beyond review_gate"
+                        f"{path.name}:{job_name}: write-token job runs {token}"
                     )
-                leftover = blob
-                for match in re.finditer(
-                    r"python(?:3)?\s+-m\s+tools\.[A-Za-z0-9_.]+", leftover
-                ):
-                    token = match.group(0)
-                    if "review_gate" not in token and "edition_merge" not in token:
-                        errors.append(
-                            f"{path.name}:{job_name}: write-token job runs {token}"
-                        )
     return errors
 
 
