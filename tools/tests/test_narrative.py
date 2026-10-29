@@ -30,6 +30,7 @@ from tools.chiefs_narrative import (
     config,
     diagrams,
     drop_body,
+    edition_merge,
     edition_overlay,
     facts,
     generate,
@@ -801,10 +802,13 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("gh pr create --draft", yaml)
         self.assertIn('BASE="develop"', yaml)
         self.assertNotIn("gh workflow run ci.yml", yaml)
-        self.assertNotIn("gh pr merge", yaml)
+        update_half = yaml.split("publish:")[0]
+        self.assertNotIn("gh pr merge", update_half)
+        self.assertIn("gh pr merge", yaml.split("publish:")[1])
         self.assertNotIn("APPEAR_DEADLINE", yaml)
         self.assertNotIn("DONE_DEADLINE", yaml)
-        self.assertNotIn("actions: write", yaml)
+        self.assertNotIn("actions: write", update_half)
+        self.assertIn("actions: write", yaml.split("publish:")[1])
         self.assertNotIn("secrets.GH_PAT", yaml)
         self.assertNotIn("secrets.PAT", yaml)
 
@@ -855,7 +859,8 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("head.repo.full_name == github.repository", automerge)
         self.assertIn("--match-head-commit", automerge)
         self.assertNotIn("gh workflow run ci.yml", narrative)
-        self.assertNotIn("gh pr merge", narrative)
+        self.assertNotIn("gh pr merge", narrative.split("publish:")[0])
+        self.assertIn("gh pr merge", narrative.split("publish:")[1])
         self.assertIn("gh pr create --draft", narrative)
         self.assertIn('BASE="develop"', narrative)
         self.assertGreaterEqual(narrative.count("ref: develop"), 3)
@@ -4124,6 +4129,65 @@ class FactCheck(unittest.TestCase):
         self.assertIn("echoed writer instruction", blob)
         self.assertFalse(any("kickoff is midday" in item for item in issues), issues)
 
+    def test_fact_checker_notes_are_rejected(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        leaks = [
+            "Denver's early-down front, unlisted by name in this file",
+            "No other player status is stated in the supplied wire, so none is listed here",
+            "It is not credit for a takeaway",
+            "That is a recovered snap, not a lost fumble",
+            "It is not a claim that pressure created Williams's interception",
+            "This is a Denver call, not a label on any Seattle throw",
+            "It is a Denver install, not a description of a Seattle throw",
+            "Do not tell that story as the reason for a takeaway",
+            "Do not sell it as the play that created Williams's interception",
+            "Rush without inventing a sack total",
+            "Nothing in the source packet names another player",
+        ]
+        for line in leaks:
+            issues = facts.check_review(
+                {"lastGameReview": {"lede": "Kansas City won 24-10. " + line}},
+                last,
+                recap,
+            )
+            blob = " ".join(issues)
+            self.assertTrue(issues, line)
+            self.assertIn("fact-checker note leaked", blob, line)
+        coaching = (
+            "Do not ask a single corner to win every vertical. "
+            "That is the special-teams file Toub is working before Denver."
+        )
+        self.assertFalse(
+            any(
+                "fact-checker note leaked" in item
+                for item in facts.check_review(
+                    {"lastGameReview": {"lede": "Kansas City won 24-10. " + coaching}},
+                    last,
+                    recap,
+                )
+            ),
+            coaching,
+        )
+        grandfathered = facts.check_review(
+            {
+                "generatedAt": "2026-10-29T17:54:31+00:00",
+                "lastGameReview": {
+                    "lede": (
+                        "Kansas City won 24-10. That is a recovered snap, "
+                        "not a lost fumble."
+                    )
+                },
+            },
+            last,
+            recap,
+        )
+        self.assertFalse(
+            any("fact-checker note leaked" in item for item in grandfathered),
+            grandfathered,
+        )
+
     def test_week4_review_mid_scores_and_cousins_hits_are_espn_backed(self):
         """Run 37358660165: 17-13 / 30-19 are LV score-afters; 10 hits is Cousins."""
         recap = _load_fixture("espn_401872976_recap.json")
@@ -6158,7 +6222,8 @@ class FactCheck(unittest.TestCase):
             for body in _quoted_py_heredoc_bodies(script):
                 compile(body, f"{job_name}/{step_name}", "exec")
         self.assertNotIn("deploy", parsed["jobs"])
-        self.assertNotIn("gh pr merge", workflow)
+        self.assertNotIn("gh pr merge", update_scripts)
+        self.assertIn("gh pr merge", workflow.split("publish:")[1])
         self.assertNotIn('echo "publish=true"', workflow)
         self.assertIn("gh pr create --draft", update_scripts)
         hold_block = update_scripts[update_scripts.index('if [ "$HOLD_MERGE" = '):]
@@ -6243,6 +6308,88 @@ class FactCheck(unittest.TestCase):
         self.assertNotEqual(mutated["review_hold_equals"], "true")
         mutated["hold_merge_equals"] = "never"
         self.assertNotEqual(mutated["hold_merge_equals"], "true")
+
+    def test_edition_merge_refuses_hold_and_open_reviews(self):
+        self.assertTrue(
+            edition_merge.merge_refused(labels=[{"name": "hold"}])
+        )
+        self.assertEqual(
+            edition_merge.refuse_reason(labels=["hold", "ready"]),
+            "hold label",
+        )
+        self.assertEqual(
+            edition_merge.refuse_reason(
+                reviews=[{"state": "CHANGES_REQUESTED"}]
+            ),
+            "requested-changes review",
+        )
+        self.assertEqual(
+            edition_merge.refuse_reason(review_decision="CHANGES_REQUESTED"),
+            "requested-changes review",
+        )
+        self.assertEqual(
+            edition_merge.refuse_reason(
+                threads=[{"isResolved": False}, {"isResolved": True}]
+            ),
+            "unresolved review thread",
+        )
+        self.assertIsNone(
+            edition_merge.refuse_reason(
+                labels=[{"name": "ready"}],
+                reviews=[{"state": "COMMENTED"}],
+                threads=[{"isResolved": True}],
+                review_decision="",
+            )
+        )
+        self.assertFalse(
+            edition_merge.merge_refused(
+                labels=[],
+                reviews=[{"state": "APPROVED"}],
+                threads=[{"isResolved": True}],
+            )
+        )
+
+    def test_daily_publish_refuses_hold_or_open_reviews_before_merge(self):
+        root = Path(__file__).resolve().parents[2] / ".github" / "workflows"
+        raw = (root / "narrative.yml").read_text(encoding="utf-8")
+        parsed = yaml.safe_load(raw)
+        publish = (parsed.get("jobs") or {}).get("publish") or {}
+        self.assertTrue(publish)
+        condition = str(publish.get("if") or "")
+        self.assertIn("pull_request", condition)
+        self.assertIn("develop", condition)
+        self.assertIn("narrative/update-", condition)
+        self.assertIn("draft == false", condition)
+        scripts = "\n".join(
+            str(step.get("run") or "")
+            for step in publish.get("steps") or []
+            if isinstance(step, dict)
+        )
+        self.assertIn("edition_merge", scripts)
+        self.assertIn("--pr", scripts)
+        self.assertLess(scripts.index("edition_merge"), scripts.index("gh pr merge"))
+        self.assertIn("Refusing edition auto-merge and promote", scripts)
+        self.assertIn("Promote develop to main", " ".join(
+            str(step.get("name") or "") for step in publish.get("steps") or []
+            if isinstance(step, dict)
+        ))
+        self.assertIn("--head develop", scripts)
+        self.assertIn("--base main", scripts)
+        refuse = _job_step_script(
+            parsed, "publish", name="Refuse hold or unresolved review findings"
+        )
+        merge = _job_step_script(
+            parsed, "publish", name="Squash-merge the edition pull request"
+        )
+        promote = _job_step_script(
+            parsed, "publish", name="Promote develop to main"
+        )
+        self.assertIn("edition_merge", refuse)
+        self.assertIn("gh pr merge", merge)
+        self.assertIn("edition_merge", promote)
+        self.assertIn("gh pr merge", promote)
+        generate_if = str(((parsed.get("jobs") or {}).get("generate") or {}).get("if") or "")
+        self.assertIn("pull_request", generate_if)
 
     def test_automerge_and_pages_refuse_unsigned_reviews(self):
         """G1–G3 / G6–G8: YAML-parsed wiring. Named mutations in the PR body."""
@@ -6435,6 +6582,21 @@ class FactCheck(unittest.TestCase):
                     "develop",
                     job_name,
                 )
+        publish_checkouts = [
+            step
+            for step in ((narrative.get("jobs") or {}).get("publish") or {}).get(
+                "steps"
+            )
+            or []
+            if isinstance(step, dict)
+            and "actions/checkout" in str(step.get("uses") or "")
+        ]
+        self.assertTrue(publish_checkouts)
+        for step in publish_checkouts:
+            self.assertEqual(
+                (step.get("with") or {}).get("persist-credentials"),
+                False,
+            )
 
     def test_review_gate_blocks_unsigned_review_json(self):
         gate_src = (
@@ -7662,6 +7824,14 @@ class FactCheck(unittest.TestCase):
                 "pull-requests": "write",
             },
         )
+        self.assertEqual(
+            (jobs.get("publish") or {}).get("permissions"),
+            {
+                "contents": "write",
+                "pull-requests": "write",
+                "actions": "write",
+            },
+        )
         self.assertNotIn("deploy", jobs)
         for job_name in ("generate", "test"):
             blob = "\n".join(
@@ -7680,6 +7850,22 @@ class FactCheck(unittest.TestCase):
             self.assertNotIn("pip install -r", blob, job_name)
             self.assertIn("GATE_BASE", blob, job_name)
             self.assertIn("python -P -m tools.chiefs_narrative.review_gate", blob, job_name)
+        publish_blob = "\n".join(
+            str(step.get("run") or "")
+            for step in (jobs.get("publish") or {}).get("steps") or []
+            if isinstance(step, dict)
+        )
+        self.assertTrue(publish_blob)
+        self.assertNotIn("unittest", publish_blob)
+        self.assertNotIn("pip install -r", publish_blob)
+        self.assertIn("GATE_BASE", publish_blob)
+        self.assertIn(
+            "python -P -m tools.chiefs_narrative.edition_merge", publish_blob
+        )
+        self.assertLess(
+            publish_blob.index("edition_merge"),
+            publish_blob.index("gh pr merge"),
+        )
         with tempfile.TemporaryDirectory() as tmp:
             scratch = Path(tmp)
             wf = scratch / ".github" / "workflows"

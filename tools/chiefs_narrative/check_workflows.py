@@ -23,8 +23,10 @@ _FORBIDDEN_WRITE = (
     re.compile(r"\bpython(?:3)?\s+-m\s+tools\.tests\b"),
 )
 _ALLOWED_WRITE_PY = re.compile(
-    r"python(?:3)?\s+-P\s+-m\s+tools\.chiefs_narrative\.review_gate"
-    r"|python(?:3)?\s+-m\s+tools\.chiefs_narrative\.review_gate"
+    r"python(?:3)?\s+-P\s+-m\s+tools\.chiefs_narrative\."
+    r"(?:review_gate|edition_merge)"
+    r"|python(?:3)?\s+-m\s+tools\.chiefs_narrative\."
+    r"(?:review_gate|edition_merge)"
     r"|python(?:3)?\s+-c\s+\"import json;"
 )
 _TOOLS_IMPORT = re.compile(
@@ -126,7 +128,7 @@ def audit_write_jobs(root: Path | None = None) -> list[str]:
                     r"python(?:3)?\s+-m\s+tools\.[A-Za-z0-9_.]+", leftover
                 ):
                     token = match.group(0)
-                    if "review_gate" not in token:
+                    if "review_gate" not in token and "edition_merge" not in token:
                         errors.append(
                             f"{path.name}:{job_name}: write-token job runs {token}"
                         )

@@ -199,6 +199,32 @@ _ECHO_INSTRUCTION = re.compile(
     r"|\[PRIVATE",
     re.IGNORECASE,
 )
+# Process / fact-checker asides that must not ship in published copy.
+# Grandfather editions at or before the 2026-10-29-1754 leak so archive
+# replay of already-published desks stays stable; unit tests omit
+# generatedAt and are always scanned.
+_FACT_CHECKER_NOTE_AFTER = "2026-10-29T17:54:31+00:00"
+_FACT_CHECKER_NOTE = re.compile(
+    r"\bin this file\b"
+    r"|\bthis file\b"
+    r"|\bthis wire\b"
+    r"|\bsupplied wire\b"
+    r"|\bsource packet\b"
+    r"|\bnot stated in the\b"
+    r"|\bis not credit for\b"
+    r"|\bunlisted by name\b"
+    r"|\bnone is listed here\b"
+    r"|\bwithout inventing\b"
+    r"|\bdo not tell that story\b"
+    r"|\bdo not sell it as\b"
+    r"|\bit is not a claim that\b"
+    r"|\bit is a\b[^.!?]{0,48}\binstall, not a description\b"
+    r"|\bthis is a\b[^.!?]{0,48}\bcall, not a label\b"
+    r"|\bthat is a\b[^.!?]{0,80}\bnot a\b"
+    r"|\b(?:in|from|per|stated in)\s+(?:the\s+)?(?:supplied\s+)?"
+    r"(?:wire|file|source packet)\b",
+    re.IGNORECASE,
+)
 _GARBLED_RECORD = re.compile(
     r"\b(?:first|second|third|fourth|1st|2nd|3rd|4th)\b"
     r"[^.!?]{0,48}\bgames?\s+of\s+\d{1,2}-\d{1,2}\b",
@@ -3354,6 +3380,30 @@ def _check_echoed_instructions(text: str) -> list[str]:
             continue
         seen.add(key)
         issues.append(f"echoed writer instruction ({snippet!r})")
+    return issues
+
+
+def _fact_checker_notes_enabled(narrative: dict | None) -> bool:
+    stamp = str((narrative or {}).get("generatedAt") or "").strip()
+    if not stamp:
+        return True
+    return stamp > _FACT_CHECKER_NOTE_AFTER
+
+
+def _check_fact_checker_notes(
+    text: str, narrative: dict | None = None
+) -> list[str]:
+    if not text or not _fact_checker_notes_enabled(narrative):
+        return []
+    issues = []
+    seen: set[str] = set()
+    for match in _FACT_CHECKER_NOTE.finditer(text):
+        snippet = match.group(0)
+        key = snippet.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        issues.append(f"fact-checker note leaked ({snippet!r})")
     return issues
 
 
@@ -7316,6 +7366,7 @@ def check_review(
             issues.extend(_check_halftime_scores(text, last_game, recap, schedule))
             issues.extend(_check_part_of_day(text, last_game, recap))
             issues.extend(_check_echoed_instructions(text))
+            issues.extend(_check_fact_checker_notes(text, narrative))
             issues.extend(_check_record_phrasing(text))
             if recap.get("scoringPlays") or recap.get("leaders") or recap.get("kc") or recap.get("plays"):
                 issues.extend(_check_td_yards(text, recap, last_game, schedule))
@@ -7349,6 +7400,10 @@ def check_review(
                 issues.extend(_check_pass_touchdowns(text, recap))
                 issues.extend(_check_down_and_distance(text, recap))
                 issues.extend(_check_box_leaders(text, recap))
+    else:
+        issues.extend(
+            _check_fact_checker_notes(edition_text(narrative), narrative)
+        )
     issues.extend(_check_prediction_markets(narrative))
     issues.extend(_check_offseason_slate(narrative, schedule))
     issues.extend(_check_playoff_next_unknown(narrative, schedule))
