@@ -28,6 +28,7 @@ ALLOWED_FILES = {
     "data/narrative_repair.json",
     "data/wire.json",
     "data/schedule_2026.json",
+    "data/hero_posts.json",
 }
 ALLOWED_DIRS = ("data/narrative_editions/",)
 NARRATIVE_SLUG_XO = re.compile(

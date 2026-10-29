@@ -1,16 +1,54 @@
 # Narrative imagery and schematic views
 
 Every current and archived narrative receives a hero through the same partial.
-No event-specific photograph is currently cleared. The former channel-portrait
-fallback is deliberately retired: it does not illustrate an article's event.
+The first choice is an official X embed of a topic-matched post. Pins live in
+the unsigned sidecar `data/hero_posts.json`, keyed by edition slug, so signed
+Review JSON is never rewritten. The allowlist is kept in
+`tools/chiefs_narrative/hero_posts.py`: `@Chiefs`, verified Chiefs staff
+(`@ChiefsPR`), `@NFL`, and verified Athletic / ESPN accounts that employ
+credentialed Chiefs beat writers. Fan, meme, parody, betting, Polymarket, and
+sponsored handles fail the gate. Validation is offline (allowlist + snowflake
+id). Build and gate time do not fetch X.
 
-Until a matching photograph has documented reuse rights, the hero is a clearly
-labeled original vector illustration. It uses the **viewed edition's** headline,
-phase, opponent and event-date label. Preview editions use their next game;
-Review editions use their last-game review; camp and other reports retain their
-own topic. It never borrows today's opponent for an archived story. This is a
-temporary illustration, not fulfillment of the event-photograph requirement.
-It depicts no person, stadium scene, actual play or purported game outcome.
+The betting/sponsored denylist reads **text fields only** (`text`, `alt`,
+`caption`, `note`, plus optional `ocr` / `mediaAlt` / `imageText`). It cannot
+see pixels. Pin review must open the media: look at the actual photo or
+graphic, write an alt that describes that image, and set `mediaReviewed: true`.
+A sportsbook panel that only lives in the image will pass the text gate if
+the alt is dishonest. There is no paid OCR and no network at build; the
+`mediaReviewed` flag is the offline image-content attestation.
+
+The embed is a server-rendered blockquote with the visible source credit and
+the post link. Height is reserved (about 640px on desktop, 560px on a 390px
+phone) while JavaScript is on and the pin is pending, ready, or fallback, so
+a deleted post does not collapse the box and CLS stays low. The same SVG is
+layered as an `aria-hidden` cover-scaled blur behind a contain/meet
+foreground so the box is filled and both helmets stay in frame. JS-off
+sizes the box to the SVG.
+`widgets.js` loads async, only on pages that have a pinned post, and only
+from `https://platform.twitter.com`. The SVG illustration stays visible
+behind or under the embed until the iframe's rendered height is above 240px
+(or X's `rendered` event confirms that height). A missing iframe, a
+tombstone, a deleted/unavailable post, a widgets.js failure, or JS-off never
+hides the SVG. Credit and the post link stay in the caption. Sponsored or
+betting copy (a `sponsored` flag or DraftKings / FanDuel / odds / O/U /
+Over/Under / presented by / bet) is rejected offline. Media is never
+downloaded or rehosted. Pins are refused on already-signed Reviews and on a
+missing, unreadable, or non-object edition file, and when the signature
+check raises.
+
+Archived editions without a pin, and any pin that fails the allowlist or id
+shape, use the original vector illustration selected at render time from the
+**viewed edition's** phase, opponent, venue, home or away, and headline.
+Preview editions use their next game; Review editions use their last-game
+review; camp, bye, and offseason reports use a phase fallback. It never
+borrows today's opponent for an archived story. Committed scenes cover every
+2026 slate opponent and venue, plus home Arrowhead bowls and the extra
+neutral / postseason cards. The artwork is generated in-repo: stadium
+silhouettes, landmarks, field shapes, and helmet shapes in team colors — no
+likenesses, no league or club wordmarks, no photographs. The caption stays
+honest: illustration, not a photograph. This is not fulfillment of the
+event-photograph requirement.
 
 Photo review must match the article's event, event date and pictured identity,
 in addition to checking rights. A licensed but unrelated archival photograph is
@@ -29,11 +67,15 @@ does not establish reuse rights. Do not extract, crop, screenshot or rehost an
 X post's media. If the rightsholder supplies a separately licensed original,
 record that permission and source post. Honor license terms and adaptations.
 
-This hero implementation does not load X scripts, scrape X or create new
-tracking consent. No licensed record means the labeled article illustration. A removed or
-expired permission must be removed from the catalog; the template also checks
-scope, permission dates and asset hash at build time. Historic signed narrative
-JSON is not rewritten to add heroes.
+A pinned official embed loads only `platform.twitter.com/widgets.js`. Nothing
+else third-party is added for the hero. If a Content-Security-Policy is
+introduced, it must allow exactly that origin for the widget script. The
+generator writes a new edition's pin into the sidecar from the offline
+catalog only when week and opponent both match; it does not invent status IDs
+and it does not rewrite historic edition JSON. A removed or expired licensed-image permission must be removed
+from `data/hero_media.json`; the template also checks scope, permission dates
+and asset hash at build time. Historic signed narrative JSON is not rewritten
+to add heroes.
 
 People thumbnails use the same review principle in `data/people_media.json`.
 No new player portraits are initially licensed, so roster entries, matchup

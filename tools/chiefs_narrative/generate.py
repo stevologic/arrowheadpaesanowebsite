@@ -30,7 +30,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from . import collect, config, diagrams, facts, known_errors, odds, offline, phase as phase_mod
-from . import hero_media, locker_room, press_conferences, prompts, providers, review_gate, schema, x_embeds
+from . import hero_media, hero_posts, locker_room, press_conferences, prompts, providers, review_gate, schema, x_embeds
 
 _CT = ZoneInfo("America/Chicago")
 
@@ -1481,6 +1481,7 @@ def check_published_edition() -> list[str]:
     issues.extend(facts.check_diagram_captions(narrative))
     issues.extend(press_conferences.check_embeds(narrative, schedule=schedule))
     issues.extend(locker_room.check_posts(narrative, schedule=schedule))
+    issues.extend(hero_posts.validate_sidecar())
     return issues
 
 
@@ -1645,6 +1646,7 @@ def main(argv=None) -> int:
         encoding="utf-8",
     )
     _write_edition_payload(narrative)
+    hero_posts.attach_sidecar(narrative)
     _write_archive(narrative)
     _write_schedule(result["schedule"])
     _write_wire(result.get("news") or [])

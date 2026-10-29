@@ -21,7 +21,7 @@ class EventHeroRendering(unittest.TestCase):
         source.mkdir()
         (source/'data').mkdir()
         shutil.copytree(ROOT/'layouts/partials', source/'layouts/partials')
-        (source/'hugo.yaml').write_text('baseURL: https://example.test/\n',encoding='utf-8')
+        (source/'hugo.yaml').write_text('baseURL: https://example.test/\nstaticDir:\n  - public\n',encoding='utf-8')
         (source/'layouts/index.html').write_text('{{ range .Site.Data.fixtures }}{{ partial "narrative-edition.html" (dict "n" . "site" $.Site "isCurrent" true) }}{{ end }}',encoding='utf-8')
         fixtures = []
         for mode,opponent in [('preview','Test Sharks'),('review','Test Ravens'),('camp','Test Bears')]:
@@ -35,6 +35,10 @@ class EventHeroRendering(unittest.TestCase):
         (source/'data/fixtures.json').write_text(json.dumps(fixtures),encoding='utf-8')
         (source/'data/hero_media.json').write_text('{"fallback":{},"items":{}}',encoding='utf-8')
         (source/'data/people_media.json').write_text('{"people":{}}',encoding='utf-8')
+        shutil.copyfile(ROOT/'data/hero_scenes.json', source/'data/hero_scenes.json')
+        scenes = source/'public/images/hero-scenes'
+        scenes.parent.mkdir(parents=True)
+        shutil.copytree(ROOT/'public/images/hero-scenes', scenes)
         cls.dist = Path(cls.temp.name)/'site'
         result = subprocess.run([HUGO, '--minify', '--destination', str(cls.dist)],
                                 cwd=source, capture_output=True, text=True)

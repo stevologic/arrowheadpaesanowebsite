@@ -297,6 +297,7 @@ class EditionAllowListTests(unittest.TestCase):
             f"data/{live}_editions",
             "data/wire.json",
             "data/schedule_2026.json",
+            "data/hero_posts.json",
             f"public/images/{live}",
         }
         dir_ok = {f"data/{live}_editions", f"public/images/{live}"}
