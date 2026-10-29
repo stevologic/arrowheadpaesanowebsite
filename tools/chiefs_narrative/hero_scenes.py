@@ -45,7 +45,11 @@ VENUE_KEYS = {
     "mile high": "empower-field",
     "lumen field": "lumen-field",
     "hard rock stadium": "hard-rock",
-    "miami": "hard-rock",
+    "wembley stadium": "wembley",
+    "wembley": "wembley",
+    "tottenham hotspur stadium": "wembley",
+    "london stadium": "wembley",
+    "super bowl": "super-bowl",
     "allegiant stadium": "allegiant",
     "raymond james stadium": "raymond-james",
     "mercedes-benz stadium": "mercedes-benz",
@@ -60,6 +64,8 @@ VENUE_LABELS = {
     "empower-field": "an open mile-high stadium with mountain ridges",
     "lumen-field": "a covered Pacific Northwest stadium",
     "hard-rock": "an open coastal stadium with palms",
+    "wembley": "a neutral-site stadium under a steel arch",
+    "super-bowl": "a neutral championship stadium under night lights",
     "allegiant": "a black dome in the desert",
     "raymond-james": "an open Gulf-coast stadium",
     "mercedes-benz": "a modern retractable-roof stadium",
@@ -70,6 +76,37 @@ VENUE_LABELS = {
 
 PHASE_MODES = ("preview", "review", "camp", "offseason", "bye")
 FALLBACK_IDS = {mode: f"{mode}-fallback" for mode in PHASE_MODES}
+NEUTRAL_VENUES = frozenset({"wembley", "super-bowl"})
+# Not on the 2026 slate: London vs MIA, Super Bowl vs SF, postseason home vs BUF.
+EXTRA_MATCHUPS = (
+    {
+        "id": "neutral-mia-london",
+        "week": None,
+        "seasonType": "reg",
+        "opponent": "Miami Dolphins",
+        "opponentAbbr": "MIA",
+        "homeAway": "neutral",
+        "venue": "Wembley Stadium",
+    },
+    {
+        "id": "sb-sf",
+        "week": None,
+        "seasonType": "post",
+        "opponent": "San Francisco 49ers",
+        "opponentAbbr": "SF",
+        "homeAway": "neutral",
+        "venue": "Super Bowl",
+    },
+    {
+        "id": "post-home-buf",
+        "week": None,
+        "seasonType": "post",
+        "opponent": "Buffalo Bills",
+        "opponentAbbr": "BUF",
+        "homeAway": "home",
+        "venue": "Arrowhead Stadium",
+    },
+)
 
 # Words that would make an asset look like a logo, wordmark, or photo claim.
 FORBIDDEN_ASSET_TEXT = (
@@ -177,14 +214,20 @@ def _week(edition: dict, event: dict) -> int | None:
 
 def _home_away(edition: dict, event: dict, mode: str, venue: str) -> str:
     at = str(event.get("at") or event.get("venue") or "")
+    at_venue = venue_key(at)
+    event_ha = _norm(event.get("homeAway"))
+    if event_ha in {"home", "away", "neutral"}:
+        return event_ha
+    if venue in NEUTRAL_VENUES or at_venue in NEUTRAL_VENUES:
+        return "neutral"
     if at.lstrip().startswith("@"):
         return "away"
-    if venue_key(at) == "arrowhead":
+    if at_venue == "arrowhead":
         return "home"
     if mode == "preview":
         market = ((edition.get("markets") or {}).get("game") or {})
         ha = _norm(market.get("homeAway"))
-        if ha in {"home", "away"}:
+        if ha in {"home", "away", "neutral"}:
             market_abbr = opponent_abbr(market.get("opponent"))
             event_abbr = opponent_abbr(event.get("opponent"))
             if not market_abbr or not event_abbr or market_abbr == event_abbr:
@@ -200,6 +243,17 @@ def _search_blob(edition: dict, event: dict) -> str:
     parts = [
         event.get("at"), event.get("venue"), event.get("label"), event.get("lede"),
         event.get("note"), event.get("opponent"),
+        ((edition.get("markets") or {}).get("game") or {}).get("label"),
+        edition.get("headline"), edition.get("dek"),
+    ]
+    return " ".join(str(part) for part in parts if part)
+
+
+def _venue_blob(edition: dict, event: dict) -> str:
+    """Venue text only — opponent names must not become venue hints."""
+    parts = [
+        event.get("at"), event.get("venue"), event.get("label"), event.get("lede"),
+        event.get("note"),
         ((edition.get("markets") or {}).get("game") or {}).get("label"),
         edition.get("headline"), edition.get("dek"),
     ]
@@ -281,21 +335,14 @@ def _scene_caption(mode: str, venue: str) -> str:
 
 def _fallback_scene(mode: str) -> dict:
     mode = mode if mode in FALLBACK_IDS else "preview"
-    venue = {
-        "preview": "arrowhead",
-        "review": "arrowhead",
-        "camp": "arrowhead",
-        "bye": "arrowhead",
-        "offseason": "arrowhead",
-    }[mode]
     return {
         "id": FALLBACK_IDS[mode],
         "phase": mode,
         "homeAway": "",
         "opponentAbbr": "",
         "opponent": "",
-        "venue": "Arrowhead Stadium" if venue == "arrowhead" else "",
-        "venueKey": venue,
+        "venue": "",
+        "venueKey": "",
         "asset": f"{ASSET_DIR}/{FALLBACK_IDS[mode]}.svg",
         "alt": {
             "preview": "Original illustration of a sunlit practice-and-preview field with a red-and-gold helmet silhouette and a generic stadium bowl. Not a photograph.",
@@ -304,7 +351,7 @@ def _fallback_scene(mode: str) -> dict:
             "bye": "Original illustration of an empty practice field and a single red-and-gold helmet silhouette during a quiet week. Not a photograph.",
             "offseason": "Original illustration of a quiet dawn stadium bowl in red and gold, with no crowd and no game action. Not a photograph.",
         }[mode],
-        "caption": _scene_caption(mode, venue),
+        "caption": _scene_caption(mode, ""),
         "mapped": False,
     }
 
@@ -375,6 +422,29 @@ def build_catalog(schedule: list[dict] | None = None) -> dict:
             "previewScene": preview["id"],
             "reviewScene": review["id"],
         })
+    for extra in EXTRA_MATCHUPS:
+        abbr = extra.get("opponentAbbr")
+        if abbr not in TEAMS:
+            continue
+        pair = matchup_scenes(extra)
+        for scene in pair:
+            scenes[scene["id"]] = scene
+            by_ha[f"{abbr.lower()}-{scene['homeAway']}-{scene['phase']}"] = scene["id"]
+            if scene["venueKey"]:
+                by_venue[f"{abbr.lower()}-{scene['venueKey']}-{scene['phase']}"] = scene["id"]
+        preview, review = pair
+        matchups.append({
+            "id": extra.get("id"),
+            "week": extra.get("week"),
+            "seasonType": extra.get("seasonType"),
+            "opponent": extra.get("opponent"),
+            "opponentAbbr": abbr,
+            "homeAway": extra.get("homeAway"),
+            "venue": extra.get("venue"),
+            "venueKey": preview["venueKey"],
+            "previewScene": preview["id"],
+            "reviewScene": review["id"],
+        })
     for mode in PHASE_MODES:
         scenes[FALLBACK_IDS[mode]] = _fallback_scene(mode)
     return {
@@ -391,7 +461,12 @@ def build_catalog(schedule: list[dict] | None = None) -> dict:
 
 
 def resolve(edition: dict, *, schedule=None, catalog=None) -> dict:
-    """Pick a scene from edition fields already present on every narrative."""
+    """Pick a scene from edition fields already present on every narrative.
+
+    A week key is used only when it agrees with the stated opponent (and
+    home/away when that is known). A week/opponent mismatch falls through
+    to opponent + venue, then opponent + home/away.
+    """
     if schedule is None:
         schedule = load_schedule()
     catalog = catalog or build_catalog(schedule)
@@ -402,17 +477,20 @@ def resolve(edition: dict, *, schedule=None, catalog=None) -> dict:
     if mode not in {"preview", "review"}:
         return dict(fallback)
 
-    game = _match_schedule(edition, event, schedule, mode)
+    abbr = opponent_abbr(event.get("opponent"), catalog.get("aliases"))
+    venue = venue_key(_venue_blob(edition, event))
+    home_away = _home_away(edition, event, mode, venue)
     week = _week(edition, event)
-    season = season_code((edition.get("phase") or {}).get("type") or (game or {}).get("seasonType") or "")
+    season = season_code((edition.get("phase") or {}).get("type") or "")
     if week and season:
         sid = catalog["byWeek"].get(f"{season}-{week}-{mode}")
         if sid in scenes:
-            return dict(scenes[sid])
+            scene = scenes[sid]
+            opp_ok = not abbr or scene.get("opponentAbbr") == abbr
+            ha_ok = not home_away or scene.get("homeAway") == home_away
+            if opp_ok and ha_ok:
+                return dict(scene)
 
-    abbr = opponent_abbr(event.get("opponent"), catalog.get("aliases"))
-    venue = venue_key(_search_blob(edition, event)) or venue_key((game or {}).get("venue"))
-    home_away = _home_away(edition, event, mode, venue) or (game or {}).get("homeAway") or ""
     if abbr and home_away:
         sid = catalog["byOpponentHomeAway"].get(f"{abbr.lower()}-{home_away}-{mode}")
         if sid in scenes:
@@ -421,6 +499,7 @@ def resolve(edition: dict, *, schedule=None, catalog=None) -> dict:
         sid = catalog["byOpponentVenue"].get(f"{abbr.lower()}-{venue}-{mode}")
         if sid in scenes:
             return dict(scenes[sid])
+    game = _match_schedule(edition, event, schedule, mode)
     if game:
         sid = scene_id(mode, game.get("homeAway") or home_away, game.get("opponentAbbr") or abbr)
         if sid in scenes:
@@ -447,13 +526,28 @@ def _grad(sid: str, stops, x1="0", y1="0", x2="0", y2="1") -> str:
     return "".join(bits)
 
 
+_HELMET_X_RE = re.compile(r'<g transform="translate\(([-\d.]+),')
+
+
+def helmet_xs(svg: str) -> list[float]:
+    return [float(match) for match in _HELMET_X_RE.findall(svg)]
+
+
+def helmets_in_viewbox(svg: str, margin: float = 28) -> bool:
+    xs = helmet_xs(svg)
+    return bool(xs) and all(margin <= x <= W - margin for x in xs)
+
+
 def _helmet(x: float, y: float, colors: dict, facing: str) -> str:
-    """Generic helmet silhouette — oval shell and facemask bars, no decal."""
+    """Generic helmet silhouette — oval shell and facemask bars, no decal.
+
+    Translate to the on-field point first, then flip about that point.
+    Negating x before translate puts a left-facing helmet off-canvas.
+    """
     flip = "scale(-1,1)" if facing == "left" else "scale(1,1)"
-    ox = -x if facing == "left" else x
     mask = colors.get("secondary", "#C8C8C8")
     return (
-        f'<g transform="translate({ox},{y}) {flip}">'
+        f'<g transform="translate({x},{y}) {flip}">'
         f'<ellipse cx="0" cy="0" rx="28" ry="20" fill="{colors["shell"]}"/>'
         f'<path d="M-6-16c12-2 24 6 26 16c-8 4-18 6-28 4c-2-8 0-16 2-20z" fill="{colors["primary"]}"/>'
         f'<path d="M-4-8h22" stroke="{colors["dark"]}" stroke-width="3" fill="none"/>'
@@ -587,6 +681,12 @@ def _palette(mode: str, venue: str, _away: dict | None) -> dict:
     if venue == "hard-rock":
         return {"sky": [("0%", "#2A1540"), ("100%", "#C45A3A")] if night else [("0%", "#49B7D6"), ("100%", "#F7C56A")],
                 "grass": ("#1C5A38", "#14482C"), "bowl": "#2A2F38", "hash": "#E6D39A"}
+    if venue == "wembley":
+        return {"sky": [("0%", "#1A2030"), ("100%", "#4A5A6A")] if night else [("0%", "#6A8AAA"), ("100%", "#D4DEE8")],
+                "grass": ("#1A4A32", "#123826"), "bowl": "#2A3038", "hash": "#D0D6DC"}
+    if venue == "super-bowl":
+        return {"sky": [("0%", "#140828"), ("100%", "#6A2048")] if night else [("0%", "#2A1848"), ("100%", "#C45A88")],
+                "grass": ("#1A4A32", "#123826"), "bowl": "#2A1838", "hash": "#E6C36A"}
     if venue == "allegiant":
         return {"sky": [("0%", "#0A0A10"), ("100%", "#2A1840")] if night else [("0%", "#3A2A48"), ("100%", "#E0A36A")],
                 "grass": ("#1A1A1A", "#111111"), "bowl": "#0A0A0A", "hash": "#A5ACAF"}
@@ -625,6 +725,16 @@ def _landmarks(venue: str, mode: str, pal: dict, uid: str) -> str:
             f'<rect x="0" y="150" width="{W}" height="40" fill="{water}" opacity=".55"/>'
             + _palms("#0E3A28" if night else "#1A5A38")
             + ("" if night else _sun(88, 44, "#F7E08A"))
+        )
+    if venue == "wembley":
+        return (
+            f'<path d="M70 180 Q330 8 590 180" fill="none" stroke="#8A96A4" stroke-width="12"/>'
+            f'<path d="M70 180 Q330 28 590 180" fill="none" stroke="#C8D0D8" stroke-width="4"/>'
+            + ("" if night else _sun(96, 46, "#F4E2A0"))
+        )
+    if venue == "super-bowl":
+        return _lights_wash() + (
+            '<ellipse cx="330" cy="36" rx="140" ry="22" fill="#F8E7A0" opacity=".28"/>'
         )
     if venue == "allegiant":
         return _desert("#3A2A22" if night else "#C4A078") + (

@@ -235,6 +235,8 @@ class HeroSceneRendering(unittest.TestCase):
         self.assertRegex(unknown, r'data-hero-mapped="?false"?')
         self.assertNotIn("KANSAS CITY CHIEFS", unknown)
         self.assertNotIn('fill="#991c35"', unknown)
+        self.assertNotIn("Arrowhead", unknown)
+        self.assertNotIn("arrowhead", unknown.lower())
 
     def test_template_never_emits_retired_split_panel(self):
         illustration = (ROOT / "layouts" / "partials" / "nrt-event-illustration.html").read_text(encoding="utf-8")
@@ -259,3 +261,224 @@ class HeroScenePublishedShape(unittest.TestCase):
         self.assertEqual(scene["venueKey"], "empower-field")
         self.assertTrue(scene["mapped"])
         self.assertIn("mountain", scene["alt"].lower())
+
+
+class HeroSceneSelectorFixes(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.schedule = hero_scenes.load_schedule(ROOT)
+        cls.catalog = hero_scenes.build_catalog(cls.schedule)
+
+    def test_week_opponent_mismatch_does_not_use_week_scene(self):
+        scene = hero_scenes.resolve(
+            _edition("preview", "Seattle Seahawks", week=8, home_away="away",
+                     at="@ Lumen Field"),
+            schedule=self.schedule, catalog=self.catalog,
+        )
+        self.assertEqual(scene["id"], "preview-away-sea")
+        self.assertNotEqual(scene["id"], "preview-away-den")
+
+    def test_opponent_venue_without_week_maps_denver(self):
+        scene = hero_scenes.resolve(
+            _edition("preview", "Denver Broncos", at="@ Empower Field at Mile High"),
+            schedule=self.schedule, catalog=self.catalog,
+        )
+        self.assertEqual(scene["id"], "preview-away-den")
+
+    def test_neutral_london_mia_is_not_hard_rock(self):
+        scene = hero_scenes.resolve(
+            _edition("preview", "Miami Dolphins", at="Wembley Stadium",
+                     home_away="neutral"),
+            schedule=self.schedule, catalog=self.catalog,
+        )
+        self.assertEqual(scene["id"], "preview-neutral-mia")
+        self.assertEqual(scene["venueKey"], "wembley")
+        self.assertNotEqual(scene["id"], "preview-away-mia")
+
+    def test_super_bowl_sf_and_postseason_home_buf(self):
+        sb = hero_scenes.resolve(
+            _edition("preview", "San Francisco 49ers", phase_type="postseason",
+                     home_away="neutral", at="Super Bowl"),
+            schedule=self.schedule, catalog=self.catalog,
+        )
+        self.assertEqual(sb["id"], "preview-neutral-sf")
+        home = hero_scenes.resolve(
+            _edition("preview", "Buffalo Bills", phase_type="postseason",
+                     home_away="home", at="Arrowhead Stadium"),
+            schedule=self.schedule, catalog=self.catalog,
+        )
+        self.assertEqual(home["id"], "preview-home-buf")
+        review = hero_scenes.resolve(
+            _edition("review", "Buffalo Bills", phase_type="postseason",
+                     home_away="home", at="Arrowhead Stadium"),
+            schedule=self.schedule, catalog=self.catalog,
+        )
+        self.assertEqual(review["id"], "review-home-buf")
+
+    def test_fallback_caption_has_no_arrowhead(self):
+        for mode in hero_scenes.PHASE_MODES:
+            scene = hero_scenes._fallback_scene(mode)
+            blob = f"{scene['caption']} {scene['alt']} {scene['venue']}".lower()
+            self.assertNotIn("arrowhead", blob, mode)
+            self.assertNotIn("missouri river", blob, mode)
+        unknown = hero_scenes.resolve(
+            _edition("preview", "Test Sharks"),
+            schedule=self.schedule, catalog=self.catalog,
+        )
+        self.assertEqual(unknown["id"], "preview-fallback")
+        self.assertNotIn("arrowhead", unknown["caption"].lower())
+
+    def test_matchup_svgs_keep_both_helmets_in_viewbox(self):
+        for sid, scene in self.catalog["scenes"].items():
+            svg = hero_scenes.render_svg(scene)
+            xs = hero_scenes.helmet_xs(svg)
+            self.assertTrue(xs, sid)
+            self.assertTrue(hero_scenes.helmets_in_viewbox(svg), f"{sid}: {xs}")
+            if scene.get("opponentAbbr"):
+                self.assertGreaterEqual(len(xs), 2, sid)
+                self.assertTrue(all(0 < x < hero_scenes.W for x in xs), xs)
+                self.assertNotIn("translate(-492", svg)
+
+    def test_alt_mentions_two_helmets_for_matchups(self):
+        scene = self.catalog["scenes"]["preview-away-den"]
+        self.assertIn("two helmet", scene["alt"].lower())
+        self.assertIn("orange and navy", scene["alt"].lower())
+        self.assertIn("Not a photograph", scene["alt"])
+
+
+@unittest.skipUnless(Path(HUGO).is_file(), "Hugo unavailable")
+class HeroSceneParity(unittest.TestCase):
+    """Python resolver vs Hugo for every 2026 game plus extra cases."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.schedule = hero_scenes.load_schedule(ROOT)
+        cls.catalog = hero_scenes.build_catalog(cls.schedule)
+        cls.cases = []
+        for game in cls.schedule:
+            phase_type = "preseason" if game["seasonType"] == "pre" else "regular"
+            for mode in ("preview", "review"):
+                edition = _edition(
+                    mode, game["opponent"], week=game["week"],
+                    phase_type=phase_type, home_away=game["homeAway"],
+                    at=game["venue"],
+                )
+                edition["slug"] = f"{game['id']}-{mode}"
+                cls.cases.append(edition)
+        extras = [
+            _edition("preview", "Miami Dolphins", home_away="neutral", at="Wembley Stadium"),
+            _edition("review", "Miami Dolphins", home_away="neutral", at="Wembley Stadium"),
+            _edition("preview", "San Francisco 49ers", phase_type="postseason",
+                     home_away="neutral", at="Super Bowl"),
+            _edition("review", "San Francisco 49ers", phase_type="postseason",
+                     home_away="neutral", at="Super Bowl"),
+            _edition("preview", "Buffalo Bills", phase_type="postseason",
+                     home_away="home", at="Arrowhead Stadium"),
+            _edition("review", "Buffalo Bills", phase_type="postseason",
+                     home_away="home", at="Arrowhead Stadium"),
+            _edition("preview", "Test Sharks"),
+        ]
+        labels = (
+            "neutral-mia-preview", "neutral-mia-review",
+            "sb-sf-preview", "sb-sf-review",
+            "post-home-buf-preview", "post-home-buf-review",
+            "unknown-preview",
+        )
+        for edition, slug in zip(extras, labels):
+            edition["slug"] = slug
+            edition.setdefault("generatedAt", "2026-01-02T12:00:00Z")
+            edition.setdefault("record", "0-0")
+            edition.setdefault("edition", slug)
+            edition.setdefault("injuries", [])
+            edition.setdefault("pressConferenceLinks", [])
+            edition.setdefault("pressConferences", [])
+            if "nextGame" not in edition:
+                edition["nextGame"] = {"opponent": "Test Sharks", "label": "Fixture"}
+            if "lastGameReview" not in edition:
+                edition["lastGameReview"] = {"opponent": "Test Ravens", "label": "Fixture"}
+            cls.cases.append(edition)
+        for edition in cls.cases:
+            edition.setdefault("generatedAt", "2026-01-02T12:00:00Z")
+            edition.setdefault("record", "0-0")
+            edition.setdefault("edition", edition["slug"])
+            edition.setdefault("injuries", [])
+            edition.setdefault("pressConferenceLinks", [])
+            edition.setdefault("pressConferences", [])
+            edition.setdefault("nextGame", {"opponent": "Test Sharks", "label": "Fixture"})
+            edition.setdefault("lastGameReview", {"opponent": "Test Ravens", "label": "Fixture"})
+
+        cls.temp = tempfile.TemporaryDirectory()
+        source = Path(cls.temp.name) / "source"
+        source.mkdir()
+        (source / "data").mkdir()
+        shutil.copytree(ROOT / "layouts" / "partials", source / "layouts" / "partials")
+        shutil.copyfile(ROOT / "data" / "hero_scenes.json", source / "data" / "hero_scenes.json")
+        shutil.copyfile(ROOT / "data" / "schedule_2026.json", source / "data" / "schedule_2026.json")
+        shutil.copyfile(ROOT / "data" / "hero_media.json", source / "data" / "hero_media.json")
+        (source / "data" / "hero_posts.json").write_text(
+            json.dumps({"schemaVersion": 1, "allowlist": [], "catalog": [], "pins": {}}),
+            encoding="utf-8",
+        )
+        public_scenes = source / "public" / "images" / "hero-scenes"
+        public_scenes.parent.mkdir(parents=True)
+        shutil.copytree(ROOT / "public" / "images" / "hero-scenes", public_scenes)
+        (source / "hugo.yaml").write_text(
+            "baseURL: https://example.test/\nstaticDir:\n  - public\n", encoding="utf-8"
+        )
+        (source / "data" / "fixtures.json").write_text(json.dumps(cls.cases), encoding="utf-8")
+        (source / "layouts" / "index.html").write_text(
+            '{{ range .Site.Data.fixtures }}<section data-parity-slug="{{ .slug }}">'
+            '{{ partial "nrt-hero-media.html" (dict "n" . "site" $.Site) }}'
+            "</section>{{ end }}",
+            encoding="utf-8",
+        )
+        cls.dist = Path(cls.temp.name) / "site"
+        result = subprocess.run(
+            [HUGO, "--minify", "--destination", str(cls.dist)],
+            cwd=source, capture_output=True, text=True,
+        )
+        if result.returncode:
+            cls.temp.cleanup()
+            raise AssertionError(result.stdout + result.stderr)
+        cls.page = (cls.dist / "index.html").read_text(encoding="utf-8")
+        cls.table = []
+        for edition in cls.cases:
+            py = hero_scenes.resolve(edition, schedule=cls.schedule, catalog=cls.catalog)
+            block = re.search(
+                rf'data-parity-slug="?{re.escape(edition["slug"])}"?.*?</section>',
+                cls.page, re.S,
+            )
+            hugo_id = ""
+            if block:
+                match = re.search(r'data-hero-scene="?([a-z0-9-]+)"?', block.group(0))
+                hugo_id = match.group(1) if match else ""
+            cls.table.append({
+                "slug": edition["slug"],
+                "python": py.get("id"),
+                "hugo": hugo_id,
+                "match": py.get("id") == hugo_id,
+            })
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.temp.cleanup()
+
+    def test_python_and_hugo_agree(self):
+        mismatches = [row for row in self.table if not row["match"]]
+        self.assertEqual(mismatches, [], json.dumps(mismatches, indent=2))
+
+    def test_writes_parity_table_artifact(self):
+        out = ROOT / "docs" / "hero-evidence" / "parity-table.md"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        lines = [
+            "# Hero scene parity: Python resolver vs Hugo",
+            "",
+            "| Case | Python | Hugo | Match |",
+            "| --- | --- | --- | --- |",
+        ]
+        for row in self.table:
+            mark = "yes" if row["match"] else "NO"
+            lines.append(f"| {row['slug']} | {row['python']} | {row['hugo']} | {mark} |")
+        lines.append("")
+        out.write_text("\n".join(lines), encoding="utf-8")
+        self.assertTrue(out.is_file())

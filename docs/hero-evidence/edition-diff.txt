@@ -1,0 +1,6 @@
+Approach: unsigned sidecar (data/hero_posts.json keyed by edition id).
+git diff -- data/narrative.json data/narrative_editions signoff
+Expected: empty. Historic edition bytes and Review signatures unchanged.
+The only pin addition is the sidecar; Week 8 Preview JSON was not rewritten.
+
+(empty — edition JSON and signoff/ are byte-identical)

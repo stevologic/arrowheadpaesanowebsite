@@ -1,7 +1,9 @@
 {{- $catalog := .site.Data.hero_media -}}
 {{- $media := $catalog.fallback -}}
 {{- $licensed := false -}}
+{{- $pin := partial "nrt-hero-post.html" (dict "n" .n "site" .site) -}}
 {{- $item := index ($catalog.items | default dict) (.n.heroMediaId | default "article-illustration") -}}
+{{- if not $pin.id -}}
 {{- with $item -}}
   {{- $r := .rights | default dict -}}
   {{- $evidenceOK := and (findRE `^docs/media-rights/[A-Za-z0-9_-]+\.md$` ($r.evidence | default "")) (fileExists ($r.evidence | default "missing")) -}}
@@ -12,8 +14,27 @@
     {{- if and (fileExists $path) (eq (sha256 (readFile $path)) .sha256) -}}{{- $media = . -}}{{- $licensed = true -}}{{- end -}}
   {{- end -}}
 {{- end -}}
+{{- end -}}
 {{- $context := partial "nrt-event-context.html" .n -}}
 {{- $scene := partial "nrt-hero-scene.html" (dict "n" .n "site" .site) -}}
+{{- if $pin.id -}}
+<figure class="nrt-hero-media" data-hero-kind="x-embed" data-hero-post-id="{{ $pin.id }}" data-hero-scene="{{ $scene.id }}" data-hero-mapped="{{ if $scene.mapped }}true{{ else }}false{{ end }}" data-event-subject="{{ $context.subject }}" data-event-mode="{{ $context.mode }}">
+  <div class="nrt-hero-media__visual nrt-hero-media__visual--embed">
+    <blockquote class="twitter-tweet" data-dnt="true" data-conversation="none">
+      {{- with $pin.text -}}<p lang="en" dir="ltr">{{ . }}</p>{{- end -}}
+      &mdash; {{ $pin.account }}
+      <a href="{{ $pin.url }}">{{ with $pin.postedLabel }}{{ . }}{{ else }}View post on X{{ end }}</a>
+    </blockquote>
+  </div>
+  <figcaption class="nrt-hero-media__caption">
+    <span class="nrt-hero-media__label">Official post</span>
+    <strong>{{ $pin.alt }}</strong>
+    <span>Source: {{ $pin.account }}</span>
+    <a href="{{ $pin.url }}" target="_blank" rel="noopener">View post on X</a>
+  </figcaption>
+</figure>
+<script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+{{- else -}}
 <figure class="nrt-hero-media" data-hero-kind="{{ if $licensed }}licensed-image{{ else }}article-illustration{{ end }}" data-hero-scene="{{ $scene.id }}" data-hero-mapped="{{ if $scene.mapped }}true{{ else }}false{{ end }}" data-event-subject="{{ $context.subject }}" data-event-mode="{{ $context.mode }}">
   <div class="nrt-hero-media__visual">{{ if $licensed }}<img src="{{ $media.image | relURL }}" alt="{{ $media.alt }}" width="{{ $media.width }}" height="{{ $media.height }}" decoding="async" fetchpriority="high" />{{ else }}{{ partial "nrt-event-illustration.html" (dict "n" .n "site" .site "scene" $scene) }}{{ end }}</div>
   <figcaption class="nrt-hero-media__caption">
@@ -21,3 +42,4 @@
     {{ else }}<span class="nrt-hero-media__label">Article illustration</span><strong>{{ $context.topic }}</strong><span>{{ $scene.caption }}</span><span>{{ $context.label }}</span><span>Not a photograph. Event photograph not yet cleared.</span>{{ end }}
   </figcaption>
 </figure>
+{{- end -}}

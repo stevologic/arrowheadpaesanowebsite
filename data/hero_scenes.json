@@ -75,6 +75,8 @@
     "atl-away-review": "review-away-atl",
     "buf-away-preview": "preview-away-buf",
     "buf-away-review": "review-away-buf",
+    "buf-home-preview": "preview-home-buf",
+    "buf-home-review": "review-home-buf",
     "cin-away-preview": "preview-away-cin",
     "cin-away-review": "review-away-cin",
     "den-away-preview": "preview-away-den",
@@ -97,6 +99,8 @@
     "lv-home-review": "review-home-lv",
     "mia-away-preview": "preview-away-mia",
     "mia-away-review": "review-away-mia",
+    "mia-neutral-preview": "preview-neutral-mia",
+    "mia-neutral-review": "review-neutral-mia",
     "ne-home-preview": "preview-home-ne",
     "ne-home-review": "review-home-ne",
     "nyj-home-preview": "preview-home-nyj",
@@ -107,6 +111,8 @@
     "sea-home-review": "review-home-sea",
     "sf-home-preview": "preview-home-sf",
     "sf-home-review": "review-home-sf",
+    "sf-neutral-preview": "preview-neutral-sf",
+    "sf-neutral-review": "review-neutral-sf",
     "tb-away-preview": "preview-away-tb",
     "tb-away-review": "review-away-tb"
   },
@@ -115,6 +121,8 @@
     "ari-arrowhead-review": "review-home-ari",
     "atl-mercedes-benz-preview": "preview-away-atl",
     "atl-mercedes-benz-review": "review-away-atl",
+    "buf-arrowhead-preview": "preview-home-buf",
+    "buf-arrowhead-review": "review-home-buf",
     "buf-highmark-preview": "preview-away-buf",
     "buf-highmark-review": "review-away-buf",
     "cin-paycor-preview": "preview-away-cin",
@@ -139,6 +147,8 @@
     "lv-arrowhead-review": "review-home-lv",
     "mia-hard-rock-preview": "preview-away-mia",
     "mia-hard-rock-review": "review-away-mia",
+    "mia-wembley-preview": "preview-neutral-mia",
+    "mia-wembley-review": "review-neutral-mia",
     "ne-arrowhead-preview": "preview-home-ne",
     "ne-arrowhead-review": "review-home-ne",
     "nyj-arrowhead-preview": "preview-home-nyj",
@@ -149,6 +159,8 @@
     "sea-lumen-field-review": "review-away-sea",
     "sf-arrowhead-preview": "preview-home-sf",
     "sf-arrowhead-review": "review-home-sf",
+    "sf-super-bowl-preview": "preview-neutral-sf",
+    "sf-super-bowl-review": "review-neutral-sf",
     "tb-raymond-james-preview": "preview-away-tb",
     "tb-raymond-james-review": "review-away-tb"
   },
@@ -441,6 +453,42 @@
       "venue": "Arrowhead Stadium",
       "venueKey": "arrowhead",
       "week": 18
+    },
+    {
+      "homeAway": "neutral",
+      "id": "neutral-mia-london",
+      "opponent": "Miami Dolphins",
+      "opponentAbbr": "MIA",
+      "previewScene": "preview-neutral-mia",
+      "reviewScene": "review-neutral-mia",
+      "seasonType": "reg",
+      "venue": "Wembley Stadium",
+      "venueKey": "wembley",
+      "week": null
+    },
+    {
+      "homeAway": "neutral",
+      "id": "sb-sf",
+      "opponent": "San Francisco 49ers",
+      "opponentAbbr": "SF",
+      "previewScene": "preview-neutral-sf",
+      "reviewScene": "review-neutral-sf",
+      "seasonType": "post",
+      "venue": "Super Bowl",
+      "venueKey": "super-bowl",
+      "week": null
+    },
+    {
+      "homeAway": "home",
+      "id": "post-home-buf",
+      "opponent": "Buffalo Bills",
+      "opponentAbbr": "BUF",
+      "previewScene": "preview-home-buf",
+      "reviewScene": "review-home-buf",
+      "seasonType": "post",
+      "venue": "Arrowhead Stadium",
+      "venueKey": "arrowhead",
+      "week": null
     }
   ],
   "scenes": {
@@ -454,8 +502,8 @@
       "opponent": "",
       "opponentAbbr": "",
       "phase": "bye",
-      "venue": "Arrowhead Stadium",
-      "venueKey": "arrowhead"
+      "venue": "",
+      "venueKey": ""
     },
     "camp-fallback": {
       "alt": "Original illustration of a training-camp practice field under a hard sun, with sled shapes and a red-and-gold helmet silhouette. Not a photograph.",
@@ -467,8 +515,8 @@
       "opponent": "",
       "opponentAbbr": "",
       "phase": "camp",
-      "venue": "Arrowhead Stadium",
-      "venueKey": "arrowhead"
+      "venue": "",
+      "venueKey": ""
     },
     "offseason-fallback": {
       "alt": "Original illustration of a quiet dawn stadium bowl in red and gold, with no crowd and no game action. Not a photograph.",
@@ -480,8 +528,8 @@
       "opponent": "",
       "opponentAbbr": "",
       "phase": "offseason",
-      "venue": "Arrowhead Stadium",
-      "venueKey": "arrowhead"
+      "venue": "",
+      "venueKey": ""
     },
     "preview-away-atl": {
       "alt": "Original illustration of a game-day light scene at a modern retractable-roof stadium (a road venue), with clear stadium geometry, a stadium silhouette, field shapes, and two helmet silhouettes in red and gold versus red and black. Not a photograph.",
@@ -616,15 +664,15 @@
     "preview-fallback": {
       "alt": "Original illustration of a sunlit practice-and-preview field with a red-and-gold helmet silhouette and a generic stadium bowl. Not a photograph.",
       "asset": "images/hero-scenes/preview-fallback.svg",
-      "caption": "Game-day preview illustration \u00b7 an open home stadium on the Missouri river bluffs",
+      "caption": "Game-day preview illustration \u00b7 a football stadium",
       "homeAway": "",
       "id": "preview-fallback",
       "mapped": false,
       "opponent": "",
       "opponentAbbr": "",
       "phase": "preview",
-      "venue": "Arrowhead Stadium",
-      "venueKey": "arrowhead"
+      "venue": "",
+      "venueKey": ""
     },
     "preview-home-ari": {
       "alt": "Original illustration of a game-day light scene at an open home stadium on the Missouri river bluffs (a home bowl), with clear stadium geometry, a stadium silhouette, field shapes, and two helmet silhouettes in red and gold versus red and white. Not a photograph.",
@@ -635,6 +683,19 @@
       "mapped": true,
       "opponent": "Arizona Cardinals",
       "opponentAbbr": "ARI",
+      "phase": "preview",
+      "venue": "Arrowhead Stadium",
+      "venueKey": "arrowhead"
+    },
+    "preview-home-buf": {
+      "alt": "Original illustration of a game-day light scene at an open home stadium on the Missouri river bluffs (a home bowl), with clear stadium geometry, a stadium silhouette, field shapes, and two helmet silhouettes in red and gold versus royal blue and red. Not a photograph.",
+      "asset": "images/hero-scenes/preview-home-buf.svg",
+      "caption": "Game-day preview illustration \u00b7 an open home stadium on the Missouri river bluffs",
+      "homeAway": "home",
+      "id": "preview-home-buf",
+      "mapped": true,
+      "opponent": "Buffalo Bills",
+      "opponentAbbr": "BUF",
       "phase": "preview",
       "venue": "Arrowhead Stadium",
       "venueKey": "arrowhead"
@@ -755,6 +816,32 @@
       "phase": "preview",
       "venue": "Arrowhead Stadium",
       "venueKey": "arrowhead"
+    },
+    "preview-neutral-mia": {
+      "alt": "Original illustration of a game-day light scene at a neutral-site stadium under a steel arch (a road venue), with clear stadium geometry, a stadium silhouette, field shapes, and two helmet silhouettes in red and gold versus aqua and orange. Not a photograph.",
+      "asset": "images/hero-scenes/preview-neutral-mia.svg",
+      "caption": "Game-day preview illustration \u00b7 a neutral-site stadium under a steel arch",
+      "homeAway": "neutral",
+      "id": "preview-neutral-mia",
+      "mapped": true,
+      "opponent": "Miami Dolphins",
+      "opponentAbbr": "MIA",
+      "phase": "preview",
+      "venue": "Wembley Stadium",
+      "venueKey": "wembley"
+    },
+    "preview-neutral-sf": {
+      "alt": "Original illustration of a game-day light scene at a neutral championship stadium under night lights (a road venue), with clear stadium geometry, a stadium silhouette, field shapes, and two helmet silhouettes in red and gold versus red and gold. Not a photograph.",
+      "asset": "images/hero-scenes/preview-neutral-sf.svg",
+      "caption": "Game-day preview illustration \u00b7 a neutral championship stadium under night lights",
+      "homeAway": "neutral",
+      "id": "preview-neutral-sf",
+      "mapped": true,
+      "opponent": "San Francisco 49ers",
+      "opponentAbbr": "SF",
+      "phase": "preview",
+      "venue": "Super Bowl",
+      "venueKey": "super-bowl"
     },
     "review-away-atl": {
       "alt": "Original illustration of a night recap light scene at a modern retractable-roof stadium (a road venue), with clear stadium geometry, a stadium silhouette, field shapes, and two helmet silhouettes in red and gold versus red and black. Not a photograph.",
@@ -889,15 +976,15 @@
     "review-fallback": {
       "alt": "Original illustration of a night stadium bowl with lights, a red-and-gold helmet silhouette, and a darkened field. Not a photograph.",
       "asset": "images/hero-scenes/review-fallback.svg",
-      "caption": "Night review illustration \u00b7 an open home stadium on the Missouri river bluffs",
+      "caption": "Night review illustration \u00b7 a football stadium",
       "homeAway": "",
       "id": "review-fallback",
       "mapped": false,
       "opponent": "",
       "opponentAbbr": "",
       "phase": "review",
-      "venue": "Arrowhead Stadium",
-      "venueKey": "arrowhead"
+      "venue": "",
+      "venueKey": ""
     },
     "review-home-ari": {
       "alt": "Original illustration of a night recap light scene at an open home stadium on the Missouri river bluffs (a home bowl), with clear stadium geometry, a stadium silhouette, field shapes, and two helmet silhouettes in red and gold versus red and white. Not a photograph.",
@@ -908,6 +995,19 @@
       "mapped": true,
       "opponent": "Arizona Cardinals",
       "opponentAbbr": "ARI",
+      "phase": "review",
+      "venue": "Arrowhead Stadium",
+      "venueKey": "arrowhead"
+    },
+    "review-home-buf": {
+      "alt": "Original illustration of a night recap light scene at an open home stadium on the Missouri river bluffs (a home bowl), with clear stadium geometry, a stadium silhouette, field shapes, and two helmet silhouettes in red and gold versus royal blue and red. Not a photograph.",
+      "asset": "images/hero-scenes/review-home-buf.svg",
+      "caption": "Night review illustration \u00b7 an open home stadium on the Missouri river bluffs",
+      "homeAway": "home",
+      "id": "review-home-buf",
+      "mapped": true,
+      "opponent": "Buffalo Bills",
+      "opponentAbbr": "BUF",
       "phase": "review",
       "venue": "Arrowhead Stadium",
       "venueKey": "arrowhead"
@@ -1028,6 +1128,32 @@
       "phase": "review",
       "venue": "Arrowhead Stadium",
       "venueKey": "arrowhead"
+    },
+    "review-neutral-mia": {
+      "alt": "Original illustration of a night recap light scene at a neutral-site stadium under a steel arch (a road venue), with clear stadium geometry, a stadium silhouette, field shapes, and two helmet silhouettes in red and gold versus aqua and orange. Not a photograph.",
+      "asset": "images/hero-scenes/review-neutral-mia.svg",
+      "caption": "Night review illustration \u00b7 a neutral-site stadium under a steel arch",
+      "homeAway": "neutral",
+      "id": "review-neutral-mia",
+      "mapped": true,
+      "opponent": "Miami Dolphins",
+      "opponentAbbr": "MIA",
+      "phase": "review",
+      "venue": "Wembley Stadium",
+      "venueKey": "wembley"
+    },
+    "review-neutral-sf": {
+      "alt": "Original illustration of a night recap light scene at a neutral championship stadium under night lights (a road venue), with clear stadium geometry, a stadium silhouette, field shapes, and two helmet silhouettes in red and gold versus red and gold. Not a photograph.",
+      "asset": "images/hero-scenes/review-neutral-sf.svg",
+      "caption": "Night review illustration \u00b7 a neutral championship stadium under night lights",
+      "homeAway": "neutral",
+      "id": "review-neutral-sf",
+      "mapped": true,
+      "opponent": "San Francisco 49ers",
+      "opponentAbbr": "SF",
+      "phase": "review",
+      "venue": "Super Bowl",
+      "venueKey": "super-bowl"
     }
   },
   "schemaVersion": 1,
@@ -1039,13 +1165,17 @@
     "geha field at arrowhead stadium": "arrowhead",
     "hard rock stadium": "hard-rock",
     "highmark stadium": "highmark",
+    "london stadium": "wembley",
     "lumen field": "lumen-field",
     "mercedes benz stadium": "mercedes-benz",
     "mercedes-benz stadium": "mercedes-benz",
-    "miami": "hard-rock",
     "mile high": "empower-field",
     "paycor stadium": "paycor",
     "raymond james stadium": "raymond-james",
-    "sofi stadium": "sofi"
+    "sofi stadium": "sofi",
+    "super bowl": "super-bowl",
+    "tottenham hotspur stadium": "wembley",
+    "wembley": "wembley",
+    "wembley stadium": "wembley"
   }
 }

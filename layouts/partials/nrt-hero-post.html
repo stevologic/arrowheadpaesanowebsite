@@ -1,0 +1,43 @@
+{{- /*
+  Unsigned sidecar pin for this edition slug. Offline allowlist + id shape.
+  Returns a dict; callers treat a missing id as "no pin" (SVG fallback).
+*/ -}}
+{{- $n := .n | default . -}}
+{{- $site := .site -}}
+{{- $catalog := dict -}}
+{{- with $site -}}{{- $catalog = .Data.hero_posts | default dict -}}{{- end -}}
+{{- $allow := $catalog.allowlist | default slice -}}
+{{- $raw := index ($catalog.pins | default dict) ($n.slug | default "") -}}
+{{- $pin := dict -}}
+{{- with $raw -}}
+  {{- $id := printf "%v" (.id | default "") -}}
+  {{- $handle := strings.TrimPrefix "@" (.handle | default "") -}}
+  {{- $url := .url | default "" -}}
+  {{- $idOK := findRE `^[0-9]{10,20}$` $id -}}
+  {{- $listed := false -}}
+  {{- range $allow -}}
+    {{- if eq (lower .) (lower $handle) -}}{{- $listed = true -}}{{- end -}}
+  {{- end -}}
+  {{- $expect := printf "https://x.com/%s/status/%s" $handle $id -}}
+  {{- $urlOK := true -}}
+  {{- if $url -}}
+    {{- $urlOK = findRE (printf `^https://(?:www\.)?(?:x|twitter)\.com/%s/status/%s/?$` $handle $id) $url -}}
+  {{- end -}}
+  {{- if and $idOK $listed $urlOK $handle -}}
+    {{- $postedLabel := .postedLabel | default "" -}}
+    {{- if and (not $postedLabel) .postedAt -}}
+      {{- $postedLabel = time.Format "January 2, 2006" (.postedAt | time.AsTime) -}}
+    {{- end -}}
+    {{- $pin = dict
+      "id" $id
+      "handle" $handle
+      "account" (printf "@%s" $handle)
+      "url" $expect
+      "postedAt" (.postedAt | default "")
+      "postedLabel" $postedLabel
+      "text" (.text | default "")
+      "alt" (.alt | default (printf "Official @%s post" $handle))
+    -}}
+  {{- end -}}
+{{- end -}}
+{{- return $pin -}}
