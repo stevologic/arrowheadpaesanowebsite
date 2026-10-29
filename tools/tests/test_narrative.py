@@ -238,6 +238,40 @@ def _job_step_script(parsed, job: str, *, name=None, step_id=None) -> str:
     return str(_job_step(parsed, job, name=name, step_id=step_id).get("run") or "")
 
 
+def _write_job_fixture(
+    root: Path,
+    run: str,
+    *,
+    name: str = "bypass.yml",
+    permissions: dict | None = None,
+    on: str = "pull_request",
+    checkout: bool = True,
+    persist: bool = True,
+) -> list[str]:
+    """Minimal write-scoped workflow used as a linter-bypass fixture."""
+    wf = root / ".github" / "workflows"
+    wf.mkdir(parents=True, exist_ok=True)
+    perms = permissions or {"contents": "write"}
+    perm_yaml = "\n".join(f"      {key}: {value}" for key, value in perms.items())
+    steps = ""
+    if checkout:
+        persist_yaml = (
+            "        with:\n          persist-credentials: false\n" if persist else ""
+        )
+        steps += f"      - uses: actions/checkout@v6\n{persist_yaml}"
+    run_yaml = "\n".join(
+        f"          {line}" if line else "          " for line in run.splitlines()
+    )
+    steps += f"      - run: |\n{run_yaml}\n"
+    (wf / name).write_text(
+        f"name: Bypass\non: {on}\njobs:\n  publish:\n"
+        f"    runs-on: ubuntu-latest\n    permissions:\n{perm_yaml}\n"
+        f"    steps:\n{steps}",
+        encoding="utf-8",
+    )
+    return check_workflows.audit_write_jobs(root)
+
+
 def _narrative_review_hold_wiring(parsed) -> dict:
     """Structured review-hold wiring from test metadata + the publish step."""
     meta = _job_step_script(
@@ -4513,6 +4547,42 @@ class FactCheck(unittest.TestCase):
             for line in lines:
                 self.assertIn(line, listed)
 
+    def test_generate_build_emits_non_leak_hold_to_run_summary(self):
+        """#92: a non-leak hold-only leftover must still be listed."""
+        edition, _ = self._leak_only_hold_edition(
+            "Denver is next after the 24-10 Miami tape.",
+            "The slot and the tackle race are the open questions.",
+        )
+        held = ["no ESPN play-by-play for the last possession"]
+        llm = Mock(return_value=(edition, "grok"))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "narrative_archive.json"
+            editions = root / "narrative_editions"
+            editions.mkdir()
+            archive.write_text("[]\n", encoding="utf-8")
+            summary = root / "summary.md"
+            env = {
+                "GITHUB_ACTIONS": "true",
+                "GITHUB_STEP_SUMMARY": str(summary),
+            }
+            buf = io.StringIO()
+            with HeadlineUniqueness()._generation_stack(
+                llm=llm, archive=archive, editions=editions
+            ):
+                with patch.object(generate, "replay_fixture_missing", return_value=False):
+                    with patch.object(
+                        generate, "archive_replay_issues", return_value=held
+                    ):
+                        with patch.dict(os.environ, env, clear=False):
+                            with redirect_stdout(buf):
+                                result = generate.build("grok", persist_schedule=False)
+            listed = summary.read_text(encoding="utf-8") if summary.is_file() else ""
+        self.assertIn(held[0], result.get("leftoverIssues") or [])
+        self.assertIn(held[0], listed)
+        self.assertIn(f"::warning title=held edition::{held[0]}", buf.getvalue())
+        self.assertNotIn("fact-checker note leaked", listed)
+
     def _build_hugo_site(self, tmp: Path, *, mutate_rss: bool = False):
         hugo_bin = _hugo_bin()
         if not hugo_bin:
@@ -7236,7 +7306,11 @@ class FactCheck(unittest.TestCase):
         self.assertNotIn("--promote-url", promote)
         self.assertIn("jq -r --arg t", promote)
         self.assertIn("select(.title == $t)", promote)
-        self.assertIn('if [ -n "$PROMOTE_TITLE" ]', promote)
+        self.assertNotIn('if [ -n "$PROMOTE_TITLE" ]', promote)
+        existing_block = promote.split('cd "$GATE_BASE"', 1)[0]
+        self.assertIn("EXISTING=", existing_block)
+        self.assertIn("select(.title == $t)", existing_block)
+        self.assertIn('select(test("^https?://"))', existing_block)
         self.assertIn("--head develop", promote)
         self.assertIn("--base main", promote)
         self.assertIn('gh pr close "$PROMOTE_URL"', promote)
@@ -7322,6 +7396,81 @@ class FactCheck(unittest.TestCase):
             edition_merge.list_open_promote_prs(runner=fake)
         with self.assertRaises(edition_merge.MergeLookupError):
             edition_merge.promote_pr_url("Promote develop to main: Week 8", runner=fake)
+
+    def test_existing_lookup_title_and_https_filter(self):
+        """#87: EXISTING title-matches and drops non-http URLs."""
+        promote = _job_step_script(
+            yaml.safe_load(
+                (
+                    Path(__file__).resolve().parents[2]
+                    / ".github"
+                    / "workflows"
+                    / "narrative.yml"
+                ).read_text(encoding="utf-8")
+            ),
+            "publish",
+            name="Promote develop to main",
+        )
+        existing = promote.split('cd "$GATE_BASE"', 1)[0]
+        self.assertIn("EXISTING=", existing)
+        self.assertIn("select(.title == $t)", existing)
+        self.assertIn('select(test("^https?://"))', existing)
+        self.assertNotIn('if [ -n "$PROMOTE_TITLE" ]', existing)
+        jq = shutil.which("jq")
+        if not jq:
+            self.skipTest("jq is not on PATH")
+        title = 'Promote develop to main: Week 8 "Preview"'
+        payload = json.dumps(
+            [
+                {"title": title, "url": "https://example.test/99"},
+                {"title": title, "url": "javascript:alert(1)"},
+                {"title": "Promote develop to main: other", "url": "https://example.test/1"},
+            ]
+        )
+        filt = '.[] | select(.title == $t) | .url | select(test("^https?://"))'
+        matched = subprocess.check_output(
+            [jq, "-r", "--arg", "t", title, filt],
+            input=payload,
+            text=True,
+        ).split()
+        self.assertEqual(matched, ["https://example.test/99"])
+
+    def test_promote_url_lookup_requires_http(self):
+        """#88: the second lookup keeps only http(s) URLs."""
+        promote = _job_step_script(
+            yaml.safe_load(
+                (
+                    Path(__file__).resolve().parents[2]
+                    / ".github"
+                    / "workflows"
+                    / "narrative.yml"
+                ).read_text(encoding="utf-8")
+            ),
+            "publish",
+            name="Promote develop to main",
+        )
+        second = promote.split('cd "$GATE_BASE"', 1)[1].split("gh pr create", 1)[0]
+        self.assertIn("PROMOTE_URL=", second)
+        self.assertIn("select(.title == $t)", second)
+        self.assertIn('select(test("^https?://"))', second)
+        jq = shutil.which("jq")
+        if not jq:
+            self.skipTest("jq is not on PATH")
+        title = "Promote develop to main: Week 8"
+        payload = json.dumps(
+            [
+                {"title": title, "url": "javascript:alert(1)"},
+                {"title": title, "url": title},
+                {"title": title, "url": "https://example.test/88"},
+            ]
+        )
+        filt = '.[] | select(.title == $t) | .url | select(test("^https?://"))'
+        matched = subprocess.check_output(
+            [jq, "-r", "--arg", "t", title, filt],
+            input=payload,
+            text=True,
+        ).split()
+        self.assertEqual(matched, ["https://example.test/88"])
 
     def test_promote_jq_arg_matches_quoted_title_and_http_url(self):
         """Workflow lookup is gh JSON + jq --arg, not PR-head Python."""
@@ -8872,6 +9021,162 @@ class FactCheck(unittest.TestCase):
                 any("tools.chiefs_narrative.generate" in item for item in flags),
                 flags,
             )
+
+    def _assert_write_bypass(self, run: str, needle: str, **kwargs) -> list[str]:
+        with tempfile.TemporaryDirectory() as tmp:
+            found = _write_job_fixture(Path(tmp), run, **kwargs)
+        self.assertTrue(any(needle in item for item in found), found)
+        return found
+
+    def test_write_job_linter_flags_unquoted_workspace_pythonpath(self):
+        self._assert_write_bypass(
+            "PYTHONPATH=$GITHUB_WORKSPACE python -P -m "
+            "tools.chiefs_narrative.edition_merge --pr https://example.test/1",
+            "PYTHONPATH",
+        )
+
+    def test_write_job_linter_flags_export_workspace_pythonpath(self):
+        self._assert_write_bypass(
+            "export PYTHONPATH=$GITHUB_WORKSPACE\n"
+            "python -P -m tools.chiefs_narrative.edition_merge "
+            "--pr https://example.test/1",
+            "PYTHONPATH",
+        )
+
+    def test_write_job_linter_flags_python3_dot_module(self):
+        self._assert_write_bypass(
+            "python3.11 -m tools.chiefs_narrative.generate --check-edition",
+            "python3.11 -m",
+        )
+
+    def test_write_job_linter_flags_python_c_dunder_import(self):
+        self._assert_write_bypass(
+            "python -c '__import__(\"tools.chiefs_narrative.edition_merge\")'",
+            "python -c/heredoc",
+        )
+
+    def test_write_job_linter_flags_runpy(self):
+        self._assert_write_bypass(
+            "python -m runpy tools.chiefs_narrative.edition_merge",
+            "runpy",
+        )
+
+    def test_write_job_linter_flags_python_path_py(self):
+        self._assert_write_bypass("python tools/evil.py", "tools/evil.py")
+
+    def test_write_job_linter_flags_cd_workspace_then_allowed_module(self):
+        self._assert_write_bypass(
+            "cd $GITHUB_WORKSPACE && python -P -m "
+            "tools.chiefs_narrative.edition_merge --pr https://example.test/1",
+            "GITHUB_WORKSPACE",
+        )
+
+    def test_write_job_linter_flags_sh_repo_script(self):
+        self._assert_write_bypass("sh tools/x.sh", "sh|bash")
+
+    def test_write_job_linter_flags_bash_script(self):
+        self._assert_write_bypass("bash script", "sh|bash")
+
+    def test_write_job_linter_flags_pip_install_editable(self):
+        self._assert_write_bypass("pip install -e .", "install")
+
+    def test_write_job_linter_flags_make(self):
+        self._assert_write_bypass("make publish", "make")
+
+    def test_write_job_linter_flags_source(self):
+        self._assert_write_bypass("source tools/env.sh", "source")
+
+    def test_write_job_linter_flags_npm(self):
+        self._assert_write_bypass("npm ci --ignore-scripts", "npm")
+
+    def test_write_job_linter_flags_pytest(self):
+        self._assert_write_bypass("python -m pytest", "pytest")
+
+    def test_write_job_linter_flags_py_var_module(self):
+        self._assert_write_bypass(
+            "PY=python\n$PY -m tools.chiefs_narrative.generate",
+            "$PY -m",
+        )
+
+    def test_write_job_linter_gate_base_mention_does_not_skip_c_import(self):
+        self._assert_write_bypass(
+            "GATE_BASE=\"${RUNNER_TEMP}/gate-base\"\n"
+            "python -c 'import tools.chiefs_narrative.facts'",
+            "python -c/heredoc",
+        )
+
+    def test_write_job_linter_gate_base_mention_does_not_skip_heredoc_import(self):
+        self._assert_write_bypass(
+            "GATE_BASE=\"${RUNNER_TEMP}/gate-base\"\n"
+            "python - <<'PY'\nfrom tools.chiefs_narrative import facts\nPY",
+            "python -c/heredoc",
+        )
+
+    def test_write_job_linter_flags_pull_requests_write_only(self):
+        self._assert_write_bypass(
+            "python -m pytest",
+            "pytest",
+            permissions={"pull-requests": "write"},
+            checkout=False,
+        )
+
+    def test_write_job_linter_flags_actions_write_only(self):
+        self._assert_write_bypass(
+            "python -m pytest",
+            "pytest",
+            permissions={"actions": "write"},
+            checkout=False,
+        )
+
+    def test_write_job_linter_flags_allowed_module_from_pr_cwd(self):
+        self._assert_write_bypass(
+            "python -P -m tools.chiefs_narrative.edition_merge "
+            "--pr https://example.test/1",
+            "edition_merge",
+        )
+
+    def test_third_party_actions_are_sha_pinned(self):
+        """N4: every remote action is owner/repo@40-char SHA # version."""
+        pin = re.compile(
+            r"uses:\s+\S+/[^@\s]+@[0-9a-f]{40}\s+#\s+\S+"
+        )
+        for path in check_workflows.workflow_paths():
+            for index, line in enumerate(
+                path.read_text(encoding="utf-8").splitlines(), 1
+            ):
+                if not re.search(r"(?:^|\s)uses:\s+", line):
+                    continue
+                uses = re.split(r"uses:\s+", line, maxsplit=1)[1].strip()
+                if uses.startswith("./") or uses.startswith("docker://"):
+                    continue
+                self.assertRegex(
+                    line,
+                    pin,
+                    f"{path.name}:{index}: {line}",
+                )
+
+    def test_update_job_python_c_isolates_cwd(self):
+        """N5: update-job python -c must use -P or -I so cwd is off sys.path."""
+        script = _job_step_script(
+            yaml.safe_load(
+                (
+                    Path(__file__).resolve().parents[2]
+                    / ".github"
+                    / "workflows"
+                    / "narrative.yml"
+                ).read_text(encoding="utf-8")
+            ),
+            "update",
+            name="Queue draft pull request for approved PR-event gates",
+        )
+        self.assertTrue(script)
+        self.assertNotRegex(script, r"\$\(python -c ")
+        found = re.findall(
+            r"python(?:3(?:\.\d+)?)?(?:\s+-\S+)*\s+-c\b", script
+        )
+        self.assertTrue(found)
+        for token in found:
+            self.assertRegex(token, r"\s-[PI]\b", token)
 
     def test_public_staticdir_census_misses_are_must_fail(self):
         """Karen's leftover dist surfaces must fail a real hugo build."""
