@@ -217,6 +217,49 @@ def fetch_review_threads(number: int) -> list[dict]:
             raise MergeLookupError("review thread page missing endCursor")
 
 
+def list_open_promote_prs(runner=None) -> list[dict]:
+    """Open develop→main PRs. ``runner`` is stubbed in tests as ``gh`` JSON."""
+    fetch = runner or _gh_json
+    payload = fetch(
+        [
+            "pr",
+            "list",
+            "--base",
+            "main",
+            "--head",
+            "develop",
+            "--state",
+            "open",
+            "--json",
+            "url,title,number",
+        ]
+    )
+    if payload is None:
+        raise MergeLookupError("promote PR lookup returned nothing")
+    if not isinstance(payload, list):
+        raise MergeLookupError("promote PR lookup returned a non-list")
+    return [row for row in payload if isinstance(row, dict)]
+
+
+def promote_pr_url(title: str, prs: list[dict] | None = None, runner=None) -> str:
+    """URL of the open develop→main PR whose title matches this edition.
+
+    Title matching is done in Python so a quote in the edition title
+    cannot break jq. An empty title or a title-only field is not a URL.
+    """
+    wanted = (title or "").strip()
+    if not wanted:
+        return ""
+    rows = list(prs) if prs is not None else list_open_promote_prs(runner=runner)
+    for row in rows:
+        if str(row.get("title") or "").strip() != wanted:
+            continue
+        url = str(row.get("url") or "").strip()
+        if url.startswith("http://") or url.startswith("https://"):
+            return url
+    return ""
+
+
 def inspect_pr(pr_ref: str) -> dict:
     pr = fetch_pr(pr_ref)
     number = pr.get("number")
@@ -244,8 +287,23 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Refuse edition auto-merge/promote on hold or open reviews"
     )
-    parser.add_argument("--pr", required=True, help="PR URL or number")
+    parser.add_argument("--pr", help="PR URL or number")
+    parser.add_argument(
+        "--promote-url",
+        action="store_true",
+        help="print the develop→main promote PR URL for --title",
+    )
+    parser.add_argument("--title", default="", help="exact promote PR title")
     args = parser.parse_args(argv)
+    if args.promote_url:
+        try:
+            sys.stdout.write(promote_pr_url(args.title))
+        except MergeLookupError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
+        return 0
+    if not args.pr:
+        parser.error("--pr is required")
     try:
         result = inspect_pr(args.pr)
     except MergeLookupError as exc:

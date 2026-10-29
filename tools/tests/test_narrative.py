@@ -62,6 +62,15 @@ def _load_fixture(name: str):
     return json.loads(_fixture(name).read_text(encoding="utf-8"))
 
 
+def _hugo_output_text(dest: Path) -> str:
+    """All built text Hugo can leak into: html, xml, json, txt."""
+    chunks: list[str] = []
+    for path in dest.rglob("*"):
+        if path.is_file() and path.suffix.lower() in {".html", ".xml", ".json", ".txt"}:
+            chunks.append(path.read_text(encoding="utf-8", errors="replace"))
+    return "\n".join(chunks)
+
+
 def _hugo_bin() -> str | None:
     found = shutil.which("hugo")
     if found:
@@ -4147,96 +4156,63 @@ class FactCheck(unittest.TestCase):
             if "fact-checker note leaked" in item
         ]
 
-    def test_fact_checker_notes_are_rejected(self):
+    def test_known_real_archive_leaks_are_all_caught(self):
+        """Every known real leak sentence is a regression fixture (Karen ruling A)."""
+        fixture = _load_fixture("known_meta_leaks.json")
+        rows = fixture["leaks"]
+        self.assertEqual(len(rows), 33)
+        missed = []
         recap = _load_fixture("espn_401872952_recap.json")
         last = dict(self.LAST)
         last["date"] = "2026-09-27T17:00:00Z"
-        leaks = [
-            "Denver's early-down front, unlisted by name in this file",
-            "No other player status is stated in the supplied wire, so none is listed here",
-            "That name is not stated in the recap.",
-            "Nothing in the source packet names another player",
-            "There is no Week 4 report on this wire.",
-            "The look is untested on this wire.",
-        ]
-        for line in leaks:
-            self.assertTrue(self._meta_note_issues(line), line)
-            self.assertTrue(
-                self._meta_note_issues(line, last=last, recap=recap), line
-            )
+        for row in rows:
+            line = row["sentence"]
+            if not self._meta_note_issues(line):
+                missed.append((row["edition"], line))
+            if not self._meta_note_issues(line, last=last, recap=recap):
+                missed.append((row["edition"] + "+espn", line))
+        self.assertEqual(missed, [])
+
+    def test_meta_note_false_positives_stay_clean(self):
+        fixture = _load_fixture("known_meta_leaks.json")
+        hits = []
+        for line in fixture["false_positives"]:
+            issues = self._meta_note_issues(line)
+            if issues:
+                hits.append((line, issues))
+        self.assertEqual(hits, [])
         coaching = (
             "Do not ask a single corner to win every vertical. "
             "That is the special-teams file Toub is working before Denver."
         )
         self.assertFalse(self._meta_note_issues(coaching), coaching)
 
-    def test_fact_checker_referent_hedge_pairs_are_required(self):
-        """A leak needs a source referent and a hedge in the same sentence."""
-        isolated = {
-            "this file": "The nickel is unlisted by name in this file.",
-            "stated in": "No other name is stated in the supplied inactive list.",
-            "listed here": "So none is listed here.",
-            "this wire": "There is no Week 4 report on this wire.",
-            "supplied": "The supplied wire omitted the inactive list.",
-            "source packet": "The source packet is silent on inactives.",
-            "per the supplied": "No extra names per the supplied note.",
-            "the packet": "Nothing in the packet names another player.",
-            "per the packet": "Per the packet, nobody else is named.",
-        }
-        for snippet, line in isolated.items():
-            issues = self._meta_note_issues(line)
-            self.assertTrue(issues, line)
-            self.assertTrue(
-                any(snippet.lower() in item.lower() for item in issues),
-                (snippet, issues),
-            )
-        self.assertFalse(
-            self._meta_note_issues("The supplied depth chart is the Week 8 sheet.")
-        )
-        self.assertFalse(
-            self._meta_note_issues("That is a recovered snap, not a lost fumble.")
-        )
-
-    def test_fact_checker_notes_ignore_ordinary_football_prose(self):
-        clean = [
-            "That is a lean, not a verdict.",
-            "That is a step, not a declaration.",
-            "Go back through this file of film.",
-            "Kansas City took a wire-to-wire win.",
-            "That is a constraint, not a finished plan.",
-            "Cover-2 is not a label the staff uses for that shell.",
-            "The boot is not a description of last week's scramble.",
-            "Man coverage is not a label so much as a shell.",
-            "That route is not a description of a blown assignment.",
-            "This is not a description of a coverage bust.",
-            "That look is not a label the broadcast used.",
-            "Chalk, not a verdict",
-            "Favored at home is not a verdict: keep Walker's 189-yard identity",
-            "still treat 1-0 as a sample size, not a verdict.",
-            "not a description of a new offense",
-            "not a label he wants",
-            "not a story about leg strength",
-            "Camp must prove a second and third rusher can win without inventing pressure that breaks coverage behind them.",
-            "Spags’ zone pressures suddenly have a free rusher without inventing numbers.",
-            "Replace Thornton’s vertical stress without inventing a clone",
-            "Supports the receiver-depth urgency theme without inventing diagnoses.",
-        ]
-        for line in clean:
-            self.assertFalse(self._meta_note_issues(line), line)
-
-    def test_dropped_phrase_mutants_are_killed_by_referent_gate(self):
-        """The four pinned-phrase mutants: real leaks via referent, FPs stay clean."""
+    def test_tight_referent_hedge_union_still_catches_meta_forms(self):
+        """Referent+hedge is additive; lone sports referents stay clean."""
         self.assertTrue(
-            self._meta_note_issues("The nickel is unlisted by name in this file.")
+            self._meta_note_issues("No return date is in the wire.")
+        )
+        self.assertTrue(
+            self._meta_note_issues("The nickel isn't in the wire.")
+        )
+        self.assertTrue(
+            self._meta_note_issues("The nickel isn’t in the wire.")
         )
         self.assertTrue(
             self._meta_note_issues("That name is not stated in the recap.")
         )
-        self.assertFalse(self._meta_note_issues("That is not a lost fumble."))
-        self.assertFalse(self._meta_note_issues("That's a recovered snap."))
+        self.assertTrue(
+            self._meta_note_issues("Status is not in the supplied data.")
+        )
+        self.assertFalse(
+            self._meta_note_issues("The supplied depth chart is the Week 8 sheet.")
+        )
+        self.assertFalse(
+            self._meta_note_issues("Nothing in the packet of play-action calls names him.")
+        )
 
     def test_without_inventing_archive_lines_are_clean(self):
-        """Scan published editions; 'without inventing' is ordinary copy."""
+        """Archive 'without inventing' football copy is not a leak."""
         editions = Path("data") / "narrative_editions"
         found = []
         hits = []
@@ -4255,17 +4231,6 @@ class FactCheck(unittest.TestCase):
         self.assertGreaterEqual(len(found), 3, found)
         self.assertEqual(hits, [])
 
-    def test_fact_checker_referent_paraphrases_are_rejected(self):
-        paraphrases = [
-            "Status is not in the supplied data.",
-            "So none is listed here.",
-            "Nothing in the packet names another player.",
-            "The nickel is unlisted by name in this file.",
-            "No extra names per the supplied note.",
-        ]
-        for line in paraphrases:
-            self.assertTrue(self._meta_note_issues(line), line)
-
     def test_editor_notes_are_never_rendered_or_scanned(self):
         canary = "stated in the supplied wire, so none is listed here"
         payload = {
@@ -4281,89 +4246,144 @@ class FactCheck(unittest.TestCase):
                 for item in facts.check_review(payload, None, None, changed=True)
             )
         )
-        parked = facts.park_editor_notes(
-            {
-                "headline": "Visible headline",
-                "lastGameReview": {
-                    "lede": "Kansas City won 24-10. " + canary + "."
-                },
-            }
-        )
-        self.assertTrue(any(canary in note for note in parked.get("editorNotes") or []))
-        self.assertNotIn(canary, facts.edition_text(parked))
         normalized = schema.normalize(
             {"editorNotes": [canary], "headline": "Visible headline"},
             phase={"type": "regular", "mode": "preview"},
             meta={"generator": "test"},
         )
         self.assertEqual(normalized["editorNotes"], [canary])
-        self.assertIn("editorNotes", prompts.SYSTEM_PROMPT)
+        self.assertIn("belong only in editorNotes", prompts.SYSTEM_PROMPT)
         hint = json.loads(prompts._schema_hint({"type": "regular", "mode": "preview"}, ""))
         self.assertIn("editorNotes", hint)
         self.assertNotIn("editorNotes", facts._EDITION_KEYS)
-        self.assertNotIn("editor_notes", facts._EDITION_KEYS)
-        generate_src = Path(generate.__file__).read_text(encoding="utf-8")
-        park_at = generate_src.index("facts.park_editor_notes")
-        replay_at = generate_src.index("archive_replay_issues")
-        write_at = generate_src.index("def _write_edition_payload")
-        self.assertLess(park_at, replay_at)
-        self.assertLess(park_at, write_at)
+        self.assertFalse(hasattr(facts, "park_editor_notes"))
 
-    def test_editor_notes_never_appear_in_hugo_output(self):
+    def test_detected_leak_holds_and_keeps_published_copy(self):
+        """A leak HOLDs. Copy is not moved or deleted, even as a whole field."""
+        sentence = (
+            "It is not a claim that a blitz created Williams' interception."
+        )
+        narrative = {
+            "headline": "Visible headline",
+            "dek": sentence,
+            "generatedAt": "2026-10-29T18:00:00Z",
+        }
+        before = copy.deepcopy(narrative)
+        issues = facts.check_review(narrative, None, None, changed=True)
+        self.assertTrue(
+            any("fact-checker note leaked" in item for item in issues), issues
+        )
+        self.assertTrue(any(sentence in item for item in issues), issues)
+        self.assertEqual(narrative["dek"], before["dek"])
+        self.assertTrue(
+            facts.should_hold_automerge([], narrative, leftover=issues)
+        )
+        self.assertTrue(known_errors.is_hold_only_issue(issues[0]))
+        body = drop_body.drop_body(
+            {"holdAutomerge": True, "leftoverIssues": issues}
+        )
+        self.assertIn(sentence, body)
+        self.assertIn("Leaked fact-checker notes", body)
+        self.assertIn("Automerge is held.", body)
+        buf = io.StringIO()
+        generate.emit_held(issues, stream=buf)
+        self.assertIn(sentence, buf.getvalue())
+
+    def _build_hugo_site(self, tmp: Path, *, mutate_rss: bool = False):
         hugo_bin = _hugo_bin()
         if not hugo_bin:
             self.skipTest("hugo is not on PATH or ~/.local/hugo/hugo")
         repo = Path(__file__).resolve().parents[2]
         canary = "EDITORNOTE_CANARY_7f3c9e2a_never_render"
+        site = tmp / "site"
+        site.mkdir()
+        for name in (
+            "layouts",
+            "content",
+            "static",
+            "assets",
+            "archetypes",
+            "public",
+            "hugo.yaml",
+        ):
+            src = repo / name
+            if not src.exists():
+                continue
+            if name == "layouts" and mutate_rss:
+                shutil.copytree(src, site / name)
+                rss = site / "layouts" / "_default" / "rss.xml"
+                rss.write_text(
+                    rss.read_text(encoding="utf-8")
+                    + '\n{{ with index site.Data.narrative (printf "%s%s" "editor" "Notes") }}'
+                    + "{{ . }}{{ end }}\n",
+                    encoding="utf-8",
+                )
+            else:
+                (site / name).symlink_to(src)
+        (site / "data").mkdir()
+        for path in (repo / "data").iterdir():
+            if not path.is_file():
+                continue
+            if path.name == "narrative.json":
+                payload = json.loads(path.read_text(encoding="utf-8"))
+                payload["editorNotes"] = [
+                    canary,
+                    "stated in the supplied wire, so none is listed here",
+                ]
+                (site / "data" / path.name).write_text(
+                    json.dumps(payload, indent=2) + "\n", encoding="utf-8"
+                )
+            else:
+                shutil.copy2(path, site / "data" / path.name)
+        dest = tmp / "dist"
+        result = subprocess.run(
+            [hugo_bin, "--gc", "--destination", str(dest)],
+            cwd=site,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return dest, canary
+
+    def test_editor_notes_never_appear_in_hugo_output(self):
+        repo = Path(__file__).resolve().parents[2]
         for path in (repo / "layouts").rglob("*"):
-            if path.is_file():
-                self.assertNotIn("editorNotes", path.read_text(encoding="utf-8"), path)
-        with tempfile.TemporaryDirectory() as tmp:
-            site = Path(tmp) / "site"
-            site.mkdir()
-            for name in (
-                "layouts",
-                "content",
-                "static",
-                "assets",
-                "archetypes",
-                "public",
-                "hugo.yaml",
-            ):
-                src = repo / name
-                if src.exists():
-                    (site / name).symlink_to(src)
-            (site / "data").mkdir()
-            for path in (repo / "data").iterdir():
-                if not path.is_file():
-                    continue
-                if path.name == "narrative.json":
-                    payload = json.loads(path.read_text(encoding="utf-8"))
-                    payload["editorNotes"] = [
-                        canary,
-                        "stated in the supplied wire, so none is listed here",
-                    ]
-                    (site / "data" / path.name).write_text(
-                        json.dumps(payload, indent=2) + "\n", encoding="utf-8"
-                    )
-                else:
-                    shutil.copy2(path, site / "data" / path.name)
-            dest = Path(tmp) / "dist"
-            result = subprocess.run(
-                [hugo_bin, "--gc", "--minify", "--destination", str(dest)],
-                cwd=site,
-                capture_output=True,
-                text=True,
-                check=False,
+            if not path.is_file():
+                continue
+            text = path.read_text(encoding="utf-8")
+            self.assertNotIn("editorNotes", text, path)
+            self.assertNotRegex(
+                text,
+                r'printf\s+"%s%s"\s+"editor"\s+"Notes"',
+                msg=path,
             )
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            rendered = []
-            for html in dest.rglob("*.html"):
-                rendered.append(html.read_text(encoding="utf-8"))
-            blob = "\n".join(rendered)
+        with tempfile.TemporaryDirectory() as tmp:
+            dest, canary = self._build_hugo_site(Path(tmp))
+            blob = _hugo_output_text(dest)
+            for rel in ("index.xml", "narrative/index.xml", "sitemap.xml"):
+                xml = dest / rel
+                self.assertTrue(xml.is_file(), rel)
+                self.assertNotIn(canary, xml.read_text(encoding="utf-8"), rel)
             self.assertNotIn(canary, blob)
             self.assertNotIn("stated in the supplied wire", blob)
             self.assertNotIn("editorNotes", blob)
+
+    def test_hugo_canary_scan_catches_rss_editor_notes_read(self):
+        """A template that reads editorNotes into RSS must fail the canary scan."""
+        with tempfile.TemporaryDirectory() as tmp:
+            dest, canary = self._build_hugo_site(Path(tmp), mutate_rss=True)
+            blob = _hugo_output_text(dest)
+            html_only = "\n".join(
+                path.read_text(encoding="utf-8")
+                for path in dest.rglob("*.html")
+                if path.is_file()
+            )
+            self.assertNotIn(canary, html_only)
+            self.assertIn(canary, blob)
+            index_xml = dest / "index.xml"
+            self.assertTrue(index_xml.is_file())
+            self.assertIn(canary, index_xml.read_text(encoding="utf-8"))
 
     def test_not_a_verdict_is_ordinary_archive_prose(self):
         """Karen: 'not a verdict' / 'lean, not a verdict' are published copy."""
@@ -4525,17 +4545,28 @@ class FactCheck(unittest.TestCase):
         self.assertEqual(captured, [True])
 
     def test_archive_replay_issues_always_rechecks(self):
-        captured = []
-
-        def fake_check(*args, changed=None, **kwargs):
-            captured.append(changed)
-            return []
-
+        leak = {
+            "generatedAt": "2026-10-01T00:00:00Z",
+            "lastGameReview": {
+                "lede": (
+                    "It is not a claim that a blitz created "
+                    "Williams' interception."
+                )
+            },
+        }
+        self.assertFalse(
+            any(
+                "fact-checker note leaked" in item
+                for item in facts.check_review(leak, None, None, changed=False)
+            )
+        )
         with patch.object(generate, "_last_game_from_edition", return_value=None):
             with patch.object(generate, "_recap_for_edition", return_value={}):
-                with patch.object(facts, "check_review", side_effect=fake_check):
-                    generate.archive_replay_issues({"slug": "x"})
-        self.assertEqual(captured, [True])
+                issues = generate.archive_replay_issues(leak)
+        self.assertTrue(
+            any("fact-checker note leaked" in item for item in issues),
+            issues,
+        )
 
     def test_changed_2026_10_29_1754_leak_is_rejected(self):
         payload = {
@@ -6661,6 +6692,17 @@ class FactCheck(unittest.TestCase):
         self.assertIn("## Corrected sentences", rewritten)
         self.assertIn("29 first downs", rewritten)
         self.assertIn("Automerge is held.", rewritten)
+        leaked = drop_body.drop_body(
+            {
+                "holdAutomerge": True,
+                "leftoverIssues": [
+                    "fact-checker note leaked ('this wire'): There is no Week 4 report on this wire."
+                ],
+            }
+        )
+        self.assertIn("## Leaked fact-checker notes", leaked)
+        self.assertIn("There is no Week 4 report on this wire.", leaked)
+        self.assertIn("Automerge is held.", leaked)
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "narrative_repair.json"
             path.write_text(
@@ -6957,7 +6999,9 @@ class FactCheck(unittest.TestCase):
         self.assertNotIn(".[].url", first_promote)
         self.assertNotIn(".[].url", refuse)
         self.assertNotIn("select(.title", promote)
-        self.assertIn(".[0].url", promote)
+        self.assertGreaterEqual(promote.count("--promote-url"), 2)
+        self.assertNotRegex(promote, r'\n\s*EXISTING=""')
+        self.assertNotRegex(promote, r'\n\s*PROMOTE_URL=""')
         self.assertIn("--head develop", promote)
         self.assertIn("--base main", promote)
         self.assertIn('gh pr close "$PROMOTE_URL"', promote)
@@ -6969,23 +7013,63 @@ class FactCheck(unittest.TestCase):
         generate_if = str(((parsed.get("jobs") or {}).get("generate") or {}).get("if") or "")
         self.assertIn("pull_request", generate_if)
 
-    def test_promote_lookup_survives_quoted_edition_title(self):
-        """A double quote in the edition title must not be interpolated into jq."""
-        root = Path(__file__).resolve().parents[2] / ".github" / "workflows"
-        promote = str(
-            _job_step(
-                yaml.safe_load((root / "narrative.yml").read_text(encoding="utf-8")),
-                "publish",
-                name="Promote develop to main",
-            ).get("run")
-            or ""
+    def test_promote_lookup_uses_url_for_this_edition_title(self):
+        """Stubbed gh: match this edition's title, return url, survive quotes."""
+        title = 'Promote develop to main: Week 8 "Preview"'
+        prs = [
+            {
+                "url": "https://example.test/99",
+                "title": title,
+                "number": 99,
+            },
+            {
+                "url": "https://example.test/100",
+                "title": "Promote develop to main: other",
+                "number": 100,
+            },
+        ]
+        self.assertEqual(edition_merge.promote_pr_url(title, prs=prs), "https://example.test/99")
+        self.assertEqual(edition_merge.promote_pr_url("missing", prs=prs), "")
+        self.assertEqual(edition_merge.promote_pr_url("", prs=prs), "")
+        titled = [{"title": title, "url": ""}]
+        self.assertEqual(edition_merge.promote_pr_url(title, prs=titled), "")
+        fetched = []
+
+        def fake_gh(args):
+            fetched.append(list(args))
+            return prs
+
+        self.assertEqual(
+            edition_merge.promote_pr_url(title, runner=fake_gh),
+            "https://example.test/99",
         )
-        self.assertNotIn("${PROMOTE_TITLE}", promote.split("--jq", 1)[-1])
-        self.assertNotIn("select(.title", promote)
-        self.assertIn(".[0].url", promote)
-        self.assertIn('--title "$PROMOTE_TITLE"', promote)
-        self.assertNotIn("gh pr list --state open --json", promote)
-        self.assertIn("gh pr list --base main --head develop", promote)
+        self.assertEqual(fetched[0][:4], ["pr", "list", "--base", "main"])
+        self.assertIn("--head", fetched[0])
+        self.assertIn("develop", fetched[0])
+        self.assertIn("url,title,number", fetched[0])
+        with patch.object(
+            edition_merge, "promote_pr_url", return_value="https://example.test/99"
+        ):
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                rc = edition_merge.main(["--promote-url", "--title", title])
+            self.assertEqual(rc, 0)
+            self.assertEqual(buf.getvalue(), "https://example.test/99")
+
+    def test_promote_lookup_blank_or_title_field_is_not_a_url(self):
+        title = "Promote develop to main: Week 8"
+        self.assertEqual(edition_merge.promote_pr_url(title, prs=[]), "")
+        self.assertEqual(
+            edition_merge.promote_pr_url(
+                title, prs=[{"title": title, "url": title}]
+            ),
+            "",
+        )
+        url = edition_merge.promote_pr_url(
+            title, prs=[{"title": title, "url": "https://example.test/1"}]
+        )
+        self.assertTrue(url.startswith("http"))
+        self.assertNotEqual(url, title)
 
     def test_automerge_and_pages_refuse_unsigned_reviews(self):
         """G1–G3 / G6–G8: YAML-parsed wiring. Named mutations in the PR body."""

@@ -136,6 +136,7 @@ def is_hold_only_issue(item: str) -> bool:
         or "must hold, not be rewritten" in raw
         or "no ESPN penalty data" in raw
         or "no ESPN play-by-play" in raw
+        or "fact-checker note leaked" in raw
     )
 
 

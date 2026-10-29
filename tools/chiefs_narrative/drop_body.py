@@ -10,17 +10,41 @@ from pathlib import Path
 from tools.chiefs_narrative import config
 
 
+def _leak_rows(repair: dict | None) -> list[str]:
+    rows: list[str] = []
+    for item in ((repair or {}).get("leftoverIssues") or []):
+        text = str(item or "").strip()
+        if "fact-checker note leaked" not in text:
+            continue
+        if ": " in text:
+            text = text.split(": ", 1)[1].strip() or text
+        rows.append(text)
+    return rows
+
+
 def drop_body(repair: dict | None) -> str:
-    """Markdown block listing salvage corrections and drops."""
+    """Markdown block listing salvage corrections, drops, and held leaks."""
     rows = [str(row) for row in ((repair or {}).get("droppedSentences") or []) if row]
     fixes = [
         str(row) for row in ((repair or {}).get("correctedSentences") or []) if row
     ]
-    if not rows and not fixes:
+    leaks = _leak_rows(repair)
+    if not rows and not fixes and not leaks:
         return ""
     held = bool((repair or {}).get("holdAutomerge"))
     hold_note = " Automerge is held." if held else ""
     lines: list[str] = []
+    if leaks:
+        lines.extend(
+            [
+                "## Leaked fact-checker notes",
+                "",
+                "These published sentences are process asides." + hold_note,
+                "",
+            ]
+        )
+        lines.extend(f"- {row}" for row in leaks)
+        lines.append("")
     if fixes:
         lines.extend(
             [

@@ -212,20 +212,54 @@ _EDITION_DIFF_PATHS = (
     "data/narrative.json",
     "data/narrative_editions",
 )
-# Meta notes that leaked into published copy. A sentence is a leak only
-# when a source/listing referent and a negation/hedge both appear. Loose
-# "not a label/description/story/verdict" shapes are ordinary football.
+# Known process-vs-tape leaks from published editions (ce7eeebc coverage).
+# Keep those alts, then add a tight referent+hedge union. Do not use a
+# bare "not a label/description/verdict" or a lone "the wire"/"supplied".
+_FACT_CHECKER_NOTE = re.compile(
+    r"\bunlisted by name\b"
+    r"|\bnone is listed here\b"
+    r"|\bnot listed here\b"
+    r"|\bsupplied wire\b"
+    r"|\bsupplied data\b"
+    r"|\bsource packet\b"
+    r"|\bper the supplied\b"
+    r"|\bthis wire(?!-to-wire)\b"
+    r"|\bin this file\b"
+    r"|\bnot stated in the\b"
+    r"|\b(?:not|isn['’]t) credit for\b"
+    r"|\bnot a claim that\b"
+    r"|\bdo(?: not|n['’]t) tell that story\b"
+    r"|\bdo(?: not|n['’]t) sell it as\b"
+    r"|\bnothing here says\b"
+    r"|\bnothing in the source packet\b"
+    r"|\bthat(?:['’]s| is) a recovered snap\b"
+    r"|\bnot a lost fumble\b"
+    r"|\bwithout inventing a (?:sack |snap )?total\b"
+    r"|\bnot a story about how\b"
+    r"|\bnot a story about\b[^.\n]{0,80}"
+    r"\b(?:takeaway|takeaways|interception|throw|throws|pick)\b"
+    r"|\b(?:install|call)\b[^.\n]{0,80}"
+    r"\b(?:not|isn['’]t) a(?:n)?\b[^.\n]{0,48}"
+    r"\b(?:description|label|story)\b[^.\n]{0,80}"
+    r"\b(?:throw|throws|interception|takeaway|takeaways|pick)\b",
+    re.IGNORECASE,
+)
+# Meta-specific referents only. Lone "the wire" / "the packet" / "supplied"
+# / "listed here" are ordinary football.
 _META_REFERENT = re.compile(
-    r"\bper the packet\b"
+    r"\bin this file\b"
+    r"|\bin this wire\b"
+    r"|\bthis wire(?!-to-wire)\b"
+    r"|\bin the wire\b"
+    r"|\bfrom the wire\b"
+    r"|\bsupplied (?:data|wire)\b"
     r"|\bper the supplied\b"
     r"|\bsource packet\b"
-    r"|\bthe packet\b"
-    r"|\bthis file\b"
-    r"|\bthe wire\b"
-    r"|\bthis wire(?!-to-wire)\b"
-    r"|\bsupplied\b"
-    r"|\blisted here\b"
-    r"|\bstated in\b",
+    r"|\bthe source packet\b"
+    r"|\bstated in the\b"
+    r"|\bnot listed here\b"
+    r"|\bnone is listed here\b"
+    r"|\bunlisted by name\b",
     re.IGNORECASE,
 )
 _META_HEDGE = re.compile(
@@ -3538,49 +3572,17 @@ def _fact_checker_notes_enabled(
 
 
 def _is_meta_note_sentence(sentence: str) -> bool:
-    """True when a source referent and a negation/hedge share the sentence."""
+    """True for a known process-vs-tape leak or a tight referent+hedge pair."""
     if not sentence or not sentence.strip():
         return False
+    if _FACT_CHECKER_NOTE.search(sentence):
+        return True
     return bool(_META_REFERENT.search(sentence) and _META_HEDGE.search(sentence))
 
 
 def _meta_note_snippet(sentence: str) -> str:
-    match = _META_REFERENT.search(sentence)
+    match = _FACT_CHECKER_NOTE.search(sentence) or _META_REFERENT.search(sentence)
     return match.group(0) if match else sentence.strip()[:48]
-
-
-def _norm_editor_notes(value) -> list[str]:
-    rows = value if isinstance(value, list) else [value]
-    out: list[str] = []
-    seen: set[str] = set()
-    for item in rows:
-        text = str(item or "").strip()
-        key = " ".join(text.lower().split())
-        if not text or key in seen:
-            continue
-        seen.add(key)
-        out.append(text)
-    return out
-
-
-def park_editor_notes(narrative: dict | None) -> dict:
-    """Move leaked meta sentences out of published fields into editorNotes."""
-    payload = copy.deepcopy(narrative or {})
-    parked = _norm_editor_notes(payload.get("editorNotes"))
-    snippets: list[str] = []
-    for sentence in _split_sentences(edition_text(payload)):
-        if not _is_meta_note_sentence(sentence):
-            continue
-        parked.append(sentence.strip())
-        snippets.append(sentence.strip())
-    if snippets:
-        for key in _EDITION_KEYS:
-            if key in payload:
-                payload[key] = _drop_value(
-                    payload[key], snippets, None, None, generated_at=""
-                )
-    payload["editorNotes"] = _norm_editor_notes(parked)
-    return payload
 
 
 def _check_fact_checker_notes(
@@ -3597,11 +3599,13 @@ def _check_fact_checker_notes(
         if not _is_meta_note_sentence(sentence):
             continue
         snippet = _meta_note_snippet(sentence)
-        key = snippet.lower()
+        key = " ".join(sentence.lower().split())
         if key in seen:
             continue
         seen.add(key)
-        issues.append(f"fact-checker note leaked ({snippet!r})")
+        issues.append(
+            f"fact-checker note leaked ({snippet!r}): {sentence.strip()}"
+        )
     return issues
 
 

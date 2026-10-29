@@ -1169,12 +1169,11 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         narrative["updatedAt"] = narrative.get("generatedAt") or config.iso_now()
 
     leftover_issues = list(leftover_issues or [])
-    narrative = facts.park_editor_notes(narrative)
-    leftover_issues = [
-        item
-        for item in leftover_issues
-        if "fact-checker note leaked" not in item
+    leak_notes = [
+        item for item in leftover_issues if "fact-checker note leaked" in item
     ]
+    if leak_notes:
+        emit_held(leak_notes)
     if replay_fixture_missing(narrative):
         print(f"  [writer] {REPLAY_NOT_RUN}")
         if REPLAY_NOT_RUN not in leftover_issues:
