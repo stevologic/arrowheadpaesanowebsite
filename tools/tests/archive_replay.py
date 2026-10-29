@@ -185,35 +185,116 @@ def last_game_for_edition(edition: dict, schedule: list) -> dict | None:
     return None
 
 
-def replay_edition(edition: dict, schedule: list, recaps: dict) -> list[str]:
+def _live_slug() -> str:
+    live = Path("data") / "narrative.json"
+    if not live.is_file():
+        return ""
+    try:
+        payload = json.loads(live.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return ""
+    if isinstance(payload, dict):
+        return str(payload.get("slug") or "").strip()
+    return ""
+
+
+def edition_was_changed(
+    name: str,
+    edition: dict,
+    *,
+    changed_paths: set[str] | None = None,
+    live_slug: str | None = None,
+) -> bool | None:
+    """True when this archive file or the live twin changed in this PR/commit."""
+    return facts.edition_content_changed(
+        name,
+        edition,
+        changed_paths=changed_paths,
+        live_slug=live_slug if live_slug is not None else _live_slug(),
+    )
+
+
+def replay_edition(
+    edition: dict,
+    schedule: list,
+    recaps: dict,
+    *,
+    changed: bool | None = None,
+    name: str | None = None,
+    changed_paths: set[str] | None = None,
+    live_slug: str | None = None,
+) -> list[str]:
     last = last_game_for_edition(edition, schedule)
     recap = recaps.get(str((last or {}).get("id") or "")) if last else None
     recap = recap or {}
-    return facts.check_review(edition, last, recap, schedule=schedule)
+    if changed is None and name:
+        changed = edition_was_changed(
+            name,
+            edition,
+            changed_paths=changed_paths,
+            live_slug=live_slug,
+        )
+    return facts.check_review(
+        edition, last, recap, schedule=schedule, changed=changed
+    )
 
 
 def replay_all_editions() -> list[tuple[str, list[str]]]:
     schedule = frozen_schedule()
     recaps = recaps_by_event()
     committed = committed_edition_names()
+    changed_paths = facts.changed_edition_paths()
+    live_slug = _live_slug()
     rows = []
     for path in sorted(EDITIONS.glob("*.json")):
         if path.name not in committed:
             continue
         edition = json.loads(path.read_text(encoding="utf-8"))
-        rows.append((path.name, replay_edition(edition, schedule, recaps)))
+        rows.append(
+            (
+                path.name,
+                replay_edition(
+                    edition,
+                    schedule,
+                    recaps,
+                    name=path.name,
+                    changed_paths=changed_paths,
+                    live_slug=live_slug,
+                ),
+            )
+        )
     return rows
 
 
-def salvage_edition(edition: dict, schedule: list, recaps: dict) -> dict:
+def salvage_edition(
+    edition: dict,
+    schedule: list,
+    recaps: dict,
+    *,
+    changed: bool | None = None,
+    name: str | None = None,
+    changed_paths: set[str] | None = None,
+    live_slug: str | None = None,
+) -> dict:
     last = last_game_for_edition(edition, schedule)
     recap = recaps.get(str((last or {}).get("id") or "")) if last else None
     recap = recap or {}
-    issues = facts.check_review(edition, last, recap, schedule=schedule)
+    if changed is None and name:
+        changed = edition_was_changed(
+            name,
+            edition,
+            changed_paths=changed_paths,
+            live_slug=live_slug,
+        )
+    issues = facts.check_review(
+        edition, last, recap, schedule=schedule, changed=changed
+    )
     fixed, logs = facts.apply_fact_corrections(
         copy.deepcopy(edition), issues, recap, last, schedule
     )
-    leftover = facts.check_review(fixed, last, recap, schedule=schedule)
+    leftover = facts.check_review(
+        fixed, last, recap, schedule=schedule, changed=changed
+    )
     repaired = (
         facts.repair_offending_copy(fixed, leftover, last, recap)
         if leftover
@@ -238,21 +319,37 @@ def salvage_all_editions() -> list[tuple[str, dict]]:
     schedule = frozen_schedule()
     recaps = recaps_by_event()
     committed = committed_edition_names()
+    changed_paths = facts.changed_edition_paths()
+    live_slug = _live_slug()
     rows = []
     for path in sorted(EDITIONS.glob("*.json")):
         if path.name not in committed:
             continue
         edition = json.loads(path.read_text(encoding="utf-8"))
-        rows.append((path.name, salvage_edition(edition, schedule, recaps)))
+        rows.append(
+            (
+                path.name,
+                salvage_edition(
+                    edition,
+                    schedule,
+                    recaps,
+                    name=path.name,
+                    changed_paths=changed_paths,
+                    live_slug=live_slug,
+                ),
+            )
+        )
     return rows
 
 
-def salvage_edition_file(name: str) -> dict:
+def salvage_edition_file(name: str, *, changed: bool | None = None) -> dict:
     """Replay one on-disk edition, including unpinned published Reviews."""
     schedule = frozen_schedule()
     recaps = recaps_by_event()
     edition = json.loads((EDITIONS / name).read_text(encoding="utf-8"))
-    return salvage_edition(edition, schedule, recaps)
+    return salvage_edition(
+        edition, schedule, recaps, changed=changed, name=name
+    )
 
 
 def quoted_snippets(issues: list[str]) -> list[str]:

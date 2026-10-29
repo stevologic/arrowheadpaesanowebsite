@@ -9,7 +9,10 @@ Every generated section is scanned — not just lastGameReview.
 from __future__ import annotations
 
 import copy
+import os
 import re
+import subprocess
+from datetime import datetime, timezone
 
 from . import collect, config, diagrams, known_errors, phase as phase_mod
 
@@ -200,29 +203,49 @@ _ECHO_INSTRUCTION = re.compile(
     re.IGNORECASE,
 )
 # Process / fact-checker asides that must not ship in published copy.
-# Grandfather editions at or before the 2026-10-29-1754 leak so archive
-# replay of already-published desks stays stable; unit tests omit
-# generatedAt and are always scanned.
-_FACT_CHECKER_NOTE_AFTER = "2026-10-29T17:54:31+00:00"
+# Grandfathering is only for untouched archive editions stamped strictly
+# before the 2026-10-29-1754 leak. A changed edition is always re-checked,
+# whatever its stamp. Unit tests omit generatedAt and are always scanned.
+# Compare parsed datetimes, not strings, so Z and offsets are the same instant.
+_FACT_CHECKER_NOTE_BEFORE = datetime(2026, 10, 29, 17, 54, 31, tzinfo=timezone.utc)
+_EDITION_DIFF_PATHS = (
+    "data/narrative.json",
+    "data/narrative_editions",
+)
+# Meta-denial / process asides. Keep each phrase class independently
+# matchable so dropping one pattern cannot hide behind another. Do not
+# use a generic "that is a X, not a Y" — that flags ordinary football copy.
 _FACT_CHECKER_NOTE = re.compile(
-    r"\bin this file\b"
-    r"|\bthis file\b"
-    r"|\bthis wire\b"
-    r"|\bsupplied wire\b"
-    r"|\bsource packet\b"
-    r"|\bnot stated in the\b"
-    r"|\bis not credit for\b"
-    r"|\bunlisted by name\b"
+    r"\bunlisted by name\b"
     r"|\bnone is listed here\b"
+    r"|\bsupplied wire\b"
+    r"|\bsupplied data\b"
+    r"|\bsupplied (?:file|packet)\b"
+    r"|\bsource packet\b"
+    r"|\bper the supplied\b"
     r"|\bwithout inventing\b"
+    r"|\bin this file\b"
+    r"|\bin the (?:supplied )?(?:wire|file|source packet)\b"
+    r"|\bon this wire\b"
+    r"|\bthis wire(?!-to-wire)\b"
+    r"|\b(?:from|stated in)\s+(?:the\s+)?(?:supplied\s+)?"
+    r"(?:wire|file|source packet|data)\b"
+    r"|\bnot stated in the\b"
+    r"|\bnot credit for\b"
+    r"|\bnot a story about\b"
+    r"|\bnot a claim that\b"
+    r"|\bnot a description of\b"
+    r"|\bnot a label\b"
+    r"|\bnot a lost fumble\b"
     r"|\bdo not tell that story\b"
+    r"|\bdon['’]t tell that story\b"
     r"|\bdo not sell it as\b"
-    r"|\bit is not a claim that\b"
-    r"|\bit is a\b[^.!?]{0,48}\binstall, not a description\b"
-    r"|\bthis is a\b[^.!?]{0,48}\bcall, not a label\b"
-    r"|\bthat is a\b[^.!?]{0,80}\bnot a\b"
-    r"|\b(?:in|from|per|stated in)\s+(?:the\s+)?(?:supplied\s+)?"
-    r"(?:wire|file|source packet)\b",
+    r"|\bdon['’]t sell it as\b"
+    r"|\bnothing here says\b"
+    r"|\bnothing in the (?:source )?packet\b"
+    r"|\bit is a\b[^.!?]{0,48}\bnot a description\b"
+    r"|\bthis is a\b[^.!?]{0,48}\bnot a label\b"
+    r"|\bthat(?:['’]s| is) a recovered snap\b",
     re.IGNORECASE,
 )
 _GARBLED_RECORD = re.compile(
@@ -3383,17 +3406,139 @@ def _check_echoed_instructions(text: str) -> list[str]:
     return issues
 
 
-def _fact_checker_notes_enabled(narrative: dict | None) -> bool:
-    stamp = str((narrative or {}).get("generatedAt") or "").strip()
-    if not stamp:
+def _git_name_only(args: list[str], root) -> list[str] | None:
+    try:
+        out = subprocess.check_output(
+            ["git", *args],
+            cwd=root,
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return [
+        line.strip().replace("\\", "/")
+        for line in out.splitlines()
+        if line.strip()
+    ]
+
+
+def _diff_base(root) -> str | None:
+    override = (os.environ.get("NARRATIVE_DIFF_BASE") or "").strip()
+    if override:
+        return override
+    for candidate in ("origin/develop", "develop"):
+        try:
+            subprocess.check_output(
+                ["git", "rev-parse", "--verify", candidate],
+                cwd=root,
+                stderr=subprocess.DEVNULL,
+            )
+        except (OSError, subprocess.CalledProcessError):
+            continue
+        return candidate
+    return None
+
+
+def changed_edition_paths(
+    *, root=None, base: str | None = None
+) -> set[str] | None:
+    """Edition files that differ in this PR, commit, or worktree.
+
+    None means git could not say, so callers must not grandfather.
+    """
+    root = config.REPO_ROOT if root is None else root
+    resolved = (base or "").strip() or _diff_base(root)
+    queries = []
+    if resolved:
+        queries.append(
+            ["diff", "--name-only", f"{resolved}...HEAD", "--", *_EDITION_DIFF_PATHS]
+        )
+        queries.append(
+            ["diff", "--name-only", resolved, "--", *_EDITION_DIFF_PATHS]
+        )
+    queries.append(["diff", "--name-only", "--", *_EDITION_DIFF_PATHS])
+    queries.append(["diff", "--cached", "--name-only", "--", *_EDITION_DIFF_PATHS])
+    found: set[str] = set()
+    saw_git = False
+    for args in queries:
+        rows = _git_name_only(args, root)
+        if rows is None:
+            continue
+        saw_git = True
+        found.update(rows)
+    if not saw_git:
+        return None
+    return found
+
+
+def edition_content_changed(
+    name: str | None,
+    narrative: dict | None,
+    *,
+    changed_paths: set[str] | None = None,
+    live_slug: str | None = None,
+    root=None,
+    base: str | None = None,
+) -> bool | None:
+    """True when this edition's files changed in the PR or commit being checked."""
+    paths = changed_paths
+    if paths is None:
+        paths = changed_edition_paths(root=root, base=base)
+        if paths is None:
+            return None
+    posix = {item.replace("\\", "/") for item in paths}
+    filename = (name or "").strip()
+    slug = str((narrative or {}).get("slug") or "").strip()
+    if filename and (
+        filename in posix or f"data/narrative_editions/{filename}" in posix
+    ):
         return True
-    return stamp > _FACT_CHECKER_NOTE_AFTER
+    if slug and f"data/narrative_editions/{slug}.json" in posix:
+        return True
+    if "data/narrative.json" in posix and live_slug:
+        if filename == f"{live_slug}.json" or slug == live_slug:
+            return True
+    return False
+
+
+def _parse_generated_at(value) -> datetime | None:
+    """Parse an edition stamp to UTC. None if missing or unreadable."""
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if text.endswith("Z") or text.endswith("z"):
+        text = text[:-1] + "+00:00"
+    try:
+        stamp = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=timezone.utc)
+    return stamp.astimezone(timezone.utc)
+
+
+def _fact_checker_notes_enabled(
+    narrative: dict | None, *, changed: bool | None = None
+) -> bool:
+    """True unless this is an untouched archive stamped strictly before the leak."""
+    if changed is True:
+        return True
+    stamp = _parse_generated_at((narrative or {}).get("generatedAt"))
+    if stamp is None:
+        return True
+    if changed is False and stamp < _FACT_CHECKER_NOTE_BEFORE:
+        return False
+    return True
 
 
 def _check_fact_checker_notes(
-    text: str, narrative: dict | None = None
+    text: str,
+    narrative: dict | None = None,
+    *,
+    changed: bool | None = None,
 ) -> list[str]:
-    if not text or not _fact_checker_notes_enabled(narrative):
+    if not text or not _fact_checker_notes_enabled(narrative, changed=changed):
         return []
     issues = []
     seen: set[str] = set()
@@ -7342,6 +7487,7 @@ def check_review(
     *,
     schedule=None,
     copy_gates: bool = False,
+    changed: bool | None = None,
 ) -> list[str]:
     """Return human-readable violations, or an empty list when the edition is clean.
 
@@ -7366,7 +7512,9 @@ def check_review(
             issues.extend(_check_halftime_scores(text, last_game, recap, schedule))
             issues.extend(_check_part_of_day(text, last_game, recap))
             issues.extend(_check_echoed_instructions(text))
-            issues.extend(_check_fact_checker_notes(text, narrative))
+            issues.extend(
+                _check_fact_checker_notes(text, narrative, changed=changed)
+            )
             issues.extend(_check_record_phrasing(text))
             if recap.get("scoringPlays") or recap.get("leaders") or recap.get("kc") or recap.get("plays"):
                 issues.extend(_check_td_yards(text, recap, last_game, schedule))
@@ -7402,7 +7550,9 @@ def check_review(
                 issues.extend(_check_box_leaders(text, recap))
     else:
         issues.extend(
-            _check_fact_checker_notes(edition_text(narrative), narrative)
+            _check_fact_checker_notes(
+                edition_text(narrative), narrative, changed=changed
+            )
         )
     issues.extend(_check_prediction_markets(narrative))
     issues.extend(_check_offseason_slate(narrative, schedule))

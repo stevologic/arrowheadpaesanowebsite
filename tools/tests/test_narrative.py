@@ -213,16 +213,20 @@ def _sign_message(priv: Path, message: bytes) -> bytes:
         return sigbin.read_bytes()
 
 
-def _job_step_script(parsed, job: str, *, name=None, step_id=None) -> str:
+def _job_step(parsed, job: str, *, name=None, step_id=None) -> dict:
     job_doc = ((parsed or {}).get("jobs") or {}).get(job) or {}
     for step in job_doc.get("steps") or []:
         if not isinstance(step, dict):
             continue
         if name and step.get("name") == name:
-            return str(step.get("run") or "")
+            return step
         if step_id and step.get("id") == step_id:
-            return str(step.get("run") or "")
-    return ""
+            return step
+    return {}
+
+
+def _job_step_script(parsed, job: str, *, name=None, step_id=None) -> str:
+    return str(_job_step(parsed, job, name=name, step_id=step_id).get("run") or "")
 
 
 def _narrative_review_hold_wiring(parsed) -> dict:
@@ -4129,6 +4133,17 @@ class FactCheck(unittest.TestCase):
         self.assertIn("echoed writer instruction", blob)
         self.assertFalse(any("kickoff is midday" in item for item in issues), issues)
 
+    def _meta_note_issues(self, line, last=None, recap=None, **kwargs):
+        payload = {
+            "lastGameReview": {"lede": "Kansas City won 24-10. " + line},
+        }
+        payload.update(kwargs)
+        return [
+            item
+            for item in facts.check_review(payload, last, recap)
+            if "fact-checker note leaked" in item
+        ]
+
     def test_fact_checker_notes_are_rejected(self):
         recap = _load_fixture("espn_401872952_recap.json")
         last = dict(self.LAST)
@@ -4147,45 +4162,158 @@ class FactCheck(unittest.TestCase):
             "Nothing in the source packet names another player",
         ]
         for line in leaks:
-            issues = facts.check_review(
-                {"lastGameReview": {"lede": "Kansas City won 24-10. " + line}},
-                last,
-                recap,
+            self.assertTrue(self._meta_note_issues(line), line)
+            self.assertTrue(
+                self._meta_note_issues(line, last=last, recap=recap), line
             )
-            blob = " ".join(issues)
-            self.assertTrue(issues, line)
-            self.assertIn("fact-checker note leaked", blob, line)
         coaching = (
             "Do not ask a single corner to win every vertical. "
             "That is the special-teams file Toub is working before Denver."
         )
-        self.assertFalse(
-            any(
-                "fact-checker note leaked" in item
-                for item in facts.check_review(
-                    {"lastGameReview": {"lede": "Kansas City won 24-10. " + coaching}},
-                    last,
-                    recap,
-                )
-            ),
-            coaching,
-        )
-        grandfathered = facts.check_review(
-            {
-                "generatedAt": "2026-10-29T17:54:31+00:00",
-                "lastGameReview": {
-                    "lede": (
-                        "Kansas City won 24-10. That is a recovered snap, "
-                        "not a lost fumble."
-                    )
-                },
+        self.assertFalse(self._meta_note_issues(coaching), coaching)
+
+    def test_fact_checker_phrase_classes_are_independently_required(self):
+        """Dropping supplied wire / unlisted by name / none is listed here dies."""
+        isolated = {
+            "supplied wire": "The supplied wire omitted the inactive list.",
+            "unlisted by name": "The nickel is unlisted by name.",
+            "none is listed here": "So none is listed here.",
+        }
+        for snippet, line in isolated.items():
+            issues = self._meta_note_issues(line)
+            self.assertTrue(issues, line)
+            self.assertTrue(
+                any(snippet in item for item in issues),
+                (snippet, issues),
+            )
+
+    def test_fact_checker_paraphrases_are_rejected(self):
+        paraphrases = [
+            "That's a recovered snap, not a lost fumble.",
+            "Don't tell that story as the reason for a takeaway.",
+            "Nothing here says pressure caused the interception.",
+            "Status is per the supplied data only.",
+            "Coverage and a called simulated pressure, not a story about a takeaway that a blitz did not create.",
+            "It is a Denver install, not a description of a Seattle throw.",
+            "That look is not credit for a takeaway.",
+            "The edge is unlisted by name.",
+            "So none is listed here.",
+            "Nothing in the packet names another player.",
+            "Don't sell it as the play that created the interception.",
+        ]
+        for line in paraphrases:
+            self.assertTrue(self._meta_note_issues(line), line)
+
+    def test_fact_checker_notes_ignore_ordinary_football_prose(self):
+        clean = [
+            "That is a lean, not a verdict.",
+            "That is a step, not a declaration.",
+            "Go back through this file of film.",
+            "Kansas City took a wire-to-wire win.",
+            "That is a constraint, not a finished plan.",
+        ]
+        for line in clean:
+            self.assertFalse(self._meta_note_issues(line), line)
+
+    def test_preview_without_final_still_scans_meta_notes(self):
+        """Preview path (no usable final) must still run the leak scan."""
+        narrative = {
+            "phase": {"mode": "preview", "week": 8},
+            "gamePlan": {
+                "lede": "It is not credit for a takeaway.",
             },
-            last,
-            recap,
+        }
+        live = {"completed": False, "kcScore": None, "oppScore": None}
+        issues = facts.check_review(narrative, live, {})
+        self.assertTrue(
+            any("fact-checker note leaked" in item for item in issues),
+            issues,
+        )
+        none = facts.check_review(narrative, None, None)
+        self.assertTrue(
+            any("fact-checker note leaked" in item for item in none),
+            none,
+        )
+
+    def test_changed_edition_is_rechecked_whatever_its_stamp(self):
+        leak = {
+            "slug": "2026-10-29-1754",
+            "generatedAt": "2026-10-29T17:54:31+00:00",
+            "lastGameReview": {
+                "lede": "Kansas City lost 3-20. That is a recovered snap, not a lost fumble."
+            },
+        }
+        old_handset = dict(leak)
+        old_handset["generatedAt"] = "2026-10-01T00:00:00Z"
+        for payload in (leak, old_handset):
+            issues = facts.check_review(payload, None, None, changed=True)
+            self.assertTrue(
+                any("fact-checker note leaked" in item for item in issues),
+                payload["generatedAt"],
+            )
+        same_z = facts.check_review(
+            {**leak, "generatedAt": "2026-10-29T17:54:31Z"},
+            None,
+            None,
+            changed=False,
+        )
+        self.assertTrue(
+            any("fact-checker note leaked" in item for item in same_z),
+            same_z,
+        )
+        older = facts.check_review(
+            {**leak, "generatedAt": "2026-10-27T19:15:53Z"},
+            None,
+            None,
+            changed=False,
         )
         self.assertFalse(
-            any("fact-checker note leaked" in item for item in grandfathered),
-            grandfathered,
+            any("fact-checker note leaked" in item for item in older),
+            older,
+        )
+
+    def test_changed_2026_10_29_1754_leak_is_rejected(self):
+        from tools.tests.archive_replay import salvage_edition_file
+
+        row = salvage_edition_file("2026-10-29-1754.json", changed=True)
+        self.assertTrue(
+            any("fact-checker note leaked" in item for item in row["issues"]),
+            row["issues"],
+        )
+
+    def test_untouched_older_archive_leak_passes_replay(self):
+        from tools.tests.archive_replay import salvage_edition_file
+
+        row = salvage_edition_file("2026-10-27-1915.json", changed=False)
+        self.assertFalse(
+            any("fact-checker note leaked" in item for item in row["issues"]),
+            row["issues"],
+        )
+        self.assertIn("do not tell that story", row["before"].lower())
+
+    def test_pr286_corrected_edition_passes_meta_note_gate(self):
+        payload = None
+        edition_blob = "data" + "/narrative.json"
+        for rev in (
+            "095e7a8e2438c6dd05ec22219a66d8c989195e60",
+            "origin/cursor/week8-edition-nnamdi-meta-668f",
+        ):
+            try:
+                raw = subprocess.check_output(
+                    ["git", "show", f"{rev}:{edition_blob}"],
+                    text=True,
+                    stderr=subprocess.DEVNULL,
+                )
+            except (OSError, subprocess.CalledProcessError):
+                continue
+            payload = json.loads(raw)
+            break
+        if payload is None:
+            payload = _load_fixture("edition_2026-10-29-1754_pr286.json")
+        issues = facts.check_review(payload, None, None, changed=True)
+        self.assertFalse(
+            any("fact-checker note leaked" in item for item in issues),
+            issues,
         )
 
     def test_week4_review_mid_scores_and_cousins_hits_are_espn_backed(self):
@@ -6348,6 +6476,96 @@ class FactCheck(unittest.TestCase):
                 threads=[{"isResolved": True}],
             )
         )
+        self.assertEqual(
+            edition_merge.refuse_reason(
+                labels=[],
+                reviews=[{"state": "APPROVED", "commit": "old-head"}],
+                threads=[{"isResolved": True}],
+                head_sha="new-head",
+                require_head_approval=True,
+            ),
+            "no approval at current head",
+        )
+        self.assertIsNone(
+            edition_merge.refuse_reason(
+                labels=[],
+                reviews=[{"state": "APPROVED", "commit": "new-head"}],
+                threads=[{"isResolved": True}],
+                head_sha="new-head",
+                require_head_approval=True,
+            )
+        )
+
+    def test_edition_merge_lookup_errors_fail_closed(self):
+        with patch.object(
+            edition_merge.subprocess, "check_output", side_effect=OSError("gh down")
+        ):
+            with self.assertRaises(edition_merge.MergeLookupError):
+                edition_merge._gh_json(["pr", "view", "1"])
+            self.assertEqual(edition_merge.main(["--pr", "1"]), 1)
+        with patch.object(
+            edition_merge.subprocess, "check_output", return_value="not-json"
+        ):
+            with self.assertRaises(edition_merge.MergeLookupError):
+                edition_merge._gh_json(["pr", "view", "1"])
+            self.assertEqual(edition_merge.main(["--pr", "1"]), 1)
+        with patch.object(edition_merge.subprocess, "check_output", return_value=""):
+            with self.assertRaises(edition_merge.MergeLookupError):
+                edition_merge._gh_json(["pr", "view", "1"])
+        with patch.object(
+            edition_merge,
+            "inspect_pr",
+            side_effect=edition_merge.MergeLookupError("boom"),
+        ):
+            self.assertEqual(edition_merge.main(["--pr", "1"]), 1)
+
+    def test_review_threads_paginate_past_100(self):
+        pages = [
+            {
+                "data": {
+                    "repository": {
+                        "pullRequest": {
+                            "reviewThreads": {
+                                "nodes": [{"isResolved": True}] * 100,
+                                "pageInfo": {
+                                    "hasNextPage": True,
+                                    "endCursor": "cursor-1",
+                                },
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                "data": {
+                    "repository": {
+                        "pullRequest": {
+                            "reviewThreads": {
+                                "nodes": [{"isResolved": False}],
+                                "pageInfo": {
+                                    "hasNextPage": False,
+                                    "endCursor": "cursor-2",
+                                },
+                            }
+                        }
+                    }
+                }
+            },
+        ]
+
+        def fake_gh(args):
+            if args[:2] == ["api", "graphql"]:
+                blob = " ".join(args)
+                if "cursor=cursor-1" in blob:
+                    return pages[1]
+                return pages[0]
+            raise AssertionError(args)
+
+        with patch.dict(os.environ, {"GITHUB_REPOSITORY": "org/repo"}):
+            with patch.object(edition_merge, "_gh_json", side_effect=fake_gh):
+                threads = edition_merge.fetch_review_threads(12)
+        self.assertEqual(len(threads), 101)
+        self.assertTrue(edition_merge.open_review_threads(threads))
 
     def test_daily_publish_refuses_hold_or_open_reviews_before_merge(self):
         root = Path(__file__).resolve().parents[2] / ".github" / "workflows"
@@ -6375,19 +6593,40 @@ class FactCheck(unittest.TestCase):
         ))
         self.assertIn("--head develop", scripts)
         self.assertIn("--base main", scripts)
-        refuse = _job_step_script(
+        refuse_step = _job_step(
             parsed, "publish", name="Refuse hold or unresolved review findings"
         )
-        merge = _job_step_script(
+        merge_step = _job_step(
             parsed, "publish", name="Squash-merge the edition pull request"
         )
-        promote = _job_step_script(
+        promote_step = _job_step(
             parsed, "publish", name="Promote develop to main"
         )
+        refuse = str(refuse_step.get("run") or "")
+        merge = str(merge_step.get("run") or "")
+        promote = str(promote_step.get("run") or "")
         self.assertIn("edition_merge", refuse)
+        self.assertIn('echo "refused=true"', refuse)
+        self.assertIn("exit 1", refuse)
+        self.assertNotIn("exit 0", refuse)
+        self.assertIn("--disable-auto", refuse)
+        self.assertIn("gh pr close", refuse)
         self.assertIn("gh pr merge", merge)
+        self.assertEqual(
+            merge_step.get("if"), "steps.refuse.outputs.refused != 'true'"
+        )
+        self.assertEqual(
+            promote_step.get("if"), "steps.refuse.outputs.refused != 'true'"
+        )
         self.assertIn("edition_merge", promote)
         self.assertIn("gh pr merge", promote)
+        self.assertIn("gh pr close", promote)
+        self.assertIn("exit 1", promote)
+        self.assertLess(promote.index("edition_merge"), promote.index("gh pr create"))
+        self.assertLess(promote.index("edition_merge"), promote.index("gh pr merge"))
+        self.assertRegex(
+            promote, r"edition_merge[\s\S]+exit 1[\s\S]+gh pr merge"
+        )
         generate_if = str(((parsed.get("jobs") or {}).get("generate") or {}).get("if") or "")
         self.assertIn("pull_request", generate_if)
 

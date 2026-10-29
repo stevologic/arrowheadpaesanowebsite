@@ -493,7 +493,12 @@ jobs:
             --pr "${{ github.event.pull_request.html_url }}"; then
             echo "Refusing edition auto-merge and promote: hold label or unresolved review findings"
             echo "refused=true" >> "$GITHUB_OUTPUT"
-            exit 0
+            gh pr merge "${{ github.event.pull_request.html_url }}" --disable-auto || true
+            while IFS= read -r url; do
+              [ -n "$url" ] || continue
+              gh pr close "$url" --comment "Refusing promote: hold or unresolved review findings"
+            done < <(gh pr list --base main --head develop --state open --json url --jq '.[].url')
+            exit 1
           fi
           echo "refused=false" >> "$GITHUB_OUTPUT"
 
@@ -527,14 +532,27 @@ jobs:
           printf '%s\n' \
             "Promotes ${{ github.event.pull_request.html_url }}." \
             "Merge, not squash." > "$BODY_FILE"
-          PROMOTE_URL="$(gh pr create --base main --head develop \
-            --title "Promote develop to main: ${TITLE}" \
-            --body-file "$BODY_FILE")"
           cd "$GATE_BASE"
           if ! PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.edition_merge \
             --pr "${{ github.event.pull_request.html_url }}"; then
             echo "Refusing promote: hold label or unresolved review findings"
-            exit 0
+            while IFS= read -r url; do
+              [ -n "$url" ] || continue
+              gh pr close "$url" --comment "Refusing promote: hold or unresolved review findings"
+            done < <(gh pr list --base main --head develop --state open --json url --jq '.[].url')
+            exit 1
+          fi
+          PROMOTE_URL="$(gh pr list --base main --head develop --state open --json url --jq '.[0].url // empty')"
+          if [ -z "$PROMOTE_URL" ]; then
+            PROMOTE_URL="$(gh pr create --base main --head develop \
+              --title "Promote develop to main: ${TITLE}" \
+              --body-file "$BODY_FILE")"
+          fi
+          if ! PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.edition_merge \
+            --pr "${{ github.event.pull_request.html_url }}"; then
+            echo "Refusing promote: hold label or unresolved review findings"
+            gh pr close "$PROMOTE_URL" --comment "Refusing promote: hold or unresolved review findings"
+            exit 1
           fi
           gh pr merge "$PROMOTE_URL" --merge --auto \
             || gh pr merge "$PROMOTE_URL" --merge

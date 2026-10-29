@@ -1436,7 +1436,9 @@ def archive_replay_issues(narrative: dict, schedule=None) -> list[str]:
     recap = _recap_for_edition(narrative)
     if schedule is None:
         schedule = collect.load_cached_schedule()
-    return facts.check_review(narrative, last, recap, schedule=schedule)
+    return facts.check_review(
+        narrative, last, recap, schedule=schedule, changed=True
+    )
 
 
 def split_replay_issues(issues: list[str] | None) -> tuple[list[str], list[str]]:
@@ -1478,7 +1480,18 @@ def check_published_edition() -> list[str]:
     last = _last_game_from_edition(narrative)
     recap = _recap_for_edition(narrative)
     schedule = collect.load_cached_schedule()
-    issues = facts.check_review(narrative, last, recap, schedule=schedule)
+    slug = str(narrative.get("slug") or "").strip()
+    paths = facts.changed_edition_paths()
+    if paths is None:
+        changed = True
+    else:
+        posix = {item.replace("\\", "/") for item in paths}
+        changed = "data/narrative.json" in posix or (
+            bool(slug) and f"data/narrative_editions/{slug}.json" in posix
+        )
+    issues = facts.check_review(
+        narrative, last, recap, schedule=schedule, changed=changed
+    )
     issues.extend(facts.check_diagram_captions(narrative))
     issues.extend(press_conferences.check_embeds(narrative, schedule=schedule))
     issues.extend(locker_room.check_posts(narrative, schedule=schedule))
