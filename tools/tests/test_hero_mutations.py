@@ -33,6 +33,7 @@ WORKFLOW_SRC = ROOT / ".github" / "workflows" / "narrative.yml"
 SCENE_TMPL = ROOT / "layouts" / "partials" / "nrt-hero-scene.html"
 POST_TMPL = ROOT / "layouts" / "partials" / "nrt-hero-post.html"
 MEDIA_TMPL = ROOT / "layouts" / "partials" / "nrt-hero-media.html"
+ILLUSTRATION_TMPL = ROOT / "layouts" / "partials" / "nrt-event-illustration.html"
 CSS_SRC = ROOT / "public" / "css" / "editorial-layout.css"
 EVIDENCE = ROOT / "docs" / "hero-evidence" / "mutation-report.md"
 
@@ -510,6 +511,12 @@ def _kill_hugo_svg(layouts: Path) -> str | None:
         temp.cleanup()
 
 
+def _kill_k4(text: str) -> str | None:
+    if 'preserveAspectRatio="xMidYMid meet"' not in text or "slice" in text:
+        return None
+    return "survived: inline SVG still uses meet"
+
+
 def _kill_css(css_text: str) -> str | None:
     if "16 / 10" in css_text or "16/10" in css_text:
         return None
@@ -533,9 +540,13 @@ def _kill_css(css_text: str) -> str | None:
         idx = pos + 1
     if not fallback_reserved:
         return None
+    if '[data-hero-state="fallback"] .nrt-hero-media__visual--embed' not in css_text:
+        return None
+    if "nrt-hero-media__backdrop" not in css_text or "blur(" not in css_text:
+        return None
     illus = css_text.split(
         "html.nrt-hero-js .nrt-hero-media[data-hero-kind=\"x-embed\"][data-hero-state=\"pending\"] "
-        ".nrt-hero-media__fallback .nrt-event-illustration",
+        ".nrt-hero-media__art .nrt-event-illustration",
         1,
     )
     if len(illus) < 2:
@@ -628,6 +639,7 @@ CHECKS = {
     "hugo_signed": _kill_hugo_signed,
     "hugo_svg": _kill_hugo_svg,
     "css": _kill_css,
+    "k4": _kill_k4,
     "workflow": _kill_workflow,
     "overlay": _kill_overlay,
     "signed_attach": _kill_signed_attach,
@@ -985,7 +997,10 @@ MUTANTS = (
     {
         "name": "N4",
         "path": MEDIA_TMPL,
-        "old": '    <div class="nrt-hero-media__fallback" data-hero-fallback>{{ $illustration }}</div>\n',
+        "old": '    <div class="nrt-hero-media__fallback" data-hero-fallback>\n'
+               '      <div class="nrt-hero-media__backdrop" aria-hidden="true">{{ $illustration }}</div>\n'
+               '      <div class="nrt-hero-media__art">{{ $illustration }}</div>\n'
+               '    </div>\n',
         "new": "    <div class=\"nrt-hero-media__fallback\" data-hero-fallback></div>\n",
         "killer": "a pinned embed must still keep the SVG in the document",
         "kind": "hugo",
@@ -1027,6 +1042,25 @@ MUTANTS = (
         "killer": "wait and fallback must contain the SVG so both helmets stay in frame",
         "kind": "css",
         "check": "css",
+    },
+    {
+        "name": "K3",
+        "path": CSS_SRC,
+        "old": "html.nrt-hero-js .nrt-hero-media[data-hero-kind=\"x-embed\"][data-hero-state=\"pending\"] .nrt-hero-media__art .nrt-event-illustration,\n"
+               "html.nrt-hero-js .nrt-hero-media[data-hero-kind=\"x-embed\"][data-hero-state=\"fallback\"] .nrt-hero-media__art .nrt-event-illustration {\n",
+        "new": "html.nrt-hero-js .nrt-hero-media[data-hero-kind=\"x-embed\"][data-hero-state=\"pending\"] .nrt-hero-media__art .nrt-event-illustration {\n",
+        "killer": "fallback must keep the reserved height and contain the SVG",
+        "kind": "css",
+        "check": "css",
+    },
+    {
+        "name": "K4",
+        "path": ILLUSTRATION_TMPL,
+        "old": 'preserveAspectRatio="xMidYMid meet"',
+        "new": 'preserveAspectRatio="xMidYMid slice"',
+        "killer": "the inline SVG must keep preserveAspectRatio meet, not slice",
+        "kind": "text",
+        "check": "k4",
     },
     {
         "name": "N15",
@@ -1152,10 +1186,18 @@ class HeroMutations(unittest.TestCase):
         self.assertIn("html.nrt-hero-js", css)
         self.assertIn('[data-hero-state="fallback"]', css)
         self.assertIn("object-fit: contain", css)
+        self.assertIn("nrt-hero-media__backdrop", css)
+        self.assertIn("nrt-hero-media__art", css)
         self.assertIn(
             '[data-hero-state="fallback"] .nrt-hero-media__visual--embed',
             css,
         )
+        self.assertIn(
+            '[data-hero-state="fallback"] .nrt-hero-media__art .nrt-event-illustration',
+            css,
+        )
+        self.assertIn('preserveAspectRatio="xMidYMid meet"', ILLUSTRATION_TMPL.read_text(encoding="utf-8"))
+        self.assertNotIn("slice", ILLUSTRATION_TMPL.read_text(encoding="utf-8"))
         self.assertNotIn("SIGNED_PIN_WHITELIST", POSTS_SRC.read_text(encoding="utf-8"))
         self.assertIn("has no readable edition", POSTS_SRC.read_text(encoding="utf-8"))
         self.assertIn("edition signature check failed", POSTS_SRC.read_text(encoding="utf-8"))

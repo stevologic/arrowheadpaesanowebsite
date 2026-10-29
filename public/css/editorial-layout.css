@@ -15,11 +15,29 @@ html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fall
   min-height: var(--nrt-embed-reserve);
   overflow: visible;
 }
-html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="pending"] .nrt-hero-media__fallback .nrt-event-illustration,
-html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fallback"] .nrt-hero-media__fallback .nrt-event-illustration {
+html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="pending"] .nrt-hero-media__art .nrt-event-illustration,
+html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fallback"] .nrt-hero-media__art .nrt-event-illustration {
   height: var(--nrt-embed-reserve);
   object-fit: contain;
   object-position: center;
+}
+html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="pending"] .nrt-hero-media__backdrop,
+html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fallback"] .nrt-hero-media__backdrop {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="pending"] .nrt-hero-media__backdrop .nrt-event-illustration,
+html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fallback"] .nrt-hero-media__backdrop .nrt-event-illustration {
+  position: absolute;
+  inset: -14%;
+  width: 128%;
+  height: 128%;
+  object-fit: cover;
+  filter: blur(22px) brightness(0.48);
 }
 .nrt-hero-media[data-hero-kind="x-embed"] .nrt-hero-media__fallback {
   position: relative;
@@ -27,6 +45,13 @@ html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fall
   display: block;
   width: 100%;
 }
+html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="pending"] .nrt-hero-media__fallback,
+html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fallback"] .nrt-hero-media__fallback {
+  min-height: var(--nrt-embed-reserve);
+  overflow: hidden;
+}
+.nrt-hero-media[data-hero-kind="x-embed"] .nrt-hero-media__backdrop { display: none; }
+.nrt-hero-media[data-hero-kind="x-embed"] .nrt-hero-media__art { position: relative; z-index: 1; }
 .nrt-hero-media[data-hero-kind="x-embed"] .nrt-hero-media__fallback .nrt-event-illustration { width: 100%; height: auto; }
 .nrt-hero-media[data-hero-kind="x-embed"] .nrt-hero-media__embed { position: relative; z-index: 1; }
 .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="pending"] .nrt-hero-media__embed,

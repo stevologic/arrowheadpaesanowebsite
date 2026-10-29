@@ -91,13 +91,16 @@ MEASURE_SNIPPET = """
     var out = document.getElementById("hero-measure");
     if (!fig || !out) return;
     var visual = fig.querySelector(".nrt-hero-media__visual");
-    var svg = fig.querySelector(".nrt-event-illustration");
+    var art = fig.querySelector(".nrt-hero-media__art .nrt-event-illustration");
+    var back = fig.querySelector(".nrt-hero-media__backdrop .nrt-event-illustration");
+    var svg = art || fig.querySelector(".nrt-event-illustration");
     var iframe = fig.querySelector("iframe");
     var card = fig.getBoundingClientRect();
     var vb = visual ? visual.getBoundingClientRect() : { height: 0, width: 0 };
     var sb = svg ? svg.getBoundingClientRect() : { height: 0 };
+    var bb = back ? back.getBoundingClientRect() : { height: 0, width: 0 };
     var ib = iframe ? iframe.getBoundingClientRect() : { height: 0 };
-    var fill = Math.max(sb.height || 0, ib.height || 0);
+    var fill = Math.max(sb.height || 0, bb.height || 0, ib.height || 0);
     var payload = {
       state: fig.getAttribute("data-hero-state"),
       jsClass: document.documentElement.classList.contains("nrt-hero-js"),
@@ -105,6 +108,8 @@ MEASURE_SNIPPET = """
       visualW: Math.round(vb.width),
       visualH: Math.round(vb.height),
       svgH: Math.round(sb.height),
+      backdropH: Math.round(bb.height),
+      backdropW: Math.round(bb.width),
       iframeH: Math.round(ib.height),
       blankPx: Math.max(0, Math.round(vb.height - fill)),
       cls: Math.round((window.__nrtCls || 0) * 10000) / 10000

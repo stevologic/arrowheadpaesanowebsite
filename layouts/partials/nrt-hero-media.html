@@ -22,7 +22,10 @@
 <script>document.documentElement.classList.add("nrt-hero-js");</script>
 <figure class="nrt-hero-media" data-hero-kind="x-embed" data-hero-state="pending" data-hero-min-embed="240" data-hero-post-id="{{ $pin.id }}" data-hero-scene="{{ $scene.id }}" data-hero-mapped="{{ if $scene.mapped }}true{{ else }}false{{ end }}" data-event-subject="{{ $context.subject }}" data-event-mode="{{ $context.mode }}">
   <div class="nrt-hero-media__visual nrt-hero-media__visual--embed">
-    <div class="nrt-hero-media__fallback" data-hero-fallback>{{ $illustration }}</div>
+    <div class="nrt-hero-media__fallback" data-hero-fallback>
+      <div class="nrt-hero-media__backdrop" aria-hidden="true">{{ $illustration }}</div>
+      <div class="nrt-hero-media__art">{{ $illustration }}</div>
+    </div>
     <div class="nrt-hero-media__embed" data-hero-embed>
       <blockquote class="twitter-tweet" data-dnt="true" data-conversation="none">
         {{- with $pin.text -}}<p lang="en" dir="ltr">{{ . }}</p>{{- end -}}

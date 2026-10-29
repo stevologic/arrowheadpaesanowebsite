@@ -403,6 +403,26 @@ class HeroPostAllowlist(unittest.TestCase):
         self.assertNotIn("publish.twitter.com", src)
         self.assertNotIn("api.x.com", src)
 
+    def test_fallback_height_and_contain_rules_stay(self):
+        css = (ROOT / "public" / "css" / "editorial-layout.css").read_text(encoding="utf-8")
+        self.assertRegex(
+            css,
+            r'\[data-hero-state="fallback"\] \.nrt-hero-media__art \.nrt-event-illustration'
+            r'[\s\S]{0,280}height:\s*var\(--nrt-embed-reserve\)',
+        )
+        self.assertRegex(
+            css,
+            r'\[data-hero-state="fallback"\] \.nrt-hero-media__art \.nrt-event-illustration'
+            r'[\s\S]{0,320}object-fit:\s*contain',
+        )
+        self.assertIn("nrt-hero-media__backdrop", css)
+        self.assertIn("filter: blur(", css)
+
+    def test_inline_svg_preserve_aspect_is_meet_not_slice(self):
+        src = (ROOT / "layouts" / "partials" / "nrt-event-illustration.html").read_text(encoding="utf-8")
+        self.assertIn('preserveAspectRatio="xMidYMid meet"', src)
+        self.assertNotIn("slice", src)
+
 
 @unittest.skipUnless(Path(HUGO).is_file(), "Hugo unavailable")
 class HeroPostRendering(unittest.TestCase):
@@ -533,6 +553,9 @@ class HeroPostRendering(unittest.TestCase):
         self.assertIn("View post on X", den)
         self.assertIn("Source:", den)
         self.assertIn("nrt-hero-media__fallback", den)
+        self.assertIn("nrt-hero-media__backdrop", den)
+        self.assertIn("nrt-hero-media__art", den)
+        self.assertRegex(den, r'aria-hidden="?true"?')
         self.assertIn("preview-away-den.svg", den)
         self.assertIn("nrt-hero-media__visual--embed", den)
         self.assertRegex(self.page, r'<script\s+async\s+src="?https://platform\.twitter\.com/widgets\.js"?')
@@ -554,10 +577,29 @@ class HeroPostRendering(unittest.TestCase):
         self.assertIn('[data-hero-state="fallback"]', self.css)
         self.assertIn("min-height: 0", self.css)
         self.assertIn("object-fit: contain", self.css)
+        self.assertIn("nrt-hero-media__backdrop", self.css)
+        self.assertIn("filter: blur(", self.css)
         self.assertIn(
             '[data-hero-state="fallback"] .nrt-hero-media__visual--embed',
             self.css,
         )
+        self.assertIn(
+            '[data-hero-state="fallback"] .nrt-hero-media__art .nrt-event-illustration',
+            self.css,
+        )
+        self.assertRegex(
+            self.css,
+            r'\[data-hero-state="fallback"\] \.nrt-hero-media__art \.nrt-event-illustration'
+            r'[\s\S]{0,280}height:\s*var\(--nrt-embed-reserve\)',
+        )
+        self.assertRegex(
+            self.css,
+            r'\[data-hero-state="fallback"\] \.nrt-hero-media__art \.nrt-event-illustration'
+            r'[\s\S]{0,320}object-fit:\s*contain',
+        )
+        illustration = (ROOT / "layouts" / "partials" / "nrt-event-illustration.html").read_text(encoding="utf-8")
+        self.assertIn('preserveAspectRatio="xMidYMid meet"', illustration)
+        self.assertNotIn("slice", illustration)
         self.assertNotIn("aspect-ratio: 16 / 10", self.css)
         self.assertNotIn("pbs.twimg.com", den)
         self.assertNotIn("video.twimg.com", den)

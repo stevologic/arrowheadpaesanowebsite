@@ -21,9 +21,10 @@ the alt is dishonest. There is no paid OCR and no network at build; the
 The embed is a server-rendered blockquote with the visible source credit and
 the post link. Height is reserved (about 640px on desktop, 560px on a 390px
 phone) while JavaScript is on and the pin is pending, ready, or fallback, so
-a deleted post does not collapse the box and CLS stays low. The SVG fills
-that reserved box with `object-fit: contain` / `preserveAspectRatio=xMidYMid
-meet` so both helmets stay in frame. JS-off sizes the box to the SVG.
+a deleted post does not collapse the box and CLS stays low. The same SVG is
+layered as an `aria-hidden` cover-scaled blur behind a contain/meet
+foreground so the box is filled and both helmets stay in frame. JS-off
+sizes the box to the SVG.
 `widgets.js` loads async, only on pages that have a pinned post, and only
 from `https://platform.twitter.com`. The SVG illustration stays visible
 behind or under the embed until the iframe's rendered height is above 240px
