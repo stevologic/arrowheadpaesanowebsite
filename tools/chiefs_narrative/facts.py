@@ -212,40 +212,35 @@ _EDITION_DIFF_PATHS = (
     "data/narrative.json",
     "data/narrative_editions",
 )
-# Meta-denial / process asides. Keep each phrase class independently
-# matchable so dropping one pattern cannot hide behind another. Do not
-# use a generic "that is a X, not a Y" — that flags ordinary football copy.
+# Meta-denial / process asides. One alt per class so a dropped phrase is
+# testable. Overlapping restatements of the same class were merged.
+# Do not use a bare "not a label/description/verdict" — that flags ordinary
+# copy ("Chalk, not a verdict", "lean, not a verdict"). Process-vs-tape
+# contrast catches paraphrases by structure, either order.
 _FACT_CHECKER_NOTE = re.compile(
     r"\bunlisted by name\b"
     r"|\bnone is listed here\b"
     r"|\bsupplied wire\b"
     r"|\bsupplied data\b"
-    r"|\bsupplied (?:file|packet)\b"
     r"|\bsource packet\b"
     r"|\bper the supplied\b"
-    r"|\bwithout inventing\b"
-    r"|\bin this file\b"
-    r"|\bin the (?:supplied )?(?:wire|file|source packet)\b"
-    r"|\bon this wire\b"
     r"|\bthis wire(?!-to-wire)\b"
-    r"|\b(?:from|stated in)\s+(?:the\s+)?(?:supplied\s+)?"
-    r"(?:wire|file|source packet|data)\b"
+    r"|\bin this file\b"
+    r"|\bwithout inventing\b"
     r"|\bnot stated in the\b"
-    r"|\bnot credit for\b"
+    r"|\b(?:not|isn['’]t) credit for\b"
     r"|\bnot a story about\b"
     r"|\bnot a claim that\b"
-    r"|\bnot a description of\b"
-    r"|\bnot a label\b"
     r"|\bnot a lost fumble\b"
-    r"|\bdo not tell that story\b"
-    r"|\bdon['’]t tell that story\b"
-    r"|\bdo not sell it as\b"
-    r"|\bdon['’]t sell it as\b"
+    r"|\bdo(?: not|n['’]t) tell that story\b"
+    r"|\bdo(?: not|n['’]t) sell it as\b"
     r"|\bnothing here says\b"
     r"|\bnothing in the (?:source )?packet\b"
-    r"|\bit is a\b[^.!?]{0,48}\bnot a description\b"
-    r"|\bthis is a\b[^.!?]{0,48}\bnot a label\b"
-    r"|\bthat(?:['’]s| is) a recovered snap\b",
+    r"|\bthat(?:['’]s| is) a recovered snap\b"
+    r"|\b(?:install|call|recovered snap)\b[^.\n]{0,80}"
+    r"\b(?:not|isn['’]t) a(?:n)?\b[^.\n]{0,48}\b(?:description|label|lost fumble|story)\b"
+    r"|\b(?:not|isn['’]t) a(?:n)?\b[^.\n]{0,48}\b(?:description|label)\b[^.\n]{0,80}"
+    r"\b(?:install|call)\b",
     re.IGNORECASE,
 )
 _GARBLED_RECORD = re.compile(
@@ -3423,20 +3418,37 @@ def _git_name_only(args: list[str], root) -> list[str] | None:
     ]
 
 
+def _rev_exists(root, ref: str) -> bool:
+    try:
+        subprocess.check_output(
+            ["git", "rev-parse", "--verify", ref],
+            cwd=root,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return False
+    return True
+
+
 def _diff_base(root) -> str | None:
+    """develop tip for PR diffs. Fetch if missing; None if still unknown."""
     override = (os.environ.get("NARRATIVE_DIFF_BASE") or "").strip()
     if override:
         return override
     for candidate in ("origin/develop", "develop"):
-        try:
-            subprocess.check_output(
-                ["git", "rev-parse", "--verify", candidate],
-                cwd=root,
-                stderr=subprocess.DEVNULL,
-            )
-        except (OSError, subprocess.CalledProcessError):
-            continue
-        return candidate
+        if _rev_exists(root, candidate):
+            return candidate
+    try:
+        subprocess.check_output(
+            ["git", "fetch", "--no-tags", "origin", "develop"],
+            cwd=root,
+            stderr=subprocess.DEVNULL,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    for candidate in ("origin/develop", "develop"):
+        if _rev_exists(root, candidate):
+            return candidate
     return None
 
 
@@ -3445,30 +3457,31 @@ def changed_edition_paths(
 ) -> set[str] | None:
     """Edition files that differ in this PR, commit, or worktree.
 
-    None means git could not say, so callers must not grandfather.
+    None means git could not say (missing develop, failed diff). Callers
+    must not treat that as an empty change set or grandfather.
     """
     root = config.REPO_ROOT if root is None else root
     resolved = (base or "").strip() or _diff_base(root)
-    queries = []
-    if resolved:
-        queries.append(
-            ["diff", "--name-only", f"{resolved}...HEAD", "--", *_EDITION_DIFF_PATHS]
-        )
-        queries.append(
-            ["diff", "--name-only", resolved, "--", *_EDITION_DIFF_PATHS]
-        )
-    queries.append(["diff", "--name-only", "--", *_EDITION_DIFF_PATHS])
-    queries.append(["diff", "--cached", "--name-only", "--", *_EDITION_DIFF_PATHS])
-    found: set[str] = set()
-    saw_git = False
-    for args in queries:
-        rows = _git_name_only(args, root)
-        if rows is None:
-            continue
-        saw_git = True
-        found.update(rows)
-    if not saw_git:
+    if not resolved:
         return None
+    triple = _git_name_only(
+        ["diff", "--name-only", f"{resolved}...HEAD", "--", *_EDITION_DIFF_PATHS],
+        root,
+    )
+    two_dot = _git_name_only(
+        ["diff", "--name-only", resolved, "--", *_EDITION_DIFF_PATHS],
+        root,
+    )
+    if triple is None and two_dot is None:
+        return None
+    found = set(triple or ()) | set(two_dot or ())
+    for extra in (
+        ["diff", "--name-only", "--", *_EDITION_DIFF_PATHS],
+        ["diff", "--cached", "--name-only", "--", *_EDITION_DIFF_PATHS],
+    ):
+        rows = _git_name_only(extra, root)
+        if rows:
+            found.update(rows)
     return found
 
 

@@ -1482,6 +1482,7 @@ def check_published_edition() -> list[str]:
     schedule = collect.load_cached_schedule()
     slug = str(narrative.get("slug") or "").strip()
     paths = facts.changed_edition_paths()
+    # Unknown git state (missing develop, failed diff) fail-closed: scan.
     if paths is None:
         changed = True
     else:

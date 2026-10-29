@@ -1,8 +1,8 @@
 {
-  "_note": "Legit archive exceptions only. 1552 is no longer clean: 117 on the ground is Walker, not team. Night idioms are not midday flags. Entire-24 claims are pinned. Salvage must leave every other line byte-identical. 2026-10-29-1754 is the leaked live Preview; pin the meta-note leftovers until #286 lands. Do not edit signed Reviews 2026-10-21-1446, 2026-10-27-1915, 2026-10-28-1750.",
-  "editions": 76,
+  "_note": "Legit archive exceptions only. 1552 is no longer clean: 117 on the ground is Walker, not team. Night idioms are not midday flags. Entire-24 claims are pinned. Salvage must leave every other line byte-identical. Do not edit signed Reviews 2026-10-21-1446, 2026-10-27-1915, 2026-10-28-1750.",
+  "editions": 75,
   "clean": 60,
-  "flagged": 16,
+  "flagged": 15,
   "issues": {
     "2026-08-07-1157.json": [
       "offseason phase while the slate still has upcoming regular/postseason games"
@@ -62,22 +62,6 @@
       "play-by-play does not back a zone blitz producing the interception ('Zone blitz Jones/Karlaftis with a dropping end on second-and-long — the look that helped produce the Willis interception')",
       "play-by-play does not back a zone blitz producing the interception ('Zone-blitz Jones and Karlaftis on second-and-long to recreate the throwing lane Karlaftis undercut for the interception')",
       "snap-count later-claim cannot be verified against the play-by-play ('two snaps of game clock later')"
-    ],
-    "2026-10-29-1754.json": [
-      "fact-checker note leaked ('That is a recovered snap')",
-      "fact-checker note leaked ('not a lost fumble')",
-      "fact-checker note leaked ('without inventing')",
-      "fact-checker note leaked ('not a story about')",
-      "fact-checker note leaked ('not a claim that')",
-      "fact-checker note leaked ('This is a Denver call, not a label')",
-      "fact-checker note leaked ('Do not tell that story')",
-      "fact-checker note leaked ('unlisted by name')",
-      "fact-checker note leaked ('in this file')",
-      "fact-checker note leaked ('It is a Denver install, not a description')",
-      "fact-checker note leaked ('not credit for')",
-      "fact-checker note leaked ('Do not sell it as')",
-      "fact-checker note leaked ('stated in the supplied wire')",
-      "fact-checker note leaked ('none is listed here')"
     ]
   },
   "drops": {
@@ -124,17 +108,6 @@
       "It also protects a young group Mahomes already told not to relax.",
       "Corners have to funnel, not gamble — L’Sneed already made his splash by forcing and recovering the Willis fumble, not by jumping a double move.",
       "Zone-blitz Jones and Karlaftis on second-and-long to recreate the throwing lane Karlaftis undercut for the interception."
-    ],
-    "2026-10-29-1754.json": [
-      "That is a recovered snap, not a lost fumble, and it still stole a down from a drive that already had no margin.",
-      "Spagnuolo’s answer in Denver is coverage that rallies and a called simulated pressure, not a story about a takeaway that a blitz did not create.",
-      "It is not a claim that pressure created Williams’s interception.",
-      "This is a Denver call, not a label on any Seattle throw.",
-      "Do not tell that story as the reason for a takeaway.",
-      "It is a Denver install, not a description of a Seattle throw.",
-      "It is not credit for a takeaway.",
-      "Do not sell it as the play that created Williams’s interception.",
-      "No other player status is stated in the supplied wire, so none is listed here."
     ]
   },
   "changed": {
@@ -152,7 +125,6 @@
     "2026-09-27-2020.json": [],
     "2026-09-27-2304.json": [],
     "2026-09-28-0010.json": [],
-    "2026-09-28-0142.json": [],
-    "2026-10-29-1754.json": []
+    "2026-09-28-0142.json": []
   }
 }

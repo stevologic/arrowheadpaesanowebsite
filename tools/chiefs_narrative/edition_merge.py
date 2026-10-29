@@ -20,6 +20,7 @@ import sys
 HOLD_LABEL = "hold"
 CHANGES_REQUESTED = "CHANGES_REQUESTED"
 APPROVED = "APPROVED"
+REQUIRE_HEAD_APPROVAL = True
 
 
 class MergeLookupError(RuntimeError):
@@ -228,7 +229,7 @@ def inspect_pr(pr_ref: str) -> dict:
         threads=threads,
         review_decision=pr.get("reviewDecision"),
         head_sha=pr.get("headRefOid"),
-        require_head_approval=True,
+        require_head_approval=REQUIRE_HEAD_APPROVAL,
     )
     return {
         "url": pr.get("url") or pr_ref,

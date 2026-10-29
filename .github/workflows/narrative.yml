@@ -494,10 +494,6 @@ jobs:
             echo "Refusing edition auto-merge and promote: hold label or unresolved review findings"
             echo "refused=true" >> "$GITHUB_OUTPUT"
             gh pr merge "${{ github.event.pull_request.html_url }}" --disable-auto || true
-            while IFS= read -r url; do
-              [ -n "$url" ] || continue
-              gh pr close "$url" --comment "Refusing promote: hold or unresolved review findings"
-            done < <(gh pr list --base main --head develop --state open --json url --jq '.[].url')
             exit 1
           fi
           echo "refused=false" >> "$GITHUB_OUTPUT"
@@ -528,6 +524,7 @@ jobs:
             git worktree add --detach "$GATE_BASE" "origin/develop"
           fi
           TITLE="$(gh pr view "${{ github.event.pull_request.html_url }}" --json title --jq .title)"
+          PROMOTE_TITLE="Promote develop to main: ${TITLE}"
           BODY_FILE="${RUNNER_TEMP}/narrative-promote-body.md"
           printf '%s\n' \
             "Promotes ${{ github.event.pull_request.html_url }}." \
@@ -536,16 +533,18 @@ jobs:
           if ! PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.edition_merge \
             --pr "${{ github.event.pull_request.html_url }}"; then
             echo "Refusing promote: hold label or unresolved review findings"
-            while IFS= read -r url; do
-              [ -n "$url" ] || continue
-              gh pr close "$url" --comment "Refusing promote: hold or unresolved review findings"
-            done < <(gh pr list --base main --head develop --state open --json url --jq '.[].url')
+            EXISTING="$(gh pr list --base main --head develop --state open --json url,title \
+              --jq ".[] | select(.title == \"${PROMOTE_TITLE}\") | .url" | head -n1)"
+            if [ -n "$EXISTING" ]; then
+              gh pr close "$EXISTING" --comment "Refusing promote: hold or unresolved review findings"
+            fi
             exit 1
           fi
-          PROMOTE_URL="$(gh pr list --base main --head develop --state open --json url --jq '.[0].url // empty')"
+          PROMOTE_URL="$(gh pr list --base main --head develop --state open --json url,title \
+            --jq ".[] | select(.title == \"${PROMOTE_TITLE}\") | .url" | head -n1)"
           if [ -z "$PROMOTE_URL" ]; then
             PROMOTE_URL="$(gh pr create --base main --head develop \
-              --title "Promote develop to main: ${TITLE}" \
+              --title "$PROMOTE_TITLE" \
               --body-file "$BODY_FILE")"
           fi
           if ! PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.edition_merge \
