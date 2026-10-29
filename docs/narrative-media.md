@@ -19,18 +19,20 @@ the alt is dishonest. There is no paid OCR and no network at build; the
 `mediaReviewed` flag is the offline image-content attestation.
 
 The embed is a server-rendered blockquote with the visible source credit and
-the post link inside a reserved-height box (about 640px on desktop, 560px on
-a 390px phone) so the widget footer is not cropped. `widgets.js` loads async,
-only on pages that have a pinned post, and only from
-`https://platform.twitter.com`. The SVG illustration stays visible behind or
-under the embed until the iframe's rendered height is above 240px (or X's
-`rendered` event confirms that height). A missing iframe, a tombstone, a
-deleted/unavailable post, a widgets.js failure, or JS-off never hides the
-SVG. Credit and the post link stay in the caption. Sponsored or
-betting copy (a `sponsored` flag or DraftKings / FanDuel / odds / O/U /
-Over/Under / presented by / bet) is rejected offline. Media is never
-downloaded or rehosted. Pins are refused on already-signed Reviews and on
-a missing or unreadable edition file.
+the post link. Height is reserved (about 640px on desktop, 560px on a 390px
+phone) only while JavaScript is on and an embed is loading or ready, so a
+working pin does not crop the widget footer and CLS stays low. Fallback and
+JS-off size the box to the SVG. `widgets.js` loads async, only on pages that
+have a pinned post, and only from `https://platform.twitter.com`. The SVG
+illustration stays visible behind or under the embed until the iframe's
+rendered height is above 240px (or X's `rendered` event confirms that
+height). A missing iframe, a tombstone, a deleted/unavailable post, a
+widgets.js failure, or JS-off never hides the SVG. Credit and the post link
+stay in the caption. Sponsored or betting copy (a `sponsored` flag or
+DraftKings / FanDuel / odds / O/U / Over/Under / presented by / bet) is
+rejected offline. Media is never downloaded or rehosted. Pins are refused on
+already-signed Reviews and on a missing, unreadable, or non-object edition
+file, and when the signature check raises.
 
 Archived editions without a pin, and any pin that fails the allowlist or id
 shape, use the original vector illustration selected at render time from the

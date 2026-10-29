@@ -19,6 +19,7 @@
 {{- $scene := partial "nrt-hero-scene.html" (dict "n" .n "site" .site) -}}
 {{- $illustration := partial "nrt-event-illustration.html" (dict "n" .n "site" .site "scene" $scene) -}}
 {{- if $pin.id -}}
+<script>document.documentElement.classList.add("nrt-hero-js");</script>
 <figure class="nrt-hero-media" data-hero-kind="x-embed" data-hero-state="pending" data-hero-min-embed="240" data-hero-post-id="{{ $pin.id }}" data-hero-scene="{{ $scene.id }}" data-hero-mapped="{{ if $scene.mapped }}true{{ else }}false{{ end }}" data-event-subject="{{ $context.subject }}" data-event-mode="{{ $context.mode }}">
   <div class="nrt-hero-media__visual nrt-hero-media__visual--embed">
     <div class="nrt-hero-media__fallback" data-hero-fallback>{{ $illustration }}</div>

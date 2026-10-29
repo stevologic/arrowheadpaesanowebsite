@@ -267,10 +267,44 @@ class HeroPostAllowlist(unittest.TestCase):
             self.assertFalse(any(WEEK8_SLUG in item and "signed" in item for item in issues), issues)
             self.assertIsNone(hero_posts.pin_for_slug(SIGNED_SLUG, root=root))
             self.assertFalse(hero_posts.edition_pin_allowed("1999-01-01-0000", root=root))
+            self.assertEqual(
+                hero_posts.edition_pin_block_reason("1999-01-01-0000", root=root),
+                "has no readable edition",
+            )
+            payload["pins"]["1999-01-01-0000"] = _clean_pin()
+            (root / "data" / "hero_posts.json").write_text(json.dumps(payload), encoding="utf-8")
+            missing_issues = hero_posts.validate_sidecar(root)
+            missing = [item for item in missing_issues if "1999-01-01-0000" in item]
+            self.assertTrue(missing, missing_issues)
+            self.assertTrue(any("has no readable edition" in item for item in missing), missing)
+            self.assertFalse(any("signed edition" in item for item in missing), missing)
             broken = root / "data" / ("narrative" + "_editions") / "1999-01-02-0000.json"
             broken.parent.mkdir(parents=True, exist_ok=True)
             broken.write_text("{not json", encoding="utf-8")
             self.assertFalse(hero_posts.edition_pin_allowed("1999-01-02-0000", root=root))
+            self.assertEqual(
+                hero_posts.edition_pin_block_reason("1999-01-02-0000", root=root),
+                "edition is unreadable",
+            )
+            array_edition = root / "data" / ("narrative" + "_editions") / "1999-01-03-0000.json"
+            array_edition.write_text("[1]", encoding="utf-8")
+            self.assertFalse(hero_posts.edition_pin_allowed("1999-01-03-0000", root=root))
+            self.assertEqual(
+                hero_posts.edition_pin_block_reason("1999-01-03-0000", root=root),
+                "edition is unreadable",
+            )
+            unsigned = _preview(slug="2026-10-29-1600")
+            _write_unsigned_edition(root, unsigned)
+            with patch.object(
+                hero_posts.review_gate,
+                "review_signed_off",
+                side_effect=hero_posts.review_gate.GateError("sig check failed"),
+            ):
+                self.assertFalse(hero_posts.edition_pin_allowed("2026-10-29-1600", root=root))
+                self.assertEqual(
+                    hero_posts.edition_pin_block_reason("2026-10-29-1600", root=root),
+                    "edition signature check failed",
+                )
         finally:
             tmp.cleanup()
 
@@ -509,10 +543,16 @@ class HeroPostRendering(unittest.TestCase):
         self.assertIn("data-hero-min-embed", den)
         self.assertIn("if (!iframe) return 0;", media_src)
         self.assertIn("embedHeight(fig) >= MIN", media_src)
+        self.assertIn("var MIN = 240", media_src)
+        self.assertIn("if (unavailable(fig))", media_src)
+        self.assertIn('document.documentElement.classList.add("nrt-hero-js")', den)
         self.assertNotIn("if (fig.querySelector(\"iframe\")) {\n      settle(fig, \"ready\");", media_src)
         self.assertIn("twitter-tweet", self.page)
         self.assertIn("640px", self.css)
         self.assertIn("560px", self.css)
+        self.assertIn("html.nrt-hero-js", self.css)
+        self.assertIn('[data-hero-state="fallback"]', self.css)
+        self.assertIn("min-height: 0", self.css)
         self.assertNotIn("aspect-ratio: 16 / 10", self.css)
         self.assertNotIn("pbs.twimg.com", den)
         self.assertNotIn("video.twimg.com", den)

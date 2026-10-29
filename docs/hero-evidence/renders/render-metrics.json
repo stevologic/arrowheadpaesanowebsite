@@ -1,0 +1,61 @@
+{
+  "fallback-404-390x844-js-on.png": {
+    "state": "fallback",
+    "jsClass": true,
+    "cardH": 299,
+    "blankPx": 0
+  },
+  "fallback-404-1280x800-js-on.png": {
+    "state": "fallback",
+    "jsClass": true,
+    "cardH": 401,
+    "visualW": 686,
+    "visualH": 270,
+    "svgH": 270,
+    "iframeH": 0,
+    "blankPx": 0
+  },
+  "fallback-blocked-390x844-js-on.png": {
+    "state": "fallback",
+    "jsClass": true,
+    "cardH": 299,
+    "blankPx": 0
+  },
+  "wait-390x844-js-on.png": {
+    "state": "pending",
+    "jsClass": true,
+    "cardH": 675,
+    "blankPx": 0
+  },
+  "wait-1280x800-js-on.png": {
+    "state": "pending",
+    "jsClass": true,
+    "cardH": 770,
+    "visualW": 686,
+    "visualH": 640,
+    "svgH": 640,
+    "iframeH": 0,
+    "blankPx": 0
+  },
+  "working-390x844-js-on.png": {
+    "state": "ready",
+    "jsClass": true,
+    "cardH": 675,
+    "blankPx": 0
+  },
+  "working-1280x800-js-on.png": {
+    "state": "ready",
+    "jsClass": true,
+    "cardH": 779,
+    "visualW": 686,
+    "visualH": 640,
+    "svgH": 278,
+    "iframeH": 609,
+    "blankPx": 31
+  },
+  "js-off": {
+    "note": "scripts stripped; box sizes to the SVG at both widths. Same layout for 404, blocked, wait, and working.",
+    "390": "card matches fallback SVG (~299px)",
+    "1280": "card matches fallback SVG (~401px)"
+  }
+}

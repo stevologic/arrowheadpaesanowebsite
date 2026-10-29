@@ -1,14 +1,14 @@
 python -m unittest discover -s tools/tests
-Ran 487 tests in 114.127s
+Ran 487 tests in 113.161s
 OK
 
 python -m tools.chiefs_narrative.generate --check-edition
   edition gates: ok
 
-hugo --gc --minify
+hugo --minify
 hugo v0.152.2+extended
 Pages 98
 exit 0
 
-Karen mutants: 36 evaluated, no survivors.
+Karen mutants: 43 evaluated, no survivors.
 See docs/hero-evidence/mutation-report.md

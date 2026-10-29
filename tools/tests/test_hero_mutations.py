@@ -308,7 +308,12 @@ def _kill_a3_guard(module) -> str | None:
 
 
 def _kill_j1(text: str) -> str | None:
-    if "this (?:post|tweet) is unavailable" not in text or "unavailable(fig)" not in text:
+    inspect_gate = (
+        "if (unavailable(fig))" in text
+        and 'settle(fig, "fallback")' in text
+    )
+    regex = "return /this (?:post|tweet) is unavailable/i.test(text);" in text
+    if not inspect_gate or not regex:
         return None
     return "survived: unavailable check still present"
 
@@ -317,6 +322,53 @@ def _kill_j2(text: str) -> str | None:
     if "8000" not in text or "fallback" not in text:
         return None
     return "survived: 8s timeout still present"
+
+
+def _kill_j3(text: str) -> str | None:
+    if "var MIN = 240" not in text or "embedHeight(fig) >= MIN" not in text:
+        return None
+    return "survived: 240px minimum still present"
+
+
+def _kill_j4(text: str) -> str | None:
+    if "var poll = setInterval" not in text:
+        return None
+    poll = text.split("var poll = setInterval", 1)[1][:240]
+    if "inspect(fig)" not in poll:
+        return None
+    return "survived: poll still calls inspect"
+
+
+def _kill_f3(module) -> str | None:
+    tmp, root = _temp_sidecar()
+    try:
+        path = root / "data" / ("narrative" + "_editions") / "2099-01-01-0000.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("[1]", encoding="utf-8")
+        if module.edition_pin_allowed("2099-01-01-0000", root=root):
+            return None
+        return "survived: non-object edition still failed closed"
+    finally:
+        tmp.cleanup()
+
+
+def _kill_f4(module) -> str | None:
+    tmp, root = _temp_sidecar()
+    try:
+        edition = _preview(slug="2026-10-29-1600")
+        _write_unsigned_edition(root, edition)
+        def boom(*_args, **_kwargs):
+            raise module.review_gate.GateError("sig check failed")
+        original = module.review_gate.review_signed_off
+        module.review_gate.review_signed_off = boom
+        try:
+            if module.edition_pin_allowed("2026-10-29-1600", root=root):
+                return None
+            return "survived: GateError still failed closed"
+        finally:
+            module.review_gate.review_signed_off = original
+    finally:
+        tmp.cleanup()
 
 
 def _kill_sponsored(module) -> str | None:
@@ -463,6 +515,24 @@ def _kill_css(css_text: str) -> str | None:
         return None
     if "640px" not in css_text or "--nrt-embed-reserve" not in css_text:
         return None
+    if "html.nrt-hero-js" not in css_text:
+        return None
+    fallback_zero = False
+    for part in css_text.split('[data-hero-state="fallback"]')[1:]:
+        if "min-height: 0" in part[:280]:
+            fallback_zero = True
+            break
+    if not fallback_zero:
+        return None
+    idx = 0
+    while True:
+        pos = css_text.find("min-height: var(--nrt-embed-reserve)", idx)
+        if pos < 0:
+            break
+        window = css_text[max(0, pos - 400):pos]
+        if "html.nrt-hero-js" not in window:
+            return None
+        idx = pos + 1
     if "clip: rect(0 0 0 0)" in css_text and "ready" in css_text:
         ready = css_text.split('[data-hero-state="ready"]')[-1][:400]
         if "1px" in ready and "fallback" in css_text.split('[data-hero-state="ready"]')[0][-80:]:
@@ -523,6 +593,10 @@ CHECKS = {
     "a3": _kill_a3_guard,
     "j1": _kill_j1,
     "j2": _kill_j2,
+    "j3": _kill_j3,
+    "j4": _kill_j4,
+    "f3": _kill_f3,
+    "f4": _kill_f4,
     "sponsored": _kill_sponsored,
     "betting": _kill_betting,
     "week_opponent_pin": _kill_week_opponent_pin,
@@ -707,11 +781,41 @@ MUTANTS = (
     {
         "name": "J1",
         "path": MEDIA_TMPL,
-        "old": "    return /this (?:post|tweet) is unavailable/i.test(text);",
-        "new": "    return false;",
+        "old": "    if (unavailable(fig)) {\n"
+               "      settle(fig, \"fallback\");\n"
+               "      return;\n"
+               "    }\n",
+        "new": "",
         "killer": "client must treat an unavailable post as fallback",
         "kind": "text",
         "check": "j1",
+    },
+    {
+        "name": "J1-regex",
+        "path": MEDIA_TMPL,
+        "old": "    return /this (?:post|tweet) is unavailable/i.test(text);",
+        "new": "    return false;",
+        "killer": "unavailable() must still test the tombstone copy",
+        "kind": "text",
+        "check": "j1",
+    },
+    {
+        "name": "J3",
+        "path": MEDIA_TMPL,
+        "old": "  var MIN = 240;",
+        "new": "  var MIN = 0;",
+        "killer": "ready must still require a 240px embed",
+        "kind": "text",
+        "check": "j3",
+    },
+    {
+        "name": "J4",
+        "path": MEDIA_TMPL,
+        "old": "        n += 1;\n        inspect(fig);\n        if (bind() || n > 40) clearInterval(poll);\n",
+        "new": "        n += 1;\n        if (bind() || n > 40) clearInterval(poll);\n",
+        "killer": "the widgets.js poll must still call inspect()",
+        "kind": "text",
+        "check": "j4",
     },
     {
         "name": "J2",
@@ -790,9 +894,12 @@ MUTANTS = (
     {
         "name": "S1",
         "path": POSTS_SRC,
-        "old": "        if not edition_pin_allowed(str(slug), root=root):\n"
-               "            issues.append(f\"hero pin {slug} is attached to a signed edition\")\n",
-        "new": "        if False:\n            issues.append(f\"hero pin {slug} is attached to a signed edition\")\n",
+        "old": "        reason = edition_pin_block_reason(str(slug), root=root)\n"
+               "        if reason:\n"
+               "            issues.append(f\"hero pin {slug} {reason}\")\n",
+        "new": "        reason = edition_pin_block_reason(str(slug), root=root)\n"
+               "        if False:\n"
+               "            issues.append(f\"hero pin {slug} {reason}\")\n",
         "killer": "a fabricated @NFL pin on a signed edition must fail the gate",
         "kind": "python-posts",
         "check": "signed_pin",
@@ -800,11 +907,29 @@ MUTANTS = (
     {
         "name": "S6",
         "path": POSTS_SRC,
-        "old": "    if not path.is_file():\n        return False\n",
-        "new": "    if not path.is_file():\n        return True\n",
+        "old": "    if not path.is_file():\n        return \"has no readable edition\"\n",
+        "new": "    if not path.is_file():\n        return None\n",
         "killer": "a missing edition file must fail closed",
         "kind": "python-posts",
         "check": "fail_closed",
+    },
+    {
+        "name": "F3",
+        "path": POSTS_SRC,
+        "old": "    if not isinstance(payload, dict):\n        return \"edition is unreadable\"\n",
+        "new": "    if not isinstance(payload, dict):\n        return None\n",
+        "killer": "a non-object edition file must fail closed",
+        "kind": "python-posts",
+        "check": "f3",
+    },
+    {
+        "name": "F4",
+        "path": POSTS_SRC,
+        "old": "    except review_gate.GateError:\n        return \"edition signature check failed\"\n",
+        "new": "    except review_gate.GateError:\n        return None\n",
+        "killer": "a signature-check GateError must fail closed",
+        "kind": "python-posts",
+        "check": "f4",
     },
     {
         "name": "N8",
@@ -851,6 +976,24 @@ MUTANTS = (
         "old": "  min-height: var(--nrt-embed-reserve);\n  overflow: visible;\n",
         "new": "  aspect-ratio: 16 / 10;\n  min-height: 0;\n  overflow: hidden;\n",
         "killer": "the embed box must reserve ~640px and not crop at 16:10",
+        "kind": "css",
+        "check": "css",
+    },
+    {
+        "name": "N17",
+        "path": CSS_SRC,
+        "old": "html.nrt-hero-js .nrt-hero-media[data-hero-kind=\"x-embed\"][data-hero-state=\"fallback\"] .nrt-hero-media__visual--embed {\n  min-height: 0;\n}\n",
+        "new": "",
+        "killer": "fallback must drop the reserved embed height",
+        "kind": "css",
+        "check": "css",
+    },
+    {
+        "name": "N18",
+        "path": CSS_SRC,
+        "old": "  height: auto;\n  min-height: 0;\n  overflow: visible;\n  background: #171416;\n",
+        "new": "  height: auto;\n  min-height: var(--nrt-embed-reserve);\n  overflow: visible;\n  background: #171416;\n",
+        "killer": "JS-off and fallback must not keep a reserved embed box",
         "kind": "css",
         "check": "css",
     },
@@ -970,4 +1113,13 @@ class HeroMutations(unittest.TestCase):
         self.assertIn("embedHeight", media)
         self.assertIn("8000", media)
         self.assertIn("unavailable", media)
+        self.assertIn("var MIN = 240", media)
+        self.assertIn("if (unavailable(fig))", media)
+        self.assertIn("inspect(fig);", media)
+        self.assertIn('document.documentElement.classList.add("nrt-hero-js")', media)
+        css = CSS_SRC.read_text(encoding="utf-8")
+        self.assertIn("html.nrt-hero-js", css)
+        self.assertIn('[data-hero-state="fallback"]', css)
         self.assertNotIn("SIGNED_PIN_WHITELIST", POSTS_SRC.read_text(encoding="utf-8"))
+        self.assertIn("has no readable edition", POSTS_SRC.read_text(encoding="utf-8"))
+        self.assertIn("edition signature check failed", POSTS_SRC.read_text(encoding="utf-8"))

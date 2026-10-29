@@ -129,24 +129,31 @@ def is_sponsored_or_betting(value: dict) -> bool:
     return bool(BETTING_DENY_RE.search(_betting_blob(value)))
 
 
-def edition_pin_allowed(slug: str, *, root=None) -> bool:
-    """Pins are allowed only on a readable unsigned edition. Missing files fail closed."""
+def edition_pin_block_reason(slug: str, *, root=None) -> str | None:
+    """Fail-closed reason, or None when a pin is allowed on this edition."""
     key = _s(slug)
     base = Path(root or config.REPO_ROOT)
     path = base / "data" / "narrative_editions" / f"{key}.json"
     if not path.is_file():
-        return False
+        return "has no readable edition"
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return False
+        return "edition is unreadable"
     if not isinstance(payload, dict):
-        return False
+        return "edition is unreadable"
     payload.setdefault("slug", key)
     try:
-        return not review_gate.review_signed_off(payload, root=base, edition_file=path)
+        if review_gate.review_signed_off(payload, root=base, edition_file=path):
+            return "is attached to a signed edition"
     except review_gate.GateError:
-        return False
+        return "edition signature check failed"
+    return None
+
+
+def edition_pin_allowed(slug: str, *, root=None) -> bool:
+    """Pins are allowed only on a readable unsigned edition. Missing files fail closed."""
+    return edition_pin_block_reason(slug, root=root) is None
 
 
 def normalize_pin(value) -> dict | None:
@@ -243,8 +250,9 @@ def validate_sidecar(root=None) -> list[str]:
                 + (f" (@{handle})" if handle else "")
             )
             continue
-        if not edition_pin_allowed(str(slug), root=root):
-            issues.append(f"hero pin {slug} is attached to a signed edition")
+        reason = edition_pin_block_reason(str(slug), root=root)
+        if reason:
+            issues.append(f"hero pin {slug} {reason}")
     return issues
 
 

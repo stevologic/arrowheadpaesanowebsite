@@ -17,14 +17,15 @@ fixture only inside `render_deleted_hero.py`; published `pins` stay `{}`.
 | 390×844 Week 8, JS off | `renders/week8-390x844-js-off.png` |
 | 1280×800 Week 8, JS on | `renders/week8-1280x800-js-on.png` |
 | 1280×800 Week 8, JS off | `renders/week8-1280x800-js-off.png` |
-| 390×844 deleted, syndication 404, JS on | `renders/deleted-cdnonly-390x844-js-on.png` |
-| 1280×800 deleted, syndication 404, JS on | `renders/deleted-cdnonly-1280x800-js-on.png` |
-| 390×844 deleted, all X blocked, JS on | `renders/deleted-blocked-390x844-js-on.png` |
-| 1280×800 deleted, all X blocked, JS on | `renders/deleted-blocked-1280x800-js-on.png` |
-| 390×844 fallback, JS on | `renders/fallback-390x844-js-on.png` |
-| 390×844 fallback, JS off | `renders/fallback-390x844-js-off.png` |
-| 1280×800 fallback, JS on | `renders/fallback-1280x800-js-on.png` |
-| 1280×800 fallback, JS off | `renders/fallback-1280x800-js-off.png` |
+| 390×844 fallback 404, JS on/off | `renders/fallback-404-390x844-js-{on,off}.png` |
+| 1280×800 fallback 404, JS on/off | `renders/fallback-404-1280x800-js-{on,off}.png` |
+| 390×844 fallback all-X-blocked, JS on/off | `renders/fallback-blocked-390x844-js-{on,off}.png` |
+| 1280×800 fallback all-X-blocked, JS on/off | `renders/fallback-blocked-1280x800-js-{on,off}.png` |
+| 390×844 8s wait, JS on/off | `renders/wait-390x844-js-{on,off}.png` |
+| 1280×800 8s wait, JS on/off | `renders/wait-1280x800-js-{on,off}.png` |
+| 390×844 working pin, JS on/off | `renders/working-390x844-js-{on,off}.png` |
+| 1280×800 working pin, JS on/off | `renders/working-1280x800-js-{on,off}.png` |
+| Box metrics for those renders | `renders/render-metrics.json` |
 | Mutation report | `mutation-report.md` |
 | Python vs Hugo parity | `parity-table.md` |
 | Fixed SVGs + alt text | `svgs-and-alts.md` |
