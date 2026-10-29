@@ -73,14 +73,14 @@ jobs:
       mode: ${{ steps.mode.outputs.mode }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           ref: develop
           fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.11"
 
@@ -179,7 +179,7 @@ jobs:
 
       - name: Upload generated data
         if: steps.diff.outputs.changed == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: narrative-data
           path: |
@@ -202,20 +202,20 @@ jobs:
       HUGO_VERSION: 0.152.2
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           ref: develop
           fetch-depth: 0
           persist-credentials: false
 
       - name: Download generated data
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: narrative-data
           path: .
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.11"
 
@@ -308,7 +308,7 @@ jobs:
           PY
 
       - name: Upload validated data
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: narrative-publish
           include-hidden-files: true
@@ -332,20 +332,20 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           ref: develop
           fetch-depth: 0
           persist-credentials: false
 
       - name: Download validated data
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: narrative-publish
           path: .
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.11"
 
@@ -392,19 +392,19 @@ jobs:
           HOLD_MERGE="false"
           DROP_BODY=""
           if [ -f .narrative-publish.json ]; then
-            HOLD_MERGE="$(python -c "import json;print('true' if json.load(open('.narrative-publish.json')).get('holdMerge') else 'false')")"
-            DROP_BODY="$(python -c "import json;print(json.load(open('.narrative-publish.json')).get('dropBody') or '')")"
+            HOLD_MERGE="$(python -P -c "import json;print('true' if json.load(open('.narrative-publish.json')).get('holdMerge') else 'false')")"
+            DROP_BODY="$(python -P -c "import json;print(json.load(open('.narrative-publish.json')).get('dropBody') or '')")"
           fi
           if [ "$HOLD_MERGE" != "true" ] && [ "$DESK_MODE" = "full" ] && [ -f data/narrative.json ]; then
-            REVIEW_HOLD="$(python -c "import json;print('true' if json.load(open('.narrative-publish.json')).get('holdMerge') else 'false')")"
+            REVIEW_HOLD="$(python -P -c "import json;print('true' if json.load(open('.narrative-publish.json')).get('holdMerge') else 'false')")"
             if [ "$REVIEW_HOLD" = "true" ]; then
               HOLD_MERGE="true"
             fi
           fi
 
           if [ "$DESK_MODE" = "full" ] && [ -f data/narrative.json ]; then
-            EDITION="$(python -c "import json;print(json.load(open('.narrative-publish.json')).get('edition') or json.load(open('data/narrative.json'))['edition'])")"
-            HEADLINE="$(python -c "import json;print(json.load(open('.narrative-publish.json')).get('headline') or json.load(open('data/narrative.json'))['headline'])")"
+            EDITION="$(python -P -c "import json;print(json.load(open('.narrative-publish.json')).get('edition') or json.load(open('data/narrative.json'))['edition'])")"
+            HEADLINE="$(python -P -c "import json;print(json.load(open('.narrative-publish.json')).get('headline') or json.load(open('data/narrative.json'))['headline'])")"
             git commit -m "Chiefs Narrative: ${EDITION}" -m "${HEADLINE}"
             TITLE="Chiefs Narrative — ${EDITION}"
             BODY="$(printf '%s\n' \
@@ -467,14 +467,14 @@ jobs:
       actions: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.11"
 
@@ -529,15 +529,12 @@ jobs:
           printf '%s\n' \
             "Promotes ${{ github.event.pull_request.html_url }}." \
             "Merge, not squash." > "$BODY_FILE"
-          # Title match in jq --arg, not PR-head Python. An empty title
-          # must not close some other develop→main PR.
-          EXISTING=""
-          if [ -n "$PROMOTE_TITLE" ]; then
-            EXISTING="$(gh pr list --base main --head develop --state open --json url,title \
-              | jq -r --arg t "$PROMOTE_TITLE" \
-                '.[] | select(.title == $t) | .url | select(test("^https?://"))' \
-              | head -n 1)"
-          fi
+          # Title match in jq --arg, not PR-head Python. PROMOTE_TITLE is
+          # always prefixed, so an empty-title shell guard is dead code.
+          EXISTING="$(gh pr list --base main --head develop --state open --json url,title \
+            | jq -r --arg t "$PROMOTE_TITLE" \
+              '.[] | select(.title == $t) | .url | select(test("^https?://"))' \
+            | head -n 1)"
           cd "$GATE_BASE"
           if ! PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.edition_merge \
             --pr "${{ github.event.pull_request.html_url }}"; then
@@ -547,13 +544,10 @@ jobs:
             fi
             exit 1
           fi
-          PROMOTE_URL=""
-          if [ -n "$PROMOTE_TITLE" ]; then
-            PROMOTE_URL="$(gh pr list --base main --head develop --state open --json url,title \
-              | jq -r --arg t "$PROMOTE_TITLE" \
-                '.[] | select(.title == $t) | .url | select(test("^https?://"))' \
-              | head -n 1)"
-          fi
+          PROMOTE_URL="$(gh pr list --base main --head develop --state open --json url,title \
+            | jq -r --arg t "$PROMOTE_TITLE" \
+              '.[] | select(.title == $t) | .url | select(test("^https?://"))' \
+            | head -n 1)"
           if [ -z "$PROMOTE_URL" ]; then
             PROMOTE_URL="$(gh pr create --base main --head develop \
               --title "$PROMOTE_TITLE" \
