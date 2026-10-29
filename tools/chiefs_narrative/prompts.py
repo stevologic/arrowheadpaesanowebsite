@@ -71,7 +71,10 @@ keep it coaching copy, not a leftover caption. For the opening score, write \
 elapsed time (2:06 into the game) or the game clock (Q1 12:54), never a \
 bare at-2:06 that reads as the clock. Do not call a 0-sack, 20-of-24 day \
 a survival tape. Never echo 'Do not call', 'do not write', \
-or other imperative guidance into the edition.
+or other imperative guidance into the edition. Fact-check asides, \
+source-scoping notes, and editor caveats belong only in editorNotes. \
+Never put them in headline, dek, theEdge, reviews, game plan, cards, \
+or captions — the site never renders editorNotes.
 [/PRIVATE]
 
 Return a SINGLE JSON object. No markdown, no prose outside the JSON.\
@@ -518,6 +521,9 @@ def _schema_hint(phase: dict, record: str = "") -> str:
             "dek": "one-sentence standfirst",
             "videoHook": "spoken cold-open line for the YouTube episode",
             "theEdge": "one-sentence thesis on where the season is trending",
+            "editorNotes": [
+                "private fact-check or editor asides — never rendered on the site"
+            ],
             "storyline": {
                 "lede": "the evolving story, one strong paragraph",
                 "body": ["2-4 more paragraphs building the arc, looking ahead"],

@@ -4154,15 +4154,10 @@ class FactCheck(unittest.TestCase):
         leaks = [
             "Denver's early-down front, unlisted by name in this file",
             "No other player status is stated in the supplied wire, so none is listed here",
-            "It is not credit for a takeaway",
-            "That is a recovered snap, not a lost fumble",
-            "It is not a claim that pressure created Williams's interception",
-            "This is a Denver call, not a label on any Seattle throw",
-            "It is a Denver install, not a description of a Seattle throw",
-            "Do not tell that story as the reason for a takeaway",
-            "Do not sell it as the play that created Williams's interception",
-            "Rush without inventing a sack total",
+            "That name is not stated in the recap.",
             "Nothing in the source packet names another player",
+            "There is no Week 4 report on this wire.",
+            "The look is untested on this wire.",
         ]
         for line in leaks:
             self.assertTrue(self._meta_note_issues(line), line)
@@ -4175,46 +4170,32 @@ class FactCheck(unittest.TestCase):
         )
         self.assertFalse(self._meta_note_issues(coaching), coaching)
 
-    def test_fact_checker_phrase_classes_are_independently_required(self):
-        """Each source/listing class must match on a line that has only that class."""
+    def test_fact_checker_referent_hedge_pairs_are_required(self):
+        """A leak needs a source referent and a hedge in the same sentence."""
         isolated = {
-            "supplied wire": "The supplied wire omitted the inactive list.",
-            "supplied data": "Only the supplied data is in scope.",
+            "this file": "The nickel is unlisted by name in this file.",
+            "stated in": "No other name is stated in the supplied inactive list.",
+            "listed here": "So none is listed here.",
+            "this wire": "There is no Week 4 report on this wire.",
+            "supplied": "The supplied wire omitted the inactive list.",
             "source packet": "The source packet is silent on inactives.",
-            "per the supplied": "Cut the extra names per the supplied note.",
-            "this wire": "The look is untested on this wire.",
-            "unlisted by name": "The nickel is unlisted by name.",
-            "none is listed here": "So none is listed here.",
+            "per the supplied": "No extra names per the supplied note.",
+            "the packet": "Nothing in the packet names another player.",
+            "per the packet": "Per the packet, nobody else is named.",
         }
         for snippet, line in isolated.items():
             issues = self._meta_note_issues(line)
             self.assertTrue(issues, line)
             self.assertTrue(
-                any(snippet in item for item in issues),
+                any(snippet.lower() in item.lower() for item in issues),
                 (snippet, issues),
             )
-
-    def test_fact_checker_paraphrases_are_rejected(self):
-        paraphrases = [
-            "That's a recovered snap, not a lost fumble.",
-            "Don't tell that story as the reason for a takeaway.",
-            "Nothing here says pressure caused the interception.",
-            "Status is per the supplied data only.",
-            "Coverage and a called simulated pressure, not a story about a takeaway that a blitz did not create.",
-            "It is a Denver install, not a description of a Seattle throw.",
-            "That look is not credit for a takeaway.",
-            "The edge is unlisted by name.",
-            "So none is listed here.",
-            "Nothing in the packet names another player.",
-            "Don't sell it as the play that created the interception.",
-            "This Denver call is not a label for any Seattle throw.",
-            "That install is not a description of a Seattle throw.",
-            "The recovered snap is not a lost fumble.",
-            "This is not a description of a Seattle throw; it is a Denver install.",
-            "This isn't credit for a takeaway.",
-        ]
-        for line in paraphrases:
-            self.assertTrue(self._meta_note_issues(line), line)
+        self.assertFalse(
+            self._meta_note_issues("The supplied depth chart is the Week 8 sheet.")
+        )
+        self.assertFalse(
+            self._meta_note_issues("That is a recovered snap, not a lost fumble.")
+        )
 
     def test_fact_checker_notes_ignore_ordinary_football_prose(self):
         clean = [
@@ -4232,9 +4213,157 @@ class FactCheck(unittest.TestCase):
             "Chalk, not a verdict",
             "Favored at home is not a verdict: keep Walker's 189-yard identity",
             "still treat 1-0 as a sample size, not a verdict.",
+            "not a description of a new offense",
+            "not a label he wants",
+            "not a story about leg strength",
+            "Camp must prove a second and third rusher can win without inventing pressure that breaks coverage behind them.",
+            "Spags’ zone pressures suddenly have a free rusher without inventing numbers.",
+            "Replace Thornton’s vertical stress without inventing a clone",
+            "Supports the receiver-depth urgency theme without inventing diagnoses.",
         ]
         for line in clean:
             self.assertFalse(self._meta_note_issues(line), line)
+
+    def test_dropped_phrase_mutants_are_killed_by_referent_gate(self):
+        """The four pinned-phrase mutants: real leaks via referent, FPs stay clean."""
+        self.assertTrue(
+            self._meta_note_issues("The nickel is unlisted by name in this file.")
+        )
+        self.assertTrue(
+            self._meta_note_issues("That name is not stated in the recap.")
+        )
+        self.assertFalse(self._meta_note_issues("That is not a lost fumble."))
+        self.assertFalse(self._meta_note_issues("That's a recovered snap."))
+
+    def test_without_inventing_archive_lines_are_clean(self):
+        """Scan published editions; 'without inventing' is ordinary copy."""
+        editions = Path("data") / "narrative_editions"
+        found = []
+        hits = []
+        for path in sorted(editions.glob("*.json")):
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            text = facts.edition_text(payload)
+            if "without inventing" not in text.lower():
+                continue
+            for sentence in facts._split_sentences(text):
+                if "without inventing" not in sentence.lower():
+                    continue
+                found.append(sentence)
+                issues = self._meta_note_issues(sentence)
+                if issues:
+                    hits.append((path.name, sentence, issues))
+        self.assertGreaterEqual(len(found), 3, found)
+        self.assertEqual(hits, [])
+
+    def test_fact_checker_referent_paraphrases_are_rejected(self):
+        paraphrases = [
+            "Status is not in the supplied data.",
+            "So none is listed here.",
+            "Nothing in the packet names another player.",
+            "The nickel is unlisted by name in this file.",
+            "No extra names per the supplied note.",
+        ]
+        for line in paraphrases:
+            self.assertTrue(self._meta_note_issues(line), line)
+
+    def test_editor_notes_are_never_rendered_or_scanned(self):
+        canary = "stated in the supplied wire, so none is listed here"
+        payload = {
+            "headline": "Visible headline",
+            "theEdge": "Visible edge.",
+            "editorNotes": [canary],
+            "lastGameReview": {"lede": "Kansas City won 24-10."},
+        }
+        self.assertNotIn(canary, facts.edition_text(payload))
+        self.assertFalse(
+            any(
+                "fact-checker note leaked" in item
+                for item in facts.check_review(payload, None, None, changed=True)
+            )
+        )
+        parked = facts.park_editor_notes(
+            {
+                "headline": "Visible headline",
+                "lastGameReview": {
+                    "lede": "Kansas City won 24-10. " + canary + "."
+                },
+            }
+        )
+        self.assertTrue(any(canary in note for note in parked.get("editorNotes") or []))
+        self.assertNotIn(canary, facts.edition_text(parked))
+        normalized = schema.normalize(
+            {"editorNotes": [canary], "headline": "Visible headline"},
+            phase={"type": "regular", "mode": "preview"},
+            meta={"generator": "test"},
+        )
+        self.assertEqual(normalized["editorNotes"], [canary])
+        self.assertIn("editorNotes", prompts.SYSTEM_PROMPT)
+        hint = json.loads(prompts._schema_hint({"type": "regular", "mode": "preview"}, ""))
+        self.assertIn("editorNotes", hint)
+        self.assertNotIn("editorNotes", facts._EDITION_KEYS)
+        self.assertNotIn("editor_notes", facts._EDITION_KEYS)
+        generate_src = Path(generate.__file__).read_text(encoding="utf-8")
+        park_at = generate_src.index("facts.park_editor_notes")
+        replay_at = generate_src.index("archive_replay_issues")
+        write_at = generate_src.index("def _write_edition_payload")
+        self.assertLess(park_at, replay_at)
+        self.assertLess(park_at, write_at)
+
+    def test_editor_notes_never_appear_in_hugo_output(self):
+        hugo_bin = _hugo_bin()
+        if not hugo_bin:
+            self.skipTest("hugo is not on PATH or ~/.local/hugo/hugo")
+        repo = Path(__file__).resolve().parents[2]
+        canary = "EDITORNOTE_CANARY_7f3c9e2a_never_render"
+        for path in (repo / "layouts").rglob("*"):
+            if path.is_file():
+                self.assertNotIn("editorNotes", path.read_text(encoding="utf-8"), path)
+        with tempfile.TemporaryDirectory() as tmp:
+            site = Path(tmp) / "site"
+            site.mkdir()
+            for name in (
+                "layouts",
+                "content",
+                "static",
+                "assets",
+                "archetypes",
+                "public",
+                "hugo.yaml",
+            ):
+                src = repo / name
+                if src.exists():
+                    (site / name).symlink_to(src)
+            (site / "data").mkdir()
+            for path in (repo / "data").iterdir():
+                if not path.is_file():
+                    continue
+                if path.name == "narrative.json":
+                    payload = json.loads(path.read_text(encoding="utf-8"))
+                    payload["editorNotes"] = [
+                        canary,
+                        "stated in the supplied wire, so none is listed here",
+                    ]
+                    (site / "data" / path.name).write_text(
+                        json.dumps(payload, indent=2) + "\n", encoding="utf-8"
+                    )
+                else:
+                    shutil.copy2(path, site / "data" / path.name)
+            dest = Path(tmp) / "dist"
+            result = subprocess.run(
+                [hugo_bin, "--gc", "--minify", "--destination", str(dest)],
+                cwd=site,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            rendered = []
+            for html in dest.rglob("*.html"):
+                rendered.append(html.read_text(encoding="utf-8"))
+            blob = "\n".join(rendered)
+            self.assertNotIn(canary, blob)
+            self.assertNotIn("stated in the supplied wire", blob)
+            self.assertNotIn("editorNotes", blob)
 
     def test_not_a_verdict_is_ordinary_archive_prose(self):
         """Karen: 'not a verdict' / 'lean, not a verdict' are published copy."""
@@ -4264,7 +4393,7 @@ class FactCheck(unittest.TestCase):
         narrative = {
             "phase": {"mode": "preview", "week": 8},
             "gamePlan": {
-                "lede": "It is not credit for a takeaway.",
+                "lede": "No other player is stated in the supplied wire.",
             },
         }
         live = {"completed": False, "kcScore": None, "oppScore": None}
@@ -4284,7 +4413,7 @@ class FactCheck(unittest.TestCase):
             "slug": "2026-10-29-1754",
             "generatedAt": "2026-10-29T17:54:31+00:00",
             "lastGameReview": {
-                "lede": "Kansas City lost 3-20. That is a recovered snap, not a lost fumble."
+                "lede": "Kansas City lost 3-20. No other player is stated in the supplied wire."
             },
         }
         old_handset = dict(leak)
@@ -4361,14 +4490,17 @@ class FactCheck(unittest.TestCase):
         def exists(_root, ref):
             return bool(fetched) and ref == "origin/develop"
 
-        def fetch(*_args, **_kwargs):
-            fetched.append(True)
+        def fetch(cmd, **_kwargs):
+            fetched.append(list(cmd))
             return b""
 
         with patch.object(facts, "_rev_exists", side_effect=exists):
             with patch.object(facts.subprocess, "check_output", side_effect=fetch):
                 self.assertEqual(facts._diff_base("/tmp"), "origin/develop")
         self.assertTrue(fetched)
+        self.assertEqual(
+            fetched[0], ["git", "fetch", "--no-tags", "origin", "develop"]
+        )
 
     def test_check_published_edition_scans_when_git_is_unknown(self):
         captured = []
@@ -4411,8 +4543,8 @@ class FactCheck(unittest.TestCase):
             "generatedAt": "2026-10-29T17:54:31+00:00",
             "lastGameReview": {
                 "lede": (
-                    "Kansas City lost 3-20. That is a recovered snap, "
-                    "not a lost fumble."
+                    "Kansas City lost 3-20. No other player is stated "
+                    "in the supplied wire."
                 )
             },
         }
@@ -6679,6 +6811,7 @@ class FactCheck(unittest.TestCase):
             with patch.object(edition_merge, "fetch_review_threads", return_value=[]):
                 ok = edition_merge.inspect_pr("12")
         self.assertFalse(ok["refused"])
+        self.assertTrue(edition_merge.REQUIRE_HEAD_APPROVAL)
 
     def test_inspect_pr_missing_number_fails_closed(self):
         with patch.object(
@@ -6823,10 +6956,36 @@ class FactCheck(unittest.TestCase):
         self.assertIn("gh pr close", first_promote)
         self.assertNotIn(".[].url", first_promote)
         self.assertNotIn(".[].url", refuse)
+        self.assertNotIn("select(.title", promote)
+        self.assertIn(".[0].url", promote)
+        self.assertIn("--head develop", promote)
+        self.assertIn("--base main", promote)
         self.assertIn('gh pr close "$PROMOTE_URL"', promote)
         self.assertIn('gh pr close "$EXISTING"', promote)
+        second_promote = promote.split("gh pr create", 1)[1]
+        self.assertIn("exit 1", second_promote)
+        self.assertNotIn("exit 0", second_promote)
+        self.assertIn('--title "$PROMOTE_TITLE"', promote)
         generate_if = str(((parsed.get("jobs") or {}).get("generate") or {}).get("if") or "")
         self.assertIn("pull_request", generate_if)
+
+    def test_promote_lookup_survives_quoted_edition_title(self):
+        """A double quote in the edition title must not be interpolated into jq."""
+        root = Path(__file__).resolve().parents[2] / ".github" / "workflows"
+        promote = str(
+            _job_step(
+                yaml.safe_load((root / "narrative.yml").read_text(encoding="utf-8")),
+                "publish",
+                name="Promote develop to main",
+            ).get("run")
+            or ""
+        )
+        self.assertNotIn("${PROMOTE_TITLE}", promote.split("--jq", 1)[-1])
+        self.assertNotIn("select(.title", promote)
+        self.assertIn(".[0].url", promote)
+        self.assertIn('--title "$PROMOTE_TITLE"', promote)
+        self.assertNotIn("gh pr list --state open --json", promote)
+        self.assertIn("gh pr list --base main --head develop", promote)
 
     def test_automerge_and_pages_refuse_unsigned_reviews(self):
         """G1–G3 / G6–G8: YAML-parsed wiring. Named mutations in the PR body."""

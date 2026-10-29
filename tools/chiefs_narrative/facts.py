@@ -212,35 +212,27 @@ _EDITION_DIFF_PATHS = (
     "data/narrative.json",
     "data/narrative_editions",
 )
-# Meta-denial / process asides. One alt per class so a dropped phrase is
-# testable. Overlapping restatements of the same class were merged.
-# Do not use a bare "not a label/description/verdict" — that flags ordinary
-# copy ("Chalk, not a verdict", "lean, not a verdict"). Process-vs-tape
-# contrast catches paraphrases by structure, either order.
-_FACT_CHECKER_NOTE = re.compile(
-    r"\bunlisted by name\b"
-    r"|\bnone is listed here\b"
-    r"|\bsupplied wire\b"
-    r"|\bsupplied data\b"
-    r"|\bsource packet\b"
+# Meta notes that leaked into published copy. A sentence is a leak only
+# when a source/listing referent and a negation/hedge both appear. Loose
+# "not a label/description/story/verdict" shapes are ordinary football.
+_META_REFERENT = re.compile(
+    r"\bper the packet\b"
     r"|\bper the supplied\b"
+    r"|\bsource packet\b"
+    r"|\bthe packet\b"
+    r"|\bthis file\b"
+    r"|\bthe wire\b"
     r"|\bthis wire(?!-to-wire)\b"
-    r"|\bin this file\b"
-    r"|\bwithout inventing\b"
-    r"|\bnot stated in the\b"
-    r"|\b(?:not|isn['’]t) credit for\b"
-    r"|\bnot a story about\b"
-    r"|\bnot a claim that\b"
-    r"|\bnot a lost fumble\b"
-    r"|\bdo(?: not|n['’]t) tell that story\b"
-    r"|\bdo(?: not|n['’]t) sell it as\b"
-    r"|\bnothing here says\b"
-    r"|\bnothing in the (?:source )?packet\b"
-    r"|\bthat(?:['’]s| is) a recovered snap\b"
-    r"|\b(?:install|call|recovered snap)\b[^.\n]{0,80}"
-    r"\b(?:not|isn['’]t) a(?:n)?\b[^.\n]{0,48}\b(?:description|label|lost fumble|story)\b"
-    r"|\b(?:not|isn['’]t) a(?:n)?\b[^.\n]{0,48}\b(?:description|label)\b[^.\n]{0,80}"
-    r"\b(?:install|call)\b",
+    r"|\bsupplied\b"
+    r"|\blisted here\b"
+    r"|\bstated in\b",
+    re.IGNORECASE,
+)
+_META_HEDGE = re.compile(
+    r"\b(?:not|no|none|nothing|nobody|never|neither|without|unlisted|omitted|silent|untested)\b"
+    r"|n['’]t\b"
+    r"|\bdo(?: not|n['’]t)\b"
+    r"|\bno other\b",
     re.IGNORECASE,
 )
 _GARBLED_RECORD = re.compile(
@@ -3545,6 +3537,52 @@ def _fact_checker_notes_enabled(
     return True
 
 
+def _is_meta_note_sentence(sentence: str) -> bool:
+    """True when a source referent and a negation/hedge share the sentence."""
+    if not sentence or not sentence.strip():
+        return False
+    return bool(_META_REFERENT.search(sentence) and _META_HEDGE.search(sentence))
+
+
+def _meta_note_snippet(sentence: str) -> str:
+    match = _META_REFERENT.search(sentence)
+    return match.group(0) if match else sentence.strip()[:48]
+
+
+def _norm_editor_notes(value) -> list[str]:
+    rows = value if isinstance(value, list) else [value]
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in rows:
+        text = str(item or "").strip()
+        key = " ".join(text.lower().split())
+        if not text or key in seen:
+            continue
+        seen.add(key)
+        out.append(text)
+    return out
+
+
+def park_editor_notes(narrative: dict | None) -> dict:
+    """Move leaked meta sentences out of published fields into editorNotes."""
+    payload = copy.deepcopy(narrative or {})
+    parked = _norm_editor_notes(payload.get("editorNotes"))
+    snippets: list[str] = []
+    for sentence in _split_sentences(edition_text(payload)):
+        if not _is_meta_note_sentence(sentence):
+            continue
+        parked.append(sentence.strip())
+        snippets.append(sentence.strip())
+    if snippets:
+        for key in _EDITION_KEYS:
+            if key in payload:
+                payload[key] = _drop_value(
+                    payload[key], snippets, None, None, generated_at=""
+                )
+    payload["editorNotes"] = _norm_editor_notes(parked)
+    return payload
+
+
 def _check_fact_checker_notes(
     text: str,
     narrative: dict | None = None,
@@ -3555,8 +3593,10 @@ def _check_fact_checker_notes(
         return []
     issues = []
     seen: set[str] = set()
-    for match in _FACT_CHECKER_NOTE.finditer(text):
-        snippet = match.group(0)
+    for sentence in _split_sentences(text):
+        if not _is_meta_note_sentence(sentence):
+            continue
+        snippet = _meta_note_snippet(sentence)
         key = snippet.lower()
         if key in seen:
             continue

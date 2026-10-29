@@ -533,15 +533,15 @@ jobs:
           if ! PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.edition_merge \
             --pr "${{ github.event.pull_request.html_url }}"; then
             echo "Refusing promote: hold label or unresolved review findings"
-            EXISTING="$(gh pr list --base main --head develop --state open --json url,title \
-              --jq ".[] | select(.title == \"${PROMOTE_TITLE}\") | .url" | head -n1)"
+            EXISTING="$(gh pr list --base main --head develop --state open --json url \
+              --jq '.[0].url // empty')"
             if [ -n "$EXISTING" ]; then
               gh pr close "$EXISTING" --comment "Refusing promote: hold or unresolved review findings"
             fi
             exit 1
           fi
-          PROMOTE_URL="$(gh pr list --base main --head develop --state open --json url,title \
-            --jq ".[] | select(.title == \"${PROMOTE_TITLE}\") | .url" | head -n1)"
+          PROMOTE_URL="$(gh pr list --base main --head develop --state open --json url \
+            --jq '.[0].url // empty')"
           if [ -z "$PROMOTE_URL" ]; then
             PROMOTE_URL="$(gh pr create --base main --head develop \
               --title "$PROMOTE_TITLE" \
