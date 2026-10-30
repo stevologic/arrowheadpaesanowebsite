@@ -836,6 +836,28 @@ class Butker58SalvageReplay(unittest.TestCase):
             )
         )
 
+    def test_unidentified_team_is_not_rewritten(self):
+        recap = self._single_kc_miss(58)
+        sentence = "The kick missed from 57."
+        self.assertFalse(facts._fg_claim_team(sentence, recap, self.LAST))
+        self.assertFalse(
+            facts._fg_claim_team(
+                "\n".join((sentence, sentence)), recap, self.LAST
+            )
+        )
+        with patch.object(
+            facts,
+            "_official_miss_count_for",
+            wraps=facts._official_miss_count_for,
+        ) as official:
+            rewritten = facts._correct_fg_yardage(
+                sentence, 57, recap, self.LAST, context=sentence
+            )
+        self.assertIsNone(rewritten)
+        self.assertNotEqual(rewritten, "The kick missed from 58.")
+        credited = [call.args[1] for call in official.call_args_list]
+        self.assertNotIn("KC", credited, credited)
+
     def test_make_claim_wrong_yardage_is_not_rewritten(self):
         recap = self._single_kc_miss(58)
         sentence = "Butker hit from 57 to steady it."
@@ -845,6 +867,34 @@ class Butker58SalvageReplay(unittest.TestCase):
                 sentence, 57, recap, self.LAST, context=sentence
             )
         )
+
+    def test_made_from_is_not_rewritten_to_missed(self):
+        recap = self._single_kc_miss(58)
+        sentence = "Butker made from 57"
+        self.assertFalse(facts._states_fg_miss(sentence))
+        with patch.object(
+            facts, "_fg_claim_team", wraps=facts._fg_claim_team
+        ) as claim:
+            rewritten = facts._correct_fg_yardage(
+                sentence, 57, recap, self.LAST, context=sentence
+            )
+        self.assertIsNone(rewritten)
+        self.assertNotIn("missed", rewritten or "")
+        self.assertEqual(claim.call_count, 0, claim.call_args_list)
+
+    def test_rewrite_changes_only_kick_yards_not_first_number(self):
+        recap = self._single_kc_miss(58)
+        sentence = "Butker missed from 57 on 3rd-and-4"
+        rewritten = facts._correct_fg_yardage(
+            sentence, 57, recap, self.LAST, context=sentence
+        )
+        self.assertEqual(rewritten, "Butker missed from 58 on 3rd-and-4")
+        leading = "On 3rd-and-4, Butker missed from 57."
+        rewritten_lead = facts._correct_fg_yardage(
+            leading, 57, recap, self.LAST, context=leading
+        )
+        self.assertEqual(rewritten_lead, "On 3rd-and-4, Butker missed from 58.")
+        self.assertNotIn("3rd-and-58", rewritten_lead or "")
 
     def test_claimed_count_mismatch_is_not_rewritten(self):
         recap = self._single_kc_miss(58)
@@ -863,15 +913,20 @@ class Butker58SalvageReplay(unittest.TestCase):
         self.assertIsNone(
             facts._claimed_miss_count("misses from 57.", 57)
         )
-        self.assertIsNone(
-            facts._correct_fg_yardage(
+        with patch.object(
+            facts,
+            "_official_miss_count_for",
+            wraps=facts._official_miss_count_for,
+        ) as official:
+            rewritten = facts._correct_fg_yardage(
                 "misses from 57.",
                 57,
                 recap,
                 self.LAST,
                 context="Butker\nmisses from 57.",
             )
-        )
+        self.assertIsNone(rewritten)
+        self.assertEqual(official.call_count, 0, official.call_args_list)
 
     def test_rewrite_rejected_when_it_drops_miss_language(self):
         recap = self._single_kc_miss(58)

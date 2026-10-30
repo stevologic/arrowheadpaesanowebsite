@@ -1,3 +1,5 @@
+diff --git a/tools/chiefs_narrative/facts.py b/tools/chiefs_narrative/facts.py
+index 1d77e2b..9db7959 100644
 --- a/tools/chiefs_narrative/facts.py
 +++ b/tools/chiefs_narrative/facts.py
 @@ -9398,7 +9398,7 @@ def _correct_fg_yardage(

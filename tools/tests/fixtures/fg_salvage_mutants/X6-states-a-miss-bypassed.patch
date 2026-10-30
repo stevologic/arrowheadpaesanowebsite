@@ -1,7 +1,8 @@
+diff --git a/tools/chiefs_narrative/facts.py b/tools/chiefs_narrative/facts.py
+index 1d77e2b..2ae5c1c 100644
 --- a/tools/chiefs_narrative/facts.py
 +++ b/tools/chiefs_narrative/facts.py
-@@ -9313,10 +9313,7 @@ def _correct_sentence(
-     return None
+@@ -9314,10 +9314,7 @@ def _correct_sentence(
  
  
  def _states_fg_miss(sentence: str) -> bool:

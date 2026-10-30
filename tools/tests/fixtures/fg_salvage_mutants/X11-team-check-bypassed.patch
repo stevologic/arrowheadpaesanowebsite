@@ -1,6 +1,8 @@
+diff --git a/tools/chiefs_narrative/facts.py b/tools/chiefs_narrative/facts.py
+index 1d77e2b..08f08e2 100644
 --- a/tools/chiefs_narrative/facts.py
 +++ b/tools/chiefs_narrative/facts.py
-@@ -9397,8 +9397,10 @@ def _correct_fg_yardage(
+@@ -9397,7 +9397,9 @@ def _correct_fg_yardage(
          return None
      if _official_miss_count_for(recap, team, yards) == claimed:
          return None

@@ -1,6 +1,9 @@
+diff --git a/tools/chiefs_narrative/generate.py b/tools/chiefs_narrative/generate.py
+index c33c282..db2d512 100644
 --- a/tools/chiefs_narrative/generate.py
 +++ b/tools/chiefs_narrative/generate.py
-@@ -1363,15 +1363,6 @@ def build(
+@@ -1363,15 +1363,6 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
+             ]
              if other_held:
                  emit_held(other_held)
 -            if hard:
