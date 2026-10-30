@@ -1,7 +1,6 @@
 """Archive-replay gates for Week 8 QA misses and #276 mutants."""
 from __future__ import annotations
 
-import inspect
 import io
 import json
 import tempfile
@@ -517,7 +516,23 @@ class Butker58SalvageReplay(unittest.TestCase):
         )
         self.assertFalse(isolated)
 
-    def test_butker_58_shape_is_corrected_or_dropped_then_replay_clean(self):
+    def test_joined_title_drop_keeps_unrelated_sentences(self):
+        dirty = self._butker_58(
+            body=(
+                "Two misses from 58. The offensive line still has to win "
+                "first down on early snaps."
+            )
+        )
+        repaired = self._salvage(dirty)
+        blob = facts.edition_text(repaired)
+        self.assertNotIn("Two misses from 58", blob)
+        self.assertIn("offensive line still has to win first down", blob)
+        leftover = self._replay_issues(repaired)
+        self.assertFalse(
+            any("field-goal yardage 58" in item for item in leftover), leftover
+        )
+
+    def test_butker_58_count_mismatch_is_dropped_not_rewritten(self):
         dirty = self._butker_58()
         repaired = self._salvage(dirty)
         leftover = self._replay_issues(repaired)
@@ -530,15 +545,147 @@ class Butker58SalvageReplay(unittest.TestCase):
         )
         self.assertEqual(hard, [], hard)
         blob = facts.edition_text(repaired)
-        if "from 58" in blob or ("58" in blob and "Butker" in blob):
-            self.assertTrue(
-                any(token in blob.lower() for token in ("miss from 58", "missed from 58")),
-                blob,
-            )
-        else:
-            self.assertNotIn("Two misses from 58", blob)
+        self.assertNotIn("Two misses from 58", blob)
+        self.assertNotIn("a miss from 58", blob.lower())
+        self.assertNotIn("missed from 58", blob.lower())
 
-    def test_unfixable_protected_title_refuses_to_publish(self):
+    def test_make_claim_is_dropped_without_inserting_missed(self):
+        for body in (
+            "Butker hit from 58 to steady it.",
+            "He was good from 58 and the drive died.",
+        ):
+            repaired = self._salvage(self._butker_58(body=body))
+            blob = facts.edition_text(repaired)
+            self.assertNotIn("hit missed", blob.lower(), body)
+            self.assertNotIn("good missed", blob.lower(), body)
+            self.assertNotIn("missed from 58", blob.lower(), body)
+            leftover = self._replay_issues(repaired)
+            self.assertFalse(
+                any("field-goal yardage 58" in item for item in leftover),
+                (body, leftover, blob),
+            )
+
+    def test_opponent_miss_is_not_credited_to_butker(self):
+        recap = json.loads(json.dumps(self.RECAP))
+        recap["driveResults"] = [
+            row
+            for row in recap.get("driveResults") or []
+            if not (
+                str(row.get("result") or "").lower() == "missed fg"
+                and row.get("yards") == 58
+            )
+        ]
+        recap["driveResults"].append(
+            {
+                "quarter": 2,
+                "clock": "0:01",
+                "team": "SEA",
+                "result": "missed FG",
+                "yards": 58,
+                "detail": "J.Myers 58 yard field goal is No Good, Wide Left.",
+            }
+        )
+        self.assertEqual(
+            facts.official_missed_fg_kick_yards_by_team(recap).get("SEA"),
+            [58],
+        )
+        self.assertNotIn(
+            58, facts.official_missed_fg_kick_yards_by_team(recap).get("KC", [])
+        )
+        dirty = self._butker_58()
+        issues = facts.check_review(
+            dirty, self.LAST, recap, schedule=frozen_schedule(), changed=True
+        )
+        fixed, logs = facts.apply_fact_corrections(
+            dirty, issues, recap, self.LAST, frozen_schedule()
+        )
+        leftover = facts.check_review(
+            fixed, self.LAST, recap, schedule=frozen_schedule(), changed=True
+        )
+        if leftover:
+            fixed = facts.repair_offending_copy(
+                fixed, leftover, self.LAST, recap, frozen_schedule()
+            )
+        blob = facts.edition_text(fixed)
+        self.assertNotIn("a miss from 58", blob.lower())
+        self.assertFalse(
+            any(" → " in row and "a miss from 58" in row.lower() for row in logs),
+            logs,
+        )
+        after = facts.check_review(
+            fixed, self.LAST, recap, schedule=frozen_schedule(), changed=True
+        )
+        self.assertFalse(
+            any("field-goal yardage 58" in item for item in after),
+            after,
+        )
+
+    def test_miss_count_is_not_silently_changed(self):
+        repaired = self._salvage(self._butker_58(body="Three misses from 58."))
+        blob = facts.edition_text(repaired)
+        self.assertNotIn("Three misses from 58", blob)
+        self.assertNotIn("a miss from 58", blob.lower())
+        leftover = self._replay_issues(repaired)
+        self.assertFalse(
+            any("field-goal yardage 58" in item for item in leftover), leftover
+        )
+
+    def test_drive_result_yards_are_not_kick_distance(self):
+        recap = {
+            "oppAbbr": "SEA",
+            "driveResults": [
+                {
+                    "team": "SEA",
+                    "result": "missed FG",
+                    "yards": 80,
+                    "detail": "Seattle stalled after 80 yards and missed.",
+                }
+            ],
+            "plays": [
+                {
+                    "team": "SEA",
+                    "text": "J.Myers 80 yard rush. Field goal is No Good.",
+                    "yards": 80,
+                }
+            ],
+            "scoringPlays": [],
+        }
+        self.assertEqual(facts.official_missed_fg_kick_yards_by_team(recap), {})
+        self.assertIsNone(
+            facts._correct_fg_yardage(
+                "Two misses from 80.",
+                80,
+                recap,
+                self.LAST,
+                context="Butker\nTwo misses from 80.",
+            )
+        )
+
+    def test_joined_recheck_rejects_sentence_alone_clean_rewrite(self):
+        dirty = self._butker_58()
+        issues = self._replay_issues(dirty)
+        with patch.object(
+            facts,
+            "_correct_fg_yardage",
+            return_value="The kick file from 58 is open.",
+        ):
+            fixed, logs = facts.apply_fact_corrections(
+                dirty, issues, self.RECAP, self.LAST, frozen_schedule()
+            )
+        blob = facts.edition_text(fixed)
+        self.assertNotIn("The kick file from 58 is open.", blob)
+        self.assertFalse(
+            any("kick file from 58" in row.lower() for row in logs), logs
+        )
+        joined = facts.joined_edition_hard_issues(
+            fixed, self.LAST, self.RECAP, frozen_schedule()
+        )
+        self.assertTrue(
+            any("field-goal yardage 58" in item for item in joined),
+            joined,
+        )
+
+    def test_unfixable_protected_title_refuses_even_when_held(self):
         dirty = self._butker_58()
         dirty["lastGameReview"]["takeaways"] = [
             {
@@ -563,6 +710,15 @@ class Butker58SalvageReplay(unittest.TestCase):
             edition_merge.refuse_reason(labels=[{"name": "hold"}]),
             "hold label",
         )
+        from tools.chiefs_narrative import drop_body
+
+        listed = drop_body.drop_body(
+            {"holdAutomerge": True, "leftoverIssues": leftover}
+        )
+        self.assertIn("Archive replay leftovers", listed)
+        self.assertTrue(
+            any("99" in line for line in listed.splitlines()), listed
+        )
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "narrative.json"
             repair = Path(tmp) / "repair.json"
@@ -579,72 +735,14 @@ class Butker58SalvageReplay(unittest.TestCase):
                 buf = io.StringIO()
                 with redirect_stdout(buf):
                     rc = generate.main(["--gate-replay"])
-                self.assertEqual(rc, 0, buf.getvalue())
-                self.assertIn("held", buf.getvalue().lower())
-
-    def test_salvage_skipping_yardage_validator_mutant_is_killed(self):
-        dirty = self._butker_58()
-        issues = self._replay_issues(dirty)
-        original_drop = facts._drop_text
-
-        def skip_join_tails(text, snippets, *args, **kwargs):
-            return original_drop(
-                text,
-                [snip for snip in snippets or [] if "\n" not in snip],
-                *args,
-                **kwargs,
-            )
-
-        with patch.object(facts, "_drop_text", side_effect=skip_join_tails):
-            with patch.object(facts, "_correct_fg_yardage", return_value=None):
-                mutated = facts.repair_offending_copy(
-                    dirty, issues, self.LAST, self.RECAP, frozen_schedule()
-                )
-        mutant_left = self._replay_issues(mutated)
-        self.assertTrue(
-            any("field-goal yardage 58" in item for item in mutant_left),
-            mutant_left,
-        )
-        src = inspect.getsource(facts._drop_text)
-        self.assertIn("_cross_field_snippet_tails", src)
-        salvage_src = inspect.getsource(facts.repair_offending_copy)
-        self.assertIn("violation_snippets", salvage_src)
-        generate_src = Path(generate.__file__).read_text(encoding="utf-8")
-        self.assertIn("check_changed=True", generate_src)
-        self.assertIn("schedule=schedule, changed=True", generate_src)
-
-    def test_archive_replay_disabled_mutant_is_killed(self):
-        dirty = self._butker_58()
-        issues = generate.archive_replay_issues(dirty, frozen_schedule())
-        self.assertTrue(
-            any("field-goal yardage 58" in item for item in issues), issues
-        )
-        src = Path(generate.__file__).read_text(encoding="utf-8")
-        self.assertIn("archive_replay_issues(narrative, schedule)", src)
-        self.assertIn(
-            "ERROR: generated edition would fail archive replay",
-            src,
-        )
-        self.assertIn("LLM_CALL_BUDGET = 6", src)
-        self.assertEqual(generate.LLM_CALL_BUDGET, 6)
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "narrative.json"
-            repair = Path(tmp) / "repair.json"
-            path.write_text(json.dumps(dirty) + "\n", encoding="utf-8")
-            with patch.object(generate.config, "NARRATIVE_JSON", path), patch.object(
-                generate.config, "REPAIR_JSON", repair
-            ):
-                self.assertEqual(generate.main(["--gate-replay"]), 1)
+                self.assertEqual(rc, 1, buf.getvalue())
                 with patch.object(
-                    generate, "archive_replay_issues", return_value=[]
+                    generate,
+                    "check_published_edition",
+                    return_value=leftover,
                 ):
-                    with redirect_stdout(io.StringIO()) as out:
-                        rc = generate.main(["--gate-replay"])
-                    self.assertEqual(rc, 0, out.getvalue())
-        self.assertTrue(
-            generate.archive_replay_issues(dirty, frozen_schedule()),
-            "disabling archive_replay_issues would publish the 58 claim",
-        )
+                    check_rc = generate.main(["--check-edition"])
+                self.assertEqual(check_rc, 1)
 
 
 if __name__ == "__main__":

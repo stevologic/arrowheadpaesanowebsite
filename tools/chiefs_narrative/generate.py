@@ -1764,11 +1764,9 @@ def main(argv=None) -> int:
             if repair.get("holdAutomerge"):
                 emit_held(hard)
                 print(
-                    "  archive replay gate: held for human QA "
-                    "(not failing the run)",
+                    "  archive replay gate: held leftover; failing the run",
                     file=sys.stderr,
                 )
-                return 0
             return 1
         if held:
             emit_held(held)
@@ -1818,10 +1816,9 @@ def main(argv=None) -> int:
                     repair = loaded
             if repair.get("holdAutomerge"):
                 print(
-                    "  edition gates: held for human QA (not failing the run)",
+                    "  edition gates: held leftover; failing the run",
                     file=sys.stderr,
                 )
-                return 0
             return 1
         print("  edition gates: ok")
         return 0

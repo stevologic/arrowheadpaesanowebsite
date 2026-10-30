@@ -7226,6 +7226,17 @@ class FactCheck(unittest.TestCase):
         self.assertIn("## Leaked fact-checker notes", leaked)
         self.assertIn("There is no Week 4 report on this wire.", leaked)
         self.assertIn("Automerge is held.", leaked)
+        leftover = drop_body.drop_body(
+            {
+                "holdAutomerge": True,
+                "leftoverIssues": [
+                    "field-goal yardage 99 is not a KC ESPN kick ('Butker from 99')"
+                ],
+            }
+        )
+        self.assertIn("## Archive replay leftovers", leftover)
+        self.assertIn("Butker from 99", leftover)
+        self.assertIn("Automerge is held.", leftover)
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "narrative_repair.json"
             path.write_text(
