@@ -13397,8 +13397,11 @@ class Oct14EditionGates(unittest.TestCase):
         self.assertTrue(any("zone blitz" in item for item in issues), issues)
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "narrative.json"
+            repair = Path(tmp) / "repair.json"
             path.write_text(json.dumps(dirty) + "\n", encoding="utf-8")
-            with patch.object(generate.config, "NARRATIVE_JSON", path):
+            with patch.object(generate.config, "NARRATIVE_JSON", path), patch.object(
+                generate.config, "REPAIR_JSON", repair
+            ):
                 rc = generate.main(["--gate-replay"])
             self.assertEqual(rc, 1)
 

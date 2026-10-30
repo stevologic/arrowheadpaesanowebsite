@@ -8181,6 +8181,27 @@ def _salvage_blocks_market(text: str, generated_at: str = "") -> bool:
     return _prediction_market_policy_applies({"generatedAt": generated_at})
 
 
+def _cross_field_snippet_tails(snippets: list[str]) -> list[str]:
+    """Last line of a quoted join such as ``Butker\\nTwo misses from 58``.
+
+    Archive replay flattens title + body with newlines, so a kicker
+    heading plus a yardage line only fails as a join. Isolated
+    ``sentence_fails_review`` of the body is clean; salvage must still
+    drop that completing line.
+    """
+    tails: list[str] = []
+    seen: set[str] = set()
+    for snip in snippets or []:
+        if "\n" not in (snip or ""):
+            continue
+        tail = snip.split("\n")[-1].strip()
+        if not tail or tail in seen:
+            continue
+        seen.add(tail)
+        tails.append(tail)
+    return tails
+
+
 def _drop_text(
     text: str,
     snippets: list[str],
@@ -8196,15 +8217,21 @@ def _drop_text(
     not contain the hit (run 37042175518). When a recap is present,
     the snippet must also fail as its own claim — official clocks in
     a 8:42 note must not delete every correct 25:39 sentence.
+    Cross-field archive leftovers (title + body joined by a newline)
+    are the exception: the completing line drops even when it is
+    clean in isolation.
     """
     needles = [s for s in snippets if s]
     if not text or not needles:
         return text
     sentences = _split_sentences(text)
     kept = []
+    join_tails = _cross_field_snippet_tails(needles)
     for sent in sentences:
         if not any(_sentence_has_snippet(sent, snip) for snip in needles):
             kept.append(sent)
+            continue
+        if any(_sentence_has_snippet(sent, tail) for tail in join_tails):
             continue
         if recap is not None and not sentence_fails_review(
             sent, last_game, recap, schedule
@@ -8318,6 +8345,10 @@ _STAT_DISAGREE = re.compile(
     r"(?P<kind>touches|sacks|pass attempts|rush attempts|team rushing|"
     r"game yards|total drives|QB hits|first downs|touchdown count)\s+"
     r"(?P<claimed>\d+)\s+disagrees with ESPN\s+(?P<official>\d+)",
+    re.IGNORECASE,
+)
+_FG_YARDAGE_VIOLATION = re.compile(
+    r"field-goal yardage (?P<yards>\d+)",
     re.IGNORECASE,
 )
 _TURNOVER_CREDIT_VIOLATION = re.compile(
@@ -9167,6 +9198,57 @@ def _correct_sentence(
     name = _ILLEGAL_USE_NOT_SNEED.search(violation or "")
     if name:
         return _swap_sneed_for(sentence, name.group(1))
+    fg = _FG_YARDAGE_VIOLATION.search(violation or "")
+    if fg:
+        return _correct_fg_yardage(sentence, int(fg.group("yards")), recap, last_game)
+    return None
+
+
+def _correct_fg_yardage(
+    sentence: str,
+    yards: int,
+    recap: dict | None,
+    last_game: dict | None = None,
+) -> str | None:
+    """Rewrite an unverifiable kick to ESPN miss/make language, or None."""
+    if not sentence or not re.search(rf"\bfrom\s+{yards}\b", sentence, re.I):
+        return None
+    missed = official_missed_fg_yards(recap)
+    made = official_yards_by_team(recap, "fg")
+    kc_made = made.get("KC", set())
+    if yards in missed and yards not in kc_made:
+        rewritten = re.sub(
+            rf"\b(?:(?:two|three|four|five|\d+)\s+)?misses\s+from\s+{yards}\b",
+            f"a miss from {yards}",
+            sentence,
+            count=1,
+            flags=re.I,
+        )
+        if rewritten == sentence:
+            rewritten = re.sub(
+                rf"\bfrom\s+{yards}\b",
+                f"missed from {yards}",
+                sentence,
+                count=1,
+                flags=re.I,
+            )
+        if rewritten != sentence and not sentence_fails_review(
+            rewritten, last_game, recap
+        ):
+            return rewritten
+        return None
+    if yards in kc_made:
+        rewritten = re.sub(
+            rf"\b(?:(?:two|three|four|five|\d+)\s+)?misses\s+from\s+{yards}\b",
+            f"a make from {yards}",
+            sentence,
+            count=1,
+            flags=re.I,
+        )
+        if rewritten != sentence and not sentence_fails_review(
+            rewritten, last_game, recap
+        ):
+            return rewritten
     return None
 
 
@@ -9244,6 +9326,7 @@ def repair_offending_copy(
     violations: list[str],
     last_game: dict | None = None,
     recap: dict | None = None,
+    schedule=None,
 ) -> dict:
     """Drop offending sentences, then leftover fragments in every section."""
     payload = copy.deepcopy(narrative or {})
@@ -9259,7 +9342,7 @@ def repair_offending_copy(
         for key in _EDITION_KEYS:
             if key in payload:
                 payload[key] = _drop_value(
-                    payload[key], snippets, last_game, recap,
+                    payload[key], snippets, last_game, recap, schedule,
                     generated_at=generated_at,
                 )
     # A glued play-order quote (nobodyafter) can miss the sentence. Re-check
