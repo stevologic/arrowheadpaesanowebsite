@@ -23,10 +23,10 @@
   "videoHook": "Denver is 5-2, the number is a point and a half, and the tape Kansas City is carrying is 50 rushing yards and 3-of-11 on third down.",
   "theEdge": "ESPN FPI puts Kansas City at 55.7 percent to win in Denver, with DraftKings listing the Chiefs minus 1.5 on a 40.5 total — a short road price that assumes 16 carries and 3-of-11 on third down stay in Seattle.",
   "editorNotes": [
-    "Made FG scorer listed unknown; do not assign the 50-yard make to Butker. Misses are H.Butker 58 short and 45 wide right.",
+    "Made FG is H.Butker 50 (ESPN scoring play Q3 1:42; box FG 1/3, long 50). Misses are H.Butker 58 short and 45 wide right.",
     "Mahomes leader line is 165 gross; team net passing is 163. Do not blend Chargers 272/150/30:26 into this review.",
     "SEA TOP 35:51, KC TOP 24:09. Walker 14 carries for 36 is not the team rush total of 50.",
-    "Delane news is Thursday miss only; final-report headline is Rice returning, not a Delane game designation. Bolton was injured on the Q3 11:19 play with no follow-up status in the packet.",
+    "Delane missed Thursday and Friday; final report lists him Questionable (shoulder). Bolton was injured on the Q3 11:19 play with no follow-up status in the packet.",
     "Okada is the interceptor on the Royals target. N.Williams is the interceptor on the Shaheed target, Karlaftis in the bracket, not a blitz credit. Hall forced the sack-fumble; recovery text stays with Mahomes at the spot.",
     "Eligible report exists only on Q1 9:23 Oluwatimi. No play-action or play-fake tag in the PBP.",
     "Dobbins appears only inside a Madden simulation item; not used as a participation claim."
@@ -113,7 +113,7 @@
       }
     ],
     "whatWorked": [
-      "N. Williams' interception and 65-yard return gave Kansas City a late-half swing Seattle did not finish.",
+      "N. Williams' interception and 65-yard return gave Kansas City a late-half swing Kansas City did not finish.",
       "Gray's two 19-yard catches were timing throws Mahomes can still live on when the pocket is crowded.",
       "Tranquill's 12 tackles, with Bolton, Karlaftis, Tonga, and the second-level fit, kept several Seattle rushes in the 2-to-4-yard range even while the attempt count buried the defense."
     ],
@@ -277,7 +277,7 @@
     },
     {
       "unit": "Kicking and empty trips",
-      "chiefs": "A 50-yard make with the scorer unlisted, plus Butker misses from 58 and 45",
+      "chiefs": "Butker's 50-yard make plus misses from 58 and 45",
       "opponent": "A 40.5 total that makes three points a real chunk of the game",
       "edge": "PUSH",
       "note": "Short fields and fourth-down calls matter more than another 50-yard try. Both kickers can swing a one-point spread."
@@ -460,21 +460,15 @@
     },
     {
       "player": "Mansoor Delane",
-      "status": "Missed Thursday",
-      "note": "Thursday injury report lists Delane as a miss. No later designation is in the supplied final-report headline.",
-      "source": "Arrowhead Pride"
+      "status": "Questionable",
+      "note": "Final Week 8 injury report lists Delane as Questionable with a shoulder injury after he missed Thursday and Friday practice.",
+      "source": "Chiefs.com"
     },
     {
       "player": "Tyquan Thornton",
       "status": "Out for the year",
       "note": "Described as more or less out for the year in the receiver-trade discussion, which thins the room even with Rice back.",
       "source": "Arrowhead Pride"
-    },
-    {
-      "player": "Josh Simmons",
-      "status": "Sidelined",
-      "note": "Arrowhead Addict describes Simmons as sidelined with his future in Kansas City uncertain. No game designation beyond that is supplied.",
-      "source": "Arrowhead Addict"
     }
   ],
   "personnel": [
