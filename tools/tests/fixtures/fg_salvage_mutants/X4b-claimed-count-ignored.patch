@@ -1,0 +1,19 @@
+diff --git a/tools/chiefs_narrative/facts.py b/tools/chiefs_narrative/facts.py
+index 1d77e2b..477fc68 100644
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -9393,12 +9393,10 @@ def _correct_fg_yardage(
+     if not team:
+         return None
+     claimed = _claimed_miss_count(sentence, yards)
+-    if claimed is None:
+-        return None
+-    if _official_miss_count_for(recap, team, yards) == claimed:
++    if claimed is not None and _official_miss_count_for(recap, team, yards) == claimed:
+         return None
+     by_team = official_missed_fg_kick_yards_by_team(recap).get(team, [])
+-    matches = sorted({value for value in by_team if by_team.count(value) == claimed})
++    matches = sorted({value for value in by_team if claimed is None or by_team.count(value) == claimed})
+     if len(matches) != 1 or matches[0] == yards:
+         return None
+     official = matches[0]

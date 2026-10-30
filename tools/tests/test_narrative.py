@@ -7226,6 +7226,17 @@ class FactCheck(unittest.TestCase):
         self.assertIn("## Leaked fact-checker notes", leaked)
         self.assertIn("There is no Week 4 report on this wire.", leaked)
         self.assertIn("Automerge is held.", leaked)
+        leftover = drop_body.drop_body(
+            {
+                "holdAutomerge": True,
+                "leftoverIssues": [
+                    "field-goal yardage 99 is not a KC ESPN kick ('Butker from 99')"
+                ],
+            }
+        )
+        self.assertIn("## Archive replay leftovers", leftover)
+        self.assertIn("Butker from 99", leftover)
+        self.assertIn("Automerge is held.", leftover)
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "narrative_repair.json"
             path.write_text(
@@ -13397,8 +13408,11 @@ class Oct14EditionGates(unittest.TestCase):
         self.assertTrue(any("zone blitz" in item for item in issues), issues)
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "narrative.json"
+            repair = Path(tmp) / "repair.json"
             path.write_text(json.dumps(dirty) + "\n", encoding="utf-8")
-            with patch.object(generate.config, "NARRATIVE_JSON", path):
+            with patch.object(generate.config, "NARRATIVE_JSON", path), patch.object(
+                generate.config, "REPAIR_JSON", repair
+            ):
                 rc = generate.main(["--gate-replay"])
             self.assertEqual(rc, 1)
 

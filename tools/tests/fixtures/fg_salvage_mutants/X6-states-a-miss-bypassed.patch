@@ -1,0 +1,16 @@
+diff --git a/tools/chiefs_narrative/facts.py b/tools/chiefs_narrative/facts.py
+index 1d77e2b..2ae5c1c 100644
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -9314,10 +9314,7 @@ def _correct_sentence(
+ 
+ 
+ def _states_fg_miss(sentence: str) -> bool:
+-    return bool(
+-        _FG_MISS_CLAIM.search(sentence or "")
+-        or re.search(r"\bmisses\b", sentence or "", re.I)
+-    )
++    return True
+ 
+ 
+ def _fg_claim_team(

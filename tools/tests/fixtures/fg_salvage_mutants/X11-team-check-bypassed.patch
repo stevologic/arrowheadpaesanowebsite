@@ -1,0 +1,15 @@
+diff --git a/tools/chiefs_narrative/facts.py b/tools/chiefs_narrative/facts.py
+index 1d77e2b..08f08e2 100644
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -9397,7 +9397,9 @@ def _correct_fg_yardage(
+         return None
+     if _official_miss_count_for(recap, team, yards) == claimed:
+         return None
+-    by_team = official_missed_fg_kick_yards_by_team(recap).get(team, [])
++    by_team = []
++    for bag in official_missed_fg_kick_yards_by_team(recap).values():
++        by_team.extend(bag)
+     matches = sorted({value for value in by_team if by_team.count(value) == claimed})
+     if len(matches) != 1 or matches[0] == yards:
+         return None
