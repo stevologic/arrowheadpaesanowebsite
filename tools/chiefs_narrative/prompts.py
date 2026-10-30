@@ -71,10 +71,13 @@ keep it coaching copy, not a leftover caption. For the opening score, write \
 elapsed time (2:06 into the game) or the game clock (Q1 12:54), never a \
 bare at-2:06 that reads as the clock. Do not call a 0-sack, 20-of-24 day \
 a survival tape. Never echo 'Do not call', 'do not write', \
-or other imperative guidance into the edition. Fact-check asides, \
-source-scoping notes, and editor caveats belong only in editorNotes. \
-Never put them in headline, dek, theEdge, reviews, game plan, cards, \
-or captions — the site never renders editorNotes.
+'Do not invent', or other imperative guidance into the edition. \
+Fact-check asides, source-scoping notes, and editor caveats belong \
+only in editorNotes. Never write process hedges such as 'in the wire', \
+'not a claim that', or 'not a story about' a takeaway into headline, \
+dek, theEdge, reviews, game plan, cards, or captions — the site never \
+renders editorNotes. State the tape; omit a sentence rather than \
+narrating what a source packet lacks or what a call is not.
 [/PRIVATE]
 
 Return a SINGLE JSON object. No markdown, no prose outside the JSON.\
@@ -641,28 +644,62 @@ def _prior_titles_block(prior_editions: list[dict] | None) -> str:
     """Tell the writer not to reprint recent headline / dek / theEdge copy."""
     if not prior_editions:
         return ""
-    lines = [
+    lines: list[str] = []
+    newest = prior_editions[0]
+    newest_headline = (newest.get("headline") or "").strip()
+    newest_dek = (newest.get("dek") or "").strip()
+    newest_edge = (newest.get("theEdge") or "").strip()
+    if newest_headline or newest_dek or newest_edge:
+        consec = ""
+        mode = str(newest.get("mode") or "").lower()
+        edition = str(newest.get("edition") or "").lower()
+        if mode == "preview" or "preview" in edition:
+            consec = (
+                " This is a consecutive Preview covering the same game — "
+                "facts may be unchanged; the dek and theEdge must still be "
+                "new wording."
+            )
+        lines.append(
+            "FORBIDDEN VERBATIM COPY from the most recent published edition. "
+            "Headline, dek, and theEdge must not match these strings "
+            "(case and extra whitespace do not count as new copy)."
+            + consec
+        )
+        if newest_headline:
+            lines.append(f"  headline: {newest_headline}")
+        if newest_dek:
+            lines.append(f"  dek: {newest_dek}")
+        if newest_edge:
+            lines.append(f"  theEdge: {newest_edge}")
+    lines.append(
         "DO NOT REUSE these recent titles. Write a fresh headline, dek, and "
         "theEdge that do not match any of the following (case and extra "
-        "whitespace do not count as a new title):",
-    ]
-    seen = set()
+        "whitespace do not count as a new title):"
+    )
+    seen: set[tuple[str, str, str]] = set()
+    listed = 0
     for ed in prior_editions:
         headline = (ed.get("headline") or "").strip()
         dek = (ed.get("dek") or "").strip()
         edge = (ed.get("theEdge") or "").strip()
-        key = " ".join(headline.lower().split())
-        if not headline or key in seen:
+        triple = (
+            " ".join(headline.lower().split()),
+            " ".join(dek.lower().split()),
+            " ".join(edge.lower().split()),
+        )
+        if not any(triple) or triple in seen:
             continue
-        seen.add(key)
+        seen.add(triple)
         when = (ed.get("generatedAt") or ed.get("slug") or "prior")[:16]
         lines.append(f"  [{when}]")
-        lines.append(f"    headline: {headline}")
+        if headline:
+            lines.append(f"    headline: {headline}")
         if dek:
             lines.append(f"    dek: {dek}")
         if edge:
             lines.append(f"    theEdge: {edge}")
-    if len(lines) == 1:
+        listed += 1
+    if listed == 0 and not (newest_headline or newest_dek or newest_edge):
         return ""
     return "\n".join(lines)
 

@@ -32,7 +32,13 @@
     {"edition": "1754-orig", "sentence": "It is a Denver install, not a description of a Seattle throw."},
     {"edition": "1754-orig", "sentence": "It is not credit for a takeaway."},
     {"edition": "1754-orig", "sentence": "Do not sell it as the play that created Williams’s interception."},
-    {"edition": "1754-orig", "sentence": "No other player status is stated in the supplied wire, so none is listed here."}
+    {"edition": "1754-orig", "sentence": "No other player status is stated in the supplied wire, so none is listed here."},
+    {"edition": "run-41087549083", "sentence": "Garrett Wilson and other receiver-trade items are rumors in the wire, not roster moves."},
+    {"edition": "run-41087549083", "sentence": "The call is shell and tackle, not a story about a blitz that created a takeaway."},
+    {"edition": "run-41087549083", "sentence": "This is a call to use at Denver, not a claim that a blitz created Williams' interception or Okada's."},
+    {"edition": "run-41087549083", "sentence": "Not a published game designation in the wire."},
+    {"edition": "run-41087549083", "sentence": "No further designation is in the wire."},
+    {"edition": "run-41087549083", "sentence": "The zone-blitz card is a call to change the picture on third down, not a story about last week's takeaways."}
   ],
   "false_positives": [
     "not a description of a new offense",

@@ -154,6 +154,37 @@ class BoxLeaderReplay(unittest.TestCase):
         self.assertTrue(issues, sentence)
         self.assertIn("led the team", blob)
 
+    def test_run_41087549083_kelce_led_receivers_digit_form_fails(self):
+        sentence = (
+            "Travis Kelce led the receivers with 4 catches for 44 yards "
+            "and then said the standard cannot be mediocre."
+        )
+        issues = facts.check_review(
+            _review(sentence, opponent="Seattle Seahawks", score="KC 3–20"),
+            self.SEA_LAST,
+            self.SEA,
+            schedule=frozen_schedule(),
+        )
+        blob = " ".join(issues)
+        self.assertTrue(issues, sentence)
+        self.assertIn("led the receivers", blob)
+
+    def test_run_41087549083_third_down_was_box_is_unverifiable(self):
+        sentence = (
+            "Third down was 3-of-11, with 11 first downs and eight drives "
+            "that rarely stayed on schedule."
+        )
+        issues = facts.check_review(
+            _review(sentence, opponent="Seattle Seahawks", score="KC 3–20"),
+            self.SEA_LAST,
+            self.SEA,
+            schedule=frozen_schedule(),
+        )
+        blob = " ".join(issues)
+        self.assertTrue(issues, sentence)
+        self.assertIn("unverifiable", blob)
+        self.assertIn("Third down", blob)
+
     def test_worthy_solo_chargers_lead_passes(self):
         sentence = "Xavier Worthy led the receivers with seven catches."
         issues = facts.check_review(
