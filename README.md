@@ -116,7 +116,8 @@ run and preserves the published edition; `GROK_FALLBACK_MODELS` is ignored.
 There is no older-model or offline substitution after selecting Grok.
 
 The daily full edition keeps its existing factual rewrites (two maximum),
-uniqueness retry (one maximum), and 420-second stream deadline. Successful
+a uniqueness retry before fact-check, another uniqueness retry if a
+fact-check rewrite cloned dek/theEdge, and a 420-second stream deadline. Successful
 streamed calls log actual provider token usage, including cached/reasoning
 tokens when supplied. A partial stream is rejected. Schedule-only evening and
 late-window jobs use no LLM or market calls. An unchanged slate keeps its exact

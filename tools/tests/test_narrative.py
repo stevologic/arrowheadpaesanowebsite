@@ -2385,10 +2385,67 @@ class HeadlineUniqueness(unittest.TestCase):
             ],
         )
         self.assertIn("DO NOT REUSE these recent titles", text)
+        self.assertIn("FORBIDDEN VERBATIM COPY", text)
         self.assertIn(self.HEADLINE, text)
         self.assertIn(self.DEK, text)
         self.assertIn(self.EDGE, text)
         self.assertIn("Last tape, current roster, next dress rehearsal", text)
+
+    def test_consecutive_preview_prompt_lists_prior_dek_and_edge(self):
+        """Run 41087549083: a second Preview day must see yesterday's dek/theEdge."""
+        yesterday = {
+            "generatedAt": "2026-10-29T17:54:31+00:00",
+            "slug": "2026-10-29-1754",
+            "headline": "Denver gets the 213-yard tape and a one-point number",
+            "dek": (
+                "Kansas City, 5-1, goes to Denver on Sun Nov 1, 3:25 PM CT "
+                "on CBS as a 1.5-point favorite after Seattle won 20-3 and "
+                "held the Chiefs to 213 yards."
+            ),
+            "theEdge": (
+                "ESPN FPI still has Kansas City at 55.7 percent to win at "
+                "Denver, and DraftKings lists the Chiefs minus 1.5 on a "
+                "40.5 total — a one-score road lean that dies if 50 rushing "
+                "yards and 3-of-11 on third down travel with them."
+            ),
+            "mode": "preview",
+            "edition": "2026 Week 8 · Preview",
+        }
+        older_same_headline = {
+            "generatedAt": "2026-10-28T17:50:00+00:00",
+            "slug": "2026-10-28-1750",
+            "headline": yesterday["headline"],
+            "dek": "Older Preview dek that must still be listed.",
+            "theEdge": "Older Preview theEdge that must still be listed.",
+            "mode": "preview",
+            "edition": "2026 Week 8 · Preview",
+        }
+        phase = {
+            "type": "regular",
+            "label": "Week 8",
+            "week": 8,
+            "mode": "preview",
+        }
+        text = prompts.build_user_prompt(
+            SIGNALS,
+            phase,
+            NEXT,
+            prior_editions=[yesterday, older_same_headline],
+        )
+        self.assertIn("FORBIDDEN VERBATIM COPY", text)
+        self.assertIn("consecutive Preview", text)
+        self.assertIn(yesterday["dek"], text)
+        self.assertIn(yesterday["theEdge"], text)
+        self.assertIn(older_same_headline["dek"], text)
+        self.assertIn(older_same_headline["theEdge"], text)
+        avoidance = generate._uniqueness_avoidance_instruction(
+            [yesterday, older_same_headline]
+        )
+        self.assertIn("yesterday's dek was", avoidance)
+        self.assertIn(yesterday["dek"], avoidance)
+        self.assertIn("yesterday's theEdge was", avoidance)
+        self.assertIn(yesterday["theEdge"], avoidance)
+        self.assertIn("consecutive Preview day", avoidance)
 
     def test_clone_retries_once_then_accepts_new_headline(self):
         llm = Mock(side_effect=[(self._clone_raw(), "grok"), (self._unique_raw(), "grok")])
@@ -2677,6 +2734,147 @@ class HeadlineUniqueness(unittest.TestCase):
                     generate.build("grok", persist_schedule=False)
         self.assertIn("cloned dek", str(ctx.exception))
         self.assertEqual(llm.call_count, 2 + generate.DEK_CLONE_ATTEMPTS)
+
+    def _preview_prior_copy(self):
+        return {
+            "dek": (
+                "Kansas City, 5-1, goes to Denver on Sun Nov 1, 3:25 PM CT "
+                "on CBS as a 1.5-point favorite after Seattle won 20-3 and "
+                "held the Chiefs to 213 yards."
+            ),
+            "theEdge": (
+                "ESPN FPI still has Kansas City at 55.7 percent to win at "
+                "Denver, and DraftKings lists the Chiefs minus 1.5 on a "
+                "40.5 total — a one-score road lean that dies if 50 rushing "
+                "yards and 3-of-11 on third down travel with them."
+            ),
+            "slug": "2026-10-29-1754",
+            "generatedAt": "2026-10-29T17:54:31+00:00",
+            "headline": "Denver gets the 213-yard tape and a one-point number",
+            "mode": "preview",
+            "edition": "2026 Week 8 · Preview",
+        }
+
+    def test_fact_check_retry_includes_prior_dek_edge_avoidance(self):
+        """Fact-check rewrites must see yesterday's dek/theEdge before cloning."""
+        prior = self._preview_prior_copy()
+        unique = self._unique_raw()
+        fixed = dict(unique)
+        fixed["dek"] = "Friday's desk is about the Denver clock, not Thursday's standfirst."
+
+        def fake_check(narrative, *args, **kwargs):
+            dek = generate.normalize_copy(narrative.get("dek"))
+            if dek == generate.normalize_copy(unique["dek"]):
+                return ["echoed writer instruction ('Do not invent')"]
+            return []
+
+        llm = Mock(side_effect=[(unique, "grok"), (fixed, "grok")])
+        with tempfile.TemporaryDirectory() as tmp:
+            archive, editions = self._seed_archive(Path(tmp))
+            (editions / f"{prior['slug']}.json").write_text(
+                json.dumps(self._edition_payload(**prior)) + "\n",
+                encoding="utf-8",
+            )
+            extra = [patch.object(facts, "check_review", side_effect=fake_check)]
+            with self._generation_stack(
+                llm=llm, archive=archive, editions=editions, extra=extra
+            ):
+                result = generate.build("grok", persist_schedule=False)
+        self.assertEqual(llm.call_count, 2)
+        retry_user = llm.call_args_list[1].args[2]
+        self.assertIn("FACT CHECK RETRY", retry_user)
+        self.assertIn("UNIQUENESS:", retry_user)
+        self.assertIn("yesterday's dek was", retry_user)
+        self.assertIn(prior["dek"], retry_user)
+        self.assertIn("yesterday's theEdge was", retry_user)
+        self.assertIn(prior["theEdge"], retry_user)
+        self.assertIn("consecutive Preview day", retry_user)
+        self.assertEqual(result["narrative"]["dek"], fixed["dek"])
+
+    def test_fact_check_retry_cloned_dek_and_edge_retries_with_avoidance(self):
+        """Run 41087549083: cloned dek+theEdge after fact-check is retryable."""
+        prior = self._preview_prior_copy()
+        unique = self._unique_raw()
+        clone = {
+            "headline": unique["headline"],
+            "dek": prior["dek"],
+            "theEdge": prior["theEdge"],
+            "edition": "2026 Training Camp",
+        }
+        fresh = {
+            "headline": "A second Preview day needs a new Denver thesis",
+            "dek": "Friday's desk is about the Denver clock, not Thursday's standfirst.",
+            "theEdge": "Win early downs at Empower or the 1.5-point number is a trap.",
+            "edition": "2026 Training Camp",
+        }
+
+        def fake_check(narrative, *args, **kwargs):
+            dek = generate.normalize_copy(narrative.get("dek"))
+            if dek == generate.normalize_copy(unique["dek"]):
+                return ["echoed writer instruction ('Do not invent')"]
+            return []
+
+        llm = Mock(side_effect=[(unique, "grok"), (clone, "grok"), (fresh, "grok")])
+        with tempfile.TemporaryDirectory() as tmp:
+            archive, editions = self._seed_archive(Path(tmp))
+            (editions / f"{prior['slug']}.json").write_text(
+                json.dumps(self._edition_payload(**prior)) + "\n",
+                encoding="utf-8",
+            )
+            extra = [patch.object(facts, "check_review", side_effect=fake_check)]
+            with self._generation_stack(
+                llm=llm, archive=archive, editions=editions, extra=extra
+            ):
+                result = generate.build("grok", persist_schedule=False)
+        self.assertEqual(llm.call_count, 3)
+        fact_retry = llm.call_args_list[1].args[2]
+        uniq_retry = llm.call_args_list[2].args[2]
+        self.assertIn("FACT CHECK RETRY", fact_retry)
+        self.assertIn(prior["dek"], fact_retry)
+        self.assertIn(prior["theEdge"], fact_retry)
+        self.assertIn("UNIQUENESS RETRY", uniq_retry)
+        self.assertIn("yesterday's dek was", uniq_retry)
+        self.assertIn(prior["dek"], uniq_retry)
+        self.assertIn("yesterday's theEdge was", uniq_retry)
+        self.assertIn(prior["theEdge"], uniq_retry)
+        self.assertIn("consecutive Preview day", uniq_retry)
+        self.assertEqual(result["narrative"]["dek"], fresh["dek"])
+        self.assertEqual(result["narrative"]["theEdge"], fresh["theEdge"])
+
+    def test_fact_check_retry_clone_still_fails_after_uniqueness_rewrite(self):
+        """The no-clone gate still hard-fails after the extra uniqueness retry."""
+        prior = self._preview_prior_copy()
+        unique = self._unique_raw()
+        clone = {
+            "headline": unique["headline"],
+            "dek": prior["dek"],
+            "theEdge": prior["theEdge"],
+            "edition": "2026 Training Camp",
+        }
+
+        def fake_check(narrative, *args, **kwargs):
+            dek = generate.normalize_copy(narrative.get("dek"))
+            if dek == generate.normalize_copy(unique["dek"]):
+                return ["echoed writer instruction ('Do not invent')"]
+            return []
+
+        llm = Mock(side_effect=[(unique, "grok"), (clone, "grok"), (clone, "grok")])
+        with tempfile.TemporaryDirectory() as tmp:
+            archive, editions = self._seed_archive(Path(tmp))
+            (editions / f"{prior['slug']}.json").write_text(
+                json.dumps(self._edition_payload(**prior)) + "\n",
+                encoding="utf-8",
+            )
+            extra = [patch.object(facts, "check_review", side_effect=fake_check)]
+            with self._generation_stack(
+                llm=llm, archive=archive, editions=editions, extra=extra
+            ):
+                with self.assertRaises(generate.DuplicateNarrativeError) as ctx:
+                    generate.build("grok", persist_schedule=False)
+        self.assertIn("cloned dek", str(ctx.exception))
+        self.assertIn("theEdge", str(ctx.exception))
+        self.assertIn(prior["slug"], str(ctx.exception))
+        self.assertEqual(llm.call_count, 3)
 
     def test_run_wide_llm_budget_caps_calls_at_six(self):
         """Worst-case dek churn cannot exceed the 6-call run budget."""
@@ -4179,6 +4377,28 @@ class FactCheck(unittest.TestCase):
         self.assertIn("echoed writer instruction", blob)
         self.assertFalse(any("kickoff is midday" in item for item in issues), issues)
 
+    def test_run_41087549083_do_not_invent_echo_is_rejected(self):
+        recap = _load_fixture("espn_401872952_recap.json")
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        narrative = {
+            "lastGameReview": {
+                "lede": (
+                    "Do not invent a receiver-trade close; Garrett Wilson "
+                    "is still a rumor."
+                )
+            }
+        }
+        issues = facts.check_review(narrative, last, recap)
+        blob = " ".join(issues)
+        self.assertIn("echoed writer instruction", blob)
+        self.assertIn("Do not invent", blob)
+        self.assertIn("in the wire", prompts.SYSTEM_PROMPT)
+        self.assertIn("not a claim that", prompts.SYSTEM_PROMPT)
+        self.assertIn("Do not invent", prompts.SYSTEM_PROMPT)
+        retry = facts.retry_instruction(issues, recap)
+        self.assertIn("leaked fact-checker note or echoed instruction", retry)
+
     def _meta_note_issues(self, line, last=None, recap=None, **kwargs):
         payload = {
             "lastGameReview": {"lede": "Kansas City won 24-10. " + line},
@@ -4194,7 +4414,7 @@ class FactCheck(unittest.TestCase):
         """Every known real leak sentence is a regression fixture (Karen ruling A)."""
         fixture = _load_fixture("known_meta_leaks.json")
         rows = fixture["leaks"]
-        self.assertEqual(len(rows), 33)
+        self.assertEqual(len(rows), 39)
         missed = []
         recap = _load_fixture("espn_401872952_recap.json")
         last = dict(self.LAST)
