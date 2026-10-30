@@ -2282,7 +2282,62 @@ def _score_team_for_yards(recap: dict | None, kind: str, yards: int) -> str:
     return ""
 
 
+def _kick_yards_from_fg_text(text: str) -> int | None:
+    """Kick distance from FG language, never a drive or play-yard total."""
+    match = _FG_YARD.search(text or "")
+    if match:
+        try:
+            return int(match.group(1))
+        except (TypeError, ValueError):
+            return None
+    yarder = re.search(r"\b(\d{1,2})\s*yarder\b", text or "", re.I)
+    if not yarder:
+        return None
+    try:
+        return int(yarder.group(1))
+    except (TypeError, ValueError):
+        return None
+
+
+def official_missed_fg_kick_yards_by_team(
+    recap: dict | None,
+) -> dict[str, list[int]]:
+    """Team → missed-FG kick distances from play/detail text only.
+
+    ``driveResults.yards`` is drive yardage and must not be treated as
+    a kick. Count each miss row so two 58-yard misses stay two misses.
+    """
+    out: dict[str, list[int]] = {}
+
+    def _add(team: str, yards: int | None) -> None:
+        abbr = (team or "").strip().upper()
+        if not abbr or yards is None:
+            return
+        out.setdefault(abbr, []).append(yards)
+
+    rows = [
+        row
+        for row in (recap or {}).get("driveResults") or []
+        if isinstance(row, dict)
+        and (row.get("result") or "").lower() == "missed fg"
+    ]
+    if rows:
+        for row in rows:
+            _add(row.get("team") or "", _kick_yards_from_fg_text(row.get("detail") or ""))
+        return out
+    for play in _plays(recap):
+        text = play.get("text") or ""
+        low = text.lower()
+        if "no good" not in low and "wide" not in low and "miss" not in low:
+            continue
+        if "field goal" not in low and "yarder" not in low:
+            continue
+        _add(play.get("team") or "", _kick_yards_from_fg_text(text))
+    return out
+
+
 def official_missed_fg_yards(recap: dict | None) -> set[int]:
+    """Union of missed-FG yard values the archive-replay gate already uses."""
     out: set[int] = set()
     for row in (recap or {}).get("driveResults") or []:
         if not isinstance(row, dict):
@@ -8181,6 +8236,74 @@ def _salvage_blocks_market(text: str, generated_at: str = "") -> bool:
     return _prediction_market_policy_applies({"generatedAt": generated_at})
 
 
+def _cross_field_snippet_tails(snippets: list[str]) -> list[str]:
+    """Last line of a quoted join such as ``Butker\\nTwo misses from 58``.
+
+    Archive replay flattens title + body with newlines, so a kicker
+    heading plus a yardage line only fails as a join. Isolated
+    ``sentence_fails_review`` of the body is clean; salvage must still
+    drop that completing line — and only that line.
+    """
+    tails: list[str] = []
+    seen: set[str] = set()
+    for snip in snippets or []:
+        if "\n" not in (snip or ""):
+            continue
+        tail = snip.split("\n")[-1].strip()
+        if not tail or tail in seen:
+            continue
+        seen.add(tail)
+        tails.append(tail)
+    return tails
+
+
+def _completes_failing_title_join(
+    sentence: str,
+    snippets: list[str],
+    last_game: dict | None,
+    recap: dict | None,
+    schedule=None,
+) -> bool:
+    """True when this line is only dirty as the body after a title join.
+
+    A last line of some other multi-line quote must not delete a clean
+    neighbor. Re-check title + this sentence the way archive replay
+    flattens adjacent fields.
+    """
+    if recap is None or not sentence:
+        return False
+    for snip in snippets or []:
+        if "\n" not in (snip or ""):
+            continue
+        parts = [part.strip() for part in snip.split("\n") if part.strip()]
+        if len(parts) < 2:
+            continue
+        tail = parts[-1]
+        title = parts[-2]
+        if not _sentence_has_snippet(sentence, tail):
+            continue
+        joined = f"{title}\n{sentence}"
+        if sentence_fails_review(joined, last_game, recap, schedule):
+            return True
+    return False
+
+
+def joined_edition_hard_issues(
+    narrative: dict | None,
+    last_game: dict | None,
+    recap: dict | None,
+    schedule=None,
+) -> list[str]:
+    """Hard leftovers on the flattened title+body edition archive replay uses."""
+    return [
+        item
+        for item in check_review(
+            narrative, last_game, recap, schedule=schedule, changed=True
+        )
+        if not known_errors.is_hold_only_issue(item)
+    ]
+
+
 def _drop_text(
     text: str,
     snippets: list[str],
@@ -8196,6 +8319,9 @@ def _drop_text(
     not contain the hit (run 37042175518). When a recap is present,
     the snippet must also fail as its own claim — official clocks in
     a 8:42 note must not delete every correct 25:39 sentence.
+    Cross-field archive leftovers (title + body joined by a newline)
+    drop only the completing line of that failing join, not every
+    sentence that shares a later line of some other quote.
     """
     needles = [s for s in snippets if s]
     if not text or not needles:
@@ -8205,6 +8331,10 @@ def _drop_text(
     for sent in sentences:
         if not any(_sentence_has_snippet(sent, snip) for snip in needles):
             kept.append(sent)
+            continue
+        if _completes_failing_title_join(
+            sent, needles, last_game, recap, schedule
+        ):
             continue
         if recap is not None and not sentence_fails_review(
             sent, last_game, recap, schedule
@@ -8318,6 +8448,10 @@ _STAT_DISAGREE = re.compile(
     r"(?P<kind>touches|sacks|pass attempts|rush attempts|team rushing|"
     r"game yards|total drives|QB hits|first downs|touchdown count)\s+"
     r"(?P<claimed>\d+)\s+disagrees with ESPN\s+(?P<official>\d+)",
+    re.IGNORECASE,
+)
+_FG_YARDAGE_VIOLATION = re.compile(
+    r"field-goal yardage (?P<yards>\d+)",
     re.IGNORECASE,
 )
 _TURNOVER_CREDIT_VIOLATION = re.compile(
@@ -9167,7 +9301,127 @@ def _correct_sentence(
     name = _ILLEGAL_USE_NOT_SNEED.search(violation or "")
     if name:
         return _swap_sneed_for(sentence, name.group(1))
+    fg = _FG_YARDAGE_VIOLATION.search(violation or "")
+    if fg:
+        return _correct_fg_yardage(
+            sentence,
+            int(fg.group("yards")),
+            recap,
+            last_game,
+            context=_quoted_violation(violation),
+        )
     return None
+
+
+def _states_fg_miss(sentence: str) -> bool:
+    return bool(
+        _FG_MISS_CLAIM.search(sentence or "")
+        or re.search(r"\bmisses\b", sentence or "", re.I)
+    )
+
+
+def _fg_claim_team(
+    sentence: str,
+    recap: dict | None,
+    last_game: dict | None = None,
+) -> str:
+    blob = sentence or ""
+    if re.search(r"\bbutker\b", blob, re.I):
+        return "KC"
+    if re.search(r"\bmyers\b", blob, re.I):
+        return ((recap or {}).get("oppAbbr") or "").strip().upper()
+    if re.search(r"\bthe kicker\b", blob, re.I):
+        return "KC"
+    aliases = _team_aliases(last_game, recap)
+    players = _player_teams(recap)
+    return _bound_team(blob, 0, min(len(blob), 16), aliases, players) or ""
+
+
+def _claimed_miss_count(sentence: str, yards: int) -> int | None:
+    """Count bound to this ``from Y`` miss claim. None when it is ambiguous."""
+    token = (
+        r"(?:a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)"
+    )
+    bound = re.search(
+        rf"\b({token})\s+miss(?:es)?\b.{{0,24}}\bfrom\s+{yards}\b"
+        rf"|\bfrom\s+{yards}\b.{{0,24}}\b({token})\s+miss(?:es)?\b",
+        sentence or "",
+        re.I,
+    )
+    if bound:
+        return _parse_count(bound.group(1) or bound.group(2))
+    if re.search(
+        rf"\bmiss(?:ed)?\b.{{0,24}}\bfrom\s+{yards}\b"
+        rf"|\bfrom\s+{yards}\b.{{0,24}}\bmiss(?:ed)?\b",
+        sentence or "",
+        re.I,
+    ):
+        return 1
+    return None
+
+
+def _official_miss_count_for(
+    recap: dict | None, team: str, yards: int
+) -> int:
+    bag = official_missed_fg_kick_yards_by_team(recap).get((team or "").upper(), [])
+    return sum(1 for value in bag if value == yards)
+
+
+def _correct_fg_yardage(
+    sentence: str,
+    yards: int,
+    recap: dict | None,
+    last_game: dict | None = None,
+    context: str = "",
+) -> str | None:
+    """Rewrite a miss claim's yardage only. Else None so salvage DROPS.
+
+    A sentence that does not already state a miss, that uses another
+    team's misses, or whose miss count is not exactly the ESPN count
+    for that team and distance, must not be rewritten. Never insert or
+    change a verb, team, or count.
+    """
+    if not sentence or not re.search(rf"\bfrom\s+{yards}\b", sentence, re.I):
+        return None
+    if not _states_fg_miss(sentence):
+        return None
+    team = _fg_claim_team(
+        "\n".join(part for part in (context, sentence) if part),
+        recap,
+        last_game,
+    ) or _fg_claim_team(sentence, recap, last_game)
+    if not team:
+        return None
+    claimed = _claimed_miss_count(sentence, yards)
+    if claimed is None:
+        return None
+    if _official_miss_count_for(recap, team, yards) == claimed:
+        return None
+    by_team = official_missed_fg_kick_yards_by_team(recap).get(team, [])
+    matches = sorted({value for value in by_team if by_team.count(value) == claimed})
+    if len(matches) != 1 or matches[0] == yards:
+        return None
+    official = matches[0]
+    rewritten = re.sub(
+        rf"\bfrom\s+{yards}\b",
+        f"from {official}",
+        sentence,
+        count=1,
+        flags=re.I,
+    )
+    if rewritten == sentence:
+        return None
+    if _claimed_miss_count(rewritten, official) != claimed:
+        return None
+    if not _states_fg_miss(rewritten):
+        return None
+    if _fg_claim_team(
+        "\n".join(part for part in (context, rewritten) if part),
+        recap,
+        last_game,
+    ) != team:
+        return None
+    return rewritten
 
 
 def _replace_sentence_value(value, old: str, new: str):
@@ -9223,8 +9477,6 @@ def apply_fact_corrections(
                 rewritten = _correct_sentence(sentence, item, recap, last_game)
             if not rewritten or rewritten == sentence:
                 continue
-            if sentence_fails_review(rewritten, last_game, recap, schedule):
-                continue
             next_payload = copy.deepcopy(payload)
             for key in _EDITION_KEYS:
                 if key in next_payload:
@@ -9232,6 +9484,16 @@ def apply_fact_corrections(
                         next_payload[key], sentence, rewritten
                     )
             if edition_text(next_payload) == blob:
+                continue
+            before_hard = joined_edition_hard_issues(
+                payload, last_game, recap, schedule
+            )
+            after_hard = joined_edition_hard_issues(
+                next_payload, last_game, recap, schedule
+            )
+            if item in after_hard:
+                continue
+            if any(other not in before_hard for other in after_hard):
                 continue
             payload = next_payload
             blob = edition_text(payload)
@@ -9244,6 +9506,7 @@ def repair_offending_copy(
     violations: list[str],
     last_game: dict | None = None,
     recap: dict | None = None,
+    schedule=None,
 ) -> dict:
     """Drop offending sentences, then leftover fragments in every section."""
     payload = copy.deepcopy(narrative or {})
@@ -9259,7 +9522,7 @@ def repair_offending_copy(
         for key in _EDITION_KEYS:
             if key in payload:
                 payload[key] = _drop_value(
-                    payload[key], snippets, last_game, recap,
+                    payload[key], snippets, last_game, recap, schedule,
                     generated_at=generated_at,
                 )
     # A glued play-order quote (nobodyafter) can miss the sentence. Re-check

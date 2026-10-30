@@ -1060,6 +1060,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         *,
         check_schedule=None,
         check_copy_gates=False,
+        check_changed=None,
     ):
         corrected, logs = facts.apply_fact_corrections(
             payload,
@@ -1076,11 +1077,12 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             check_recap,
             schedule=check_schedule,
             copy_gates=check_copy_gates,
+            changed=check_changed,
         )
         if not leftover:
             return corrected, leftover, [], logs
         repaired = facts.repair_offending_copy(
-            corrected, leftover, check_last, check_recap
+            corrected, leftover, check_last, check_recap, check_schedule
         )
         gone = facts.dropped_sentences(corrected, repaired)
         for sentence in gone:
@@ -1091,6 +1093,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             check_recap,
             schedule=check_schedule,
             copy_gates=check_copy_gates,
+            changed=check_changed,
         )
         return repaired, leftover, gone, logs
 
@@ -1102,6 +1105,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         *,
         check_schedule=None,
         check_copy_gates=False,
+        check_changed=None,
         before=None,
     ):
         repaired, leftover, gone, logs = _salvage(
@@ -1111,6 +1115,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             check_recap,
             check_schedule=check_schedule,
             check_copy_gates=check_copy_gates,
+            check_changed=check_changed,
         )
         gone_all = list(gone)
         logs_all = list(logs)
@@ -1126,6 +1131,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
                 check_recap,
                 check_schedule=check_schedule,
                 check_copy_gates=check_copy_gates,
+                check_changed=check_changed,
             )
             gone_all.extend(gone)
             logs_all.extend(logs)
@@ -1237,7 +1243,12 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
     # would flag so generate and the gate agree.
     gate_last = _last_game_from_edition(narrative)
     gate_recap = _recap_for_edition(narrative)
-    gate_issues = facts.check_review(narrative, gate_last, gate_recap)
+    # Same last/recap/schedule/changed as archive_replay_issues and
+    # --check-edition, so kick-yardage and sibling ESPN checks salvage
+    # here instead of surviving until the publish gate.
+    gate_issues = facts.check_review(
+        narrative, gate_last, gate_recap, schedule=schedule, changed=True
+    )
     if gate_issues:
         print(
             "  [writer] published-edition gate still failing; "
@@ -1249,6 +1260,8 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             gate_issues,
             gate_last,
             gate_recap,
+            check_schedule=schedule,
+            check_changed=True,
             before=narrative,
         )
         corrections.extend(logs)
@@ -1261,7 +1274,13 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             )
         )
         if gate_noisy:
-            if facts.check_review(narrative, gate_last, gate_recap):
+            if facts.check_review(
+                narrative,
+                gate_last,
+                gate_recap,
+                schedule=schedule,
+                changed=True,
+            ):
                 narrative = copy.deepcopy(gate_before)
                 leftover_issues = leftover_issues or [
                     "salvage would have dropped too much; holding for human QA"
@@ -1282,6 +1301,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             *reversed([row["narrative"] for row in attempts]),
             last_game=gate_last,
             recap=gate_recap,
+            schedule=schedule,
         )
         print("  [writer] published-edition gate: corrections and drops logged")
 
@@ -1307,10 +1327,51 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         if other_held:
             emit_held(other_held)
         if hard:
-            raise FactCheckError(
-                "edition would fail archive replay; refusing to publish: "
-                + "; ".join(hard)
+            print(
+                "  [writer] archive replay still failing; "
+                "correcting or dropping so generate matches archive replay"
             )
+            replay_last = _last_game_from_edition(narrative)
+            replay_recap = _recap_for_edition(narrative)
+            narrative, gone, leftover_replay, logs = _salvage_until_clean(
+                narrative,
+                hard,
+                replay_last,
+                replay_recap,
+                check_schedule=schedule,
+                check_changed=True,
+                before=narrative,
+            )
+            corrections.extend(logs)
+            dropped.extend(gone)
+            leftover_issues.extend(leftover_replay or [])
+            narrative = facts.restore_required_copy(
+                narrative,
+                *reversed([row["narrative"] for row in attempts]),
+                last_game=replay_last,
+                recap=replay_recap,
+                schedule=schedule,
+            )
+            held, hard = split_replay_issues(
+                archive_replay_issues(narrative, schedule)
+            )
+            for item in held:
+                if item not in leftover_issues:
+                    leftover_issues.append(item)
+            other_held = [
+                item for item in held if "fact-checker note leaked" not in item
+            ]
+            if other_held:
+                emit_held(other_held)
+            if hard:
+                print(
+                    "  [writer] unfixable leftover after salvage; "
+                    "holding automerge instead of failing the run"
+                )
+                for item in hard:
+                    if item not in leftover_issues:
+                        leftover_issues.append(item)
+                emit_held(hard)
     leak_notes = [
         item for item in leftover_issues if "fact-checker note leaked" in item
     ]
@@ -1690,6 +1751,22 @@ def main(argv=None) -> int:
             )
             for item in hard:
                 print(f"  - {item}", file=sys.stderr)
+            repair = {}
+            if config.REPAIR_JSON.is_file():
+                try:
+                    loaded = json.loads(
+                        config.REPAIR_JSON.read_text(encoding="utf-8")
+                    )
+                except (OSError, json.JSONDecodeError):
+                    loaded = {}
+                if isinstance(loaded, dict):
+                    repair = loaded
+            if repair.get("holdAutomerge"):
+                emit_held(hard)
+                print(
+                    "  archive replay gate: held leftover; failing the run",
+                    file=sys.stderr,
+                )
             return 1
         if held:
             emit_held(held)
@@ -1739,10 +1816,9 @@ def main(argv=None) -> int:
                     repair = loaded
             if repair.get("holdAutomerge"):
                 print(
-                    "  edition gates: held for human QA (not failing the run)",
+                    "  edition gates: held leftover; failing the run",
                     file=sys.stderr,
                 )
-                return 0
             return 1
         print("  edition gates: ok")
         return 0

@@ -1,0 +1,15 @@
+diff --git a/tools/chiefs_narrative/facts.py b/tools/chiefs_narrative/facts.py
+index 1d77e2b..a658361 100644
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -8282,9 +8282,7 @@ def _completes_failing_title_join(
+         title = parts[-2]
+         if not _sentence_has_snippet(sentence, tail):
+             continue
+-        joined = f"{title}\n{sentence}"
+-        if sentence_fails_review(joined, last_game, recap, schedule):
+-            return True
++        return True
+     return False
+ 
+ 

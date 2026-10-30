@@ -22,14 +22,25 @@ def _leak_rows(repair: dict | None) -> list[str]:
     return rows
 
 
+def _hard_leftover_rows(repair: dict | None) -> list[str]:
+    rows: list[str] = []
+    for item in ((repair or {}).get("leftoverIssues") or []):
+        text = str(item or "").strip()
+        if not text or "fact-checker note leaked" in text:
+            continue
+        rows.append(text)
+    return rows
+
+
 def drop_body(repair: dict | None) -> str:
-    """Markdown block listing salvage corrections, drops, and held leaks."""
+    """Markdown block listing salvage corrections, drops, leftovers, and leaks."""
     rows = [str(row) for row in ((repair or {}).get("droppedSentences") or []) if row]
     fixes = [
         str(row) for row in ((repair or {}).get("correctedSentences") or []) if row
     ]
     leaks = _leak_rows(repair)
-    if not rows and not fixes and not leaks:
+    leftovers = _hard_leftover_rows(repair)
+    if not rows and not fixes and not leaks and not leftovers:
         return ""
     held = bool((repair or {}).get("holdAutomerge"))
     hold_note = " Automerge is held." if held else ""
@@ -44,6 +55,17 @@ def drop_body(repair: dict | None) -> str:
             ]
         )
         lines.extend(f"- {row}" for row in leaks)
+        lines.append("")
+    if leftovers:
+        lines.extend(
+            [
+                "## Archive replay leftovers",
+                "",
+                "These hard archive-replay issues remain." + hold_note,
+                "",
+            ]
+        )
+        lines.extend(f"- {row}" for row in leftovers)
         lines.append("")
     if fixes:
         lines.extend(
