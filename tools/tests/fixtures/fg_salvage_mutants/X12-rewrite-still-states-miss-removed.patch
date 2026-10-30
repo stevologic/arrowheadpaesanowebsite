@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -9413,8 +9413,6 @@ def _correct_fg_yardage(
+         return None
+     if _claimed_miss_count(rewritten, official) != claimed:
+         return None
+-    if not _states_fg_miss(rewritten):
+-        return None
+     if _fg_claim_team(
+         "\n".join(part for part in (context, rewritten) if part),
+         recap,

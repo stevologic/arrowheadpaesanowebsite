@@ -1,0 +1,15 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -9313,10 +9313,7 @@ def _correct_sentence(
+     return None
+ 
+ 
+ def _states_fg_miss(sentence: str) -> bool:
+-    return bool(
+-        _FG_MISS_CLAIM.search(sentence or "")
+-        or re.search(r"\bmisses\b", sentence or "", re.I)
+-    )
++    return True
+ 
+ 
+ def _fg_claim_team(

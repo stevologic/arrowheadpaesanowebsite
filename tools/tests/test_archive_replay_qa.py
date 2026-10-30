@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from tools.chiefs_narrative import collect, edition_merge, facts, generate
 from tools.tests import archive_replay
@@ -487,6 +487,53 @@ class Butker58SalvageReplay(unittest.TestCase):
             changed=True,
         )
 
+    def _single_kc_miss(self, yards: int = 58) -> dict:
+        """One KC miss at ``yards`` and a 50-yard make. No other misses."""
+        return {
+            "oppAbbr": "SEA",
+            "eventId": "401873022",
+            "scoringPlays": [
+                {
+                    "team": "KC",
+                    "type": "fg",
+                    "yards": 50,
+                    "player": "H.Butker",
+                }
+            ],
+            "driveResults": [
+                {
+                    "quarter": 2,
+                    "clock": "0:01",
+                    "team": "KC",
+                    "result": "missed FG",
+                    "yards": yards,
+                    "detail": (
+                        f"H.Butker {yards} yard field goal is No Good, Short."
+                    ),
+                }
+            ],
+            "plays": [],
+            "kc": {},
+            "opp": {},
+        }
+
+    def _sea_only_miss(self, yards: int = 58) -> dict:
+        recap = self._single_kc_miss(yards)
+        recap["driveResults"] = [
+            {
+                "quarter": 2,
+                "clock": "0:01",
+                "team": "SEA",
+                "result": "missed FG",
+                "yards": yards,
+                "detail": (
+                    f"J.Myers {yards} yard field goal is No Good, Wide Left."
+                ),
+            }
+        ]
+        recap["scoringPlays"] = []
+        return recap
+
     def _salvage(self, edition: dict) -> dict:
         issues = self._replay_issues(edition)
         fixed, _logs = facts.apply_fact_corrections(
@@ -743,6 +790,242 @@ class Butker58SalvageReplay(unittest.TestCase):
                 ):
                     check_rc = generate.main(["--check-edition"])
                 self.assertEqual(check_rc, 1)
+
+    def test_single_kc_miss_rewrites_wrong_yardage_exactly(self):
+        recap = self._single_kc_miss(58)
+        self.assertEqual(
+            facts.official_missed_fg_kick_yards_by_team(recap).get("KC"),
+            [58],
+        )
+        sentence = "Butker missed from 57 to end the half."
+        rewritten = facts._correct_fg_yardage(
+            sentence, 57, recap, self.LAST, context=sentence
+        )
+        self.assertEqual(rewritten, "Butker missed from 58 to end the half.")
+        dirty = self._butker_58(body=sentence)
+        issues = [
+            "field-goal yardage 57 is not a KC ESPN kick "
+            "('Butker missed from 57')"
+        ]
+        fixed, logs = facts.apply_fact_corrections(
+            dirty, issues, recap, self.LAST, frozen_schedule()
+        )
+        self.assertIn(
+            "Butker missed from 57 to end the half. → "
+            "Butker missed from 58 to end the half.",
+            logs,
+        )
+        self.assertIn(
+            "Butker missed from 58 to end the half.",
+            facts.edition_text(fixed),
+        )
+
+    def test_wrong_team_miss_is_not_rewritten(self):
+        recap = self._sea_only_miss(58)
+        self.assertEqual(
+            facts.official_missed_fg_kick_yards_by_team(recap).get("SEA"),
+            [58],
+        )
+        self.assertNotIn(
+            58, facts.official_missed_fg_kick_yards_by_team(recap).get("KC", [])
+        )
+        sentence = "Butker missed from 57 to end the half."
+        self.assertIsNone(
+            facts._correct_fg_yardage(
+                sentence, 57, recap, self.LAST, context=sentence
+            )
+        )
+
+    def test_make_claim_wrong_yardage_is_not_rewritten(self):
+        recap = self._single_kc_miss(58)
+        sentence = "Butker hit from 57 to steady it."
+        self.assertFalse(facts._states_fg_miss(sentence))
+        self.assertIsNone(
+            facts._correct_fg_yardage(
+                sentence, 57, recap, self.LAST, context=sentence
+            )
+        )
+
+    def test_claimed_count_mismatch_is_not_rewritten(self):
+        recap = self._single_kc_miss(58)
+        self.assertIsNone(
+            facts._correct_fg_yardage(
+                "Two misses from 57.",
+                57,
+                recap,
+                self.LAST,
+                context="Butker\nTwo misses from 57.",
+            )
+        )
+
+    def test_missing_claimed_count_is_not_rewritten(self):
+        recap = self._single_kc_miss(58)
+        self.assertIsNone(
+            facts._claimed_miss_count("misses from 57.", 57)
+        )
+        self.assertIsNone(
+            facts._correct_fg_yardage(
+                "misses from 57.",
+                57,
+                recap,
+                self.LAST,
+                context="Butker\nmisses from 57.",
+            )
+        )
+
+    def test_rewrite_rejected_when_it_drops_miss_language(self):
+        recap = self._single_kc_miss(58)
+        real_sub = facts.re.sub
+        real_count = facts._claimed_miss_count
+
+        def _lose_miss(pattern, repl, string, count=0, flags=0):
+            out = real_sub(pattern, repl, string, count=count, flags=flags)
+            if (
+                isinstance(string, str)
+                and "from 57" in string
+                and isinstance(out, str)
+                and "from 58" in out
+            ):
+                return "Butker hit from 58 to end the half."
+            return out
+
+        def _count_keeps_claimed(sentence, yards):
+            if "hit from 58" in (sentence or ""):
+                return 1
+            return real_count(sentence, yards)
+
+        with patch.object(facts.re, "sub", side_effect=_lose_miss), patch.object(
+            facts, "_claimed_miss_count", side_effect=_count_keeps_claimed
+        ):
+            self.assertIsNone(
+                facts._correct_fg_yardage(
+                    "Butker missed from 57 to end the half.",
+                    57,
+                    recap,
+                    self.LAST,
+                    context="Butker missed from 57 to end the half.",
+                )
+            )
+
+    def test_clean_title_join_neighbor_survives(self):
+        text = (
+            "Two misses from 58. The special-teams file is still open."
+        )
+        snippets = [
+            "Butker\nTwo misses from 58",
+            "Two misses from 58",
+            "Kick file\nThe special-teams file is still open.",
+            "The special-teams file is still open.",
+        ]
+        out = facts._drop_text(
+            text, snippets, self.LAST, self.RECAP, frozen_schedule()
+        )
+        self.assertNotIn("Two misses from 58", out)
+        self.assertIn("special-teams file is still open", out)
+        self.assertFalse(
+            facts._completes_failing_title_join(
+                "The special-teams file is still open.",
+                snippets,
+                self.LAST,
+                self.RECAP,
+                frozen_schedule(),
+            )
+        )
+
+    def test_build_holds_unfixable_hard_leftover_and_gates_fail(self):
+        from tools.tests.test_narrative import CAMP_PHASE, HeadlineUniqueness
+
+        pad = (
+            "Kansas City is 5-2 and turns to Denver after Seattle. "
+            "The tape is early downs, the kick file, and the next snap. "
+        ) * 120
+        draft = {
+            "headline": "Week 8 Preview: a held leftover clock",
+            "dek": pad,
+            "theEdge": pad,
+            "storyline": pad,
+            "currentState": pad,
+            "gamePlan": pad,
+            "edition": "2026 Week 8 · Preview",
+            "phase": {"type": "regular", "mode": "preview", "week": 8},
+            "lastGameReview": {
+                "opponent": "Seattle Seahawks",
+                "result": "L",
+                "score": "KC 3–20",
+                "lede": pad,
+                "takeaways": [
+                    {
+                        "title": "Butker from 99",
+                        "body": "The special-teams file is still open.",
+                    }
+                ],
+            },
+        }
+        self.assertGreaterEqual(
+            facts.edition_word_count(draft), facts.PUBLISH_WORD_FLOOR
+        )
+        self.assertFalse(facts.is_review_edition(draft))
+        self.assertFalse(
+            facts.should_hold_automerge([], draft, leftover=[]),
+            "fixture must hold only because of the leftover",
+        )
+        hard = [
+            "field-goal yardage 99 is not a KC ESPN kick ('Butker from 99')"
+        ]
+        llm = Mock(return_value=(draft, "grok"))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "narrative_archive.json"
+            editions = root / "narrative_editions"
+            editions.mkdir()
+            archive.write_text("[]\n", encoding="utf-8")
+            narrative_json = root / "narrative.json"
+            repair_json = root / "repair.json"
+            extra = [
+                patch.object(facts, "check_review", return_value=[]),
+                patch.object(facts, "check_diagram_captions", return_value=[]),
+                patch.object(generate, "archive_replay_issues", return_value=hard),
+                patch.object(generate, "replay_fixture_missing", return_value=False),
+                patch.object(generate.config, "NARRATIVE_JSON", narrative_json),
+                patch.object(generate.config, "REPAIR_JSON", repair_json),
+            ]
+            with HeadlineUniqueness()._generation_stack(
+                llm=llm, archive=archive, editions=editions, extra=extra
+            ):
+                result = generate.build("grok", persist_schedule=False)
+            leftover = result.get("leftoverIssues") or []
+            self.assertTrue(
+                any("field-goal yardage 99" in item for item in leftover),
+                leftover,
+            )
+            held = facts.should_hold_automerge(
+                result.get("droppedSentences") or [],
+                result["narrative"],
+                leftover=leftover,
+                corrections=result.get("correctedSentences") or [],
+            )
+            self.assertTrue(held)
+            repair_json.write_text(
+                json.dumps(
+                    {"holdAutomerge": True, "leftoverIssues": leftover}
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            narrative_json.write_text(
+                json.dumps(result["narrative"]) + "\n", encoding="utf-8"
+            )
+            with patch.object(generate.config, "NARRATIVE_JSON", narrative_json), patch.object(
+                generate.config, "REPAIR_JSON", repair_json
+            ), patch.object(
+                generate, "archive_replay_issues", return_value=hard
+            ), patch.object(
+                generate, "replay_fixture_missing", return_value=False
+            ), patch.object(
+                generate, "check_published_edition", return_value=hard
+            ):
+                self.assertEqual(generate.main(["--gate-replay"]), 1)
+                self.assertEqual(generate.main(["--check-edition"]), 1)
 
 
 if __name__ == "__main__":
