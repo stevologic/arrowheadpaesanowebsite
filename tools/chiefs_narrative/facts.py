@@ -7680,7 +7680,10 @@ def retry_instruction(violations: list[str], recap: dict | None = None) -> str:
         "cannot support. A score 'after' or 'following' a play must bind "
         "to the play that clause actually names. Possession clocks stay "
         "with the team on that box line — do not give the opponent TOP "
-        "to Kansas City or mix last-game and prior-game clocks."
+        "to Kansas City or mix last-game and prior-game clocks. "
+        "If a bullet is a leaked fact-checker note or echoed instruction, "
+        "omit that aside from published fields (editorNotes only) and "
+        "state only the tape. Do not paraphrase the rejection into the copy."
     )
 
 

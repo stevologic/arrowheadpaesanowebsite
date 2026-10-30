@@ -18,7 +18,8 @@ providers keep their existing behavior and keys.
 
 The generate job default stream deadline is 600 seconds (override with
 `LLM_DEADLINE`). One run-wide budget of 6 LLM calls covers the initial draft,
-one uniqueness rewrite, two factual rewrites, and any dek-only regenerations.
+one uniqueness rewrite, two factual rewrites, one uniqueness rewrite
+if a factual rewrite cloned dek/theEdge, and any dek-only regenerations.
 A cloned dek is retried from that budget only; there is no offline
 "refusing yesterday's dek" substitute. The 300-second idle timeout remains. There is no provider transport retry
 except one retry when the API explicitly rejects `response_format` or

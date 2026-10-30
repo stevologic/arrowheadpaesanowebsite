@@ -43,6 +43,11 @@ FACT_CHECK_RETRIES = 2
 # regenerated in place this many times before the run fails — still
 # bounded by the run-wide LLM call budget.
 DEK_CLONE_ATTEMPTS = 3
+# Run 41087549083: a fact-check rewrite cloned dek+theEdge and the
+# uniqueness gate hard-failed after retries were spent. One full
+# uniqueness rewrite is allowed from the remaining LLM budget when a
+# fact-check draft clones more than just the dek.
+FACT_CHECK_UNIQUENESS_RETRIES = 1
 # One wall-clock budget for every generate_via_llm call (draft, uniqueness
 # rewrite, fact-check rewrite, dek-only regen). 13 × 600s does not fit the
 # 65-minute job; 6 × 600s does.
@@ -319,12 +324,15 @@ def _norm_copy(text) -> str:
 
 
 def _edition_snapshot(payload: dict) -> dict:
+    phase = payload.get("phase") if isinstance(payload.get("phase"), dict) else {}
     return {
         "generatedAt": payload.get("generatedAt") or "",
         "slug": payload.get("slug") or "",
         "headline": payload.get("headline") or "",
         "dek": payload.get("dek") or "",
         "theEdge": payload.get("theEdge") or "",
+        "edition": payload.get("edition") or "",
+        "mode": phase.get("mode") or payload.get("mode") or "",
     }
 
 
@@ -414,10 +422,50 @@ def _uniqueness_retry_instruction(previous: dict, matched: list[str]) -> str:
         bits.append(f"yesterday's theEdge was {previous.get('theEdge')}, write a new one")
     if not bits:
         bits.append("write a new headline, dek, and theEdge")
+    preview = _consecutive_preview_note(previous)
     return (
         "UNIQUENESS RETRY: the previous published edition already used this copy. "
         + " ".join(bits)
         + " Headline, dek, and theEdge must all be new — do not reprint yesterday."
+        + preview
+    )
+
+
+def _consecutive_preview_note(previous: dict | None) -> str:
+    row = previous or {}
+    mode = str(row.get("mode") or "").lower()
+    edition = str(row.get("edition") or "").lower()
+    if mode != "preview" and "preview" not in edition:
+        return ""
+    return (
+        " This is a consecutive Preview day for the same game — unchanged "
+        "facts are not a reason to reprint that dek or theEdge."
+    )
+
+
+def _uniqueness_avoidance_instruction(recent: list[dict] | None) -> str:
+    """Exact prior dek/theEdge the writer must not reprint on a rewrite."""
+    if not recent:
+        return ""
+    previous = recent[0]
+    headline = (previous.get("headline") or "").strip()
+    dek = (previous.get("dek") or "").strip()
+    edge = (previous.get("theEdge") or "").strip()
+    if not (headline or dek or edge):
+        return ""
+    bits = []
+    if headline:
+        bits.append(f"yesterday's title was {headline}")
+    if dek:
+        bits.append(f"yesterday's dek was {dek}")
+    if edge:
+        bits.append(f"yesterday's theEdge was {edge}")
+    return (
+        "UNIQUENESS: do not reprint the most recent published headline, dek, "
+        "or theEdge. "
+        + "; ".join(bits)
+        + ". Headline, dek, and theEdge must all be new wording."
+        + _consecutive_preview_note(previous)
     )
 
 
@@ -523,6 +571,44 @@ def _dedupe_dek_or_raise(
         matched = _matched_copy_fields(narrative, previous)
     if matched:
         raise _clone_error(previous, matched, after=after)
+    return narrative, generator_label
+
+
+def _rewrite_cloned_copy(
+    narrative: dict,
+    previous: dict | None,
+    matched: list[str],
+    name: str,
+    generator_label: str,
+    system: str,
+    user: str,
+    signals: dict,
+    ph: dict,
+    upcoming: list,
+    meta: dict,
+    slate_record,
+    budget: LlmCallBudget,
+) -> tuple[dict, str]:
+    """One full uniqueness rewrite when a fact-check draft cloned more than dek."""
+    retry_name = name if generator_label != "offline" else "offline"
+    if retry_name == "offline" or not budget.remaining:
+        raise _clone_error(previous, matched, after="fact-check retry")
+    print(
+        "  [writer] uniqueness: cloned "
+        + ", ".join(matched)
+        + " after fact-check; retrying once with avoidance guidance"
+    )
+    retry_user = user + "\n\n" + _uniqueness_retry_instruction(previous, matched)
+    raw, generator_label = _draft_raw(
+        retry_name, system, retry_user, signals, ph, upcoming, budget
+    )
+    meta["generatedAt"] = config.iso_now()
+    meta["updatedAt"] = config.iso_now()
+    meta["generator"] = generator_label
+    narrative = _assemble_narrative(raw, ph, meta, signals, upcoming)
+    if slate_record:
+        narrative["record"] = slate_record
+    _mint_unique_slug(narrative)
     return narrative, generator_label
 
 
@@ -639,7 +725,9 @@ def _write_archive(narrative: dict) -> None:
             or narrative.get("edition")
             or "The Chiefs Narrative"
         ),
+        "dek": narrative.get("dek") or "",
         "theEdge": narrative.get("theEdge") or "",
+        "mode": phase.get("mode") or "",
     }
     # Replace only this slug. A same-day Preview and Review are different
     # editions and must both stay in the archive. Unlimited growth is
@@ -871,6 +959,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
 
     leftover_issues: list[str] = []
     corrections: list[str] = []
+    uniqueness_rewrites = 0
     known_fixed, known_logs = known_errors.apply_known_errors(narrative, recap)
     if known_logs:
         narrative = known_fixed
@@ -898,6 +987,9 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             + f"; retrying {attempt}/{FACT_CHECK_RETRIES}"
         )
         retry_user = user + "\n\n" + facts.retry_instruction(violations, recap)
+        avoidance = _uniqueness_avoidance_instruction(recent)
+        if avoidance:
+            retry_user += "\n\n" + avoidance
         raw, generator_label = _draft_raw(
             retry_name, system, retry_user, signals, ph, upcoming, budget
         )
@@ -908,16 +1000,46 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         if slate_record:
             narrative["record"] = slate_record
         _mint_unique_slug(narrative)
-        previous, _ = _first_copy_collision(narrative, recent)
-        narrative, generator_label = _dedupe_dek_or_raise(
-            narrative,
-            previous,
-            retry_name,
-            generator_label,
-            ph,
-            budget,
-            after="fact-check retry",
-        )
+        previous, matched = _first_copy_collision(narrative, recent)
+        if matched == ["dek"]:
+            narrative, generator_label = _dedupe_dek_or_raise(
+                narrative,
+                previous,
+                retry_name,
+                generator_label,
+                ph,
+                budget,
+                after="fact-check retry",
+            )
+        elif matched:
+            if uniqueness_rewrites >= FACT_CHECK_UNIQUENESS_RETRIES:
+                raise _clone_error(previous, matched, after="fact-check retry")
+            uniqueness_rewrites += 1
+            narrative, generator_label = _rewrite_cloned_copy(
+                narrative,
+                previous,
+                matched,
+                name,
+                generator_label,
+                system,
+                user,
+                signals,
+                ph,
+                upcoming,
+                meta,
+                slate_record,
+                budget,
+            )
+            previous, matched = _first_copy_collision(narrative, recent)
+            narrative, generator_label = _dedupe_dek_or_raise(
+                narrative,
+                previous,
+                retry_name,
+                generator_label,
+                ph,
+                budget,
+                after="fact-check retry",
+            )
         known_fixed, known_logs = known_errors.apply_known_errors(narrative, recap)
         if known_logs:
             narrative = known_fixed
