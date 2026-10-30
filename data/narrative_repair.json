@@ -1,16 +1,10 @@
 {
   "droppedSentences": [
-    "Kelce led the receivers with 4 catches for 44 yards.",
-    "At Q2 6:09, Mahomes\u2019s short left throw intended for Jalen Royals was intercepted by Ty Okada, with Nick Emmanwori on the play.",
-    "That is Okada\u2019s interception, not Royals\u2019s.",
-    "Butker misses from 58 and 45 after Seattle had already built the lead",
-    "Seattle showed that 41 rushes and 35:51 can shrink Mahomes to 33 attempts and seven hits.",
-    "Kansas City beat Denver 31-10 in Week 1 at home.",
-    "This one is on the road, off a 3-20 loss, with Jaylon Moore back on the Wednesday injury report."
+    "Jaxon Smith-Njigba was the problem in space: 11 touches, a jet-style rush to the right end, another to the left end, and the 28-yard touchdown on a deep-left throw from Darnold after a replay reversal."
   ],
-  "correctedSentences": [
-    "Spagnuolo\u2019s shell: corners jam and sink, safeties stay on top, linebackers fit the checkdown. Tackle. Do not leave the flat for a 8-yard stay that becomes a new set of downs. \u2192 Spagnuolo\u2019s shell: corners jam and sink, safeties stay on top, linebackers fit the checkdown. Tackle. Do not leave the flat for an 8-yard stay that becomes a new set of downs."
+  "correctedSentences": [],
+  "leftoverIssues": [
+    "fact-checker note leaked (\"not a story about last week's interception\"): Two quarterback hits is the production number to beat, not a story about last week's interception."
   ],
-  "leftoverIssues": [],
   "holdAutomerge": true
 }
