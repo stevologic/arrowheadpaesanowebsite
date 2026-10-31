@@ -50,7 +50,7 @@
       {{ end }}
       {{ with .dek }}<p class="nrt-dek">{{ . }}</p>{{ end }}
 
-      {{ if ne .heroMediaId "none" }}{{ partial "nrt-hero-media.html" (dict "n" . "site" $site) }}{{ end }}
+      {{/* Heroes render nothing: no silhouette, illustration, or hotlinked photo. */}}
       <div class="nrt-hero__grid">
         <div class="nrt-hero__main">
           {{ with .videoHook }}
@@ -339,7 +339,7 @@
           {{ with .situation }}<p class="nrt-xo-card__situation"><span>Situation</span> {{ . }}</p>{{ end }}
           {{ with .why }}<p class="nrt-xo-card__why">{{ . }}</p>{{ end }}
           {{ with .coaching }}<p class="nrt-xo-card__coach"><span>Coaching point</span> {{ . }}</p>{{ end }}
-          <div class="playmakers" aria-label="Illustrative play roles">{{ if .playmakers }}{{ range .playmakers }}<div class="playmaker">{{ partial "person-media.html" (dict "name" .name "site" $site) }}<span><strong>{{ .name }}</strong><small>{{ .role }}</small></span></div>{{ end }}{{ else }}<div class="playmaker">{{ partial "person-media.html" (dict "name" "Schematic player role" "site" $site) }}<span>Illustrative roles shown on the board</span></div>{{ end }}</div>
+          <div class="playmakers">{{ if .playmakers }}{{ range .playmakers }}<div class="playmaker">{{ partial "person-media.html" (dict "name" .name "site" $site) }}<span><strong>{{ .name }}</strong><small>{{ .role }}</small></span></div>{{ end }}{{ end }}</div>
         </div>
       </article>
       {{ end }}
@@ -444,7 +444,7 @@
         <h2><span class="rule rule-gold"></span> {{ index $sectionTitles "personnel" | default "Personnel" }}</h2>
         <ul class="nrt-report__list nrt-report__list--personnel">
           {{ range . }}
-          <li><div class="roster-people">{{ if .players }}{{ range .players }}<span>{{ partial "person-media.html" (dict "name" . "site" $site) }}<small>{{ . }}</small></span>{{ end }}{{ else }}{{ partial "person-media.html" (dict "name" "Roster move" "site" $site) }}{{ end }}</div><div><strong>{{ .move }}</strong><p>{{ .detail }}</p></div></li>
+          <li><div class="roster-people">{{ if .players }}{{ range .players }}<span>{{ partial "person-media.html" (dict "name" . "site" $site) }}<small>{{ . }}</small></span>{{ end }}{{ end }}</div><div><strong>{{ .move }}</strong><p>{{ .detail }}</p></div></li>
           {{ end }}
         </ul>
       </div>

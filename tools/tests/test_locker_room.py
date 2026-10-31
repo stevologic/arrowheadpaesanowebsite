@@ -428,21 +428,19 @@ class LockerRoomVerification(unittest.TestCase):
             )
         )
 
-    def test_fixtweet_does_not_fall_back_to_claimed_handle(self):
-        class _Resp:
-            status_code = 200
-
-            def json(self):
-                return {
-                    "tweet": {
-                        "author": {"name": "Patrick Mahomes"},
-                        "text": "It's a denim day for QB1.",
-                        "created_timestamp": 1760808480,
-                    }
-                }
-
-        with patch.object(locker_room.requests, "get", return_value=_Resp()):
-            self.assertIsNone(locker_room.fetch_fixtweet(MAHOMES_URL))
+    def test_locker_room_has_no_fixtweet_or_syndication_http(self):
+        src = (ROOT / "tools" / "chiefs_narrative" / "locker_room.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertFalse(hasattr(locker_room, "fetch_fixtweet"))
+        self.assertFalse(hasattr(locker_room, "fetch_syndication"))
+        self.assertFalse(hasattr(locker_room, "fetch_syndication_author"))
+        self.assertNotIn("FIXTWEET_ENDPOINT", src)
+        self.assertNotIn("SYNDICATION_ENDPOINT", src)
+        self.assertNotIn("api.fxtwitter.com", src)
+        self.assertNotIn("cdn.syndication.twimg.com", src)
+        self.assertNotIn("syndication.twitter.com", src)
+        self.assertNotIn("https://cdn.syndication", src)
 
     def test_check_edition_fails_locker_issues_even_when_held(self):
         with patch.object(

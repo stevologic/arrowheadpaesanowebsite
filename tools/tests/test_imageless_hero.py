@@ -1,48 +1,67 @@
-"""Stephen's rule: no X photo means no synthesized hero on the live edition."""
+"""Stephen's rule: built HTML never ships synthesized person or hero art."""
 from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from tools.chiefs_narrative import config, edition_overlay, hero_media, schema
+from tools.chiefs_narrative import config, edition_overlay, generate, hero_media, schema
 
 ROOT = Path(__file__).resolve().parents[2]
-EDITION_SLUG = "2026-10-31-1537"
-FORBIDDEN = (
-    "hero-scene",
-    "hero-scenes",
+FORBIDDEN_CLASS_OR_ELEMENT = (
+    "person-media--silhouette",
     "nrt-event-illustration",
-    "Not a photograph",
+    "hero-scene",
+)
+NOT_A_PHOTOGRAPH = re.compile(r"not a photograph", re.I)
+NETWORK_MEDIA_MARKERS = (
+    "x_search",
+    "x_photo",
+    "fxtwitter",
+    "api.fxtwitter.com",
+    "cdn.syndication.twimg.com",
+    "syndication.twitter.com",
+    "pull-photo",
+    "pull_photo",
 )
 
 
-def _hugo_bin() -> str | None:
+def _hugo_bin() -> str:
     found = shutil.which("hugo")
     if found:
         return found
     fallback = Path.home() / ".local" / "hugo" / "hugo"
     if fallback.is_file():
         return str(fallback)
-    return None
+    raise AssertionError("hugo must be installed; render test cannot skip")
+
+
+def _class_or_element_hits(html: str, token: str) -> list[str]:
+    """Match token as an HTML class or element, not a data-hero-* attribute."""
+    class_re = re.compile(
+        rf"""class\s*=\s*(['"])([^'"]*\b{re.escape(token)}\b[^'"]*)\1""",
+        re.I,
+    )
+    el_re = re.compile(rf"<{re.escape(token)}\b", re.I)
+    return [m.group(0) for m in class_re.finditer(html)] + [
+        m.group(0) for m in el_re.finditer(html)
+    ]
+
+
+def _fail_network(*_args, **_kwargs):
+    raise AssertionError("network call during media attach")
 
 
 class ImagelessLiveEdition(unittest.TestCase):
-    @unittest.skipUnless(
-        _hugo_bin() or os.environ.get("GITHUB_ACTIONS"),
-        "Hugo unavailable",
-    )
-    def test_live_pages_render_without_synthesized_hero(self):
-        """Real Hugo build: home, desk, and this edition have no drawn hero."""
+    def test_every_built_page_omits_synthesized_media(self):
+        """Real Hugo build: every HTML page fails closed on drawn stand-ins."""
         binary = _hugo_bin()
-        self.assertTrue(
-            binary,
-            "hugo must be installed in CI gates; render test cannot skip",
-        )
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / "dist"
             result = subprocess.run(
@@ -53,25 +72,36 @@ class ImagelessLiveEdition(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            pages = {
-                "/": dest / "index.html",
-                "/narrative/": dest / "narrative" / "index.html",
-                f"/narrative/{EDITION_SLUG}/": dest
-                / "narrative"
-                / EDITION_SLUG
-                / "index.html",
-            }
-            for route, path in pages.items():
-                with self.subTest(route=route):
-                    self.assertTrue(path.is_file(), route)
-                    html = path.read_text(encoding="utf-8")
-                    for token in FORBIDDEN:
+            pages = sorted(path for path in dest.rglob("*.html") if path.is_file())
+            self.assertTrue(pages, "Hugo produced no HTML pages")
+            for path in pages:
+                rel = path.relative_to(dest).as_posix()
+                html = path.read_text(encoding="utf-8")
+                with self.subTest(page=rel):
+                    for token in FORBIDDEN_CLASS_OR_ELEMENT:
+                        hits = _class_or_element_hits(html, token)
                         self.assertEqual(
-                            html.count(token),
-                            0,
-                            f"{route} contains {token!r}",
+                            hits,
+                            [],
+                            f"{rel} contains {token!r} as a class or element: {hits}",
                         )
+                    photo_hits = NOT_A_PHOTOGRAPH.findall(html)
+                    self.assertEqual(
+                        photo_hits,
+                        [],
+                        f"{rel} contains 'not a photograph': {photo_hits}",
+                    )
         print("LIVE_EDITION_HUGO_RENDER_RAN", flush=True)
+
+    def test_scanner_walks_every_html_page_without_skip(self):
+        src = Path(__file__).read_text(encoding="utf-8")
+        start = src.index("def test_every_built_page_omits_synthesized_media")
+        end = src.index("def test_scanner_walks_every_html_page_without_skip")
+        body = src[start:end]
+        self.assertIn('dest.rglob("*.html")', body)
+        self.assertNotIn("continue", body)
+        self.assertNotIn("skipUnless", body)
+        self.assertNotIn("skipIf", body)
 
     def test_live_narrative_equals_current_edition_file(self):
         live = json.loads(config.NARRATIVE_JSON.read_text(encoding="utf-8"))
@@ -107,10 +137,54 @@ class ImagelessLiveEdition(unittest.TestCase):
             'FALLBACK_ID = "article-illustration"', media_src
         )
 
+    def test_generator_and_edition_produce_no_media_without_network(self):
+        """Attach writes no media; any network call fails closed."""
+        live = json.loads(config.NARRATIVE_JSON.read_text(encoding="utf-8"))
+        attached = {"slug": live.get("slug") or "edition", "heroMediaId": "forged"}
+        env = {
+            key: value
+            for key, value in os.environ.items()
+            if key not in {"GROK_API_KEY", "XAI_API_KEY", "X_BEARER_TOKEN"}
+        }
+        with patch.dict(os.environ, env, clear=True):
+            with patch("requests.get", side_effect=_fail_network), patch(
+                "requests.post", side_effect=_fail_network
+            ), patch("urllib.request.urlopen", side_effect=_fail_network):
+                hero_media.attach(attached)
+                copy = dict(live)
+                hero_media.attach(copy)
+        self.assertEqual(attached["heroMediaId"], "none")
+        self.assertEqual(copy["heroMediaId"], "none")
+        self.assertEqual(copy.get("heroMediaVerifiedAt") or "", "")
+
+        media_src = (ROOT / "tools" / "chiefs_narrative" / "hero_media.py").read_text(
+            encoding="utf-8"
+        )
+        generate_src = (ROOT / "tools" / "chiefs_narrative" / "generate.py").read_text(
+            encoding="utf-8"
+        )
+        locker_src = (ROOT / "tools" / "chiefs_narrative" / "locker_room.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("import requests", media_src)
+        self.assertNotIn("requests.get", media_src)
+        self.assertNotIn("requests.post", media_src)
+        self.assertNotIn("urlopen", media_src)
+        for src in (media_src, generate_src, locker_src):
+            for token in NETWORK_MEDIA_MARKERS:
+                self.assertNotIn(token, src, token)
+        self.assertNotIn("x_photo", generate_src)
+        self.assertNotIn("data/x-photo", generate_src)
+        self.assertFalse(hasattr(generate, "pull_photo"))
+        self.assertFalse((ROOT / "tools" / "chiefs_narrative" / "x_photo.py").exists())
+        self.assertFalse((ROOT / "data" / "x-photo").exists())
+
     def test_bot_edition_paths_remain_overlay_allowlisted(self):
+        live = json.loads(config.NARRATIVE_JSON.read_text(encoding="utf-8"))
+        slug = live["slug"]
         live_rel = config.NARRATIVE_JSON.relative_to(config.REPO_ROOT).as_posix()
         edition_rel = (
-            config.EDITIONS_DIR.relative_to(config.REPO_ROOT) / f"{EDITION_SLUG}.json"
+            config.EDITIONS_DIR.relative_to(config.REPO_ROOT) / f"{slug}.json"
         ).as_posix()
         self.assertIn(live_rel, edition_overlay.ALLOWED_FILES)
         self.assertTrue(edition_overlay.is_allowed_rel(Path(live_rel)))

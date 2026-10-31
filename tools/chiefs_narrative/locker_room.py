@@ -1,12 +1,12 @@
 """Collect and verify player/coach X posts for Preview/Recap.
 
 The writer is not given status IDs. A published locker-room post is kept
-only when it resolves on X (publish.x.com oEmbed, with FixTweet as a
-cited fallback), the handle is a verified player or coach on Kansas City
-or this week's opponent, the post is from this game week, and any quote
-is verbatim. If X cannot be fetched, the section stays empty with an
-honest "none verified this week" — never an invented post. Dead or
-unverified published posts fail the edition gate.
+only when it resolves on X via publish.x.com oEmbed, the handle is a
+verified player or coach on Kansas City or this week's opponent, the post
+is from this game week, and any quote is verbatim. FixTweet and
+syndication lookups are not used. If X cannot be fetched, the section
+stays empty with an honest "none verified this week" — never an invented
+post. Dead or unverified published posts fail the edition gate.
 """
 from __future__ import annotations
 
@@ -22,8 +22,6 @@ from . import phase as phase_mod, press_conferences, schema, x_embeds
 
 OEMBED_ENDPOINT = "https://publish.x.com/oembed"
 OEMBED_FALLBACK = "https://publish.twitter.com/oembed"
-FIXTWEET_ENDPOINT = "https://api.fxtwitter.com"
-SYNDICATION_ENDPOINT = "https://cdn.syndication.twimg.com/tweet-result"
 OEMBED_TIMEOUT_SEC = 8
 _CT = ZoneInfo("America/Chicago")
 _STATUS_ID = re.compile(r"/status/(\d+)", re.IGNORECASE)
@@ -131,95 +129,10 @@ def fetch_oembed(url: str, *, timeout: float = OEMBED_TIMEOUT_SEC) -> dict | Non
     return None
 
 
-def fetch_fixtweet(url: str, *, timeout: float = OEMBED_TIMEOUT_SEC) -> dict | None:
-    """Cited public fallback: FixTweet (api.fxtwitter.com) status lookup."""
-    embed = schema._norm_x_embed(url if isinstance(url, dict) else {"url": url})
-    if not embed:
-        return None
-    handle = embed["account"].lstrip("@")
-    status_id = embed["url"].rstrip("/").rsplit("/", 1)[-1]
-    try:
-        resp = requests.get(
-            f"{FIXTWEET_ENDPOINT}/{handle}/status/{status_id}",
-            timeout=timeout,
-            allow_redirects=True,
-        )
-    except requests.RequestException:
-        return None
-    if resp.status_code != 200:
-        return None
-    try:
-        payload = resp.json()
-    except ValueError:
-        return None
-    tweet = payload.get("tweet") if isinstance(payload, dict) else None
-    if not isinstance(tweet, dict):
-        return None
-    author = tweet.get("author") if isinstance(tweet.get("author"), dict) else {}
-    # Never fall back to the claimed URL handle — that hid @Chiefs originals
-    # credited to a player. Missing screen_name is a failed lookup.
-    screen = str(author.get("screen_name") or "").strip()
-    if not screen:
-        return None
-    text = str(tweet.get("text") or "")
-    created = tweet.get("created_timestamp")
-    date_html = ""
-    if isinstance(created, (int, float)) and created > 0:
-        dt = datetime.fromtimestamp(created, tz=timezone.utc).astimezone(_CT)
-        date_html = dt.strftime("%B ") + str(dt.day) + dt.strftime(", %Y")
-    return {
-        "url": embed["url"],
-        "author_name": str(author.get("name") or screen),
-        "author_url": f"https://x.com/{screen}",
-        "html": f"<p>{html_mod.escape(text)}</p> {date_html}",
-        "provider_name": "FixTweet",
-    }
-
-
 def status_id_from_url(url: str) -> str:
     """Numeric status id from an x.com/twitter.com status URL."""
     match = _STATUS_ID.search(url or "")
     return match.group(1) if match else ""
-
-
-def fetch_syndication(status_id: str, *, timeout: float = OEMBED_TIMEOUT_SEC) -> dict | None:
-    """Syndication tweet-result payload, or None when the lookup fails."""
-    sid = str(status_id or "").strip()
-    if not sid.isdigit():
-        return None
-    try:
-        resp = requests.get(
-            SYNDICATION_ENDPOINT,
-            params={"id": sid, "lang": "en", "token": "0"},
-            timeout=timeout,
-            allow_redirects=True,
-        )
-    except requests.RequestException:
-        return None
-    if resp.status_code != 200:
-        return None
-    try:
-        payload = resp.json()
-    except ValueError:
-        return None
-    if not isinstance(payload, dict) or not payload.get("id_str"):
-        return None
-    return payload
-
-
-def fetch_syndication_author(status_id: str, *, timeout: float = OEMBED_TIMEOUT_SEC) -> str | None:
-    """Author of record: syndication tweet-result ``.user.screen_name``.
-
-    oEmbed ``author_url`` follows the retweeter. This payload names the
-    account that actually authored the status. Empty/failed lookups return
-    None so the gate can fail closed.
-    """
-    payload = fetch_syndication(status_id, timeout=timeout)
-    if not payload:
-        return None
-    user = payload.get("user") if isinstance(payload.get("user"), dict) else {}
-    screen = str(user.get("screen_name") or "").strip()
-    return screen or None
 
 
 def resolve_author(
@@ -227,11 +140,12 @@ def resolve_author(
     *,
     syndication_fetch=None,
 ) -> str | None:
-    """Fetched author handle, or None when syndication lookup fails."""
+    """Author handle from an injected lookup, or None. No syndication HTTP."""
+    if syndication_fetch is None:
+        return None
     status_id = status_id_from_url(url)
-    fetch = fetch_syndication_author if syndication_fetch is None else syndication_fetch
     try:
-        screen = fetch(status_id)
+        screen = syndication_fetch(status_id)
     except Exception:  # noqa: BLE001 — fail closed, never invent
         return None
     if not screen:
@@ -240,7 +154,7 @@ def resolve_author(
 
 
 def resolve_post(url: str, *, oembed_fetch=None, fallback_fetch=None) -> dict | None:
-    """oEmbed first; FixTweet only when oEmbed cannot resolve the post."""
+    """oEmbed only. No FixTweet or syndication fallback."""
     fetch = fetch_oembed if oembed_fetch is None else oembed_fetch
     try:
         payload = fetch(url)
@@ -248,11 +162,10 @@ def resolve_post(url: str, *, oembed_fetch=None, fallback_fetch=None) -> dict | 
         payload = None
     if payload:
         return payload
-    alt = fetch_fixtweet if fallback_fetch is None else fallback_fetch
-    if alt is None:
+    if fallback_fetch is None:
         return None
     try:
-        return alt(url)
+        return fallback_fetch(url)
     except Exception:  # noqa: BLE001
         return None
 
@@ -307,7 +220,9 @@ def verify_retweet(
     cited_id = status_id_from_url(row.get("url") or "")
     if not cited_id:
         return False
-    fetch = fetch_syndication if syndication_payload_fetch is None else syndication_payload_fetch
+    if syndication_payload_fetch is None:
+        return False
+    fetch = syndication_payload_fetch
     try:
         payload = fetch(rt_id)
     except Exception:  # noqa: BLE001 — fail closed
