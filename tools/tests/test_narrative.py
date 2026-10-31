@@ -238,6 +238,103 @@ def _job_step_script(parsed, job: str, *, name=None, step_id=None) -> str:
     return str(_job_step(parsed, job, name=name, step_id=step_id).get("run") or "")
 
 
+_NEEDS_RESULT_RE = re.compile(r"needs\.\w+\.result")
+_STATUS_FN_RE = re.compile(r"(?:always|cancelled|failure|success)\s*\(\s*\)")
+_CANCEL_SAFE_RE = re.compile(r"(?:always\s*\(\s*\)|!\s*cancelled\s*\(\s*\))")
+_TEST_FAILURE_RESULT_RE = re.compile(
+    r"needs\.test\.result\s*==\s*['\"]failure['\"]"
+)
+_STRIP_LEAKS = "facts.strip_leaked_notes"
+_SALVAGE = "_salvage_until_clean"
+
+
+def _job_if_text(job) -> str:
+    if not isinstance(job, dict):
+        return ""
+    raw = job.get("if")
+    if raw is None:
+        return ""
+    return str(raw)
+
+
+def _needs_result_job_ifs(parsed, *, workflow: str = "") -> list[tuple[str, str, str]]:
+    """Job-level if: expressions that read needs.<job>.result."""
+    found: list[tuple[str, str, str]] = []
+    jobs = parsed.get("jobs") if isinstance(parsed, dict) else None
+    if not isinstance(jobs, dict):
+        return found
+    for name, job in jobs.items():
+        text = _job_if_text(job)
+        if _NEEDS_RESULT_RE.search(text):
+            found.append((workflow, str(name), text))
+    return found
+
+
+def _all_needs_result_job_ifs(root: Path | None = None) -> list[tuple[str, str, str]]:
+    found: list[tuple[str, str, str]] = []
+    for path, parsed in check_workflows.load_workflows(root).items():
+        found.extend(_needs_result_job_ifs(parsed, workflow=path.name))
+    return found
+
+
+def _if_has_status_function(text: str) -> bool:
+    """GitHub only skips the implicit success() wrap when a status fn is present."""
+    return _STATUS_FN_RE.search(text) is not None
+
+
+def _update_runs_after_failed_test(text: str) -> bool:
+    """update must evaluate after a red test job: cancel-safe + 'failure' result."""
+    return (
+        _CANCEL_SAFE_RE.search(text) is not None
+        and _TEST_FAILURE_RESULT_RE.search(text) is not None
+    )
+
+
+def _strip_follows_salvage(source: str) -> bool:
+    try:
+        return source.rindex(_SALVAGE) < source.index(_STRIP_LEAKS)
+    except ValueError:
+        return False
+
+
+def _run_fail_held_script(
+    script: str,
+    *,
+    payload: dict | None = None,
+    missing: bool = False,
+    malformed: bool = False,
+) -> subprocess.CompletedProcess:
+    """Execute the workflow hold step against a temp fixture. Never the live index."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        fixture = root / ".narrative-publish.json"
+        if malformed:
+            fixture.write_text("{not-json\n", encoding="utf-8")
+        elif not missing:
+            fixture.write_text(json.dumps(payload or {}) + "\n", encoding="utf-8")
+        # Minimal env: do not forward host GITHUB_* or tokens into the script.
+        path_var = os.environ.get("PATH", "")
+        python = shutil.which("python") or shutil.which("python3")
+        if python and not shutil.which("python"):
+            shim = root / "bin"
+            shim.mkdir()
+            (shim / "python").symlink_to(python)
+            path_var = f"{shim}{os.pathsep}{path_var}"
+        env = {
+            "PATH": path_var,
+            "HOME": str(root),
+            "LANG": "C",
+            "LC_ALL": "C",
+        }
+        return subprocess.run(
+            ["bash", "-c", script],
+            cwd=root,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+
+
 def _write_job_fixture(
     root: Path,
     run: str,
@@ -4625,6 +4722,55 @@ class FactCheck(unittest.TestCase):
             skipped["leftoverIssues"],
         )
 
+    def test_generate_build_strips_leaked_notes_when_replay_fixture_missing(self):
+        """Missing replay fixture skips salvage; strip must still run after that branch."""
+        sentence = (
+            "It is not a claim that a blitz created Williams' interception."
+        )
+        keep = "Stay on early downs and keep play-action in the call sheet."
+        edge = "Kansas City won 24-10 in Miami and now turns to Denver. " * 20
+        story = "The slot job and the right tackle race are the camp questions. " * 20
+        state = "The secondary has to settle before the opener in Denver. " * 20
+        plan = f"{keep} " * 20
+        review = (
+            "The 24-10 Miami tape is the only box this camp edition cites. "
+            + sentence
+            + " "
+        ) * 8
+        draft = {
+            "headline": "A unique camp clock: Denver, the slot, and the tape",
+            "dek": "Camp still points at Denver after the Miami tape.",
+            "theEdge": edge,
+            "storyline": story,
+            "currentState": state,
+            "gamePlan": plan,
+            "lastGameReview": {"lede": review},
+            "edition": "2026 Training Camp",
+        }
+        llm = Mock(return_value=(draft, "grok"))
+        buf = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "narrative_archive.json"
+            editions = root / "narrative_editions"
+            editions.mkdir()
+            archive.write_text("[]\n", encoding="utf-8")
+            with HeadlineUniqueness()._generation_stack(
+                llm=llm, archive=archive, editions=editions
+            ):
+                with patch.object(generate, "replay_fixture_missing", return_value=True):
+                    with redirect_stdout(buf):
+                        result = generate.build("grok", persist_schedule=False)
+        leftover = result["leftoverIssues"]
+        published = facts.edition_text(result["narrative"])
+        self.assertNotIn(sentence, published)
+        self.assertIn(generate.REPLAY_NOT_RUN, leftover)
+        self.assertIn("stripped leaked note", buf.getvalue())
+        self.assertFalse(
+            any("fact-checker note leaked" in item for item in leftover),
+            leftover,
+        )
+
     def _leak_only_hold_edition(self, *sentences):
         """Preview fat enough to hold only because leftover leaks."""
         lines = list(sentences) or [
@@ -7202,17 +7348,6 @@ class FactCheck(unittest.TestCase):
             workflow.index("name: Upload validated data"),
             workflow.index("name: Fail held editions"),
         )
-        self.assertIn(
-            "(needs.test.result == 'success' || needs.test.result == 'failure')",
-            workflow,
-        )
-        self.assertNotIn(
-            "needs.test.result == 'success'\n",
-            workflow.replace(
-                "(needs.test.result == 'success' || needs.test.result == 'failure')",
-                "",
-            ),
-        )
         for job_name, step_name, script in _workflow_run_scripts(parsed):
             checked = subprocess.run(["bash", "-n"], input=script, capture_output=True, text=True)
             self.assertEqual(
@@ -7229,6 +7364,148 @@ class FactCheck(unittest.TestCase):
         self.assertIn("gh pr create --draft", update_scripts)
         hold_block = update_scripts[update_scripts.index('if [ "$HOLD_MERGE" = '):]
         self.assertIn("--add-label hold", hold_block)
+
+    def test_job_if_needs_result_always_has_status_function(self):
+        """Every job if: that reads needs.*.result must name a status function.
+
+        GitHub wraps a bare needs.*.result read in implicit success(), so
+        update was SKIPPED whenever test failed. A hold now fails test;
+        without always()/!cancelled()/failure()/success() the held PR
+        never opens. Audit every workflow, not just narrative.yml.
+        """
+        found = _all_needs_result_job_ifs()
+        self.assertTrue(
+            found,
+            "expected at least the narrative.yml update job to read needs.test.result",
+        )
+        missing = [
+            f"{workflow}/{job}: {text}"
+            for workflow, job, text in found
+            if not _if_has_status_function(text)
+        ]
+        self.assertEqual(missing, [], "\n".join(missing))
+
+    def test_update_runs_after_failed_test_job(self):
+        """Held editions fail test; update must still open the PR."""
+        parsed = yaml.safe_load(
+            (
+                Path(__file__).resolve().parents[2]
+                / ".github"
+                / "workflows"
+                / "narrative.yml"
+            ).read_text(encoding="utf-8")
+        )
+        update_if = _job_if_text((parsed.get("jobs") or {}).get("update"))
+        self.assertTrue(_if_has_status_function(update_if), update_if)
+        self.assertTrue(_update_runs_after_failed_test(update_if), update_if)
+
+    @unittest.skipIf(os.name == "nt", "Actions hold step is bash")
+    def test_fail_held_editions_script_executes_against_fixtures(self):
+        """Extract the hold step and run it. Source-text pins miss holdMerge flips."""
+        parsed = yaml.safe_load(
+            (
+                Path(__file__).resolve().parents[2]
+                / ".github"
+                / "workflows"
+                / "narrative.yml"
+            ).read_text(encoding="utf-8")
+        )
+        script = _job_step_script(parsed, "test", name="Fail held editions")
+        self.assertTrue(script.strip(), "Fail held editions step must have a run script")
+        held = _run_fail_held_script(script, payload={"holdMerge": True})
+        self.assertEqual(held.returncode, 1, held.stderr)
+        self.assertIn("held edition; failing the run", held.stderr)
+        clear = _run_fail_held_script(script, payload={"holdMerge": False})
+        self.assertEqual(clear.returncode, 0, clear.stderr)
+        missing = _run_fail_held_script(script, missing=True)
+        self.assertEqual(missing.returncode, 0, missing.stderr)
+        malformed = _run_fail_held_script(script, malformed=True)
+        self.assertEqual(malformed.returncode, 0, malformed.stderr)
+
+    def test_strip_leaked_notes_runs_after_salvage(self):
+        """Ordering: strip is after the last salvage in generate.build."""
+        source = Path(generate.__file__).read_text(encoding="utf-8")
+        self.assertTrue(
+            _strip_follows_salvage(source),
+            "facts.strip_leaked_notes must run after the last _salvage_until_clean",
+        )
+        self.assertLess(
+            source.index("if replay_fixture_missing(narrative):"),
+            source.index(_STRIP_LEAKS),
+        )
+
+    def test_held_pipeline_mutants_are_killed(self):
+        """Named mutants Karen required: holdMerge flip, !cancelled() drop,
+        strip-before-salvage, and the old update if: string.
+        """
+        workflow_path = (
+            Path(__file__).resolve().parents[2]
+            / ".github"
+            / "workflows"
+            / "narrative.yml"
+        )
+        workflow = workflow_path.read_text(encoding="utf-8")
+        generate_src = Path(generate.__file__).read_text(encoding="utf-8")
+        parsed = yaml.safe_load(workflow)
+        hold_script = _job_step_script(parsed, "test", name="Fail held editions")
+        update_if = _job_if_text((parsed.get("jobs") or {}).get("update"))
+
+        rows = []
+        survivors = []
+
+        flipped = hold_script.replace(
+            "if meta.get(\"holdMerge\"):",
+            "if not meta.get(\"holdMerge\"):",
+            1,
+        )
+        self.assertNotEqual(flipped, hold_script)
+        flipped_hold = _run_fail_held_script(flipped, payload={"holdMerge": True})
+        flipped_clear = _run_fail_held_script(flipped, payload={"holdMerge": False})
+        hold_killed = flipped_hold.returncode != 1 or flipped_clear.returncode != 0
+        rows.append(("holdMerge flipped", hold_killed))
+        if not hold_killed:
+            survivors.append("holdMerge flipped")
+
+        no_cancel = re.sub(r"!\s*cancelled\s*\(\s*\)\s*&&\s*", "", update_if, count=1)
+        self.assertNotEqual(no_cancel, update_if)
+        cancel_killed = not _update_runs_after_failed_test(no_cancel)
+        rows.append(("!cancelled() removed", cancel_killed))
+        if not cancel_killed:
+            survivors.append("!cancelled() removed")
+
+        strip_line = "    narrative, stripped_leaks = facts.strip_leaked_notes(narrative)\n"
+        replay_if = "    if replay_fixture_missing(narrative):\n"
+        self.assertIn(strip_line, generate_src)
+        self.assertIn(replay_if, generate_src)
+        moved = generate_src.replace(strip_line, "", 1).replace(
+            replay_if, strip_line + replay_if, 1
+        )
+        self.assertNotEqual(moved, generate_src)
+        strip_killed = not _strip_follows_salvage(moved)
+        rows.append(("strip moved before salvage", strip_killed))
+        if not strip_killed:
+            survivors.append("strip moved before salvage")
+
+        old_if = (
+            "github.event_name != 'pull_request' && "
+            "needs.generate.outputs.changed == 'true' && "
+            "(needs.test.result == 'success' || needs.test.result == 'failure')"
+        )
+        self.assertNotEqual(old_if, update_if)
+        old_killed = (
+            not _if_has_status_function(old_if)
+            or not _update_runs_after_failed_test(old_if)
+        )
+        rows.append(("update if: reverted to the old string", old_killed))
+        if not old_killed:
+            survivors.append("update if: reverted to the old string")
+
+        self.assertEqual(
+            survivors,
+            [],
+            "survivors: " + ", ".join(survivors) + f" rows={rows}",
+        )
+        self.assertEqual(sum(1 for _name, killed in rows if killed), 4)
 
     def test_drop_body_renders_held_and_quiet_salvage(self):
         self.assertEqual(drop_body.drop_body({}), "")
