@@ -195,6 +195,96 @@ def main() -> int:
             ),
             "tests": [PROD],
         },
+        {
+            "id": "object-svg-in-slot",
+            "desc": "an <object> svg in person-media",
+            "path": ROOT / "layouts" / "partials" / "person-media.html",
+            "old": "{{- /* Person thumbnails render nothing until a credited X photograph exists. */ -}}",
+            "new": (
+                '<span class="person-media">'
+                '<object data="stand-in.svg" type="image/svg+xml"></object>'
+                "</span>"
+            ),
+            "tests": [BUILT],
+        },
+        {
+            "id": "embed-svg-in-slot",
+            "desc": "an <embed> svg",
+            "path": ROOT / "layouts" / "partials" / "person-media.html",
+            "old": "{{- /* Person thumbnails render nothing until a credited X photograph exists. */ -}}",
+            "new": (
+                '<span class="person-media">'
+                '<embed src="stand-in.svg" type="image/svg+xml">'
+                "</span>"
+            ),
+            "tests": [BUILT],
+        },
+        {
+            "id": "object-data-uri-svg",
+            "desc": 'an <object data="data:image/svg+xml,...">',
+            "path": ROOT / "layouts" / "partials" / "person-media.html",
+            "old": "{{- /* Person thumbnails render nothing until a credited X photograph exists. */ -}}",
+            "new": (
+                '<span class="person-media">'
+                '<object data="data:image/svg+xml,'
+                "<svg xmlns='http://www.w3.org/2000/svg'></svg>\"></object>"
+                "</span>"
+            ),
+            "tests": [BUILT],
+        },
+        {
+            "id": "background-url-shorthand",
+            "desc": "the background:url() shorthand in an inline style",
+            "path": ROOT / "layouts" / "partials" / "person-media.html",
+            "old": "{{- /* Person thumbnails render nothing until a credited X photograph exists. */ -}}",
+            "new": (
+                '<span class="person-media" '
+                'style="background:url(stand-in.svg)"></span>'
+            ),
+            "tests": [BUILT],
+        },
+        {
+            "id": "canvas-in-slot",
+            "desc": "a <canvas>",
+            "path": ROOT / "layouts" / "partials" / "person-media.html",
+            "old": "{{- /* Person thumbnails render nothing until a credited X photograph exists. */ -}}",
+            "new": (
+                '<span class="person-media">'
+                '<canvas width="48" height="48"></canvas>'
+                "</span>"
+            ),
+            "tests": [BUILT],
+        },
+        {
+            "id": "twitter-image-svg",
+            "desc": "twitter:image pointed at an svg",
+            "path": ROOT / "layouts" / "_default" / "baseof.html",
+            "old": '<meta name="twitter:image" content="{{ "og.png" | absURL }}" />',
+            "new": (
+                '<meta name="twitter:image" '
+                'content="{{ "images/hero-scenes/preview-fallback.svg" | absURL }}" />'
+            ),
+            "tests": [BUILT],
+        },
+        {
+            "id": "og-image-illustration-path",
+            "desc": "og:image pointed at an illustration",
+            "path": ROOT / "layouts" / "_default" / "baseof.html",
+            "old": '<meta property="og:image" content="{{ "og.png" | absURL }}" />',
+            "new": (
+                '<meta property="og:image" '
+                'content="{{ "images/illustrations/og.png" | absURL }}" />'
+            ),
+            "tests": [BUILT],
+        },
+        {
+            "id": "text-only-stray-node",
+            "desc": "a text-only stray node in a slot",
+            "path": ROOT / "layouts" / "partials" / "person-media.html",
+            "old": "{{- /* Person thumbnails render nothing until a credited X photograph exists. */ -}}",
+            "new": '<span class="person-media">drawn stand-in</span>',
+            "tests": [BUILT],
+        },
     ]
 
     killed = 0
