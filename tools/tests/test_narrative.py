@@ -4512,51 +4512,65 @@ class FactCheck(unittest.TestCase):
         self.assertNotIn("editorNotes", facts._EDITION_KEYS)
         self.assertFalse(hasattr(facts, "park_editor_notes"))
 
-    def test_detected_leak_holds_and_keeps_published_copy(self):
-        """A leak HOLDs. Copy is not moved or deleted, even as a whole field."""
+    def test_detected_leak_is_stripped_from_published_copy(self):
+        """Detector still flags; strip removes the aside from published copy."""
         sentence = (
             "It is not a claim that a blitz created Williams' interception."
         )
+        keep = "Show heat and drop a lineman on third-and-long."
         narrative = {
             "headline": "Visible headline",
-            "dek": sentence,
+            "dek": f"{sentence} {keep}",
             "generatedAt": "2026-10-29T18:00:00Z",
         }
-        before = copy.deepcopy(narrative)
         issues = facts.check_review(narrative, None, None, changed=True)
         self.assertTrue(
             any("fact-checker note leaked" in item for item in issues), issues
         )
         self.assertTrue(any(sentence in item for item in issues), issues)
-        self.assertEqual(narrative["dek"], before["dek"])
-        self.assertTrue(
-            facts.should_hold_automerge([], narrative, leftover=issues)
-        )
         self.assertTrue(known_errors.is_hold_only_issue(issues[0]))
         self.assertFalse(facts.sentence_fails_review(sentence, None, None))
+        cleaned, stripped = facts.strip_leaked_notes(narrative)
+        self.assertIn(sentence, stripped)
+        self.assertNotIn(sentence, cleaned["dek"])
+        self.assertIn(keep, cleaned["dek"])
+        self.assertFalse(
+            facts.leaked_note_issues(cleaned, changed=True),
+            facts.leaked_note_issues(cleaned, changed=True),
+        )
         body = drop_body.drop_body(
             {"holdAutomerge": True, "leftoverIssues": issues}
         )
         self.assertIn(sentence, body)
         self.assertIn("Leaked fact-checker notes", body)
         self.assertIn("Automerge is held.", body)
-        buf = io.StringIO()
-        generate.emit_held(issues, stream=buf)
-        self.assertIn(sentence, buf.getvalue())
+        restored = facts.restore_required_copy(
+            {"headline": "", "dek": "", "theEdge": ""},
+            {"headline": sentence, "dek": sentence, "theEdge": sentence},
+            last_game=None,
+            recap=None,
+        )
+        self.assertNotEqual(restored["dek"], sentence)
+        self.assertNotIn(sentence, restored["dek"])
 
-    def test_generate_build_keeps_leak_leftover_and_emits_it(self):
-        """A leftover strip after replay would drop the hold signal."""
+    def test_generate_build_strips_leaked_notes_from_published_copy(self):
+        """Behaviour: generate.build() must not publish a leftover process note."""
         sentence = (
             "It is not a claim that a blitz created Williams' interception."
         )
+        keep = "Stay on early downs and keep play-action in the call sheet."
         edge = "Kansas City won 24-10 in Miami and now turns to Denver. " * 20
         story = "The slot job and the right tackle race are the camp questions. " * 20
         state = "The secondary has to settle before the opener in Denver. " * 20
-        plan = "Stay on early downs and keep play-action in the call sheet. " * 20
-        review = "The 24-10 Miami tape is the only box this camp edition cites. " * 20
+        plan = f"{keep} " * 20
+        review = (
+            "The 24-10 Miami tape is the only box this camp edition cites. "
+            + sentence
+            + " "
+        ) * 8
         draft = {
             "headline": "A unique camp clock: Denver, the slot, and the tape",
-            "dek": sentence,
+            "dek": "Camp still points at Denver after the Miami tape.",
             "theEdge": edge,
             "storyline": story,
             "currentState": state,
@@ -4578,19 +4592,37 @@ class FactCheck(unittest.TestCase):
                 with redirect_stdout(buf):
                     result = generate.build("grok", persist_schedule=False)
         leftover = result["leftoverIssues"]
-        self.assertTrue(
+        published = facts.edition_text(result["narrative"])
+        self.assertNotIn(sentence, published)
+        self.assertFalse(
             any("fact-checker note leaked" in item for item in leftover),
             leftover,
         )
-        self.assertTrue(any(sentence in item for item in leftover), leftover)
-        self.assertEqual(result["narrative"]["dek"], sentence)
+        self.assertFalse(facts.leaked_note_issues(result["narrative"], changed=True))
+        self.assertIn("stripped leaked note", buf.getvalue())
         self.assertIn(sentence, buf.getvalue())
+        with patch.object(
+            facts, "strip_leaked_notes", side_effect=lambda payload: (payload, [])
+        ):
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                archive = root / "narrative_archive.json"
+                editions = root / "narrative_editions"
+                editions.mkdir()
+                archive.write_text("[]\n", encoding="utf-8")
+                with HeadlineUniqueness()._generation_stack(
+                    llm=Mock(return_value=(copy.deepcopy(draft), "grok")),
+                    archive=archive,
+                    editions=editions,
+                ):
+                    skipped = generate.build("grok", persist_schedule=False)
+        self.assertIn(sentence, facts.edition_text(skipped["narrative"]))
         self.assertTrue(
-            facts.should_hold_automerge(
-                result.get("droppedSentences") or [],
-                result["narrative"],
-                leftover=leftover,
-            )
+            any(
+                "fact-checker note leaked" in item
+                for item in skipped["leftoverIssues"]
+            ),
+            skipped["leftoverIssues"],
         )
 
     def _leak_only_hold_edition(self, *sentences):
@@ -4682,7 +4714,7 @@ class FactCheck(unittest.TestCase):
         self.assertIn("Holding automerge", workflow)
 
     def test_generate_build_emits_leak_notes_to_run_summary(self):
-        """Removing leak_notes emit or emptying it must fail this listing."""
+        """A leftover strip must log the aside and leave it out of published copy."""
         edition, lines = self._leak_only_hold_edition(
             "It is not a claim that a blitz created Williams' interception."
         )
@@ -4711,17 +4743,14 @@ class FactCheck(unittest.TestCase):
                 if "fact-checker note leaked" in item
             ]
             listed = summary.read_text(encoding="utf-8") if summary.is_file() else ""
-        self.assertTrue(leftover, result["leftoverIssues"])
-        self.assertEqual(result["narrative"]["dek"], lines[0])
-        self.assertTrue(
-            facts.should_hold_automerge(
-                result.get("droppedSentences") or [],
-                result["narrative"],
-                leftover=leftover,
-            )
-        )
-        self.assertIn(lines[0], listed)
+        published = facts.edition_text(result["narrative"])
+        self.assertFalse(leftover, leftover)
+        self.assertNotIn(lines[0], published)
+        self.assertNotEqual(result["narrative"]["dek"], lines[0])
+        self.assertFalse(facts.leaked_note_issues(result["narrative"], changed=True))
+        self.assertIn("stripped leaked note", buf.getvalue())
         self.assertIn(lines[0], buf.getvalue())
+        self.assertNotIn(lines[0], listed)
 
     def test_check_edition_fails_red_on_a_held_leak(self):
         """A leaked edition is a red --check-edition, plus the hold label."""
@@ -7166,6 +7195,23 @@ class FactCheck(unittest.TestCase):
         self.assertIn(
             'if [ "$check_rc" -ne 0 ]; then',
             workflow,
+        )
+        self.assertIn("Fail held editions", workflow)
+        self.assertIn("held edition; failing the run", workflow)
+        self.assertLess(
+            workflow.index("name: Upload validated data"),
+            workflow.index("name: Fail held editions"),
+        )
+        self.assertIn(
+            "(needs.test.result == 'success' || needs.test.result == 'failure')",
+            workflow,
+        )
+        self.assertNotIn(
+            "needs.test.result == 'success'\n",
+            workflow.replace(
+                "(needs.test.result == 'success' || needs.test.result == 'failure')",
+                "",
+            ),
         )
         for job_name, step_name, script in _workflow_run_scripts(parsed):
             checked = subprocess.run(["bash", "-n"], input=script, capture_output=True, text=True)
