@@ -8,6 +8,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 PYTHON = sys.executable
+BUILT = (
+    "tools.tests.test_imageless_hero.ImagelessLiveEdition.test_every_built_page_omits_synthesized_media"
+)
+PROD = (
+    "tools.tests.test_locker_room.LockerRoomVerification."
+    "test_production_callers_resolve_author_and_verify_retweet"
+)
 
 
 def _run(tests: list[str]) -> tuple[int, str]:
@@ -44,9 +51,7 @@ def main() -> int:
                 '<span class="person-media person-media--silhouette" aria-hidden="true">'
                 "<svg viewBox=\"0 0 48 48\"></svg></span>"
             ),
-            "tests": [
-                "tools.tests.test_imageless_hero.ImagelessLiveEdition.test_every_built_page_omits_synthesized_media"
-            ],
+            "tests": [BUILT],
         },
         {
             "id": "illustration-partial",
@@ -57,9 +62,7 @@ def main() -> int:
                 '<figure class="nrt-event-illustration">'
                 "<img alt=\"stadium illustration\"></figure>"
             ),
-            "tests": [
-                "tools.tests.test_imageless_hero.ImagelessLiveEdition.test_every_built_page_omits_synthesized_media"
-            ],
+            "tests": [BUILT],
         },
         {
             "id": "not-a-photograph-caption",
@@ -70,9 +73,7 @@ def main() -> int:
                 "{{ with .dek }}<p class=\"nrt-dek\">{{ . }}</p>{{ end }}"
                 "<p class=\"nrt-hero-media__caption\">NOT A PHOTOGRAPH</p>"
             ),
-            "tests": [
-                "tools.tests.test_imageless_hero.ImagelessLiveEdition.test_every_built_page_omits_synthesized_media"
-            ],
+            "tests": [BUILT],
         },
         {
             "id": "non-narrative-marker",
@@ -83,9 +84,7 @@ def main() -> int:
                 "<p class=\"person-media--silhouette\">That page is gone. Continue to "
                 "<a href=\"{{ \"\" | relURL }}\">The Chiefs Narrative</a>.</p>"
             ),
-            "tests": [
-                "tools.tests.test_imageless_hero.ImagelessLiveEdition.test_every_built_page_omits_synthesized_media"
-            ],
+            "tests": [BUILT],
         },
         {
             "id": "skip-page-directory",
@@ -94,12 +93,10 @@ def main() -> int:
             "old": "            for path in pages:",
             "new": (
                 "            for path in pages:\n"
-                "                if \"404\" in path.parts:\n"
+                "                if path.name == \"404.html\":\n"
                 "                    continue"
             ),
-            "tests": [
-                "tools.tests.test_imageless_hero.ImagelessLiveEdition.test_scanner_walks_every_html_page_without_skip"
-            ],
+            "tests": [BUILT],
         },
         {
             "id": "network-media-call",
@@ -107,7 +104,7 @@ def main() -> int:
             "path": ROOT / "tools" / "chiefs_narrative" / "hero_media.py",
             "old": '    narrative["heroMediaId"] = FALLBACK_ID\n    narrative["heroMediaVerifiedAt"] = ""',
             "new": (
-                '    import requests\n'
+                "    import requests\n"
                 '    requests.get("https://api.fxtwitter.com/status/1", timeout=1)\n'
                 '    narrative["heroMediaId"] = FALLBACK_ID\n'
                 '    narrative["heroMediaVerifiedAt"] = ""'
@@ -126,6 +123,77 @@ def main() -> int:
                 "tools.tests.test_imageless_hero.ImagelessLiveEdition.test_generator_default_and_attach_fallback_write_none",
                 "tools.tests.test_imageless_hero.ImagelessLiveEdition.test_generator_and_edition_produce_no_media_without_network",
             ],
+        },
+        {
+            "id": "renamed-svg-in-slot",
+            "desc": "drawn SVG with a renamed class and no caption inside person-media",
+            "path": ROOT / "layouts" / "partials" / "person-media.html",
+            "old": "{{- /* Person thumbnails render nothing until a credited X photograph exists. */ -}}",
+            "new": (
+                '<span class="person-media"><svg class="blob-standin" '
+                'viewBox="0 0 48 48"></svg></span>'
+            ),
+            "tests": [BUILT],
+        },
+        {
+            "id": "hotlinked-pbs-img",
+            "desc": "hotlinked pbs.twimg.com img in person-media.html",
+            "path": ROOT / "layouts" / "partials" / "person-media.html",
+            "old": "{{- /* Person thumbnails render nothing until a credited X photograph exists. */ -}}",
+            "new": '<img src="https://pbs.twimg.com/media/hotlink.jpg" alt="">',
+            "tests": [BUILT],
+        },
+        {
+            "id": "og-image-illustration",
+            "desc": "og:image pointing at an illustration",
+            "path": ROOT / "layouts" / "_default" / "baseof.html",
+            "old": '<meta property="og:image" content="{{ "og.png" | absURL }}" />',
+            "new": (
+                '<meta property="og:image" '
+                'content="{{ "images/hero-scenes/preview-fallback.svg" | absURL }}" />'
+            ),
+            "tests": [BUILT],
+        },
+        {
+            "id": "scanner-first-20",
+            "desc": "scanner limited to [:20] pages",
+            "path": ROOT / "tools" / "tests" / "test_imageless_hero.py",
+            "old": 'pages = sorted(path for path in dest.rglob("*.html") if path.is_file())',
+            "new": (
+                'pages = sorted(path for path in dest.rglob("*.html") '
+                "if path.is_file())[:20]"
+            ),
+            "tests": [BUILT],
+        },
+        {
+            "id": "resolve-author-default-none",
+            "desc": "resolve_author default returns None",
+            "path": ROOT / "tools" / "chiefs_narrative" / "locker_room.py",
+            "old": (
+                "    status_id = status_id_from_url(url)\n"
+                "    fetch = fetch_syndication_author if syndication_fetch is None else syndication_fetch\n"
+            ),
+            "new": (
+                "    if syndication_fetch is None:\n"
+                "        return None\n"
+                "    status_id = status_id_from_url(url)\n"
+                "    fetch = syndication_fetch\n"
+            ),
+            "tests": [PROD],
+        },
+        {
+            "id": "verify-retweet-default-false",
+            "desc": "verify_retweet default returns False",
+            "path": ROOT / "tools" / "chiefs_narrative" / "locker_room.py",
+            "old": (
+                "    fetch = fetch_syndication if syndication_payload_fetch is None else syndication_payload_fetch\n"
+            ),
+            "new": (
+                "    if syndication_payload_fetch is None:\n"
+                "        return False\n"
+                "    fetch = syndication_payload_fetch\n"
+            ),
+            "tests": [PROD],
         },
     ]
 

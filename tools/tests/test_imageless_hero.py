@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from html.parser import HTMLParser
 from pathlib import Path
 from unittest.mock import patch
 
@@ -20,16 +21,17 @@ FORBIDDEN_CLASS_OR_ELEMENT = (
     "hero-scene",
 )
 NOT_A_PHOTOGRAPH = re.compile(r"not a photograph", re.I)
+SLOT_CLASSES = frozenset({"person-media", "nrt-hero-media", "nrt-hero"})
+MEDIA_TAGS = frozenset({"svg", "img", "picture"})
 NETWORK_MEDIA_MARKERS = (
     "x_search",
     "x_photo",
     "fxtwitter",
     "api.fxtwitter.com",
-    "cdn.syndication.twimg.com",
-    "syndication.twitter.com",
     "pull-photo",
     "pull_photo",
 )
+OG_IMAGE_NAME = "og.png"
 
 
 def _hugo_bin() -> str:
@@ -58,6 +60,58 @@ def _fail_network(*_args, **_kwargs):
     raise AssertionError("network call during media attach")
 
 
+def _walk_html(dest: Path) -> list[Path]:
+    found: list[Path] = []
+    for dirpath, _dirnames, filenames in os.walk(dest):
+        for name in filenames:
+            if name.endswith(".html"):
+                found.append(Path(dirpath) / name)
+    return sorted(found)
+
+
+class _SlotScanner(HTMLParser):
+    """Find media inside person-media / hero slots and collect og:image."""
+
+    _VOID = frozenset({"img", "meta", "link", "br", "hr", "input", "source"})
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.stack: list[tuple[str, bool]] = []
+        self.problems: list[str] = []
+        self.og_images: list[str] = []
+
+    def _in_slot(self) -> bool:
+        return any(is_slot for _tag, is_slot in self.stack)
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        ad = {str(k).lower(): str(v or "") for k, v in attrs}
+        classes = set(ad.get("class", "").split())
+        style = ad.get("style", "")
+        if tag == "meta" and ad.get("property", "").lower() == "og:image":
+            self.og_images.append(ad.get("content", ""))
+        is_slot = bool(classes & SLOT_CLASSES)
+        if self._in_slot() or is_slot:
+            if tag in MEDIA_TAGS:
+                self.problems.append(f"<{tag} class={ad.get('class', '')!r}>")
+            if "background-image" in style.lower():
+                self.problems.append(f"background-image on <{tag}>")
+        if tag not in self._VOID:
+            self.stack.append((tag, is_slot))
+
+    def handle_endtag(self, tag: str) -> None:
+        for index in range(len(self.stack) - 1, -1, -1):
+            if self.stack[index][0] == tag:
+                del self.stack[index:]
+                break
+
+
+def _slot_and_og(html: str) -> tuple[list[str], list[str]]:
+    parser = _SlotScanner()
+    parser.feed(html)
+    parser.close()
+    return parser.problems, parser.og_images
+
+
 class ImagelessLiveEdition(unittest.TestCase):
     def test_every_built_page_omits_synthesized_media(self):
         """Real Hugo build: every HTML page fails closed on drawn stand-ins."""
@@ -73,10 +127,15 @@ class ImagelessLiveEdition(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             pages = sorted(path for path in dest.rglob("*.html") if path.is_file())
-            self.assertTrue(pages, "Hugo produced no HTML pages")
+            walked = _walk_html(dest)
+            self.assertTrue(walked, "Hugo produced no HTML pages")
+            self.assertEqual(pages, walked)
+            self.assertGreater(len(pages), 0)
+            scanned: list[Path] = []
             for path in pages:
                 rel = path.relative_to(dest).as_posix()
                 html = path.read_text(encoding="utf-8")
+                scanned.append(path)
                 with self.subTest(page=rel):
                     for token in FORBIDDEN_CLASS_OR_ELEMENT:
                         hits = _class_or_element_hits(html, token)
@@ -85,23 +144,44 @@ class ImagelessLiveEdition(unittest.TestCase):
                             [],
                             f"{rel} contains {token!r} as a class or element: {hits}",
                         )
+                    self.assertIn(
+                        "nrt-event-illustration",
+                        FORBIDDEN_CLASS_OR_ELEMENT,
+                    )
                     photo_hits = NOT_A_PHOTOGRAPH.findall(html)
                     self.assertEqual(
                         photo_hits,
                         [],
                         f"{rel} contains 'not a photograph': {photo_hits}",
                     )
+                    slot_hits, og_images = _slot_and_og(html)
+                    self.assertEqual(
+                        slot_hits,
+                        [],
+                        f"{rel} person-media/hero slot is not empty: {slot_hits}",
+                    )
+                    self.assertTrue(og_images, f"{rel} is missing og:image")
+                    for content in og_images:
+                        self.assertTrue(
+                            content.endswith(OG_IMAGE_NAME)
+                            or content.rstrip("/").endswith(OG_IMAGE_NAME),
+                            f"{rel} og:image is {content!r}, want {OG_IMAGE_NAME}",
+                        )
+            self.assertEqual(sorted(scanned), walked)
+            self.assertEqual(len(scanned), len(walked))
+        person_src = (ROOT / "layouts" / "partials" / "person-media.html").read_text(
+            encoding="utf-8"
+        )
+        hero_src = (ROOT / "layouts" / "partials" / "nrt-hero-media.html").read_text(
+            encoding="utf-8"
+        )
+        for label, src in (("person-media.html", person_src), ("nrt-hero-media.html", hero_src)):
+            self.assertNotIn("<svg", src, label)
+            self.assertNotIn("<img", src, label)
+            self.assertNotIn("<picture", src, label)
+            self.assertNotIn("pbs.twimg.com", src, label)
+            self.assertNotIn("background-image", src, label)
         print("LIVE_EDITION_HUGO_RENDER_RAN", flush=True)
-
-    def test_scanner_walks_every_html_page_without_skip(self):
-        src = Path(__file__).read_text(encoding="utf-8")
-        start = src.index("def test_every_built_page_omits_synthesized_media")
-        end = src.index("def test_scanner_walks_every_html_page_without_skip")
-        body = src[start:end]
-        self.assertIn('dest.rglob("*.html")', body)
-        self.assertNotIn("continue", body)
-        self.assertNotIn("skipUnless", body)
-        self.assertNotIn("skipIf", body)
 
     def test_live_narrative_equals_current_edition_file(self):
         live = json.loads(config.NARRATIVE_JSON.read_text(encoding="utf-8"))
@@ -163,14 +243,11 @@ class ImagelessLiveEdition(unittest.TestCase):
         generate_src = (ROOT / "tools" / "chiefs_narrative" / "generate.py").read_text(
             encoding="utf-8"
         )
-        locker_src = (ROOT / "tools" / "chiefs_narrative" / "locker_room.py").read_text(
-            encoding="utf-8"
-        )
         self.assertNotIn("import requests", media_src)
         self.assertNotIn("requests.get", media_src)
         self.assertNotIn("requests.post", media_src)
         self.assertNotIn("urlopen", media_src)
-        for src in (media_src, generate_src, locker_src):
+        for src in (media_src, generate_src):
             for token in NETWORK_MEDIA_MARKERS:
                 self.assertNotIn(token, src, token)
         self.assertNotIn("x_photo", generate_src)

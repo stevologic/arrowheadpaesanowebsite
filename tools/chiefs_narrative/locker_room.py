@@ -3,10 +3,12 @@
 The writer is not given status IDs. A published locker-room post is kept
 only when it resolves on X via publish.x.com oEmbed, the handle is a
 verified player or coach on Kansas City or this week's opponent, the post
-is from this game week, and any quote is verbatim. FixTweet and
-syndication lookups are not used. If X cannot be fetched, the section
-stays empty with an honest "none verified this week" — never an invented
-post. Dead or unverified published posts fail the edition gate.
+is from this game week, and any quote is verbatim. Author and retweet
+checks default to the syndication tweet-result lookup (text and ids only;
+no media keys, photos, or images). FixTweet is not used. If X cannot be
+fetched, the section stays empty with an honest "none verified this week"
+— never an invented post. Dead or unverified published posts fail the
+edition gate.
 """
 from __future__ import annotations
 
@@ -22,7 +24,24 @@ from . import phase as phase_mod, press_conferences, schema, x_embeds
 
 OEMBED_ENDPOINT = "https://publish.x.com/oembed"
 OEMBED_FALLBACK = "https://publish.twitter.com/oembed"
+SYNDICATION_ENDPOINT = "https://cdn.syndication.twimg.com/tweet-result"
 OEMBED_TIMEOUT_SEC = 8
+_SYNDICATION_MEDIA_KEYS = frozenset(
+    {
+        "media",
+        "mediaDetails",
+        "photos",
+        "photo",
+        "images",
+        "image",
+        "video",
+        "videos",
+        "extended_entities",
+        "card",
+        "profile_image_url",
+        "profile_image_url_https",
+    }
+)
 _CT = ZoneInfo("America/Chicago")
 _STATUS_ID = re.compile(r"/status/(\d+)", re.IGNORECASE)
 
@@ -135,17 +154,70 @@ def status_id_from_url(url: str) -> str:
     return match.group(1) if match else ""
 
 
+def _text_only_syndication(payload: dict) -> dict:
+    """Keep id, author, and text. Drop photos, images, and media keys."""
+    user_in = payload.get("user") if isinstance(payload.get("user"), dict) else {}
+    cleaned = {
+        "id_str": str(payload.get("id_str") or "").strip(),
+        "text": str(payload.get("text") or payload.get("full_text") or ""),
+        "user": {
+            "screen_name": str(user_in.get("screen_name") or "").strip(),
+        },
+    }
+    for key in _SYNDICATION_MEDIA_KEYS:
+        cleaned.pop(key, None)
+        cleaned["user"].pop(key, None)
+    return cleaned
+
+
+def fetch_syndication(status_id: str, *, timeout: float = OEMBED_TIMEOUT_SEC) -> dict | None:
+    """Syndication tweet-result, text/ids only. No media keys attached."""
+    sid = str(status_id or "").strip()
+    if not sid.isdigit():
+        return None
+    try:
+        resp = requests.get(
+            SYNDICATION_ENDPOINT,
+            params={"id": sid, "lang": "en", "token": "0"},
+            timeout=timeout,
+            allow_redirects=True,
+        )
+    except requests.RequestException:
+        return None
+    if resp.status_code != 200:
+        return None
+    try:
+        payload = resp.json()
+    except ValueError:
+        return None
+    if not isinstance(payload, dict) or not payload.get("id_str"):
+        return None
+    return _text_only_syndication(payload)
+
+
+def fetch_syndication_author(status_id: str, *, timeout: float = OEMBED_TIMEOUT_SEC) -> str | None:
+    """Author of record: syndication tweet-result ``.user.screen_name``.
+
+    Text-only. Photos and media keys are discarded before the handle is read.
+    """
+    payload = fetch_syndication(status_id, timeout=timeout)
+    if not payload:
+        return None
+    user = payload.get("user") if isinstance(payload.get("user"), dict) else {}
+    screen = str(user.get("screen_name") or "").strip()
+    return screen or None
+
+
 def resolve_author(
     url: str,
     *,
     syndication_fetch=None,
 ) -> str | None:
-    """Author handle from an injected lookup, or None. No syndication HTTP."""
-    if syndication_fetch is None:
-        return None
+    """Fetched author handle, or None when syndication lookup fails."""
     status_id = status_id_from_url(url)
+    fetch = fetch_syndication_author if syndication_fetch is None else syndication_fetch
     try:
-        screen = syndication_fetch(status_id)
+        screen = fetch(status_id)
     except Exception:  # noqa: BLE001 — fail closed, never invent
         return None
     if not screen:
@@ -220,9 +292,7 @@ def verify_retweet(
     cited_id = status_id_from_url(row.get("url") or "")
     if not cited_id:
         return False
-    if syndication_payload_fetch is None:
-        return False
-    fetch = syndication_payload_fetch
+    fetch = fetch_syndication if syndication_payload_fetch is None else syndication_payload_fetch
     try:
         payload = fetch(rt_id)
     except Exception:  # noqa: BLE001 — fail closed
