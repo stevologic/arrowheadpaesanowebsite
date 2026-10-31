@@ -1,10 +1,10 @@
 {
   "droppedSentences": [
-    "Jaxon Smith-Njigba was the problem in space: 11 touches, a jet-style rush to the right end, another to the left end, and the 28-yard touchdown on a deep-left throw from Darnold after a replay reversal."
+    "Kansas City, 5-1, visits the Broncos on Sun Nov 1, 3:25 PM CT on CBS as a 1.5-point favorite, with Rashee Rice expected back after Seattle won 20-3.",
+    "Kelce still led the receivers with 4 catches for 44 yards, and Gray won two 19-yard targets.",
+    "Butker's misses from 58 and 45, plus a turnover on downs, left the scoring line at one field goal."
   ],
   "correctedSentences": [],
-  "leftoverIssues": [
-    "fact-checker note leaked (\"not a story about last week's interception\"): Two quarterback hits is the production number to beat, not a story about last week's interception."
-  ],
-  "holdAutomerge": true
+  "leftoverIssues": [],
+  "holdAutomerge": false
 }

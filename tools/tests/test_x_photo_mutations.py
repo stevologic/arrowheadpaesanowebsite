@@ -36,6 +36,12 @@ BASEOF_TMPL = ROOT / "layouts" / "_default" / "baseof.html"
 WORKFLOW_SRC = ROOT / ".github" / "workflows" / "narrative.yml"
 
 
+def _hugo_available() -> bool:
+    if shutil.which("hugo"):
+        return True
+    return (Path.home() / ".local" / "hugo" / "hugo").is_file()
+
+
 def _load_mutated(tmp: Path, name: str, filename: str, source: str):
     dest = tmp / name
     shutil.copytree(ROOT / "tools" / "chiefs_narrative", dest)
@@ -320,6 +326,8 @@ MUTANTS = (
 
 class XPhotoMutations(unittest.TestCase):
     def test_named_mutants_are_killed(self):
+        if any(mutant["kind"] == "hugo" for mutant in MUTANTS) and not _hugo_available():
+            self.skipTest("hugo is not on PATH or ~/.local/hugo/hugo")
         survivors = []
         killed = 0
         for mutant in MUTANTS:

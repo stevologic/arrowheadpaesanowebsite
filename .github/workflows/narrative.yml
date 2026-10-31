@@ -338,9 +338,33 @@ jobs:
             public/images/x-photo
             .narrative-publish.json
 
+      - name: Fail held editions
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+          path = Path(".narrative-publish.json")
+          meta = {}
+          if path.is_file():
+              try:
+                  loaded = json.loads(path.read_text(encoding="utf-8"))
+              except json.JSONDecodeError:
+                  loaded = {}
+              if isinstance(loaded, dict):
+                  meta = loaded
+          if meta.get("holdMerge"):
+              print("held edition; failing the run", file=sys.stderr)
+              sys.exit(1)
+          PY
+
   update:
     needs: [generate, test]
-    if: github.event_name != 'pull_request' && needs.generate.outputs.changed == 'true' && needs.test.result == 'success'
+    # !cancelled() is required: a bare needs.*.result read gets an implicit
+    # success() from GitHub, which skips this job when test fails (held
+    # editions). always()/failure() would also cancel the implicit wrap.
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.generate.outputs.changed == 'true' && (needs.test.result == 'success' || needs.test.result == 'failure') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

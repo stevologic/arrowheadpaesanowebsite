@@ -1373,6 +1373,32 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
                     if item not in leftover_issues:
                         leftover_issues.append(item)
                 emit_held(hard)
+    narrative, stripped_leaks = facts.strip_leaked_notes(narrative)
+    if stripped_leaks:
+        leftover_issues = [
+            item
+            for item in leftover_issues
+            if "fact-checker note leaked" not in item
+        ]
+        leftover_issues.extend(
+            facts.leaked_note_issues(narrative, changed=True)
+        )
+        narrative = facts.restore_required_copy(
+            narrative,
+            *reversed([row["narrative"] for row in attempts]),
+            last_game=gate_last,
+            recap=gate_recap,
+            schedule=schedule,
+        )
+        leftover_issues.extend(
+            [
+                item
+                for item in facts.leaked_note_issues(narrative, changed=True)
+                if item not in leftover_issues
+            ]
+        )
+        for sentence in stripped_leaks:
+            print(f"  [writer] stripped leaked note: {sentence}")
     leak_notes = [
         item for item in leftover_issues if "fact-checker note leaked" in item
     ]
