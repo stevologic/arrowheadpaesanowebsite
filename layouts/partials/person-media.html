@@ -8,5 +8,4 @@
     {{- if eq (sha256 (readFile $path)) .sha256 }}{{ $photo = . }}{{ end -}}
   {{- end -}}
 {{- end -}}
-{{ if $photo }}<span class="person-media"><img src="{{ $photo.image | relURL }}" alt="{{ $name }}" width="64" height="64" loading="lazy" decoding="async" /><span class="person-media__credit">{{ $photo.rights.attribution }}</span></span>
-{{ else }}<span class="person-media person-media--silhouette" role="img" aria-label="{{ $name }} — illustrative silhouette, not a photograph"><svg viewBox="0 0 80 80" aria-hidden="true"><circle cx="40" cy="25" r="15"/><path d="M10 76V65c0-18 12-24 30-24s30 6 30 24v11Z"/></svg></span>{{ end }}
+{{ if $photo }}<span class="person-media"><img src="{{ $photo.image | relURL }}" alt="{{ $name }}" width="64" height="64" loading="lazy" decoding="async" /><span class="person-media__credit">{{ $photo.rights.attribution }}</span></span>{{ end }}

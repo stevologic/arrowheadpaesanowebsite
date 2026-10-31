@@ -13,7 +13,7 @@ from pathlib import Path
 
 from . import config, schema
 
-FALLBACK_ID = "article-illustration"
+FALLBACK_ID = ""
 ASSET = re.compile(r"^images/hero/[A-Za-z0-9_/-]+\.(?:webp|png|jpe?g)$")
 EVIDENCE = re.compile(r"^docs/media-rights/[A-Za-z0-9_-]+\.md$")
 
@@ -62,7 +62,7 @@ def approved(item, slug, *, root=None, now=None):
 
 
 def attach(narrative, *, root=None, now=None):
-    """Assign a reviewed catalog ID, else the topic-matched article illustration."""
+    """Assign a reviewed catalog ID, else leave the edition without hero media."""
     now = now or datetime.now(timezone.utc)
     narrative["heroMediaId"] = FALLBACK_ID
     narrative["heroMediaVerifiedAt"] = ""

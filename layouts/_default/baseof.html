@@ -29,6 +29,17 @@
   {{ end }}
 {{ end }}
 {{ $metaDescription := $description | plainify | truncate 155 }}
+{{ $ogImage := "og.png" | absURL }}
+{{ $ogAlt := "Chiefs News. Paesano Attitude. Watch • Read • Join the Kingdom" }}
+{{ with $n }}
+  {{ with .xPhoto }}
+    {{ $asset := .asset | default "" }}
+    {{ if and $asset (findRE `^images/x-photo/[A-Za-z0-9._-]+\.(?:webp|png|jpe?g)$` $asset) (not (in $asset "..")) (fileExists (printf "public/%s" $asset)) }}
+      {{ $ogImage = $asset | absURL }}
+      {{ $ogAlt = .alt | default (printf "Kansas City Chiefs photograph from @%s on X" (.handle | default "Chiefs")) }}
+    {{ end }}
+  {{ end }}
+{{ end }}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -42,14 +53,14 @@
   <meta property="og:description" content="{{ $metaDescription }}" />
   <meta property="og:type" content="{{ $ogType }}" />
   <meta property="og:url" content="{{ $canonical }}" />
-  <meta property="og:image" content="{{ "og.png" | absURL }}" />
+  <meta property="og:image" content="{{ $ogImage }}" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
-  <meta property="og:image:alt" content="Chiefs News. Paesano Attitude. Watch • Read • Join the Kingdom" />
+  <meta property="og:image:alt" content="{{ $ogAlt }}" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="{{ $title }}" />
   <meta name="twitter:description" content="{{ $metaDescription }}" />
-  <meta name="twitter:image" content="{{ "og.png" | absURL }}" />
+  <meta name="twitter:image" content="{{ $ogImage }}" />
   {{ partial "seo-jsonld.html" (dict
       "isHome" .IsHome
       "isEdition" $isEditionPage

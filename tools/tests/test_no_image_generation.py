@@ -1,8 +1,11 @@
-"""Fail if image generation or paid X API auth re-enters the edition pipeline."""
+"""Fail if image generation or synthesized hero art re-enters the pipeline."""
 from __future__ import annotations
 
 import unittest
 from pathlib import Path
+
+from tools.tests.test_hero_posts import HUGO, render_hero_fixtures
+from tools.tests.test_x_photo import _edition
 
 ROOT = Path(__file__).resolve().parents[2]
 SCAN_ROOTS = (
@@ -19,6 +22,18 @@ FORBIDDEN = (
     "api.x.ai/v1/images",
     "openai.com/v1/images",
     "/2/tweets/search",
+    "nrt-event-illustration",
+    "nrt-hero-scene",
+    "images/hero-scenes",
+    "article-illustration",
+)
+REMOVED_PATHS = (
+    ROOT / "tools" / "chiefs_narrative" / "hero_scenes.py",
+    ROOT / "layouts" / "partials" / "nrt-hero-scene.html",
+    ROOT / "layouts" / "partials" / "nrt-event-illustration.html",
+    ROOT / "data" / "hero_scenes.json",
+    ROOT / "public" / "images" / "hero-scenes",
+    ROOT / "docs" / "hero-evidence",
 )
 
 
@@ -48,7 +63,7 @@ class NoImageGenerationGuard(unittest.TestCase):
                     if needle in text:
                         rel = path.relative_to(ROOT).as_posix()
                         hits.append(f"{rel}: {needle}")
-        self.assertEqual(hits, [], "image generation or X bearer leaked back:\n" + "\n".join(hits))
+        self.assertEqual(hits, [], "image generation or synthesis leaked back:\n" + "\n".join(hits))
 
     def test_x_photo_uses_documented_xai_search_not_generation(self):
         src = (ROOT / "tools" / "chiefs_narrative" / "x_photo.py").read_text(encoding="utf-8")
@@ -64,3 +79,39 @@ class NoImageGenerationGuard(unittest.TestCase):
         self.assertIn("secrets.GROK_API_KEY", workflow)
         self.assertNotIn("X_BEARER_TOKEN", workflow)
         self.assertNotIn("secrets.X_BEARER_TOKEN", workflow)
+
+    def test_synthesized_hero_paths_are_gone(self):
+        for path in REMOVED_PATHS:
+            self.assertFalse(path.exists(), path)
+        layouts = (ROOT / "layouts").rglob("*.html")
+        for path in layouts:
+            text = path.read_text(encoding="utf-8")
+            self.assertNotIn("nrt-hero-scene.html", text, path.name)
+            self.assertNotIn("nrt-event-illustration.html", text, path.name)
+            self.assertNotIn("article-illustration", text, path.name)
+            self.assertNotIn("images/hero-scenes", text, path.name)
+
+    def test_no_photo_editions_render_without_synthesized_art(self):
+        if not Path(HUGO).is_file():
+            self.skipTest("Hugo unavailable")
+        current = _edition(slug="2026-10-31-1816")
+        current["generatedAt"] = "2026-10-31T18:16:00Z"
+        current["record"] = "5-2"
+        current["xPhoto"] = {}
+        historic = _edition(slug="2026-10-30-2130")
+        historic.pop("xPhoto", None)
+        historic["generatedAt"] = "2026-10-30T21:30:00Z"
+        historic["record"] = "5-2"
+        historic["heroMediaId"] = "article-illustration"
+        temp, page, css = render_hero_fixtures([current, historic], pins={})
+        try:
+            self.assertNotIn("<svg", page)
+            self.assertNotIn("hero-scenes", page)
+            self.assertNotIn("nrt-event-illustration", page)
+            self.assertNotIn("article-illustration", page)
+            self.assertNotIn("nrt-hero-media", page)
+            self.assertNotIn("nrt-event-illustration", css)
+            self.assertNotIn("article-illustration", css)
+            self.assertNotIn("widgets.js", page)
+        finally:
+            temp.cleanup()

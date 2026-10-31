@@ -17,7 +17,7 @@ class HeroRights(unittest.TestCase):
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)
     def test_writer_cannot_grant_itself_image_rights(self):
         n=schema.normalize({'heroMediaId':'invented','heroMediaVerifiedAt':'2099','hero':{'license':'approved'},'xPhoto':{'mediaUrl':'https://example.test/fake.jpg'}},phase={},meta={})
-        self.assertEqual(n['heroMediaId'],'article-illustration')
+        self.assertEqual(n['heroMediaId'],'')
         self.assertEqual(n['heroMediaVerifiedAt'],'')
         self.assertEqual(n['xPhoto'],{})
 
@@ -45,7 +45,7 @@ class HeroRights(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             n={'slug':'edition','heroMediaId':'forged'}
             hero_media.attach(n,root=d,now=NOW)
-            self.assertEqual(n['heroMediaId'],'article-illustration')
+            self.assertEqual(n['heroMediaId'],'')
 
     def test_removed_timeline_has_no_loader_or_render_hook(self):
         root=Path(__file__).resolve().parents[2]

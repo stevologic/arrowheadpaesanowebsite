@@ -13,7 +13,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from . import config, hero_scenes, review_gate
+from . import config, event_match, review_gate
 
 SIDECAR_PATH = config.DATA_DIR / "hero_posts.json"
 SCHEMA_VERSION = 1
@@ -263,9 +263,9 @@ def select_catalog_pin(edition: dict, *, root=None) -> dict | None:
     alone is not enough. No match leaves the edition unpinned.
     """
     payload = load_sidecar(root)
-    mode = hero_scenes.mode_of(edition)
-    event = hero_scenes.event_of(edition, mode)
-    abbr = hero_scenes.opponent_abbr(event.get("opponent"))
+    mode = event_match.mode_of(edition)
+    event = event_match.event_of(edition, mode)
+    abbr = event_match.opponent_abbr(event.get("opponent"))
     week = None
     phase = edition.get("phase") or {}
     raw_week = phase.get("week")
@@ -275,9 +275,9 @@ def select_catalog_pin(edition: dict, *, root=None) -> dict | None:
         week = int(raw_week)
     if not week or not abbr:
         return None
-    season = hero_scenes.season_code(phase.get("type") or "")
-    venue = hero_scenes.venue_key(hero_scenes._venue_blob(edition, event))
-    home_away = hero_scenes._home_away(edition, event, mode, venue)
+    season = event_match.season_code(phase.get("type") or "")
+    venue = event_match.venue_key(event_match.venue_blob(edition, event))
+    home_away = event_match.home_away(edition, event, mode, venue)
     ranked: list[tuple[int, dict]] = []
     for row in payload.get("catalog") or []:
         pin = normalize_pin(row)

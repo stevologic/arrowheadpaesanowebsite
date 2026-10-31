@@ -441,6 +441,14 @@ class PhotoRender(unittest.TestCase):
             without_block = plain[start:].split("</section>", 1)[0]
             self.assertNotIn("nrt-hero-media", without_block)
             self.assertNotIn("x-photo", without_block)
+            historic_mark = "data-hero-slug=2026-10-30-2130"
+            h_start = plain.find(historic_mark)
+            self.assertGreaterEqual(h_start, 0)
+            historic_block = plain[h_start:].split("</section>", 1)[0]
+            self.assertNotIn("nrt-hero-media", historic_block)
+            self.assertNotIn("<svg", historic_block)
+            self.assertNotIn("hero-scenes", historic_block)
+            self.assertNotIn("article-illustration", page)
         finally:
             temp.cleanup()
 

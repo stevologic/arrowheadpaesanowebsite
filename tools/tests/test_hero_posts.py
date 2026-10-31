@@ -116,7 +116,6 @@ def render_hero_fixtures(fixtures, *, pins=None, layouts=None, css_text=None,
     (source / "data").mkdir()
     layout_src = layouts or (ROOT / "layouts" / "partials")
     shutil.copytree(layout_src, source / "layouts" / "partials")
-    shutil.copyfile(ROOT / "data" / "hero_scenes.json", source / "data" / "hero_scenes.json")
     shutil.copyfile(ROOT / "data" / "schedule_2026.json", source / "data" / "schedule_2026.json")
     shutil.copyfile(ROOT / "data" / "hero_media.json", source / "data" / "hero_media.json")
     signoff = source / "signoff" / "review"
@@ -130,9 +129,7 @@ def render_hero_fixtures(fixtures, *, pins=None, layouts=None, css_text=None,
         "pins": pins or {},
     }
     (source / "data" / "hero_posts.json").write_text(json.dumps(sidecar), encoding="utf-8")
-    public_scenes = source / "public" / "images" / "hero-scenes"
-    public_scenes.parent.mkdir(parents=True)
-    shutil.copytree(ROOT / "public" / "images" / "hero-scenes", public_scenes)
+    (source / "public" / "images").mkdir(parents=True, exist_ok=True)
     for rel, data in (extra_public or {}).items():
         dest = source / "public" / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -407,25 +404,13 @@ class HeroPostAllowlist(unittest.TestCase):
         self.assertNotIn("publish.twitter.com", src)
         self.assertNotIn("api.x.com", src)
 
-    def test_fallback_height_and_contain_rules_stay(self):
+    def test_hero_css_has_no_illustrated_fallback(self):
         css = (ROOT / "public" / "css" / "editorial-layout.css").read_text(encoding="utf-8")
-        self.assertRegex(
-            css,
-            r'\[data-hero-state="fallback"\] \.nrt-hero-media__art \.nrt-event-illustration'
-            r'[\s\S]{0,280}height:\s*var\(--nrt-embed-reserve\)',
-        )
-        self.assertRegex(
-            css,
-            r'\[data-hero-state="fallback"\] \.nrt-hero-media__art \.nrt-event-illustration'
-            r'[\s\S]{0,320}object-fit:\s*contain',
-        )
-        self.assertIn("nrt-hero-media__backdrop", css)
-        self.assertIn("filter: blur(", css)
-
-    def test_inline_svg_preserve_aspect_is_meet_not_slice(self):
-        src = (ROOT / "layouts" / "partials" / "nrt-event-illustration.html").read_text(encoding="utf-8")
-        self.assertIn('preserveAspectRatio="xMidYMid meet"', src)
-        self.assertNotIn("slice", src)
+        self.assertNotIn("nrt-event-illustration", css)
+        self.assertNotIn("nrt-hero-media__backdrop", css)
+        self.assertNotIn("nrt-hero-media__art", css)
+        self.assertNotIn("article-illustration", css)
+        self.assertNotIn("filter: blur(", css)
 
 
 @unittest.skipUnless(Path(HUGO).is_file(), "Hugo unavailable")
@@ -537,17 +522,26 @@ class HeroPostRendering(unittest.TestCase):
     def tearDownClass(cls):
         cls.temp.cleanup()
 
-    def test_unpinned_week8_and_archive_use_svg(self):
+    def _assert_no_synthesized_art(self, html_blob, label=""):
+        blob = html_blob or ""
+        self.assertNotIn("article-illustration", blob, label)
+        self.assertNotIn("nrt-event-illustration", blob, label)
+        self.assertNotIn("hero-scenes", blob, label)
+        self.assertNotIn(".svg", blob, label)
+        self.assertNotIn("<svg", blob, label)
+        self.assertNotIn("nrt-hero-media__fallback", blob, label)
+        self.assertNotIn("nrt-hero-media__backdrop", blob, label)
+
+    def test_unpinned_week8_and_archive_render_no_image(self):
         week8 = self.blocks[WEEK8_SLUG]
         sea = self.blocks[SIGNED_SLUG]
-        self.assertRegex(week8, r'data-hero-kind="?article-illustration"?')
-        self.assertIn("preview-away-den.svg", week8)
+        self.assertNotIn("nrt-hero-media", week8)
         self.assertNotRegex(week8, r'data-hero-kind="?x-embed"?')
-        self.assertRegex(sea, r'data-hero-kind="?article-illustration"?')
-        self.assertIn("review-away-sea.svg", sea)
-        self.assertNotIn("Arrowhead", sea)
+        self.assertNotIn("nrt-hero-media", sea)
+        self._assert_no_synthesized_art(week8, "week8")
+        self._assert_no_synthesized_art(sea, "signed")
 
-    def test_clean_pin_keeps_svg_credit_link_and_reserved_height(self):
+    def test_clean_pin_embeds_without_illustrated_fallback(self):
         den = self.blocks["clean-pin"]
         self.assertRegex(den, r'data-hero-kind="?x-embed"?')
         self.assertRegex(den, r'data-hero-state="?pending"?')
@@ -556,15 +550,11 @@ class HeroPostRendering(unittest.TestCase):
         self.assertIn("@Chiefs", den)
         self.assertIn("View post on X", den)
         self.assertIn("Source:", den)
-        self.assertIn("nrt-hero-media__fallback", den)
-        self.assertIn("nrt-hero-media__backdrop", den)
-        self.assertIn("nrt-hero-media__art", den)
-        self.assertRegex(den, r'aria-hidden="?true"?')
-        self.assertIn("preview-away-den.svg", den)
         self.assertIn("nrt-hero-media__visual--embed", den)
+        self._assert_no_synthesized_art(den, "clean-pin")
         self.assertRegex(self.page, r'<script\s+async\s+src="?https://platform\.twitter\.com/widgets\.js"?')
         media_src = (ROOT / "layouts" / "partials" / "nrt-hero-media.html").read_text(encoding="utf-8")
-        self.assertIn("unavailable", self.page)
+        self.assertIn("unavailable", media_src)
         self.assertIn("embedHeight", media_src)
         self.assertIn("8000", media_src)
         self.assertIn("data-hero-min-embed", den)
@@ -572,86 +562,61 @@ class HeroPostRendering(unittest.TestCase):
         self.assertIn("embedHeight(fig) >= MIN", media_src)
         self.assertIn("var MIN = 240", media_src)
         self.assertIn("if (unavailable(fig))", media_src)
+        self.assertIn('settle(fig, "failed")', media_src)
         self.assertIn('document.documentElement.classList.add("nrt-hero-js")', den)
-        self.assertNotIn("if (fig.querySelector(\"iframe\")) {\n      settle(fig, \"ready\");", media_src)
         self.assertIn("twitter-tweet", self.page)
-        self.assertIn("640px", self.css)
-        self.assertIn("560px", self.css)
-        self.assertIn("html.nrt-hero-js", self.css)
-        self.assertIn('[data-hero-state="fallback"]', self.css)
-        self.assertIn("min-height: 0", self.css)
-        self.assertIn("object-fit: contain", self.css)
-        self.assertIn("nrt-hero-media__backdrop", self.css)
-        self.assertIn("filter: blur(", self.css)
-        self.assertIn(
-            '[data-hero-state="fallback"] .nrt-hero-media__visual--embed',
-            self.css,
-        )
-        self.assertIn(
-            '[data-hero-state="fallback"] .nrt-hero-media__art .nrt-event-illustration',
-            self.css,
-        )
-        self.assertRegex(
-            self.css,
-            r'\[data-hero-state="fallback"\] \.nrt-hero-media__art \.nrt-event-illustration'
-            r'[\s\S]{0,280}height:\s*var\(--nrt-embed-reserve\)',
-        )
-        self.assertRegex(
-            self.css,
-            r'\[data-hero-state="fallback"\] \.nrt-hero-media__art \.nrt-event-illustration'
-            r'[\s\S]{0,320}object-fit:\s*contain',
-        )
-        illustration = (ROOT / "layouts" / "partials" / "nrt-event-illustration.html").read_text(encoding="utf-8")
-        self.assertIn('preserveAspectRatio="xMidYMid meet"', illustration)
-        self.assertNotIn("slice", illustration)
-        self.assertNotIn("aspect-ratio: 16 / 10", self.css)
+        self.assertIn('[data-hero-state="failed"]', self.css)
+        self.assertNotIn("nrt-event-illustration", self.css)
         self.assertNotIn("pbs.twimg.com", den)
         self.assertNotIn("video.twimg.com", den)
         self.assertNotIn("syndication.twitter.com", den)
 
-    def test_deleted_and_offlist_keep_svg_visible(self):
+    def test_deleted_pin_keeps_link_and_offlist_shows_nothing(self):
         deleted = self.blocks["deleted-pin"]
         offlist = self.blocks["offlist-pin"]
-        self.assertIn("preview-away-den.svg", deleted)
         self.assertIn("View post on X", deleted)
         self.assertIn(DELETED_URL, deleted)
-        self.assertIn("nrt-hero-media__fallback", deleted)
-        self.assertRegex(offlist, r'data-hero-kind="?article-illustration"?')
-        self.assertIn("preview-away-den.svg", offlist)
+        self.assertRegex(deleted, r'data-hero-kind="?x-embed"?')
+        self._assert_no_synthesized_art(deleted, "deleted")
+        self.assertNotIn("nrt-hero-media", offlist)
         self.assertNotIn("twitter-tweet", offlist)
+        self._assert_no_synthesized_art(offlist, "offlist")
 
-    def test_hugo_week_opponent_check_does_not_take_denver_for_seattle(self):
+    def test_hugo_week_opponent_mismatch_is_unpinned(self):
         mismatch = self.blocks["week-mismatch"]
-        self.assertIn("preview-away-sea.svg", mismatch)
-        self.assertNotIn("preview-away-den.svg", mismatch)
+        self.assertNotIn("nrt-hero-media", mismatch)
+        self._assert_no_synthesized_art(mismatch, "week-mismatch")
 
     def test_hugo_denylist_signed_lock_and_id_url_checks(self):
         for slug in ("betting-caption", "sponsored-pin", "short-id", "url-mismatch"):
             block = self.blocks[slug]
-            self.assertRegex(block, r'data-hero-kind="?article-illustration"?', slug)
             self.assertNotIn("twitter-tweet", block, slug)
+            self.assertNotIn("nrt-hero-media", block, slug)
+            self._assert_no_synthesized_art(block, slug)
         signed = self.blocks[SIGNED_SLUG]
-        self.assertRegex(signed, r'data-hero-kind="?article-illustration"?')
         self.assertNotIn("twitter-tweet", signed)
+        self.assertNotIn("nrt-hero-media", signed)
 
     def test_hugo_at_prefix_markets_and_training_camp(self):
-        self.assertIn("preview-away-den.svg", self.blocks["at-only-away"])
-        self.assertIn("preview-away-den.svg", self.blocks["markets-away"])
-        self.assertIn("camp-fallback.svg", self.blocks["training-camp"])
+        for slug in ("at-only-away", "markets-away", "training-camp"):
+            self.assertNotIn("nrt-hero-media", self.blocks[slug], slug)
+            self._assert_no_synthesized_art(self.blocks[slug], slug)
 
     def test_unpinned_only_page_does_not_load_widgets(self):
         temp, page, _ = render_hero_fixtures([_week8_fixture()], pins={})
         try:
             self.assertNotIn("widgets.js", page)
             self.assertNotIn("platform.twitter.com", page)
-            self.assertIn("preview-away-den.svg", page)
+            self.assertNotIn("nrt-hero-media", page)
+            self._assert_no_synthesized_art(page, "unpinned-only")
         finally:
             temp.cleanup()
 
     def test_hero_partial_only_mentions_platform_twitter(self):
         media = (ROOT / "layouts" / "partials" / "nrt-hero-media.html").read_text(encoding="utf-8")
         self.assertIn("https://platform.twitter.com/widgets.js", media)
-        self.assertIn("nrt-event-illustration.html", media)
+        self.assertNotIn("nrt-event-illustration.html", media)
+        self.assertNotIn("nrt-hero-scene.html", media)
         self.assertNotIn("cdn.jsdelivr", media)
         self.assertNotIn("googletagmanager", media)
         self.assertIn('partial "nrt-hero-post.html"', media)

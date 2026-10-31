@@ -32,6 +32,7 @@ ROOT = Path(__file__).resolve().parents[2]
 PHOTO_SRC = ROOT / "tools" / "chiefs_narrative" / "x_photo.py"
 GENERATE_SRC = ROOT / "tools" / "chiefs_narrative" / "generate.py"
 MEDIA_TMPL = ROOT / "layouts" / "partials" / "nrt-hero-media.html"
+BASEOF_TMPL = ROOT / "layouts" / "_default" / "baseof.html"
 WORKFLOW_SRC = ROOT / ".github" / "workflows" / "narrative.yml"
 
 
@@ -168,6 +169,24 @@ def _kill_xai_error_hold(module) -> str | None:
         return "survived: xAI error still exits 0"
 
 
+def _kill_illustration_fallback(text: str) -> str | None:
+    if "nrt-event-illustration" in text or "article-illustration" in text:
+        return None
+    return "survived: illustration fallback was not restored"
+
+
+def _kill_scene_partial(text: str) -> str | None:
+    if "nrt-hero-scene.html" in text:
+        return None
+    return "survived: scene partial was not re-included"
+
+
+def _kill_og_generated(text: str) -> str | None:
+    if "hero-scenes" in text or "preview-fallback.svg" in text:
+        return None
+    return "survived: og:image still avoids generated art"
+
+
 def _kill_workflow_token(text: str) -> str | None:
     if "X_BEARER_TOKEN" in text or "secrets.X_BEARER_TOKEN" in text:
         return None
@@ -262,6 +281,40 @@ MUTANTS = (
         "kind": "text",
         "check": _kill_workflow_token,
     },
+    {
+        "name": "illustration-fallback-restored",
+        "path": MEDIA_TMPL,
+        "old": "{{- else if $licensed -}}\n",
+        "new": (
+            "{{- $illustration := partial \"nrt-event-illustration.html\" "
+            "(dict \"n\" .n \"site\" .site) -}}\n"
+            "{{- else if $licensed -}}\n"
+        ),
+        "killer": "the hero must not restore an illustration fallback",
+        "kind": "text",
+        "check": _kill_illustration_fallback,
+    },
+    {
+        "name": "scene-partial-reincluded",
+        "path": MEDIA_TMPL,
+        "old": '{{- $pin := partial "nrt-hero-post.html" (dict "n" .n "site" .site) -}}\n',
+        "new": (
+            '{{- $scene := partial "nrt-hero-scene.html" (dict "n" .n "site" .site) -}}\n'
+            '{{- $pin := partial "nrt-hero-post.html" (dict "n" .n "site" .site) -}}\n'
+        ),
+        "killer": "the hero must not re-include the scene partial",
+        "kind": "text",
+        "check": _kill_scene_partial,
+    },
+    {
+        "name": "og-image-generated-art",
+        "path": BASEOF_TMPL,
+        "old": '{{ $ogImage := "og.png" | absURL }}',
+        "new": '{{ $ogImage := "images/hero-scenes/preview-fallback.svg" | absURL }}',
+        "killer": "og:image must not point at generated art",
+        "kind": "text",
+        "check": _kill_og_generated,
+    },
 )
 
 
@@ -292,7 +345,7 @@ class XPhotoMutations(unittest.TestCase):
             else:
                 survivors.append(f"{mutant['name']}: {reason}")
         self.assertEqual(survivors, [], json.dumps(survivors, indent=2))
-        self.assertGreaterEqual(killed, 8)
+        self.assertGreaterEqual(killed, 11)
 
     def test_live_invariants(self):
         src = PHOTO_SRC.read_text(encoding="utf-8")
@@ -310,3 +363,8 @@ class XPhotoMutations(unittest.TestCase):
         media = MEDIA_TMPL.read_text(encoding="utf-8")
         self.assertIn('href="{{ $photoUrl }}"', media)
         self.assertIn("Photo: @{{ $photoHandle }} on X", media)
+        self.assertNotIn("nrt-event-illustration", media)
+        self.assertNotIn("nrt-hero-scene.html", media)
+        baseof = BASEOF_TMPL.read_text(encoding="utf-8")
+        self.assertIn('"og.png" | absURL', baseof)
+        self.assertNotIn("hero-scenes", baseof)
