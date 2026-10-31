@@ -18,7 +18,9 @@ on:
       - "data/narrative_editions/**"
       - "data/wire.json"
       - "data/schedule_2026.json"
+      - "data/x-photo/**"
       - "public/images/narrative/**"
+      - "public/images/x-photo/**"
 
 permissions:
   contents: read
@@ -73,7 +75,7 @@ jobs:
             --head "${{ github.event.pull_request.head.sha }}"
 
       - name: Stage overlaid edition files
-        run: git add -A -- data public/images/narrative
+        run: git add -A -- data public/images/narrative public/images/x-photo
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0

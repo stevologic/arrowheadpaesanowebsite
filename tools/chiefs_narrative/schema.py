@@ -350,6 +350,9 @@ def normalize(raw: dict, *, phase: dict, meta: dict) -> dict:
         "generator": meta.get("generator", "offline"),
         "heroMediaId": "none",
         "heroMediaVerifiedAt": "",
+        # Writer-supplied photographs are ignored. A verified X photo is
+        # attached after normalize; an empty object means "no photo".
+        "xPhoto": {},
         "phase": {
             "type": _s(pg.get("type"), "offseason"),
             "label": _s(pg.get("label"), "Offseason"),

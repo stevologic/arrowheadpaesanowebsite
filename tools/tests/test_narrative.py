@@ -1034,9 +1034,9 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("--check-edition", qa)
         self.assertIn("--diagrams-only", qa)
         self.assertLess(qa.index("--check-edition"), qa.index("--diagrams-only"))
-        self.assertIn("git add -A -- data public/images/narrative", qa)
+        self.assertIn("git add -A -- data public/images/narrative public/images/x-photo", qa)
         self.assertLess(
-            qa.index("git add -A -- data public/images/narrative"),
+            qa.index("git add -A -- data public/images/narrative public/images/x-photo"),
             qa.index("--diagrams-only"),
         )
         self.assertIn(

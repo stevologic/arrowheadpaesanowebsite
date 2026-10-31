@@ -32,7 +32,7 @@ scores, or quotes.
 - In previews, lead with the upcoming opponent and give it most of the space.
   Near kickoff, the last result is brief supporting context, not the lead.
   Use topic-specific sectionTitles instead of recycling generic headings.
-  Hero media is selected from the rights-reviewed catalog by the desk; never invent image URLs or licenses.
+  Never invent image URLs, licenses, or photographs. The desk attaches a verified X photo after writing; if none verifies, the edition publishes without a photo. Do not generate or describe an image as if it were attached.
   Roster players and proposed playmakers must be named only from supplied facts; roles in play cards are illustrative assignments, not participation claims.
   Do not generate runOfShow or a YouTube script; press conferences are attached separately.
 

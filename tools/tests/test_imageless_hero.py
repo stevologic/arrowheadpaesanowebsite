@@ -1,8 +1,8 @@
-"""Stephen's rule: no X photo means no synthesized hero on the live edition."""
+"""Stephen's rule: built HTML never ships synthesized person or hero art."""
 from __future__ import annotations
 
 import json
-import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -12,37 +12,40 @@ from pathlib import Path
 from tools.chiefs_narrative import config, edition_overlay, hero_media, schema
 
 ROOT = Path(__file__).resolve().parents[2]
-EDITION_SLUG = "2026-10-31-1537"
-FORBIDDEN = (
-    "hero-scene",
-    "hero-scenes",
+FORBIDDEN_CLASS_OR_ELEMENT = (
+    "person-media--silhouette",
     "nrt-event-illustration",
-    "Not a photograph",
+    "hero-scene",
 )
+NOT_A_PHOTOGRAPH = re.compile(r"not a photograph", re.I)
 
 
-def _hugo_bin() -> str | None:
+def _hugo_bin() -> str:
     found = shutil.which("hugo")
     if found:
         return found
     fallback = Path.home() / ".local" / "hugo" / "hugo"
     if fallback.is_file():
         return str(fallback)
-    return None
+    raise AssertionError("hugo must be installed; render test cannot skip")
+
+
+def _class_or_element_hits(html: str, token: str) -> list[str]:
+    """Match token as an HTML class or element, not a data-hero-* attribute."""
+    class_re = re.compile(
+        rf"""class\s*=\s*(['"])([^'"]*\b{re.escape(token)}\b[^'"]*)\1""",
+        re.I,
+    )
+    el_re = re.compile(rf"<{re.escape(token)}\b", re.I)
+    return [m.group(0) for m in class_re.finditer(html)] + [
+        m.group(0) for m in el_re.finditer(html)
+    ]
 
 
 class ImagelessLiveEdition(unittest.TestCase):
-    @unittest.skipUnless(
-        _hugo_bin() or os.environ.get("GITHUB_ACTIONS"),
-        "Hugo unavailable",
-    )
-    def test_live_pages_render_without_synthesized_hero(self):
-        """Real Hugo build: home, desk, and this edition have no drawn hero."""
+    def test_every_built_page_omits_synthesized_media(self):
+        """Real Hugo build: every HTML page fails closed on drawn stand-ins."""
         binary = _hugo_bin()
-        self.assertTrue(
-            binary,
-            "hugo must be installed in CI gates; render test cannot skip",
-        )
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / "dist"
             result = subprocess.run(
@@ -53,24 +56,29 @@ class ImagelessLiveEdition(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            pages = {
-                "/": dest / "index.html",
-                "/narrative/": dest / "narrative" / "index.html",
-                f"/narrative/{EDITION_SLUG}/": dest
-                / "narrative"
-                / EDITION_SLUG
-                / "index.html",
-            }
-            for route, path in pages.items():
-                with self.subTest(route=route):
-                    self.assertTrue(path.is_file(), route)
-                    html = path.read_text(encoding="utf-8")
-                    for token in FORBIDDEN:
+            pages = sorted(path for path in dest.rglob("*.html") if path.is_file())
+            self.assertTrue(pages, "Hugo produced no HTML pages")
+            for path in pages:
+                rel = path.relative_to(dest).as_posix()
+                html = path.read_text(encoding="utf-8")
+                with self.subTest(page=rel):
+                    for token in FORBIDDEN_CLASS_OR_ELEMENT:
+                        hits = _class_or_element_hits(html, token)
                         self.assertEqual(
-                            html.count(token),
-                            0,
-                            f"{route} contains {token!r}",
+                            hits,
+                            [],
+                            f"{rel} contains {token!r} as a class or element: {hits}",
                         )
+                    photo_hits = NOT_A_PHOTOGRAPH.findall(html)
+                    self.assertEqual(
+                        photo_hits,
+                        [],
+                        f"{rel} contains 'not a photograph': {photo_hits}",
+                    )
+                    # #299 data-hero-* attributes are legitimate and must not
+                    # be treated as a hero-scene token.
+                    if "data-hero-" in html:
+                        self.assertEqual(_class_or_element_hits(html, "hero-scene"), [])
         print("LIVE_EDITION_HUGO_RENDER_RAN", flush=True)
 
     def test_live_narrative_equals_current_edition_file(self):
@@ -108,13 +116,18 @@ class ImagelessLiveEdition(unittest.TestCase):
         )
 
     def test_bot_edition_paths_remain_overlay_allowlisted(self):
+        live = json.loads(config.NARRATIVE_JSON.read_text(encoding="utf-8"))
+        slug = live["slug"]
         live_rel = config.NARRATIVE_JSON.relative_to(config.REPO_ROOT).as_posix()
         edition_rel = (
-            config.EDITIONS_DIR.relative_to(config.REPO_ROOT) / f"{EDITION_SLUG}.json"
+            config.EDITIONS_DIR.relative_to(config.REPO_ROOT) / f"{slug}.json"
         ).as_posix()
         self.assertIn(live_rel, edition_overlay.ALLOWED_FILES)
         self.assertTrue(edition_overlay.is_allowed_rel(Path(live_rel)))
         self.assertTrue(edition_overlay.is_allowed_rel(Path(edition_rel)))
+        self.assertTrue(
+            edition_overlay.is_allowed_rel(Path("data/x-photo/people.json"))
+        )
         self.assertFalse(
             edition_overlay.is_allowed_rel(
                 Path("layouts/partials/narrative-edition.html")
