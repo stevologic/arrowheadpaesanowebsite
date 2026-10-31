@@ -50,7 +50,11 @@
       {{ end }}
       {{ with .dek }}<p class="nrt-dek">{{ . }}</p>{{ end }}
 
+      {{- $xPhoto := .xPhoto | default dict -}}
+      {{- $hasXPhoto := and $xPhoto.postId $xPhoto.handle $xPhoto.postUrl $xPhoto.asset -}}
+      {{- if or $hasXPhoto (and .heroMediaId (ne .heroMediaId "none") (ne .heroMediaId "")) -}}
       {{ partial "nrt-hero-media.html" (dict "n" . "site" $site) }}
+      {{- end -}}
       <div class="nrt-hero__grid">
         <div class="nrt-hero__main">
           {{ with .videoHook }}
