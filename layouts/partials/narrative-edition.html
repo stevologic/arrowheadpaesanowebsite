@@ -50,7 +50,7 @@
       {{ end }}
       {{ with .dek }}<p class="nrt-dek">{{ . }}</p>{{ end }}
 
-      {{ partial "nrt-hero-media.html" (dict "n" . "site" $site) }}
+      {{ if ne .heroMediaId "none" }}{{ partial "nrt-hero-media.html" (dict "n" . "site" $site) }}{{ end }}
       <div class="nrt-hero__grid">
         <div class="nrt-hero__main">
           {{ with .videoHook }}
