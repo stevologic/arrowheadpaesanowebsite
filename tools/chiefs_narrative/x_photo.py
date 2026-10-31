@@ -22,10 +22,12 @@ import re
 import struct
 import sys
 from datetime import datetime, timedelta, timezone
+from io import BytesIO
 from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
+from PIL import Image
 
 from . import config, providers
 
@@ -46,7 +48,10 @@ POST_URL_RE = re.compile(
 )
 MEDIA_HOST = "pbs.twimg.com"
 MEDIA_PATH_RE = re.compile(r"^/media/([A-Za-z0-9_-]+)(?:\.[A-Za-z0-9]+)?$")
+MEDIA_KEY_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 HANDLE_RE = re.compile(r"^[A-Za-z0-9_]{1,15}$")
+SYNDICATION_ENDPOINT = "https://cdn.syndication.twimg.com/tweet-result"
+FIXTWEET_ENDPOINT = "https://api.fxtwitter.com"
 ASSET_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+\.(?:webp|png|jpe?g)$")
 REJECTED_MEDIA_HINTS = (
     "/tweet_video",
@@ -194,6 +199,17 @@ def media_url_ok(url: str) -> bool:
     return True
 
 
+def media_key_from_url(url: str) -> str:
+    parsed = urlparse(_s(url))
+    match = MEDIA_PATH_RE.fullmatch(parsed.path)
+    return match.group(1) if match else ""
+
+
+def _declared_media_key(row: dict) -> str:
+    key = _s(row.get("media_key") or row.get("mediaKey") or "")
+    return key if MEDIA_KEY_RE.fullmatch(key) else ""
+
+
 def graphic_rejected(alt: str, *extra: str) -> bool:
     blob = " ".join(_s(item) for item in (alt, *extra))
     return bool(GRAPHIC_RE.search(blob))
@@ -246,6 +262,22 @@ def image_dimensions(data: bytes, kind: str) -> tuple[int, int] | None:
     return None
 
 
+def _png_has_actl(data: bytes) -> bool:
+    if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return False
+    offset = 8
+    length = len(data)
+    while offset + 8 <= length:
+        size = struct.unpack(">I", data[offset : offset + 4])[0]
+        tag = data[offset + 4 : offset + 8]
+        if tag == b"acTL":
+            return True
+        if tag == b"IEND":
+            return False
+        offset += 12 + size
+    return False
+
+
 def content_type_ok(value: str) -> bool:
     ctype = _s(value).split(";", 1)[0].lower()
     return ctype in ALLOWED_CONTENT_TYPES
@@ -258,7 +290,8 @@ def decode_photo(data: bytes, content_type: str) -> dict:
         raise PhotoSkip(f"image too small ({len(data) if data else 0} bytes); {SKIP_PREFIX}")
     if len(data) > MAX_BYTES:
         raise PhotoSkip(f"image too large ({len(data)} bytes); {SKIP_PREFIX}")
-    kind = _kind_from_magic(bytes(data[:16]))
+    blob = bytes(data)
+    kind = _kind_from_magic(blob[:16])
     if kind == "gif":
         raise PhotoSkip(f"rejected GIF bytes; {SKIP_PREFIX}")
     if kind not in {"jpeg", "png", "webp"}:
@@ -272,17 +305,21 @@ def decode_photo(data: bytes, content_type: str) -> dict:
         raise PhotoSkip(
             f"content-type {content_type!r} does not match {kind} bytes; {SKIP_PREFIX}"
         )
-    dims = image_dimensions(bytes(data), kind)
-    if dims:
-        width, height = dims
-        if not (MIN_SIDE <= width <= MAX_SIDE and MIN_SIDE <= height <= MAX_SIDE):
-            raise PhotoSkip(f"image size {width}x{height} is not usable; {SKIP_PREFIX}")
-    else:
-        width = height = 0
-        if kind != "webp":
-            raise PhotoSkip(f"could not read {kind} dimensions; {SKIP_PREFIX}")
+    if kind == "png" and _png_has_actl(blob):
+        raise PhotoSkip(f"rejected animated PNG; {SKIP_PREFIX}")
+    try:
+        image = Image.open(BytesIO(blob))
+        image.load()
+    except (OSError, ValueError, SyntaxError, TypeError) as exc:
+        raise PhotoSkip(f"could not decode image bytes ({exc}); {SKIP_PREFIX}") from exc
+    n_frames = int(getattr(image, "n_frames", 1) or 1)
+    if bool(getattr(image, "is_animated", False)) or n_frames > 1:
+        raise PhotoSkip(f"rejected animated image ({n_frames} frames); {SKIP_PREFIX}")
+    width, height = image.size
+    if not (MIN_SIDE <= width <= MAX_SIDE and MIN_SIDE <= height <= MAX_SIDE):
+        raise PhotoSkip(f"image size {width}x{height} is not usable; {SKIP_PREFIX}")
     ext = {"jpeg": "jpg", "png": "png", "webp": "webp"}[kind]
-    return {"kind": kind, "ext": ext, "width": width, "height": height, "bytes": bytes(data)}
+    return {"kind": kind, "ext": ext, "width": width, "height": height, "bytes": blob}
 
 
 def _candidate_from_mapping(row: dict, *, allowed: set[str]) -> dict | None:
@@ -311,11 +348,18 @@ def _candidate_from_mapping(row: dict, *, allowed: set[str]) -> dict | None:
         return None
     if graphic_rejected(alt, _s(row.get("text") or "")):
         return None
+    url_key = media_key_from_url(media_url)
+    if not url_key:
+        return None
+    declared = _declared_media_key(row)
+    if declared and declared != url_key:
+        return None
     return {
         "handle": parsed[0],
         "postId": parsed[1],
         "postUrl": post_url,
         "mediaUrl": media_url,
+        "mediaKey": url_key,
         "alt": alt,
     }
 
@@ -353,25 +397,204 @@ def extract_candidates(payload, *, allowed: set[str]) -> list[dict]:
                     _walk(parsed)
 
     _walk(payload)
-    if isinstance(payload, dict):
-        text = _output_text(payload)
-        posts = list(POST_URL_RE.finditer(text))
-        media = [m.group(0) for m in re.finditer(
-            r"https://pbs\.twimg\.com/media/[A-Za-z0-9_-]+(?:\.[A-Za-z0-9]+)?(?:\?[^ \s\"'<>]*)?",
-            text,
-        )]
-        if len(posts) == 1 and len(media) == 1:
-            handle, post_id = posts[0].group(1), posts[0].group(2)
-            _keep(_candidate_from_mapping(
-                {
-                    "handle": handle,
-                    "post_url": status_url(handle, post_id),
-                    "media_url": media[0],
-                    "alt": "",
-                },
-                allowed=allowed,
-            ))
+    index = post_media_index(payload)
+    for row in found:
+        row["searchMediaKeys"] = sorted(index.get(row["postId"], set()))
     return found
+
+
+def _as_media_items(value) -> list:
+    if isinstance(value, list):
+        return value
+    if isinstance(value, dict):
+        items: list = []
+        for key in ("photos", "images", "media", "all"):
+            nested = value.get(key)
+            if isinstance(nested, list):
+                items.extend(nested)
+        if not items and (
+            value.get("url")
+            or value.get("media_url")
+            or value.get("media_url_https")
+            or value.get("media_key")
+            or value.get("mediaKey")
+        ):
+            items.append(value)
+        return items
+    return []
+
+
+def _media_keys_from_items(items) -> set[str]:
+    keys: set[str] = set()
+    for item in _as_media_items(items):
+        if isinstance(item, str):
+            key = media_key_from_url(item)
+            if key:
+                keys.add(key)
+            continue
+        if not isinstance(item, dict):
+            continue
+        declared = _s(
+            item.get("media_key") or item.get("mediaKey") or item.get("key") or ""
+        )
+        if MEDIA_KEY_RE.fullmatch(declared):
+            keys.add(declared)
+        for field in ("media_url", "media_url_https", "url", "src"):
+            key = media_key_from_url(item.get(field) or "")
+            if key:
+                keys.add(key)
+    return keys
+
+
+def _post_id_from_mapping(row: dict) -> str:
+    post_id = _s(row.get("id_str") or row.get("postId") or row.get("post_id") or "")
+    if post_id.isdigit():
+        return post_id
+    raw_id = row.get("id")
+    if isinstance(raw_id, (int, str)) and _s(raw_id).isdigit():
+        return _s(raw_id)
+    for field in ("url", "post_url", "postUrl"):
+        parsed = parse_post_url(_s(row.get(field) or ""))
+        if parsed:
+            return parsed[1]
+    return ""
+
+
+def post_media_index(payload) -> dict[str, set[str]]:
+    """Map a post id to pbs media keys found on that post object."""
+    index: dict[str, set[str]] = {}
+
+    def _add(post_id: str, keys: set[str]) -> None:
+        if post_id and keys:
+            index.setdefault(post_id, set()).update(keys)
+
+    def _walk(node) -> None:
+        if isinstance(node, dict):
+            post_id = _post_id_from_mapping(node)
+            media = node.get("media") or node.get("photos")
+            entities = node.get("entities")
+            if media is None and isinstance(entities, dict):
+                media = entities.get("media")
+            extended = node.get("extended_entities")
+            if media is None and isinstance(extended, dict):
+                media = extended.get("media")
+            tweet = node.get("tweet")
+            if media is None and isinstance(tweet, dict):
+                media = tweet.get("media") or tweet.get("photos")
+            _add(post_id, _media_keys_from_items(media))
+            for value in node.values():
+                _walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                _walk(item)
+
+    _walk(payload)
+    return index
+
+
+def _all_pbs_media_keys(payload) -> set[str]:
+    keys: set[str] = set()
+
+    def _walk(node) -> None:
+        if isinstance(node, dict):
+            for value in node.values():
+                _walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                _walk(item)
+        elif isinstance(node, str):
+            key = media_key_from_url(node)
+            if key:
+                keys.add(key)
+
+    _walk(payload)
+    return keys
+
+
+def media_keys_from_public_payload(payload, post_id: str) -> set[str]:
+    keys = set(post_media_index(payload).get(post_id, set()))
+    if not isinstance(payload, dict):
+        return keys
+    sid = _s(payload.get("id_str") or payload.get("id") or "")
+    tweet = payload.get("tweet") if isinstance(payload.get("tweet"), dict) else {}
+    tid = _s(tweet.get("id_str") or tweet.get("id") or "")
+    if sid == post_id or tid == post_id:
+        keys |= _all_pbs_media_keys(payload)
+    return keys
+
+
+def fetch_public_media_keys(
+    post_id: str,
+    handle: str,
+    *,
+    transport,
+) -> set[str]:
+    """Free public read of the post (syndication, then FixTweet)."""
+    keys: set[str] = set()
+    try:
+        resp = transport.request(
+            "GET",
+            SYNDICATION_ENDPOINT,
+            params={"id": post_id, "lang": "en", "token": "0"},
+            timeout=HTTP_TIMEOUT,
+        )
+    except (requests.RequestException, OSError, TypeError, ValueError, AssertionError):
+        resp = None
+    status = getattr(resp, "status_code", 0) if resp is not None else 0
+    if status == 200:
+        try:
+            payload = resp.json()
+        except (ValueError, TypeError, AttributeError):
+            payload = None
+        if isinstance(payload, dict):
+            keys |= media_keys_from_public_payload(payload, post_id)
+    if keys:
+        return keys
+    try:
+        resp = transport.request(
+            "GET",
+            f"{FIXTWEET_ENDPOINT}/{handle}/status/{post_id}",
+            timeout=HTTP_TIMEOUT,
+        )
+    except (requests.RequestException, OSError, TypeError, ValueError, AssertionError):
+        return keys
+    if getattr(resp, "status_code", 0) != 200:
+        return keys
+    try:
+        payload = resp.json()
+    except (ValueError, TypeError, AttributeError):
+        return keys
+    if isinstance(payload, dict):
+        keys |= media_keys_from_public_payload(payload, post_id)
+    return keys
+
+
+def verify_media_belongs_to_post(
+    candidate: dict,
+    *,
+    transport,
+    search_index=None,
+) -> None:
+    key = candidate.get("mediaKey") or media_key_from_url(candidate.get("mediaUrl") or "")
+    post_id = _s(candidate.get("postId") or "")
+    if not key or not post_id:
+        raise PhotoSkip(f"candidate is missing a post id or pbs media key; {SKIP_PREFIX}")
+    indexed = set()
+    if isinstance(search_index, dict):
+        indexed = set(search_index.get(post_id) or [])
+    claimed = candidate.get("searchMediaKeys") or []
+    if isinstance(claimed, (list, set, tuple)):
+        indexed.update(str(item) for item in claimed)
+    if key in indexed:
+        return
+    public = fetch_public_media_keys(
+        post_id, candidate.get("handle") or "", transport=transport
+    )
+    if key in public:
+        return
+    raise PhotoSkip(
+        f"media key {key} is not on credited post {post_id}; {SKIP_PREFIX}"
+    )
 
 
 def _output_text(payload: dict) -> str:
@@ -567,6 +790,7 @@ def verify_candidate(
     *,
     allowed: set[str],
     transport=None,
+    search_index=None,
 ) -> dict:
     candidate = _candidate_from_mapping(row, allowed=allowed)
     if not candidate:
@@ -587,6 +811,11 @@ def verify_candidate(
                 f"rejected media URL (not https://pbs.twimg.com/media/...); {SKIP_PREFIX}"
             )
         raise PhotoSkip(f"candidate failed URL checks; {SKIP_PREFIX}")
+    if isinstance(row, dict) and row.get("searchMediaKeys") and not candidate.get("searchMediaKeys"):
+        candidate["searchMediaKeys"] = list(row.get("searchMediaKeys") or [])
+    verify_media_belongs_to_post(
+        candidate, transport=transport or HttpTransport(), search_index=search_index
+    )
     image = download_photo(candidate["mediaUrl"], transport=transport)
     alt = candidate["alt"] or (
         f"Kansas City Chiefs photograph from @{candidate['handle']} on X"
@@ -601,6 +830,19 @@ def verify_candidate(
         }
     )
     return candidate
+
+
+def verify_manifest(manifest: dict, *, allowed: set[str], transport=None) -> dict:
+    post_id = _s(manifest.get("post_id") or manifest.get("postId") or "")
+    media_key = _declared_media_key(manifest)
+    if not post_id.isdigit() or not media_key:
+        raise PhotoSkip(f"manifest missing post id or media key; {SKIP_PREFIX}")
+    verified = verify_candidate(manifest, allowed=allowed, transport=transport)
+    if verified["postId"] != post_id or verified["mediaKey"] != media_key:
+        raise PhotoSkip(
+            f"manifest post id or media key does not match the media URL; {SKIP_PREFIX}"
+        )
+    return verified
 
 
 def store_photo(
@@ -624,6 +866,7 @@ def store_photo(
         "handle": candidate["handle"],
         "postUrl": candidate["postUrl"],
         "mediaUrl": candidate["mediaUrl"],
+        "mediaKey": candidate["mediaKey"],
         "asset": rel,
         "alt": candidate["alt"],
         "credit": f"Photo: @{candidate['handle']} on X",
@@ -687,7 +930,9 @@ def attach_to_edition(
         manifest = load_manifest(day, root=root)
         if manifest:
             try:
-                verified = verify_candidate(manifest, allowed=allowed, transport=transport)
+                verified = verify_manifest(
+                    manifest, allowed=allowed, transport=transport
+                )
                 return _commit(verified, "manifest")
             except PhotoSkip as exc:
                 log(f"  [x-photo] manifest {day} rejected: {exc}")
@@ -701,7 +946,10 @@ def attach_to_edition(
         last_error = "xAI X search returned no usable photo"
         for row in candidates:
             try:
-                verified = verify_candidate(row, allowed=allowed, transport=transport)
+                index = {row["postId"]: set(row.get("searchMediaKeys") or [])}
+                verified = verify_candidate(
+                    row, allowed=allowed, transport=transport, search_index=index
+                )
                 return _commit(verified, "xai-x-search")
             except PhotoSkip as exc:
                 last_error = str(exc)

@@ -154,6 +154,7 @@ jobs:
 
       - name: Pull a verified X photograph
         if: steps.queue.outputs.pending != 'true' && steps.mode.outputs.mode == 'full' && steps.live.outputs.skip != 'true'
+        continue-on-error: true
         env:
           XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
           GROK_API_KEY: ${{ secrets.GROK_API_KEY }}

@@ -13,6 +13,7 @@ from unittest.mock import patch
 from tools.chiefs_narrative import x_photo
 from tools.tests.test_x_photo import (
     ALT,
+    ANIMATED_WEBP,
     HANDLE,
     MEDIA_URL,
     NOW,
@@ -40,6 +41,11 @@ def _hugo_available() -> bool:
     if shutil.which("hugo"):
         return True
     return (Path.home() / ".local" / "hugo" / "hugo").is_file()
+
+
+def _require_hugo() -> None:
+    if not _hugo_available():
+        raise AssertionError("Hugo is required for X-photo mutation tests")
 
 
 def _load_mutated(tmp: Path, name: str, filename: str, source: str):
@@ -80,14 +86,14 @@ def _kill_hallucinated_media(module) -> str | None:
         {
             "post_url": POST_URL,
             "handle": HANDLE,
-            "media_url": "https://example.test/made-up.jpg",
+            "media_url": "https://example.test/media/made-up.jpg",
             "alt": ALT,
         },
         allowed=module.allowlist_set(root=ROOT),
     )
     if row is not None:
         return None
-    if module.media_url_ok("https://example.test/made-up.jpg"):
+    if module.media_url_ok("https://example.test/media/made-up.jpg"):
         return None
     return "survived: hallucinated or non-pbs media still rejected"
 
@@ -191,6 +197,42 @@ def _kill_og_generated(text: str) -> str | None:
     if "hero-scenes" in text or "preview-fallback.svg" in text:
         return None
     return "survived: og:image still avoids generated art"
+
+
+def _kill_unrelated_media(module) -> str | None:
+    other = "https://pbs.twimg.com/media/GxUnrelated99?format=jpg&name=orig"
+    with tempfile.TemporaryDirectory() as tmp:
+        root = _tree(Path(tmp))
+        fake = {
+            "post_url": POST_URL,
+            "handle": HANDLE,
+            "media_url": other,
+            "alt": ALT,
+        }
+        http = FakeHttp(
+            [
+                (
+                    "POST",
+                    "/responses",
+                    FakeResp(payload=_xai_payload(fake, search_keys=["GxPhotoFixture01"])),
+                )
+            ],
+            post_media_keys=["GxPhotoFixture01"],
+        )
+        narrative = _edition()
+        with patch.object(module.providers, "grok_key", return_value="test-grok-key"):
+            module.attach_to_edition(narrative, root=root, now=NOW, transport=http)
+        if narrative.get("xPhoto"):
+            return None
+        return "survived: unrelated pbs media still rejected"
+
+
+def _kill_animated(module) -> str | None:
+    try:
+        module.decode_photo(ANIMATED_WEBP, "image/webp")
+    except module.PhotoSkip:
+        return "survived: animated WebP still rejected"
+    return None
 
 
 def _kill_workflow_token(text: str) -> str | None:
@@ -321,13 +363,31 @@ MUTANTS = (
         "kind": "text",
         "check": _kill_og_generated,
     },
+    {
+        "name": "unrelated-media-credited",
+        "path": PHOTO_SRC,
+        "old": "    if key in indexed:\n        return\n",
+        "new": "    if True:\n        return\n",
+        "killer": "a pbs image must belong to the credited post",
+        "kind": "python",
+        "check": _kill_unrelated_media,
+    },
+    {
+        "name": "animated-webp-accepted",
+        "path": PHOTO_SRC,
+        "old": "    if bool(getattr(image, \"is_animated\", False)) or n_frames > 1:\n        raise PhotoSkip(f\"rejected animated image ({n_frames} frames); {SKIP_PREFIX}\")\n",
+        "new": "    if False:\n        raise PhotoSkip(f\"rejected animated image ({n_frames} frames); {SKIP_PREFIX}\")\n",
+        "killer": "animated images must stay rejected",
+        "kind": "python",
+        "check": _kill_animated,
+    },
 )
 
 
 class XPhotoMutations(unittest.TestCase):
     def test_named_mutants_are_killed(self):
-        if any(mutant["kind"] == "hugo" for mutant in MUTANTS) and not _hugo_available():
-            self.skipTest("hugo is not on PATH or ~/.local/hugo/hugo")
+        if any(mutant["kind"] == "hugo" for mutant in MUTANTS):
+            _require_hugo()
         survivors = []
         killed = 0
         for mutant in MUTANTS:

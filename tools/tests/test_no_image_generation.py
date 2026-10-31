@@ -105,7 +105,7 @@ class NoImageGenerationGuard(unittest.TestCase):
 
     def test_no_photo_editions_render_without_synthesized_art(self):
         if not Path(HUGO).is_file():
-            self.skipTest("Hugo unavailable")
+            raise AssertionError(f"Hugo is required at {HUGO}")
         current = _edition(slug="2026-10-31-1816")
         current["generatedAt"] = "2026-10-31T18:16:00Z"
         current["record"] = "5-2"
