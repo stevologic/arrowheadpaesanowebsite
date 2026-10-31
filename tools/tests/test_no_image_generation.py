@@ -91,6 +91,18 @@ class NoImageGenerationGuard(unittest.TestCase):
             self.assertNotIn("article-illustration", text, path.name)
             self.assertNotIn("images/hero-scenes", text, path.name)
 
+    def test_x_photo_public_dir_has_only_real_photographs(self):
+        folder = ROOT / "public" / "images" / "x-photo"
+        if not folder.exists():
+            return
+        allowed = {".webp", ".png", ".jpg", ".jpeg"}
+        extras = [
+            path.name
+            for path in folder.iterdir()
+            if path.is_file() and path.suffix.lower() not in allowed
+        ]
+        self.assertEqual(extras, [], extras)
+
     def test_no_photo_editions_render_without_synthesized_art(self):
         if not Path(HUGO).is_file():
             self.skipTest("Hugo unavailable")
