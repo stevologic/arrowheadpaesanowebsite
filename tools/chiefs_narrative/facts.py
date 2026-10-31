@@ -3664,6 +3664,85 @@ def _check_fact_checker_notes(
     return issues
 
 
+def leaked_note_issues(
+    narrative: dict | None, *, changed: bool | None = None
+) -> list[str]:
+    """Fact-checker asides still present in published edition prose."""
+    return _check_fact_checker_notes(
+        edition_text(narrative), narrative, changed=changed
+    )
+
+
+def _strip_leaked_note_text(text: str) -> tuple[str, list[str]]:
+    if not text:
+        return text, []
+    sentences = _split_sentences(text)
+    kept: list[str] = []
+    gone: list[str] = []
+    for sent in sentences:
+        if _is_meta_note_sentence(sent):
+            gone.append(sent.strip())
+            continue
+        kept.append(sent)
+    if not gone:
+        return text, []
+    return " ".join(kept).strip(), gone
+
+
+def _strip_leaked_note_value(value) -> tuple[object, list[str]]:
+    if isinstance(value, str):
+        return _strip_leaked_note_text(value)
+    if isinstance(value, list):
+        out = []
+        gone: list[str] = []
+        for item in value:
+            kept, dropped = _strip_leaked_note_value(item)
+            gone.extend(dropped)
+            if kept in (None, "", [], {}):
+                continue
+            out.append(kept)
+        return out, gone
+    if isinstance(value, dict):
+        out = {}
+        gone: list[str] = []
+        for key, item in value.items():
+            if key in _PROTECTED_KEYS:
+                out[key] = item
+                continue
+            kept, dropped = _strip_leaked_note_value(item)
+            gone.extend(dropped)
+            if kept not in (None, "", [], {}):
+                out[key] = kept
+            elif key in ("lede", "body", "why", "coaching", "note"):
+                out[key] = kept if isinstance(kept, str) else ""
+        return out, gone
+    return value, []
+
+
+def strip_leaked_notes(narrative: dict | None) -> tuple[dict, list[str]]:
+    """Drop leaked fact-checker asides from published copy.
+
+    Detection used to HOLD and leave the sentence on the page. Salvage
+    still skips hold-only leftovers so ESPN drop-count is unchanged;
+    this pass is what removes the process note from the edition.
+    """
+    payload = copy.deepcopy(narrative or {})
+    gone: list[str] = []
+    seen: set[str] = set()
+    for key in _EDITION_KEYS:
+        if key not in payload:
+            continue
+        kept, dropped = _strip_leaked_note_value(payload[key])
+        payload[key] = kept
+        for item in dropped:
+            norm = " ".join(item.lower().split())
+            if norm in seen:
+                continue
+            seen.add(norm)
+            gone.append(item)
+    return payload, gone
+
+
 def _check_record_phrasing(text: str) -> list[str]:
     if not text:
         return []
@@ -8205,7 +8284,9 @@ def sentence_fails_review(
 ) -> bool:
     """True when this sentence, alone, still disagrees with ESPN.
 
-    Hold-only leaks stay in copy. They must not count as a salvage drop.
+    Hold-only leaks are not ESPN salvage drops. ``strip_leaked_notes``
+    removes them from published copy after salvage so drop-count limits
+    stay tied to box-score leftovers.
     """
     text = (sentence or "").strip()
     if not text:
@@ -9604,6 +9685,8 @@ def restore_required_copy(
             if _required_copy_fails(
                 text, last_game, recap, schedule, generated_at
             ):
+                continue
+            if any(_is_meta_note_sentence(sent) for sent in _split_sentences(text)):
                 continue
             payload[key] = val
             restored = True

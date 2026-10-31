@@ -38,6 +38,12 @@ CSS_SRC = ROOT / "public" / "css" / "editorial-layout.css"
 EVIDENCE = ROOT / "docs" / "hero-evidence" / "mutation-report.md"
 
 
+def _hugo_available() -> bool:
+    if shutil.which("hugo"):
+        return True
+    return (Path.home() / ".local" / "hugo" / "hugo").is_file()
+
+
 def _load_mutated_module(tmp: Path, name: str, filename: str, source: str):
     dest = tmp / name
     shutil.copytree(ROOT / "tools" / "chiefs_narrative", dest)
@@ -1094,6 +1100,8 @@ MUTANTS = (
 
 class HeroMutations(unittest.TestCase):
     def test_named_mutants_are_killed(self):
+        if any(mutant["kind"] == "hugo" for mutant in MUTANTS) and not _hugo_available():
+            self.skipTest("hugo is not on PATH or ~/.local/hugo/hugo")
         rows = []
         survivors = []
         for mutant in MUTANTS:

@@ -238,6 +238,103 @@ def _job_step_script(parsed, job: str, *, name=None, step_id=None) -> str:
     return str(_job_step(parsed, job, name=name, step_id=step_id).get("run") or "")
 
 
+_NEEDS_RESULT_RE = re.compile(r"needs\.\w+\.result")
+_STATUS_FN_RE = re.compile(r"(?:always|cancelled|failure|success)\s*\(\s*\)")
+_CANCEL_SAFE_RE = re.compile(r"(?:always\s*\(\s*\)|!\s*cancelled\s*\(\s*\))")
+_TEST_FAILURE_RESULT_RE = re.compile(
+    r"needs\.test\.result\s*==\s*['\"]failure['\"]"
+)
+_STRIP_LEAKS = "facts.strip_leaked_notes"
+_SALVAGE = "_salvage_until_clean"
+
+
+def _job_if_text(job) -> str:
+    if not isinstance(job, dict):
+        return ""
+    raw = job.get("if")
+    if raw is None:
+        return ""
+    return str(raw)
+
+
+def _needs_result_job_ifs(parsed, *, workflow: str = "") -> list[tuple[str, str, str]]:
+    """Job-level if: expressions that read needs.<job>.result."""
+    found: list[tuple[str, str, str]] = []
+    jobs = parsed.get("jobs") if isinstance(parsed, dict) else None
+    if not isinstance(jobs, dict):
+        return found
+    for name, job in jobs.items():
+        text = _job_if_text(job)
+        if _NEEDS_RESULT_RE.search(text):
+            found.append((workflow, str(name), text))
+    return found
+
+
+def _all_needs_result_job_ifs(root: Path | None = None) -> list[tuple[str, str, str]]:
+    found: list[tuple[str, str, str]] = []
+    for path, parsed in check_workflows.load_workflows(root).items():
+        found.extend(_needs_result_job_ifs(parsed, workflow=path.name))
+    return found
+
+
+def _if_has_status_function(text: str) -> bool:
+    """GitHub only skips the implicit success() wrap when a status fn is present."""
+    return _STATUS_FN_RE.search(text) is not None
+
+
+def _update_runs_after_failed_test(text: str) -> bool:
+    """update must evaluate after a red test job: cancel-safe + 'failure' result."""
+    return (
+        _CANCEL_SAFE_RE.search(text) is not None
+        and _TEST_FAILURE_RESULT_RE.search(text) is not None
+    )
+
+
+def _strip_follows_salvage(source: str) -> bool:
+    try:
+        return source.rindex(_SALVAGE) < source.index(_STRIP_LEAKS)
+    except ValueError:
+        return False
+
+
+def _run_fail_held_script(
+    script: str,
+    *,
+    payload: dict | None = None,
+    missing: bool = False,
+    malformed: bool = False,
+) -> subprocess.CompletedProcess:
+    """Execute the workflow hold step against a temp fixture. Never the live index."""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        fixture = root / ".narrative-publish.json"
+        if malformed:
+            fixture.write_text("{not-json\n", encoding="utf-8")
+        elif not missing:
+            fixture.write_text(json.dumps(payload or {}) + "\n", encoding="utf-8")
+        # Minimal env: do not forward host GITHUB_* or tokens into the script.
+        path_var = os.environ.get("PATH", "")
+        python = shutil.which("python") or shutil.which("python3")
+        if python and not shutil.which("python"):
+            shim = root / "bin"
+            shim.mkdir()
+            (shim / "python").symlink_to(python)
+            path_var = f"{shim}{os.pathsep}{path_var}"
+        env = {
+            "PATH": path_var,
+            "HOME": str(root),
+            "LANG": "C",
+            "LC_ALL": "C",
+        }
+        return subprocess.run(
+            ["bash", "-c", script],
+            cwd=root,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+
+
 def _write_job_fixture(
     root: Path,
     run: str,
@@ -4512,51 +4609,65 @@ class FactCheck(unittest.TestCase):
         self.assertNotIn("editorNotes", facts._EDITION_KEYS)
         self.assertFalse(hasattr(facts, "park_editor_notes"))
 
-    def test_detected_leak_holds_and_keeps_published_copy(self):
-        """A leak HOLDs. Copy is not moved or deleted, even as a whole field."""
+    def test_detected_leak_is_stripped_from_published_copy(self):
+        """Detector still flags; strip removes the aside from published copy."""
         sentence = (
             "It is not a claim that a blitz created Williams' interception."
         )
+        keep = "Show heat and drop a lineman on third-and-long."
         narrative = {
             "headline": "Visible headline",
-            "dek": sentence,
+            "dek": f"{sentence} {keep}",
             "generatedAt": "2026-10-29T18:00:00Z",
         }
-        before = copy.deepcopy(narrative)
         issues = facts.check_review(narrative, None, None, changed=True)
         self.assertTrue(
             any("fact-checker note leaked" in item for item in issues), issues
         )
         self.assertTrue(any(sentence in item for item in issues), issues)
-        self.assertEqual(narrative["dek"], before["dek"])
-        self.assertTrue(
-            facts.should_hold_automerge([], narrative, leftover=issues)
-        )
         self.assertTrue(known_errors.is_hold_only_issue(issues[0]))
         self.assertFalse(facts.sentence_fails_review(sentence, None, None))
+        cleaned, stripped = facts.strip_leaked_notes(narrative)
+        self.assertIn(sentence, stripped)
+        self.assertNotIn(sentence, cleaned["dek"])
+        self.assertIn(keep, cleaned["dek"])
+        self.assertFalse(
+            facts.leaked_note_issues(cleaned, changed=True),
+            facts.leaked_note_issues(cleaned, changed=True),
+        )
         body = drop_body.drop_body(
             {"holdAutomerge": True, "leftoverIssues": issues}
         )
         self.assertIn(sentence, body)
         self.assertIn("Leaked fact-checker notes", body)
         self.assertIn("Automerge is held.", body)
-        buf = io.StringIO()
-        generate.emit_held(issues, stream=buf)
-        self.assertIn(sentence, buf.getvalue())
+        restored = facts.restore_required_copy(
+            {"headline": "", "dek": "", "theEdge": ""},
+            {"headline": sentence, "dek": sentence, "theEdge": sentence},
+            last_game=None,
+            recap=None,
+        )
+        self.assertNotEqual(restored["dek"], sentence)
+        self.assertNotIn(sentence, restored["dek"])
 
-    def test_generate_build_keeps_leak_leftover_and_emits_it(self):
-        """A leftover strip after replay would drop the hold signal."""
+    def test_generate_build_strips_leaked_notes_from_published_copy(self):
+        """Behaviour: generate.build() must not publish a leftover process note."""
         sentence = (
             "It is not a claim that a blitz created Williams' interception."
         )
+        keep = "Stay on early downs and keep play-action in the call sheet."
         edge = "Kansas City won 24-10 in Miami and now turns to Denver. " * 20
         story = "The slot job and the right tackle race are the camp questions. " * 20
         state = "The secondary has to settle before the opener in Denver. " * 20
-        plan = "Stay on early downs and keep play-action in the call sheet. " * 20
-        review = "The 24-10 Miami tape is the only box this camp edition cites. " * 20
+        plan = f"{keep} " * 20
+        review = (
+            "The 24-10 Miami tape is the only box this camp edition cites. "
+            + sentence
+            + " "
+        ) * 8
         draft = {
             "headline": "A unique camp clock: Denver, the slot, and the tape",
-            "dek": sentence,
+            "dek": "Camp still points at Denver after the Miami tape.",
             "theEdge": edge,
             "storyline": story,
             "currentState": state,
@@ -4578,19 +4689,86 @@ class FactCheck(unittest.TestCase):
                 with redirect_stdout(buf):
                     result = generate.build("grok", persist_schedule=False)
         leftover = result["leftoverIssues"]
-        self.assertTrue(
+        published = facts.edition_text(result["narrative"])
+        self.assertNotIn(sentence, published)
+        self.assertFalse(
             any("fact-checker note leaked" in item for item in leftover),
             leftover,
         )
-        self.assertTrue(any(sentence in item for item in leftover), leftover)
-        self.assertEqual(result["narrative"]["dek"], sentence)
+        self.assertFalse(facts.leaked_note_issues(result["narrative"], changed=True))
+        self.assertIn("stripped leaked note", buf.getvalue())
         self.assertIn(sentence, buf.getvalue())
+        with patch.object(
+            facts, "strip_leaked_notes", side_effect=lambda payload: (payload, [])
+        ):
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                archive = root / "narrative_archive.json"
+                editions = root / "narrative_editions"
+                editions.mkdir()
+                archive.write_text("[]\n", encoding="utf-8")
+                with HeadlineUniqueness()._generation_stack(
+                    llm=Mock(return_value=(copy.deepcopy(draft), "grok")),
+                    archive=archive,
+                    editions=editions,
+                ):
+                    skipped = generate.build("grok", persist_schedule=False)
+        self.assertIn(sentence, facts.edition_text(skipped["narrative"]))
         self.assertTrue(
-            facts.should_hold_automerge(
-                result.get("droppedSentences") or [],
-                result["narrative"],
-                leftover=leftover,
-            )
+            any(
+                "fact-checker note leaked" in item
+                for item in skipped["leftoverIssues"]
+            ),
+            skipped["leftoverIssues"],
+        )
+
+    def test_generate_build_strips_leaked_notes_when_replay_fixture_missing(self):
+        """Missing replay fixture skips salvage; strip must still run after that branch."""
+        sentence = (
+            "It is not a claim that a blitz created Williams' interception."
+        )
+        keep = "Stay on early downs and keep play-action in the call sheet."
+        edge = "Kansas City won 24-10 in Miami and now turns to Denver. " * 20
+        story = "The slot job and the right tackle race are the camp questions. " * 20
+        state = "The secondary has to settle before the opener in Denver. " * 20
+        plan = f"{keep} " * 20
+        review = (
+            "The 24-10 Miami tape is the only box this camp edition cites. "
+            + sentence
+            + " "
+        ) * 8
+        draft = {
+            "headline": "A unique camp clock: Denver, the slot, and the tape",
+            "dek": "Camp still points at Denver after the Miami tape.",
+            "theEdge": edge,
+            "storyline": story,
+            "currentState": state,
+            "gamePlan": plan,
+            "lastGameReview": {"lede": review},
+            "edition": "2026 Training Camp",
+        }
+        llm = Mock(return_value=(draft, "grok"))
+        buf = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "narrative_archive.json"
+            editions = root / "narrative_editions"
+            editions.mkdir()
+            archive.write_text("[]\n", encoding="utf-8")
+            with HeadlineUniqueness()._generation_stack(
+                llm=llm, archive=archive, editions=editions
+            ):
+                with patch.object(generate, "replay_fixture_missing", return_value=True):
+                    with redirect_stdout(buf):
+                        result = generate.build("grok", persist_schedule=False)
+        leftover = result["leftoverIssues"]
+        published = facts.edition_text(result["narrative"])
+        self.assertNotIn(sentence, published)
+        self.assertIn(generate.REPLAY_NOT_RUN, leftover)
+        self.assertIn("stripped leaked note", buf.getvalue())
+        self.assertFalse(
+            any("fact-checker note leaked" in item for item in leftover),
+            leftover,
         )
 
     def _leak_only_hold_edition(self, *sentences):
@@ -4682,7 +4860,7 @@ class FactCheck(unittest.TestCase):
         self.assertIn("Holding automerge", workflow)
 
     def test_generate_build_emits_leak_notes_to_run_summary(self):
-        """Removing leak_notes emit or emptying it must fail this listing."""
+        """A leftover strip must log the aside and leave it out of published copy."""
         edition, lines = self._leak_only_hold_edition(
             "It is not a claim that a blitz created Williams' interception."
         )
@@ -4711,17 +4889,14 @@ class FactCheck(unittest.TestCase):
                 if "fact-checker note leaked" in item
             ]
             listed = summary.read_text(encoding="utf-8") if summary.is_file() else ""
-        self.assertTrue(leftover, result["leftoverIssues"])
-        self.assertEqual(result["narrative"]["dek"], lines[0])
-        self.assertTrue(
-            facts.should_hold_automerge(
-                result.get("droppedSentences") or [],
-                result["narrative"],
-                leftover=leftover,
-            )
-        )
-        self.assertIn(lines[0], listed)
+        published = facts.edition_text(result["narrative"])
+        self.assertFalse(leftover, leftover)
+        self.assertNotIn(lines[0], published)
+        self.assertNotEqual(result["narrative"]["dek"], lines[0])
+        self.assertFalse(facts.leaked_note_issues(result["narrative"], changed=True))
+        self.assertIn("stripped leaked note", buf.getvalue())
         self.assertIn(lines[0], buf.getvalue())
+        self.assertNotIn(lines[0], listed)
 
     def test_check_edition_fails_red_on_a_held_leak(self):
         """A leaked edition is a red --check-edition, plus the hold label."""
@@ -7167,6 +7342,12 @@ class FactCheck(unittest.TestCase):
             'if [ "$check_rc" -ne 0 ]; then',
             workflow,
         )
+        self.assertIn("Fail held editions", workflow)
+        self.assertIn("held edition; failing the run", workflow)
+        self.assertLess(
+            workflow.index("name: Upload validated data"),
+            workflow.index("name: Fail held editions"),
+        )
         for job_name, step_name, script in _workflow_run_scripts(parsed):
             checked = subprocess.run(["bash", "-n"], input=script, capture_output=True, text=True)
             self.assertEqual(
@@ -7183,6 +7364,148 @@ class FactCheck(unittest.TestCase):
         self.assertIn("gh pr create --draft", update_scripts)
         hold_block = update_scripts[update_scripts.index('if [ "$HOLD_MERGE" = '):]
         self.assertIn("--add-label hold", hold_block)
+
+    def test_job_if_needs_result_always_has_status_function(self):
+        """Every job if: that reads needs.*.result must name a status function.
+
+        GitHub wraps a bare needs.*.result read in implicit success(), so
+        update was SKIPPED whenever test failed. A hold now fails test;
+        without always()/!cancelled()/failure()/success() the held PR
+        never opens. Audit every workflow, not just narrative.yml.
+        """
+        found = _all_needs_result_job_ifs()
+        self.assertTrue(
+            found,
+            "expected at least the narrative.yml update job to read needs.test.result",
+        )
+        missing = [
+            f"{workflow}/{job}: {text}"
+            for workflow, job, text in found
+            if not _if_has_status_function(text)
+        ]
+        self.assertEqual(missing, [], "\n".join(missing))
+
+    def test_update_runs_after_failed_test_job(self):
+        """Held editions fail test; update must still open the PR."""
+        parsed = yaml.safe_load(
+            (
+                Path(__file__).resolve().parents[2]
+                / ".github"
+                / "workflows"
+                / "narrative.yml"
+            ).read_text(encoding="utf-8")
+        )
+        update_if = _job_if_text((parsed.get("jobs") or {}).get("update"))
+        self.assertTrue(_if_has_status_function(update_if), update_if)
+        self.assertTrue(_update_runs_after_failed_test(update_if), update_if)
+
+    @unittest.skipIf(os.name == "nt", "Actions hold step is bash")
+    def test_fail_held_editions_script_executes_against_fixtures(self):
+        """Extract the hold step and run it. Source-text pins miss holdMerge flips."""
+        parsed = yaml.safe_load(
+            (
+                Path(__file__).resolve().parents[2]
+                / ".github"
+                / "workflows"
+                / "narrative.yml"
+            ).read_text(encoding="utf-8")
+        )
+        script = _job_step_script(parsed, "test", name="Fail held editions")
+        self.assertTrue(script.strip(), "Fail held editions step must have a run script")
+        held = _run_fail_held_script(script, payload={"holdMerge": True})
+        self.assertEqual(held.returncode, 1, held.stderr)
+        self.assertIn("held edition; failing the run", held.stderr)
+        clear = _run_fail_held_script(script, payload={"holdMerge": False})
+        self.assertEqual(clear.returncode, 0, clear.stderr)
+        missing = _run_fail_held_script(script, missing=True)
+        self.assertEqual(missing.returncode, 0, missing.stderr)
+        malformed = _run_fail_held_script(script, malformed=True)
+        self.assertEqual(malformed.returncode, 0, malformed.stderr)
+
+    def test_strip_leaked_notes_runs_after_salvage(self):
+        """Ordering: strip is after the last salvage in generate.build."""
+        source = Path(generate.__file__).read_text(encoding="utf-8")
+        self.assertTrue(
+            _strip_follows_salvage(source),
+            "facts.strip_leaked_notes must run after the last _salvage_until_clean",
+        )
+        self.assertLess(
+            source.index("if replay_fixture_missing(narrative):"),
+            source.index(_STRIP_LEAKS),
+        )
+
+    def test_held_pipeline_mutants_are_killed(self):
+        """Named mutants Karen required: holdMerge flip, !cancelled() drop,
+        strip-before-salvage, and the old update if: string.
+        """
+        workflow_path = (
+            Path(__file__).resolve().parents[2]
+            / ".github"
+            / "workflows"
+            / "narrative.yml"
+        )
+        workflow = workflow_path.read_text(encoding="utf-8")
+        generate_src = Path(generate.__file__).read_text(encoding="utf-8")
+        parsed = yaml.safe_load(workflow)
+        hold_script = _job_step_script(parsed, "test", name="Fail held editions")
+        update_if = _job_if_text((parsed.get("jobs") or {}).get("update"))
+
+        rows = []
+        survivors = []
+
+        flipped = hold_script.replace(
+            "if meta.get(\"holdMerge\"):",
+            "if not meta.get(\"holdMerge\"):",
+            1,
+        )
+        self.assertNotEqual(flipped, hold_script)
+        flipped_hold = _run_fail_held_script(flipped, payload={"holdMerge": True})
+        flipped_clear = _run_fail_held_script(flipped, payload={"holdMerge": False})
+        hold_killed = flipped_hold.returncode != 1 or flipped_clear.returncode != 0
+        rows.append(("holdMerge flipped", hold_killed))
+        if not hold_killed:
+            survivors.append("holdMerge flipped")
+
+        no_cancel = re.sub(r"!\s*cancelled\s*\(\s*\)\s*&&\s*", "", update_if, count=1)
+        self.assertNotEqual(no_cancel, update_if)
+        cancel_killed = not _update_runs_after_failed_test(no_cancel)
+        rows.append(("!cancelled() removed", cancel_killed))
+        if not cancel_killed:
+            survivors.append("!cancelled() removed")
+
+        strip_line = "    narrative, stripped_leaks = facts.strip_leaked_notes(narrative)\n"
+        replay_if = "    if replay_fixture_missing(narrative):\n"
+        self.assertIn(strip_line, generate_src)
+        self.assertIn(replay_if, generate_src)
+        moved = generate_src.replace(strip_line, "", 1).replace(
+            replay_if, strip_line + replay_if, 1
+        )
+        self.assertNotEqual(moved, generate_src)
+        strip_killed = not _strip_follows_salvage(moved)
+        rows.append(("strip moved before salvage", strip_killed))
+        if not strip_killed:
+            survivors.append("strip moved before salvage")
+
+        old_if = (
+            "github.event_name != 'pull_request' && "
+            "needs.generate.outputs.changed == 'true' && "
+            "(needs.test.result == 'success' || needs.test.result == 'failure')"
+        )
+        self.assertNotEqual(old_if, update_if)
+        old_killed = (
+            not _if_has_status_function(old_if)
+            or not _update_runs_after_failed_test(old_if)
+        )
+        rows.append(("update if: reverted to the old string", old_killed))
+        if not old_killed:
+            survivors.append("update if: reverted to the old string")
+
+        self.assertEqual(
+            survivors,
+            [],
+            "survivors: " + ", ".join(survivors) + f" rows={rows}",
+        )
+        self.assertEqual(sum(1 for _name, killed in rows if killed), 4)
 
     def test_drop_body_renders_held_and_quiet_salvage(self):
         self.assertEqual(drop_body.drop_body({}), "")
