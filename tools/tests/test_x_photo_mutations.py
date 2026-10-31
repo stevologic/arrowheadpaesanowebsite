@@ -33,6 +33,7 @@ ROOT = Path(__file__).resolve().parents[2]
 PHOTO_SRC = ROOT / "tools" / "chiefs_narrative" / "x_photo.py"
 GENERATE_SRC = ROOT / "tools" / "chiefs_narrative" / "generate.py"
 MEDIA_TMPL = ROOT / "layouts" / "partials" / "nrt-hero-media.html"
+PERSON_TMPL = ROOT / "layouts" / "partials" / "person-media.html"
 BASEOF_TMPL = ROOT / "layouts" / "_default" / "baseof.html"
 WORKFLOW_SRC = ROOT / ".github" / "workflows" / "narrative.yml"
 
@@ -235,6 +236,18 @@ def _kill_animated(module) -> str | None:
     return None
 
 
+def _kill_silhouette_render(text: str) -> str | None:
+    if "person-media--silhouette" in text or "not a photograph" in text.lower():
+        return None
+    return "survived: silhouette render was not restored"
+
+
+def _kill_person_credit(text: str) -> str | None:
+    if "person-media__credit" not in text or "Photo: @{{ $handle }} on X" not in text:
+        return None
+    return "survived: person-media credit is still present"
+
+
 def _kill_workflow_token(text: str) -> str | None:
     if "X_BEARER_TOKEN" in text or "secrets.X_BEARER_TOKEN" in text:
         return None
@@ -381,6 +394,34 @@ MUTANTS = (
         "kind": "python",
         "check": _kill_animated,
     },
+    {
+        "name": "silhouette-render-restored",
+        "path": PERSON_TMPL,
+        "old": '{{- if $ok -}}\n<span class="person-media" data-person-photo="x-photo">',
+        "new": (
+            "{{- if not $ok -}}\n"
+            '<span class="person-media person-media--silhouette" role="img" '
+            'aria-label="{{ $name }} — illustrative silhouette, not a photograph">'
+            '<svg viewBox="0 0 80 80"></svg></span>\n'
+            "{{- else if $ok -}}\n"
+            '<span class="person-media" data-person-photo="x-photo">'
+        ),
+        "killer": "person-media must not restore a silhouette render",
+        "kind": "text",
+        "check": _kill_silhouette_render,
+    },
+    {
+        "name": "person-credit-dropped",
+        "path": PERSON_TMPL,
+        "old": (
+            '  <a class="person-media__credit" href="{{ $postUrl }}" '
+            'target="_blank" rel="noopener">Photo: @{{ $handle }} on X</a>\n'
+        ),
+        "new": "",
+        "killer": "a credited X photo must keep its source-post credit",
+        "kind": "text",
+        "check": _kill_person_credit,
+    },
 )
 
 
@@ -413,7 +454,7 @@ class XPhotoMutations(unittest.TestCase):
             else:
                 survivors.append(f"{mutant['name']}: {reason}")
         self.assertEqual(survivors, [], json.dumps(survivors, indent=2))
-        self.assertGreaterEqual(killed, 11)
+        self.assertGreaterEqual(killed, 16)
 
     def test_live_invariants(self):
         src = PHOTO_SRC.read_text(encoding="utf-8")
@@ -436,3 +477,9 @@ class XPhotoMutations(unittest.TestCase):
         baseof = BASEOF_TMPL.read_text(encoding="utf-8")
         self.assertIn('"og.png" | absURL', baseof)
         self.assertNotIn("hero-scenes", baseof)
+        person = PERSON_TMPL.read_text(encoding="utf-8")
+        self.assertIn("Photo: @{{ $handle }} on X", person)
+        self.assertIn("person-media__credit", person)
+        self.assertNotIn("person-media--silhouette", person)
+        self.assertNotIn("not a photograph", person.lower())
+        self.assertNotIn("<svg", person)

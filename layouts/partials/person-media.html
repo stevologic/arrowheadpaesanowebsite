@@ -1,11 +1,27 @@
-{{- $name := .name | default "Player" -}}
-{{- $person := index (.site.Data.people_media.people | default dict) ($name | urlize) -}}
-{{- $photo := false -}}
-{{- with $person -}}
-  {{- $r := .rights | default dict -}}
-  {{- $path := printf "public/%s" (.image | default "missing") -}}
-  {{- if and (eq .name $name) (eq $r.status "approved") (eq $r.commercialUse true) $r.rightsholder $r.license $r.attribution (findRE `^\d{4}-\d{2}-\d{2}$` ($r.reviewedAt | default "")) (findRE `^\d{4}-\d{2}-\d{2}$` ($r.expiresAt | default "")) (le ($r.reviewedAt | default "9999") (now.Format "2006-01-02")) (ge ($r.expiresAt | default "0000") (now.Format "2006-01-02")) (findRE `^docs/media-rights/[A-Za-z0-9_-]+\.md$` ($r.evidence | default "")) (fileExists ($r.evidence | default "missing")) (findRE `^images/people/[A-Za-z0-9_-]+\.(?:webp|png|jpe?g)$` (.image | default "")) (fileExists $path) -}}
-    {{- if eq (sha256 (readFile $path)) .sha256 }}{{ $photo = . }}{{ end -}}
+{{- /* Credited X photograph for a named person, or nothing. */ -}}
+{{- $name := .name | default "" -}}
+{{- $n := .n | default dict -}}
+{{- $bundle := index .site.Data "x-photo" | default dict -}}
+{{- $file := index $bundle "people" | default dict -}}
+{{- $people := index $file "people" | default dict -}}
+{{- $row := index $people ($name | urlize) -}}
+{{- if not $row -}}
+  {{- $xp := $n.xPhoto | default dict -}}
+  {{- $askedId := .postId | default "" -}}
+  {{- if and $name $askedId $xp.postId (eq $xp.postId $askedId) -}}
+    {{- $row = $xp -}}
+  {{- else if and $name $xp.alt (ge (len $name) 5) (in ($xp.alt | lower) ($name | lower)) -}}
+    {{- $row = $xp -}}
   {{- end -}}
 {{- end -}}
-{{ if $photo }}<span class="person-media"><img src="{{ $photo.image | relURL }}" alt="{{ $name }}" width="64" height="64" loading="lazy" decoding="async" /><span class="person-media__credit">{{ $photo.rights.attribution }}</span></span>{{ end }}
+{{- $asset := $row.asset | default "" -}}
+{{- $handle := $row.handle | default "" -}}
+{{- $postId := $row.postId | default "" -}}
+{{- $postUrl := $row.postUrl | default "" -}}
+{{- $ok := and $name $postId $handle $postUrl $asset (findRE `^images/x-photo/[A-Za-z0-9._-]+\.(?:webp|png|jpe?g)$` $asset) (not (in $asset "..")) (findRE `^https://x\.com/[A-Za-z0-9_]+/status/[0-9]+$` $postUrl) (fileExists (printf "public/%s" $asset)) -}}
+{{- if $ok -}}
+<span class="person-media" data-person-photo="x-photo">
+  <img src="{{ $asset | relURL }}" alt="{{ $row.alt | default $name }}" width="64" height="64" loading="lazy" decoding="async" />
+  <a class="person-media__credit" href="{{ $postUrl }}" target="_blank" rel="noopener">Photo: @{{ $handle }} on X</a>
+</span>
+{{- end -}}

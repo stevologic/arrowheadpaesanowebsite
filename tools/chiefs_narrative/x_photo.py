@@ -51,7 +51,6 @@ MEDIA_PATH_RE = re.compile(r"^/media/([A-Za-z0-9_-]+)(?:\.[A-Za-z0-9]+)?$")
 MEDIA_KEY_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 HANDLE_RE = re.compile(r"^[A-Za-z0-9_]{1,15}$")
 SYNDICATION_ENDPOINT = "https://cdn.syndication.twimg.com/tweet-result"
-FIXTWEET_ENDPOINT = "https://api.fxtwitter.com"
 ASSET_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+\.(?:webp|png|jpe?g)$")
 REJECTED_MEDIA_HINTS = (
     "/tweet_video",
@@ -529,31 +528,13 @@ def fetch_public_media_keys(
     *,
     transport,
 ) -> set[str]:
-    """Free public read of the post (syndication, then FixTweet)."""
+    """Free public read of the post via syndication only. Fail closed."""
     keys: set[str] = set()
     try:
         resp = transport.request(
             "GET",
             SYNDICATION_ENDPOINT,
             params={"id": post_id, "lang": "en", "token": "0"},
-            timeout=HTTP_TIMEOUT,
-        )
-    except (requests.RequestException, OSError, TypeError, ValueError, AssertionError):
-        resp = None
-    status = getattr(resp, "status_code", 0) if resp is not None else 0
-    if status == 200:
-        try:
-            payload = resp.json()
-        except (ValueError, TypeError, AttributeError):
-            payload = None
-        if isinstance(payload, dict):
-            keys |= media_keys_from_public_payload(payload, post_id)
-    if keys:
-        return keys
-    try:
-        resp = transport.request(
-            "GET",
-            f"{FIXTWEET_ENDPOINT}/{handle}/status/{post_id}",
             timeout=HTTP_TIMEOUT,
         )
     except (requests.RequestException, OSError, TypeError, ValueError, AssertionError):

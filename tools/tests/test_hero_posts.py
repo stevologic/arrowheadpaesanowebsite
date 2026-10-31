@@ -413,10 +413,11 @@ class HeroPostAllowlist(unittest.TestCase):
         self.assertNotIn("filter: blur(", css)
 
 
-@unittest.skipUnless(Path(HUGO).is_file(), "Hugo unavailable")
 class HeroPostRendering(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        if not Path(HUGO).is_file():
+            raise AssertionError(f"Hugo is required at {HUGO}")
         fixtures = [
             _week8_fixture(),
             {

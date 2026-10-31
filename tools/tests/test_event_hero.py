@@ -11,10 +11,11 @@ ROOT = Path(__file__).resolve().parents[2]
 HUGO = shutil.which("hugo") or str(Path.home() / ".local" / "hugo" / "hugo")
 
 
-@unittest.skipUnless(Path(HUGO).is_file(), "Hugo unavailable")
 class EventHeroRendering(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        if not Path(HUGO).is_file():
+            raise AssertionError(f"Hugo is required at {HUGO}")
         cls.temp = tempfile.TemporaryDirectory()
         source = Path(cls.temp.name) / "source"
         source.mkdir()
@@ -84,6 +85,10 @@ class EventHeroRendering(unittest.TestCase):
             encoding="utf-8",
         )
         (source / "data" / "people_media.json").write_text('{"people":{}}', encoding="utf-8")
+        (source / "data" / "x-photo").mkdir(parents=True, exist_ok=True)
+        (source / "data" / "x-photo" / "people.json").write_text(
+            '{"schemaVersion":1,"people":{}}', encoding="utf-8"
+        )
         (source / "public" / "images").mkdir(parents=True)
         cls.dist = Path(cls.temp.name) / "site"
         result = subprocess.run(

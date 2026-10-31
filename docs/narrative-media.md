@@ -69,13 +69,13 @@ from `data/hero_media.json`; the template also checks scope, permission dates
 and asset hash at build time. Historic signed narrative JSON is not rewritten
 to add heroes.
 
-People thumbnails use the same review principle in `data/people_media.json`.
-No new player portraits are initially licensed, so roster entries, matchup
-panels and proposed playmaker roles render a name with no image unless a
-reviewed photograph exists. Each future portrait needs exact identity,
-rightsholder, commercial permission, evidence and file hash. A roster move is
-not evidence of playing time; a name on a play diagram identifies a proposed
-teaching role, not tracked participation.
+People thumbnails follow Stephen's rule: a real X photograph credited to its
+source post, or no image. `data/x-photo/people.json` is the optional per-person
+catalog. A roster, matchup, or playmaker name renders a thumbnail only when
+that catalog (or the edition `xPhoto` for the same post / named subject)
+verifies. Drawn silhouettes and stand-in captions are not published. A roster
+move is not evidence of playing time; a name on a play diagram identifies a
+proposed teaching role, not tracked participation.
 
 The old general Chiefs X timeline is removed. Requested press-conference
 players and existing individual-source links remain separate.

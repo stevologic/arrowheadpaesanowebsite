@@ -46,15 +46,15 @@
 .nrt-hero-media__caption strong { font-size: 17px; }
 .nrt-hero-media__label { color: #ffcf53; text-transform: uppercase; font-size: 10px; letter-spacing: .08em; }
 .nrt-hero-media__caption a { color: #ffcf53; }
-.person-media { display: inline-flex; flex: 0 0 48px; width: 48px; height: 48px; position: relative; border-radius: 50%; overflow: hidden; background: #e7d9bd; color: #81664c; vertical-align: middle; }
-.person-media img,.person-media svg { display: block; width: 100%; height: 100%; object-fit: cover; fill: currentColor; }
-.person-media__credit { position: absolute; bottom: 0; background: #fff; color: #111; font-size: 8px; }
+.person-media { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; width: auto; height: auto; vertical-align: middle; }
+.person-media img { display: block; width: 48px; height: 48px; object-fit: contain; border-radius: 4px; }
+.person-media__credit { font-size: 8px; line-height: 1.2; text-align: center; color: inherit; }
 .nrt-matchups__list { grid-template-columns: repeat(auto-fit,minmax(min(100%,330px),1fr)); }
 .nrt-matchup { padding: 16px; }
 .nrt-matchup__cols { grid-template-columns: minmax(0,1fr) 22px minmax(0,1fr); align-items: stretch; gap: 8px; }
 .nrt-matchup__side { padding: 12px 9px; border-radius: 10px; border-top: 4px solid #173d54; background: #edf2f3; min-width: 0; }
 .nrt-matchup__side--kc { border-color: #b51231; background: #fff0ef; }
-.nrt-matchup__side .person-media { display: flex; margin: 0 0 8px; }
+.nrt-matchup__side .person-media { display: flex; flex-direction: column; margin: 0 0 8px; }
 .nrt-matchup__side strong { display: block; font: 700 15px/1.35 var(--serif); }
 .nrt-matchup__side > span:not(.person-media) { font-size: 10px; color: #57525b; }
 .nrt-matchup__vs { display: flex; align-items: center; }
@@ -67,7 +67,8 @@
 .nrt-spot-card p { font-size: 15px; line-height: 1.55; }
 .playmakers { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #ffffff35; }
 .playmaker { display: flex; align-items: center; gap: 6px; min-width: 0; font: 11px/1.35 var(--grotesk); }
-.playmaker .person-media { width: 30px; height: 30px; flex-basis: 30px; }
+.playmaker .person-media { width: auto; height: auto; flex-basis: auto; }
+.playmaker .person-media img { width: 30px; height: 30px; }
 .playmaker strong,.playmaker small { display: block; max-width: 150px; }
 .playmaker small { color: #d0c4b5; font-size: 10px; }
 .roster-people { display: flex; flex-wrap: wrap; gap: 10px; }

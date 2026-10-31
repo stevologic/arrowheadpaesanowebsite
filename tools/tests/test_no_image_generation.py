@@ -26,6 +26,8 @@ FORBIDDEN = (
     "nrt-hero-scene",
     "images/hero-scenes",
     "article-illustration",
+    "person-media--silhouette",
+    "not a photograph",
 )
 REMOVED_PATHS = (
     ROOT / "tools" / "chiefs_narrative" / "hero_scenes.py",
@@ -90,6 +92,8 @@ class NoImageGenerationGuard(unittest.TestCase):
             self.assertNotIn("nrt-event-illustration.html", text, path.name)
             self.assertNotIn("article-illustration", text, path.name)
             self.assertNotIn("images/hero-scenes", text, path.name)
+            self.assertNotIn("person-media--silhouette", text, path.name)
+            self.assertNotIn("not a photograph", text.lower(), path.name)
 
     def test_x_photo_public_dir_has_only_real_photographs(self):
         folder = ROOT / "public" / "images" / "x-photo"

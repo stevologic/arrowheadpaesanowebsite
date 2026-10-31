@@ -179,7 +179,6 @@ class FakeHttp:
         if method.upper() == "GET" and (
             "syndication.twimg.com" in url
             or "tweet-result" in url
-            or "fxtwitter.com" in url
         ):
             post_id = str(params.get("id") or "")
             if not post_id:
@@ -536,6 +535,53 @@ class PhotoRules(unittest.TestCase):
                 row, allowed=x_photo.allowlist_set(root=ROOT)
             )
         )
+
+    def test_photo_module_is_syndication_only(self):
+        src = (ROOT / "tools" / "chiefs_narrative" / "x_photo.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("cdn.syndication.twimg.com/tweet-result", src)
+        self.assertNotIn("fxtwitter", src)
+        self.assertNotIn("FIXTWEET", src)
+        self.assertNotIn("api.fxtwitter.com", src)
+
+    def test_syndication_miss_fails_closed(self):
+        other = "https://pbs.twimg.com/media/GxUnrelated99?format=jpg&name=orig"
+        with tempfile.TemporaryDirectory() as tmp:
+            root = _tree(Path(tmp))
+            fake = {
+                "post_url": POST_URL,
+                "handle": HANDLE,
+                "media_url": other,
+                "alt": ALT,
+            }
+            http = FakeHttp(
+                [
+                    (
+                        "POST",
+                        "/responses",
+                        FakeResp(payload=_xai_payload(fake, search_keys=[])),
+                    ),
+                    ("GET", "cdn.syndication.twimg.com", FakeResp(status=404)),
+                ],
+                post_media_keys=[],
+            )
+            narrative = _edition()
+            log = _attach(narrative, http, root)
+            self.assertEqual(narrative["xPhoto"], {})
+            self.assertTrue(
+                any(
+                    "syndication.twimg.com" in url
+                    for method, url, _kwargs in http.calls
+                    if method == "GET"
+                ),
+                http.calls,
+            )
+            self.assertFalse(
+                any("fxtwitter" in url for _method, url, _kwargs in http.calls),
+                http.calls,
+            )
+            self.assertIn("media key GxUnrelated99 is not on credited post", log)
 
     def test_rejects_media_that_does_not_belong_to_credited_post(self):
         other = "https://pbs.twimg.com/media/GxUnrelated99?format=jpg&name=orig"
@@ -939,6 +985,231 @@ class PhotoRender(unittest.TestCase):
         self.assertIn("/og.png", empty_page)
         self.assertNotIn("generated.png", empty_page)
         self.assertNotIn("images/narrative/", empty_page)
+
+
+def render_edition_pages(fixtures, *, people=None, extra_public=None):
+    """Render full narrative-edition pages through a temporary Hugo site."""
+    hugo = _require_hugo()
+    temp = tempfile.TemporaryDirectory()
+    source = Path(temp.name) / "source"
+    source.mkdir()
+    shutil.copytree(ROOT / "layouts" / "partials", source / "layouts" / "partials")
+    (source / "data" / "x-photo").mkdir(parents=True)
+    (source / "data" / "x-photo" / "people.json").write_text(
+        json.dumps(
+            people if people is not None else {"schemaVersion": 1, "people": {}}
+        ),
+        encoding="utf-8",
+    )
+    (source / "data" / "people_media.json").write_text(
+        '{"schemaVersion":1,"people":{}}', encoding="utf-8"
+    )
+    (source / "data" / "hero_media.json").write_text(
+        '{"fallback":{},"items":{}}', encoding="utf-8"
+    )
+    (source / "data" / "hero_posts.json").write_text(
+        json.dumps(
+            {"schemaVersion": 1, "allowlist": [], "pins": {}, "catalog": []}
+        ),
+        encoding="utf-8",
+    )
+    schedule = ROOT / "data" / "schedule_2026.json"
+    if schedule.is_file():
+        shutil.copyfile(schedule, source / "data" / "schedule_2026.json")
+    for rel, data in (extra_public or {}).items():
+        dest = source / "public" / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(data)
+    (source / "hugo.yaml").write_text(
+        "baseURL: https://example.test/\nstaticDir:\n  - public\n",
+        encoding="utf-8",
+    )
+    (source / "data" / "fixtures.json").write_text(
+        json.dumps(fixtures), encoding="utf-8"
+    )
+    (source / "layouts" / "index.html").write_text(
+        '{{ range .Site.Data.fixtures }}<section data-edition-slug="{{ .slug }}">'
+        '{{ partial "narrative-edition.html" (dict "n" . "site" $.Site "isCurrent" true) }}'
+        "</section>{{ end }}\n",
+        encoding="utf-8",
+    )
+    dist = Path(temp.name) / "site"
+    result = subprocess.run(
+        [hugo, "--minify", "--destination", str(dist)],
+        cwd=source,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode:
+        temp.cleanup()
+        raise AssertionError(result.stdout + result.stderr)
+    page = (dist / "index.html").read_text(encoding="utf-8")
+    return temp, page
+
+
+def _people_edition(**extra) -> dict:
+    row = _edition()
+    row["generatedAt"] = "2026-10-31T18:15:00Z"
+    row["record"] = "5-2"
+    row["heroMediaId"] = "none"
+    row["injuries"] = [
+        {"player": "Patrick Mahomes", "status": "active", "note": "", "source": ""}
+    ]
+    row["matchups"] = [
+        {
+            "unit": "Quarterback",
+            "chiefs": "Patrick Mahomes",
+            "opponent": "Bo Nix",
+            "edge": "KC",
+        }
+    ]
+    row["personnel"] = [
+        {
+            "move": "Active",
+            "detail": "Listed",
+            "players": ["A 5-2 offense…", "Chris Jones"],
+        }
+    ]
+    row["xsandos"] = [
+        {
+            "concept": "fixture",
+            "title": "Fixture concept",
+            "side": "offense",
+            "diagram": "images/playbook/fixture.svg",
+            "playmakers": [{"name": "Rashee Rice", "role": "WR"}],
+        }
+    ]
+    row["pressConferenceLinks"] = [
+        {
+            "speaker": "Patrick Mahomes",
+            "url": "https://example.test/video",
+            "title": "Fixture interview",
+            "dateLabel": "Friday",
+        }
+    ]
+    row.update(extra)
+    return row
+
+
+class PersonMediaRender(unittest.TestCase):
+    def test_catalog_photo_is_credited_and_miss_renders_nothing(self):
+        _require_hugo()
+        people = {
+            "schemaVersion": 1,
+            "people": {
+                "patrick-mahomes": {
+                    "asset": "images/x-photo/mahomes.png",
+                    "handle": HANDLE,
+                    "postId": POST_ID,
+                    "postUrl": POST_URL,
+                    "alt": ALT,
+                }
+            },
+        }
+        hit = _people_edition()
+        miss = _people_edition(slug="2026-10-31-1816")
+        miss["injuries"] = [{"player": "George Karlaftis", "status": "active"}]
+        miss["matchups"] = [
+            {
+                "unit": "Edge",
+                "chiefs": "George Karlaftis",
+                "opponent": "Garett Bolles",
+                "edge": "KC",
+            }
+        ]
+        miss["pressConferenceLinks"] = []
+        miss["xsandos"] = []
+        temp, page = render_edition_pages(
+            [hit, miss],
+            people=people,
+            extra_public={"images/x-photo/mahomes.png": PNG},
+        )
+        try:
+            plain = page.replace('"', "")
+            self.assertIn("data-person-photo=x-photo", plain)
+            self.assertIn(f"Photo: @{HANDLE} on X", page)
+            self.assertIn(POST_URL, page)
+            self.assertNotIn("person-media--silhouette", page)
+            self.assertNotIn("not a photograph", page.lower())
+            self.assertNotIn("<svg", page)
+            self.assertIn("George Karlaftis", page)
+            self.assertNotIn("illustrative silhouette", page)
+        finally:
+            temp.cleanup()
+
+    def test_edition_xphoto_matches_person_name_or_post(self):
+        _require_hugo()
+        named = _people_edition()
+        named["xPhoto"] = {
+            "postId": POST_ID,
+            "handle": HANDLE,
+            "postUrl": POST_URL,
+            "asset": "images/x-photo/mahomes.png",
+            "alt": ALT,
+        }
+        posted = _people_edition(slug="2026-10-31-1817")
+        posted["pressConferenceLinks"] = [
+            {
+                "speaker": "Andy Reid",
+                "url": "https://example.test/video",
+                "title": "Fixture interview",
+                "dateLabel": "Friday",
+                "postId": POST_ID,
+            }
+        ]
+        posted["xPhoto"] = {
+            "postId": POST_ID,
+            "handle": HANDLE,
+            "postUrl": POST_URL,
+            "asset": "images/x-photo/mahomes.png",
+            "alt": "Chiefs press conference",
+        }
+        blank = _people_edition(slug="2026-10-31-1818")
+        blank["xPhoto"] = {}
+        temp, page = render_edition_pages(
+            [named, posted, blank],
+            extra_public={"images/x-photo/mahomes.png": PNG},
+        )
+        try:
+            plain = page.replace('"', "")
+            self.assertIn(f"Photo: @{HANDLE} on X", page)
+            self.assertIn("data-person-photo=x-photo", plain)
+            self.assertIn("Andy Reid", page)
+            self.assertNotIn("person-media--silhouette", page)
+            self.assertNotIn("not a photograph", page.lower())
+        finally:
+            temp.cleanup()
+
+    def test_x_photo_renders_when_hero_media_id_is_none(self):
+        _require_hugo()
+        photo = _people_edition()
+        photo["heroMediaId"] = "none"
+        photo["xPhoto"] = {
+            "postId": POST_ID,
+            "handle": HANDLE,
+            "postUrl": POST_URL,
+            "asset": "images/x-photo/2026-10-31-1815.png",
+            "alt": ALT,
+            "width": 80,
+            "height": 80,
+        }
+        empty = _people_edition(slug="2026-10-31-1816")
+        empty["heroMediaId"] = "none"
+        empty["xPhoto"] = {}
+        temp, page = render_edition_pages(
+            [photo, empty],
+            extra_public={"images/x-photo/2026-10-31-1815.png": PNG},
+        )
+        try:
+            plain = page.replace('"', "")
+            self.assertIn("data-hero-kind=x-photo", plain)
+            self.assertIn(f"Photo: @{HANDLE} on X", page)
+            self.assertEqual(plain.count("data-hero-kind=x-photo"), 1)
+            self.assertEqual(plain.count("data-edition-slug="), 2)
+            self.assertNotIn("person-media--silhouette", page)
+            self.assertNotIn("not a photograph", page.lower())
+        finally:
+            temp.cleanup()
 
 
 if __name__ == "__main__":
