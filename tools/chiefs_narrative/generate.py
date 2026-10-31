@@ -9,6 +9,7 @@ Run it directly::
     python -m tools.chiefs_narrative.generate --diagrams-only  # SVG from JSON
     python -m tools.chiefs_narrative.generate --check-edition  # review + SVG gate
     python -m tools.chiefs_narrative.generate --gate-replay  # hold-only leftover vs refuse real issues
+    python -m tools.chiefs_narrative.generate --pull-photo  # verified X photo; never fails the edition
     python -m tools.chiefs_narrative.generate --dry-run  # print, don't write
 
 Environment (all optional):
@@ -30,7 +31,7 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from . import collect, config, diagrams, facts, known_errors, odds, offline, phase as phase_mod
-from . import hero_media, hero_posts, locker_room, press_conferences, prompts, providers, review_gate, schema, x_embeds
+from . import hero_media, hero_posts, locker_room, press_conferences, prompts, providers, review_gate, schema, x_embeds, x_photo
 
 _CT = ZoneInfo("America/Chicago")
 
@@ -1720,7 +1721,15 @@ def main(argv=None) -> int:
         action="store_true",
         help="fail on hard archive leftovers; print held and exit 0 for hold-only",
     )
+    parser.add_argument(
+        "--pull-photo",
+        action="store_true",
+        help="attach a verified X photograph to data/narrative.json; always exit 0",
+    )
     args = parser.parse_args(argv)
+
+    if args.pull_photo:
+        return x_photo.pull_published()
 
     if args.schedule_only:
         games = collect.refresh_schedule()
@@ -1879,6 +1888,9 @@ def main(argv=None) -> int:
         encoding="utf-8",
     )
     _write_edition_payload(narrative)
+    x_photo.attach_to_edition(narrative)
+    if narrative.get("xPhoto"):
+        _write_edition_payload(narrative)
     hero_posts.attach_sidecar(narrative)
     _write_archive(narrative)
     _write_schedule(result["schedule"])

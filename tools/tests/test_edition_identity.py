@@ -298,9 +298,16 @@ class EditionAllowListTests(unittest.TestCase):
             "data/wire.json",
             "data/schedule_2026.json",
             "data/hero_posts.json",
+            "data/x-photo",
             f"public/images/{live}",
+            "public/images/x-photo",
         }
-        dir_ok = {f"data/{live}_editions", f"public/images/{live}"}
+        dir_ok = {
+            f"data/{live}_editions",
+            "data/x-photo",
+            f"public/images/{live}",
+            "public/images/x-photo",
+        }
         for path in staged:
             self.assertIn(path, workflow)
             posix = Path(path)

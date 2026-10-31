@@ -1,6 +1,10 @@
 .nrt-hero-media { margin: 12px 0 20px; overflow: hidden; border-radius: 12px; background: #171416; border: 1px solid #514735; }
 .nrt-hero-media__visual { height: 240px; background: #171416; }
 .nrt-hero-media__visual img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.nrt-hero-media[data-hero-kind="x-photo"] { display: block; }
+.nrt-hero-media[data-hero-kind="x-photo"] .nrt-hero-media__visual { height: auto; max-height: 420px; }
+.nrt-hero-media[data-hero-kind="x-photo"] .nrt-hero-media__visual img { object-fit: contain; }
+.nrt-hero-media__credit { color: #ffcf53; }
 .nrt-hero-media[data-hero-kind="x-embed"] { display: block; overflow: visible; --nrt-embed-reserve: 640px; }
 .nrt-hero-media[data-hero-kind="x-embed"] .nrt-hero-media__visual--embed {
   position: relative;
@@ -157,6 +161,7 @@ html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fall
 .nrt-nextgame__more summary:focus-visible { outline: 2px solid #ffcf53; }
 @media (max-width: 600px) {
   .nrt-hero-media[data-hero-kind="article-illustration"],
+  .nrt-hero-media[data-hero-kind="x-photo"],
   .nrt-hero-media[data-hero-kind="x-embed"] { display: block; }
   .nrt-hero-media[data-hero-kind="article-illustration"] .nrt-hero-media__visual { height: 135px; }
   .nrt-hero-media[data-hero-kind="x-embed"] { --nrt-embed-reserve: 560px; }

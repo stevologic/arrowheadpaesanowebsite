@@ -16,9 +16,10 @@ class HeroRights(unittest.TestCase):
         result=subprocess.run(['node','--test','tools/tests/playbook-3d.test.cjs'],cwd=root,capture_output=True,text=True)
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)
     def test_writer_cannot_grant_itself_image_rights(self):
-        n=schema.normalize({'heroMediaId':'invented','heroMediaVerifiedAt':'2099','hero':{'license':'approved'}},phase={},meta={})
+        n=schema.normalize({'heroMediaId':'invented','heroMediaVerifiedAt':'2099','hero':{'license':'approved'},'xPhoto':{'mediaUrl':'https://example.test/fake.jpg'}},phase={},meta={})
         self.assertEqual(n['heroMediaId'],'article-illustration')
         self.assertEqual(n['heroMediaVerifiedAt'],'')
+        self.assertEqual(n['xPhoto'],{})
 
     def test_permission_scope_expiry_and_exact_bytes(self):
         with tempfile.TemporaryDirectory() as d:

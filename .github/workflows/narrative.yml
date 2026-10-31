@@ -152,6 +152,18 @@ jobs:
         run: |
           python -m tools.chiefs_narrative.generate
 
+      - name: Pull a verified X photograph
+        if: steps.queue.outputs.pending != 'true' && steps.mode.outputs.mode == 'full' && steps.live.outputs.skip != 'true'
+        env:
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          GROK_API_KEY: ${{ secrets.GROK_API_KEY }}
+          GROK_MODEL: grok-4.7
+          XAI_BASE_URL: ${{ vars.XAI_BASE_URL }}
+          PYTHONUNBUFFERED: "1"
+        run: |
+          # Always exit 0. A missing or rejected photo must not hold the edition.
+          python -m tools.chiefs_narrative.generate --pull-photo
+
       - name: Detect changes
         id: diff
         run: |
@@ -168,7 +180,9 @@ jobs:
             data/wire.json \
             data/schedule_2026.json \
             data/hero_posts.json \
-            public/images/narrative
+            data/x-photo \
+            public/images/narrative \
+            public/images/x-photo
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "No slate or narrative changes."
@@ -190,6 +204,7 @@ jobs:
             data/wire.json
             data/schedule_2026.json
             public/images/narrative
+            public/images/x-photo
 
   test:
     needs: generate
@@ -320,6 +335,7 @@ jobs:
             data/wire.json
             data/schedule_2026.json
             public/images/narrative
+            public/images/x-photo
             .narrative-publish.json
 
   update:
@@ -386,7 +402,9 @@ jobs:
             data/wire.json \
             data/schedule_2026.json \
             data/hero_posts.json \
-            public/images/narrative
+            data/x-photo \
+            public/images/narrative \
+            public/images/x-photo
           git checkout -b "$BRANCH"
 
           HOLD_MERGE="false"

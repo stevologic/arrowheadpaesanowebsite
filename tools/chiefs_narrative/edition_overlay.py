@@ -30,7 +30,10 @@ ALLOWED_FILES = {
     "data/schedule_2026.json",
     "data/hero_posts.json",
 }
-ALLOWED_DIRS = ("data/narrative_editions/",)
+ALLOWED_DIRS = ("data/narrative_editions/", "data/x-photo/")
+X_PHOTO_ASSET = re.compile(
+    r"^public/images/x-photo/[A-Za-z0-9._-]+\.(?:webp|png|jpe?g)$"
+)
 NARRATIVE_SLUG_XO = re.compile(
     r"^public/images/narrative/(?P<slug>\d{4}-\d{2}-\d{2}-\d{4})/"
     r"xo-(?P<concept>[A-Za-z0-9_]+)\.svg$"
@@ -154,6 +157,8 @@ def is_allowed_rel(
 ) -> bool:
     posix = rel.as_posix()
     if posix in ALLOWED_FILES:
+        return True
+    if X_PHOTO_ASSET.fullmatch(posix):
         return True
     if any(posix.startswith(prefix) for prefix in ALLOWED_DIRS):
         return Path(posix).suffix == ".json"

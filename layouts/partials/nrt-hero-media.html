@@ -1,6 +1,24 @@
 {{- $catalog := .site.Data.hero_media -}}
 {{- $media := $catalog.fallback -}}
 {{- $licensed := false -}}
+{{- $photo := .n.xPhoto | default dict -}}
+{{- $photoAsset := $photo.asset | default "" -}}
+{{- $photoHandle := $photo.handle | default "" -}}
+{{- $photoId := $photo.postId | default "" -}}
+{{- $photoUrl := $photo.postUrl | default "" -}}
+{{- $photoOk := and $photoId $photoHandle $photoUrl $photoAsset (findRE `^images/x-photo/[A-Za-z0-9._-]+\.(?:webp|png|jpe?g)$` $photoAsset) (not (in $photoAsset "..")) (findRE `^https://x\.com/[A-Za-z0-9_]+/status/[0-9]+$` $photoUrl) -}}
+{{- if and $photoOk (fileExists (printf "public/%s" $photoAsset)) -}}
+<figure class="nrt-hero-media" data-hero-kind="x-photo" data-hero-post-id="{{ $photoId }}">
+  <div class="nrt-hero-media__visual">
+    <img src="{{ $photoAsset | relURL }}" alt="{{ $photo.alt | default (printf "Kansas City Chiefs photograph from @%s on X" $photoHandle) }}" width="{{ $photo.width | default 1200 }}" height="{{ $photo.height | default 675 }}" decoding="async" fetchpriority="high" />
+  </div>
+  <figcaption class="nrt-hero-media__caption">
+    <span class="nrt-hero-media__label">Photograph</span>
+    <a class="nrt-hero-media__credit" href="{{ $photoUrl }}" target="_blank" rel="noopener">Photo: @{{ $photoHandle }} on X</a>
+  </figcaption>
+</figure>
+{{- else if isset .n "xPhoto" -}}
+{{- else -}}
 {{- $pin := partial "nrt-hero-post.html" (dict "n" .n "site" .site) -}}
 {{- $item := index ($catalog.items | default dict) (.n.heroMediaId | default "article-illustration") -}}
 {{- if not $pin.id -}}
@@ -108,4 +126,5 @@
     {{ else }}<span class="nrt-hero-media__label">Article illustration</span><strong>{{ $context.topic }}</strong><span>{{ $scene.caption }}</span><span>{{ $context.label }}</span><span>Not a photograph. Event photograph not yet cleared.</span>{{ end }}
   </figcaption>
 </figure>
+{{- end -}}
 {{- end -}}

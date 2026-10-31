@@ -108,7 +108,7 @@ def _copy_signed_tree(root: Path):
 
 
 def render_hero_fixtures(fixtures, *, pins=None, layouts=None, css_text=None,
-                         signoff_slugs=None):
+                         signoff_slugs=None, extra_public=None):
     """Render narrative hero partials through a temporary Hugo site."""
     temp = tempfile.TemporaryDirectory()
     source = Path(temp.name) / "source"
@@ -133,6 +133,10 @@ def render_hero_fixtures(fixtures, *, pins=None, layouts=None, css_text=None,
     public_scenes = source / "public" / "images" / "hero-scenes"
     public_scenes.parent.mkdir(parents=True)
     shutil.copytree(ROOT / "public" / "images" / "hero-scenes", public_scenes)
+    for rel, data in (extra_public or {}).items():
+        dest = source / "public" / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(data)
     css_dir = source / "public" / "css"
     css_dir.mkdir(parents=True, exist_ok=True)
     css = css_text if css_text is not None else (
