@@ -13,7 +13,7 @@
   },
   "devDependencies": {
     "esbuild": "0.28.2",
-    "hugo-bin": "^0.165.0",
+    "hugo-bin": "^0.167.0",
     "three": "0.186.1"
   },
   "engines": {
