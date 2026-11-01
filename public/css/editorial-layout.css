@@ -1,81 +1,6 @@
 .nrt-hero-media { margin: 12px 0 20px; overflow: hidden; border-radius: 12px; background: #171416; border: 1px solid #514735; }
 .nrt-hero-media__visual { height: 240px; background: #171416; }
 .nrt-hero-media__visual img { display: block; width: 100%; height: 100%; object-fit: contain; }
-.nrt-hero-media[data-hero-kind="x-embed"] { display: block; overflow: visible; --nrt-embed-reserve: 640px; }
-.nrt-hero-media[data-hero-kind="x-embed"] .nrt-hero-media__visual--embed {
-  position: relative;
-  height: auto;
-  min-height: 0;
-  overflow: visible;
-  background: #171416;
-}
-html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="pending"] .nrt-hero-media__visual--embed,
-html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="ready"] .nrt-hero-media__visual--embed,
-html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fallback"] .nrt-hero-media__visual--embed {
-  min-height: var(--nrt-embed-reserve);
-  overflow: visible;
-}
-html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="pending"] .nrt-hero-media__art .nrt-event-illustration,
-html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fallback"] .nrt-hero-media__art .nrt-event-illustration {
-  height: var(--nrt-embed-reserve);
-  object-fit: contain;
-  object-position: center;
-}
-html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="pending"] .nrt-hero-media__backdrop,
-html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fallback"] .nrt-hero-media__backdrop {
-  display: block;
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="pending"] .nrt-hero-media__backdrop .nrt-event-illustration,
-html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fallback"] .nrt-hero-media__backdrop .nrt-event-illustration {
-  position: absolute;
-  inset: -14%;
-  width: 128%;
-  height: 128%;
-  object-fit: cover;
-  filter: blur(22px) brightness(0.48);
-}
-.nrt-hero-media[data-hero-kind="x-embed"] .nrt-hero-media__fallback {
-  position: relative;
-  z-index: 0;
-  display: block;
-  width: 100%;
-}
-html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="pending"] .nrt-hero-media__fallback,
-html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fallback"] .nrt-hero-media__fallback {
-  min-height: var(--nrt-embed-reserve);
-  overflow: hidden;
-}
-.nrt-hero-media[data-hero-kind="x-embed"] .nrt-hero-media__backdrop { display: none; }
-.nrt-hero-media[data-hero-kind="x-embed"] .nrt-hero-media__art { position: relative; z-index: 1; }
-.nrt-hero-media[data-hero-kind="x-embed"] .nrt-hero-media__fallback .nrt-event-illustration { width: 100%; height: auto; }
-.nrt-hero-media[data-hero-kind="x-embed"] .nrt-hero-media__embed { position: relative; z-index: 1; }
-.nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="pending"] .nrt-hero-media__embed,
-.nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fallback"] .nrt-hero-media__embed {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-}
-.nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="ready"] .nrt-hero-media__fallback {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  width: auto;
-  height: auto;
-}
-.nrt-hero-media[data-hero-kind="x-embed"] .twitter-tweet {
-  margin: 0;
-  color: #eee5d4;
-  font: 16px/1.45 var(--serif);
-}
-.nrt-hero-media[data-hero-kind="x-embed"] .twitter-tweet a { color: #ffcf53; }
-.nrt-event-illustration { display: block; width: 100%; height: 100%; object-fit: cover; }
 .nrt-press__source-card > .person-media { margin: 14px 16px 0; }
 .nrt-report__person { float: left; margin: 0 12px 8px 0; }
 .nrt-report__profile { float: right; font: 11px/1.5 var(--grotesk); padding: 5px; }
@@ -83,9 +8,6 @@ html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fall
 .nrt-hero-media__caption strong { font-size: 17px; }
 .nrt-hero-media__label { color: #ffcf53; text-transform: uppercase; font-size: 10px; letter-spacing: .08em; }
 .nrt-hero-media__caption a { color: #ffcf53; }
-.person-media { display: inline-flex; flex: 0 0 48px; width: 48px; height: 48px; position: relative; border-radius: 50%; overflow: hidden; background: #e7d9bd; color: #81664c; vertical-align: middle; }
-.person-media img,.person-media svg { display: block; width: 100%; height: 100%; object-fit: cover; fill: currentColor; }
-.person-media__credit { position: absolute; bottom: 0; background: #fff; color: #111; font-size: 8px; }
 .nrt-matchups__list { grid-template-columns: repeat(auto-fit,minmax(min(100%,330px),1fr)); }
 .nrt-matchup { padding: 16px; }
 .nrt-matchup__cols { grid-template-columns: minmax(0,1fr) 22px minmax(0,1fr); align-items: stretch; gap: 8px; }
@@ -104,7 +26,7 @@ html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fall
 .nrt-spot-card p { font-size: 15px; line-height: 1.55; }
 .playmakers { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #ffffff35; }
 .playmaker { display: flex; align-items: center; gap: 6px; min-width: 0; font: 11px/1.35 var(--grotesk); }
-.playmaker .person-media { width: 30px; height: 30px; flex-basis: 30px; }
+.playmaker .person-media { width: auto; height: auto; flex-basis: auto; }
 .playmaker strong,.playmaker small { display: block; max-width: 150px; }
 .playmaker small { color: #d0c4b5; font-size: 10px; }
 .roster-people { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -134,7 +56,6 @@ html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fall
   .nrt-dek { grid-column: 1; grid-row: 5; font-size: 16px; line-height: 1.5; margin-bottom: 10px; }
   .nrt-hero-media { grid-column: 2; grid-row: 2/6; margin: 0; align-self: start; }
   .nrt-hero-media__visual { height: 200px; }
-  .nrt-hero-media[data-hero-kind="x-embed"] .nrt-hero-media__visual--embed { height: auto; }
   .nrt-edge { padding-top: 14px; padding-bottom: 14px; }
   .nrt-hero__grid { grid-column: 1/-1; gap: 18px; margin-top: 12px; }
   .nrt-hook { margin-bottom: 12px; padding: 14px 18px; }
@@ -156,11 +77,6 @@ html.nrt-hero-js .nrt-hero-media[data-hero-kind="x-embed"][data-hero-state="fall
 .nrt-nextgame__more summary { cursor: pointer; min-height: 32px; }
 .nrt-nextgame__more summary:focus-visible { outline: 2px solid #ffcf53; }
 @media (max-width: 600px) {
-  .nrt-hero-media[data-hero-kind="article-illustration"],
-  .nrt-hero-media[data-hero-kind="x-embed"] { display: block; }
-  .nrt-hero-media[data-hero-kind="article-illustration"] .nrt-hero-media__visual { height: 135px; }
-  .nrt-hero-media[data-hero-kind="x-embed"] { --nrt-embed-reserve: 560px; }
-  .nrt-hero-media[data-hero-kind="x-embed"] .nrt-hero-media__visual--embed { height: auto; }
   .nrt-hero-media { display: grid; grid-template-columns: 115px minmax(0,1fr); }
   .nrt-hero-media__visual { height: 140px; }
   .nrt-hero-media__caption { padding: 10px; font-size: 11px; align-content: center; }

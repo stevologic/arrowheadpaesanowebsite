@@ -62,17 +62,7 @@ def approved(item, slug, *, root=None, now=None):
 
 
 def attach(narrative, *, root=None, now=None):
-    """Assign a reviewed catalog ID, else none — never a synthesized illustration."""
-    now = now or datetime.now(timezone.utc)
+    """Write no media. A missing catalog or key must not error."""
     narrative["heroMediaId"] = FALLBACK_ID
     narrative["heroMediaVerifiedAt"] = ""
-    items = catalog(root).get("items") or {}
-    if not isinstance(items, dict):
-        return narrative
-    for key, item in items.items():
-        if not re.fullmatch(r"[a-z0-9-]+", key) or not approved(item, narrative.get("slug"), root=root, now=now):
-            continue
-        narrative["heroMediaId"] = key
-        narrative["heroMediaVerifiedAt"] = now.strftime("%Y-%m-%dT%H:%M:%SZ")
-        break
     return narrative

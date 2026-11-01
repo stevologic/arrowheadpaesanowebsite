@@ -428,21 +428,184 @@ class LockerRoomVerification(unittest.TestCase):
             )
         )
 
-    def test_fixtweet_does_not_fall_back_to_claimed_handle(self):
-        class _Resp:
-            status_code = 200
+    def test_locker_room_has_no_fixtweet_and_syndication_is_text_only(self):
+        src = (ROOT / "tools" / "chiefs_narrative" / "locker_room.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertFalse(hasattr(locker_room, "fetch_fixtweet"))
+        self.assertNotIn("FIXTWEET_ENDPOINT", src)
+        self.assertNotIn("api.fxtwitter.com", src)
+        self.assertTrue(hasattr(locker_room, "fetch_syndication"))
+        self.assertTrue(hasattr(locker_room, "fetch_syndication_author"))
+        self.assertIn("SYNDICATION_ENDPOINT", src)
+        self.assertIn("_text_only_syndication", src)
 
-            def json(self):
-                return {
-                    "tweet": {
-                        "author": {"name": "Patrick Mahomes"},
-                        "text": "It's a denim day for QB1.",
-                        "created_timestamp": 1760808480,
-                    }
-                }
+    def test_production_callers_resolve_author_and_verify_retweet(self):
+        """generate.py / collect.py do not inject hooks; defaults must hit the network."""
+        gen = (ROOT / "tools" / "chiefs_narrative" / "generate.py").read_text(
+            encoding="utf-8"
+        )
+        col = (ROOT / "tools" / "chiefs_narrative" / "collect.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("locker_room.check_posts(narrative, schedule=schedule)", gen)
+        self.assertIn("locker_room.attach_verified(narrative, signals, ph)", gen)
+        self.assertIn("locker_room.collect_candidates()", col)
+        self.assertNotIn("syndication_fetch=", gen)
+        self.assertNotIn("syndication_payload_fetch=", gen)
+        self.assertNotIn("syndication_fetch=", col)
+        self.assertNotIn("syndication_payload_fetch=", col)
 
-        with patch.object(locker_room.requests, "get", return_value=_Resp()):
-            self.assertIsNone(locker_room.fetch_fixtweet(MAHOMES_URL))
+        fat = {
+            "id_str": WALKER_ID,
+            "user": {"screen_name": "Kenneth_Walker9"},
+            "text": "got the call",
+            "media": [{"url": "https://pbs.twimg.com/media/x.jpg"}],
+            "photos": [{"url": "https://pbs.twimg.com/media/x.jpg"}],
+            "image": "https://pbs.twimg.com/media/x.jpg",
+        }
+        rt_fat = {
+            "id_str": WALKER_ID,
+            "user": {"screen_name": "Kenneth_Walker9"},
+            "text": "unroll",
+            "photos": [{"url": "https://pbs.twimg.com/media/rt.jpg"}],
+        }
+
+        def fake_get(url, params=None, **_kwargs):
+            target = f"{url}?{params}" if params else str(url)
+            class _Resp:
+                status_code = 200
+
+                def __init__(self, body):
+                    self._body = body
+
+                def json(self):
+                    return self._body
+
+            if "cdn.syndication.twimg.com" in target:
+                sid = str((params or {}).get("id") or "")
+                if sid == MAHOMES_RT_ID:
+                    return _Resp(rt_fat)
+                return _Resp(fat)
+            if "publish.x.com" in target or "publish.twitter.com" in target:
+                asked = str((params or {}).get("url") or "")
+                handle = (
+                    "PatrickMahomes" if MAHOMES_RT_ID in asked else "Kenneth_Walker9"
+                )
+                return _Resp(
+                    _oembed(
+                        f"https://x.com/{handle}",
+                        "<p>got the call</p> October 19, 2026",
+                        handle,
+                    )
+                )
+            raise AssertionError(f"unexpected request {target}")
+
+        row = {
+            "url": WALKER_URL,
+            "handle": "@Kenneth_Walker9",
+            "date": "2026-10-19",
+            "quote": "",
+            "retweetedBy": {
+                "handle": "@PatrickMahomes",
+                "statusId": MAHOMES_RT_ID,
+                "url": MAHOMES_RT_URL,
+            },
+        }
+        with patch.object(locker_room.requests, "get", side_effect=fake_get):
+            self.assertEqual(locker_room.collect_candidates(), [])
+            author = locker_room.resolve_author(WALKER_URL)
+            self.assertEqual(author, "Kenneth_Walker9")
+            self.assertTrue(
+                locker_room.verify_retweet(row),
+                "default verify_retweet must use syndication, not return False",
+            )
+            issues = locker_room.check_posts(
+                {"lockerRoom": {"posts": [row]}},
+                phase=WEEK_PHASE,
+            )
+            self.assertEqual(issues, [])
+            attached = locker_room.attach_verified(
+                {"lockerRoom": {"posts": [dict(row)]}},
+                {"lockerRoom": [dict(row)]},
+                WEEK_PHASE,
+            )
+            self.assertEqual(len(attached["lockerRoom"]["posts"]), 1)
+
+    def test_resolve_author_and_verify_retweet_never_return_or_attach_media(self):
+        fat = {
+            "id_str": WALKER_ID,
+            "user": {
+                "screen_name": "Kenneth_Walker9",
+                "profile_image_url": "https://pbs.twimg.com/profile.jpg",
+            },
+            "text": "got the call",
+            "full_text": "got the call",
+            "media": [{"url": "https://pbs.twimg.com/media/x.jpg"}],
+            "photos": [{"url": "https://pbs.twimg.com/media/x.jpg"}],
+            "image": "https://pbs.twimg.com/media/x.jpg",
+            "video": {"url": "https://video.twimg.com/x.mp4"},
+        }
+
+        def fake_get(url, params=None, **_kwargs):
+            class _Resp:
+                status_code = 200
+
+                def __init__(self, body):
+                    self._body = body
+
+                def json(self):
+                    return self._body
+
+            if "cdn.syndication.twimg.com" in str(url):
+                return _Resp(fat)
+            if "publish.x.com" in str(url) or "publish.twitter.com" in str(url):
+                asked = str((params or {}).get("url") or "")
+                handle = (
+                    "PatrickMahomes" if MAHOMES_RT_ID in asked else "Kenneth_Walker9"
+                )
+                return _Resp(
+                    _oembed(
+                        f"https://x.com/{handle}",
+                        "<p>got the call</p> October 19, 2026",
+                        handle,
+                    )
+                )
+            raise AssertionError(url)
+
+        row = {
+            "url": WALKER_URL,
+            "handle": "@Kenneth_Walker9",
+            "retweetedBy": {
+                "handle": "@PatrickMahomes",
+                "statusId": MAHOMES_RT_ID,
+                "url": MAHOMES_RT_URL,
+            },
+        }
+        media_keys = (
+            "media",
+            "photos",
+            "photo",
+            "images",
+            "image",
+            "video",
+            "profile_image_url",
+        )
+        with patch.object(locker_room.requests, "get", side_effect=fake_get):
+            cleaned = locker_room.fetch_syndication(WALKER_ID)
+            self.assertIsInstance(cleaned, dict)
+            for key in media_keys:
+                self.assertNotIn(key, cleaned)
+                self.assertNotIn(key, cleaned.get("user") or {})
+            author = locker_room.resolve_author(WALKER_URL)
+            self.assertEqual(author, "Kenneth_Walker9")
+            self.assertNotIn("pbs.twimg.com", author)
+            self.assertIsInstance(author, str)
+            ok = locker_room.verify_retweet(row)
+            self.assertIs(ok, True)
+            for key in media_keys:
+                self.assertNotIn(key, row)
+            self.assertNotIn("media", row.get("retweetedBy") or {})
 
     def test_check_edition_fails_locker_issues_even_when_held(self):
         with patch.object(
