@@ -39,6 +39,36 @@ def _restore(path: Path, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def _apply(mutant: dict) -> tuple[list[tuple[Path, str]], list[Path]]:
+    backups: list[tuple[Path, str]] = []
+    created: list[Path] = []
+    edits = list(mutant.get("edits") or [])
+    if "path" in mutant and "old" in mutant:
+        edits.append(
+            {"path": mutant["path"], "old": mutant["old"], "new": mutant["new"]}
+        )
+    for edit in edits:
+        path = Path(edit["path"])
+        backups.append((path, path.read_text(encoding="utf-8")))
+        _mutate(path, edit["old"], edit["new"])
+    for item in mutant.get("create") or []:
+        path = Path(item["path"])
+        if path.exists():
+            raise AssertionError(f"create path already exists: {path}")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(item["text"], encoding="utf-8")
+        created.append(path)
+    return backups, created
+
+
+def _revert(backups: list[tuple[Path, str]], created: list[Path]) -> None:
+    for path in created:
+        if path.exists():
+            path.unlink()
+    for path, text in backups:
+        _restore(path, text)
+
+
 def main() -> int:
     rows = []
     mutants = [
@@ -285,14 +315,123 @@ def main() -> int:
             "new": '<span class="person-media">drawn stand-in</span>',
             "tests": [BUILT],
         },
+        {
+            "id": "renamed-wrapper-svg",
+            "desc": "renamed-wrapper svg at the call site",
+            "path": ROOT / "layouts" / "partials" / "narrative-edition.html",
+            "old": (
+                '<div class="playmaker">{{ partial "person-media.html" '
+                '(dict "name" .name "site" $site) }}'
+            ),
+            "new": (
+                '<div class="playmaker"><span class="playmaker__art">'
+                '<svg viewBox="0 0 48 48"></svg></span>'
+                '{{ partial "person-media.html" (dict "name" .name "site" $site) }}'
+            ),
+            "tests": [BUILT],
+        },
+        {
+            "id": "sibling-pbs-srcset",
+            "desc": "sibling pbs srcset",
+            "path": ROOT / "layouts" / "partials" / "narrative-edition.html",
+            "old": (
+                '<div class="playmaker">{{ partial "person-media.html" '
+                '(dict "name" .name "site" $site) }}'
+            ),
+            "new": (
+                '<div class="playmaker">'
+                '<img class="playmaker__pic" '
+                'srcset="https://pbs.twimg.com/media/x.jpg 1x" alt="">'
+                '{{ partial "person-media.html" (dict "name" .name "site" $site) }}'
+            ),
+            "tests": [BUILT],
+        },
+        {
+            "id": "person-art-partial",
+            "desc": "a new person-art.html partial",
+            "path": ROOT / "layouts" / "partials" / "narrative-edition.html",
+            "old": (
+                '<div class="playmaker">{{ partial "person-media.html" '
+                '(dict "name" .name "site" $site) }}'
+            ),
+            "new": (
+                '<div class="playmaker">'
+                '{{ partial "person-media.html" (dict "name" .name "site" $site) }}'
+                '{{ partial "person-art.html" . }}'
+            ),
+            "create": [
+                {
+                    "path": ROOT / "layouts" / "partials" / "person-art.html",
+                    "text": (
+                        '<svg class="person-art" viewBox="0 0 48 48"></svg>\n'
+                    ),
+                }
+            ],
+            "tests": [BUILT],
+        },
+        {
+            "id": "style-block-background-url",
+            "desc": "a <style> block with background url",
+            "path": ROOT / "layouts" / "partials" / "narrative-edition.html",
+            "old": "{{/* Heroes render nothing: no silhouette, illustration, or hotlinked photo. */}}",
+            "new": (
+                "{{/* Heroes render nothing: no silhouette, illustration, or hotlinked photo. */}}"
+                "<style>.playmaker{background:url(stand-in.svg)}</style>"
+            ),
+            "tests": [BUILT],
+        },
+        {
+            "id": "css-content-url",
+            "desc": "content:url in editorial-layout.css",
+            "path": ROOT / "public" / "css" / "editorial-layout.css",
+            "old": "  .nrt-report__list--personnel li { grid-template-columns: 1fr; }\n}",
+            "new": (
+                "  .nrt-report__list--personnel li { grid-template-columns: 1fr; }\n"
+                "}\n"
+                ".playmaker::before{content:url(/images/hero-scenes/x.svg)}"
+            ),
+            "tests": [BUILT],
+        },
+        {
+            "id": "css-list-style-image",
+            "desc": "list-style-image in editorial-layout.css",
+            "path": ROOT / "public" / "css" / "editorial-layout.css",
+            "old": "  .nrt-report__list--personnel li { grid-template-columns: 1fr; }\n}",
+            "new": (
+                "  .nrt-report__list--personnel li { grid-template-columns: 1fr; }\n"
+                "}\n"
+                ".roster-people{list-style-image:url(/images/hero-scenes/x.svg)}"
+            ),
+            "tests": [BUILT],
+        },
+        {
+            "id": "jsonld-og-svg",
+            "desc": "$og in seo-jsonld.html pointed at an svg",
+            "path": ROOT / "layouts" / "partials" / "seo-jsonld.html",
+            "old": '{{- $og := "og.png" | absURL -}}',
+            "new": '{{- $og := "images/hero-scenes/preview-fallback.svg" | absURL -}}',
+            "tests": [BUILT],
+        },
+        {
+            "id": "itemprop-image-svg",
+            "desc": "meta itemprop=image pointed at an svg",
+            "path": ROOT / "layouts" / "_default" / "baseof.html",
+            "old": '<meta property="og:image" content="{{ "og.png" | absURL }}" />',
+            "new": (
+                '<meta property="og:image" content="{{ "og.png" | absURL }}" />'
+                '<meta itemprop="image" '
+                'content="{{ "images/hero-scenes/preview-fallback.svg" | absURL }}" />'
+            ),
+            "tests": [BUILT],
+        },
     ]
 
     killed = 0
     for mutant in mutants:
-        path: Path = mutant["path"]
-        original = path.read_text(encoding="utf-8")
+        backups: list[tuple[Path, str]] = []
+        created: list[Path] = []
         try:
-            _mutate(path, mutant["old"], mutant["new"])
+            backups, created = _apply(mutant)
             code, out = _run(mutant["tests"])
             status = "KILLED" if code != 0 else "SURVIVED"
             if code != 0:
@@ -307,7 +446,7 @@ def main() -> int:
             if last:
                 print(f"  {last}", flush=True)
         finally:
-            _restore(path, original)
+            _revert(backups, created)
 
     print()
     print("| id | description | result | evidence |")

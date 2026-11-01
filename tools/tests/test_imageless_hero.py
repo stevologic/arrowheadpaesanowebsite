@@ -29,6 +29,33 @@ EMBEDDED_SLOT_TAGS = frozenset(
     {"svg", "img", "picture", "object", "embed", "canvas", "video", "iframe", "source"}
 )
 MEDIA_ATTRS = ("src", "data", "srcset", "poster")
+MEDIA_DESCENDANT_TAGS = frozenset(
+    {
+        "img",
+        "picture",
+        "source",
+        "svg",
+        "object",
+        "embed",
+        "canvas",
+        "video",
+        "iframe",
+        "math",
+    }
+)
+# Call-site wrappers where person/hero media would render.
+WRAPPER_CLASSES = frozenset(
+    {
+        "playmaker",
+        "playmakers",
+        "roster-people",
+        "nrt-matchup__side",
+        "nrt-report__person",
+        "nrt-press__source-card",
+        "nrt-hero",
+    }
+)
+CSS_GUARD_CLASSES = WRAPPER_CLASSES | MEDIA_SLOT_CLASSES | SLOT_CLASSES
 NETWORK_MEDIA_MARKERS = (
     "x_search",
     "x_photo",
@@ -38,7 +65,10 @@ NETWORK_MEDIA_MARKERS = (
     "pull_photo",
 )
 SHARE_IMAGE_PARTIAL = "og.png"
-_HUGO_COMMENT = re.compile(r"\{\{-?\s*/\*.*?\*/\s*-?\}\}", re.S)
+_CSS_COMMENT = re.compile(r"/\*.*?\*/", re.S)
+_CSS_RULE = re.compile(r"([^{}@][^{}]*)\{([^{}]+)\}", re.S)
+_CLASS_TOKEN = re.compile(r"\.([A-Za-z_][\w-]*)")
+_STYLE_URL = re.compile(r"url\s*\(", re.I)
 
 
 def _hugo_bin() -> str:
@@ -84,7 +114,7 @@ def _site_base_url() -> str:
 
 
 def expected_share_image_url() -> str:
-    """Hugo absURL of og.png — the only allowed og:image / twitter:image."""
+    """Hugo absURL of og.png — the only allowed og/twitter/ld+json/itemprop image."""
     return urljoin(_site_base_url(), SHARE_IMAGE_PARTIAL)
 
 
@@ -92,9 +122,83 @@ def _is_redirect_page(html: str) -> bool:
     return bool(re.search(r'http-equiv\s*=\s*["\']?refresh\b', html, re.I))
 
 
-def _partial_emitted_markup(src: str) -> str:
-    """What a comment-only Hugo partial emits: source minus comments, stripped."""
-    return _HUGO_COMMENT.sub("", src).strip()
+def _style_paints_media(style: str) -> bool:
+    blob = style or ""
+    if _STYLE_URL.search(blob):
+        return True
+    return bool(re.search(r"background(?:-image)?\s*:\s*url\s*\(", blob, re.I))
+
+
+def _selector_targets_guard(selector: str) -> bool:
+    for token in _CLASS_TOKEN.findall(selector):
+        if token in CSS_GUARD_CLASSES:
+            return True
+        for guard in CSS_GUARD_CLASSES:
+            if token.startswith(f"{guard}__") or token.startswith(f"{guard}--"):
+                return True
+    return False
+
+
+def _css_rule_paints_media(body: str) -> bool:
+    text = body.lower()
+    if "url(" in text:
+        return True
+    if "content:" in text and "url(" in text:
+        return True
+    if "list-style-image" in text:
+        return True
+    if "background-image" in text:
+        return True
+    return False
+
+
+def painted_css_rules(css: str) -> list[str]:
+    """Rules whose selector is a person/hero wrapper and that paint a url."""
+    stripped = _CSS_COMMENT.sub("", css)
+    hits: list[str] = []
+    for selector, body in _CSS_RULE.findall(stripped):
+        sel = " ".join(selector.split())
+        if not _selector_targets_guard(sel):
+            continue
+        if _css_rule_paints_media(body):
+            hits.append(f"{sel}{{{body.strip()}}}")
+    return hits
+
+
+def ldjson_image_values(payload) -> list[str]:
+    """Every ld+json `image` value: string, array item, or ImageObject.url."""
+    found: list[str] = []
+
+    def take_image(value) -> None:
+        if isinstance(value, str) and value.strip():
+            found.append(value.strip())
+            return
+        if isinstance(value, list):
+            for item in value:
+                take_image(item)
+            return
+        if isinstance(value, dict):
+            for key in ("url", "contentUrl"):
+                raw = value.get(key)
+                if isinstance(raw, str) and raw.strip():
+                    found.append(raw.strip())
+            walk(value)
+
+    def walk(node) -> None:
+        if isinstance(node, dict):
+            if "image" in node:
+                take_image(node["image"])
+            for key, value in node.items():
+                if key == "image":
+                    continue
+                walk(value)
+            return
+        if isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(payload)
+    return found
 
 
 def _render_media_partials(binary: str) -> dict[str, str]:
@@ -205,8 +309,8 @@ class _Slot:
         return problems
 
 
-class _AllowlistSlotParser(HTMLParser):
-    """Collect media slots and share-image metas. Slots must emit nothing."""
+class _PageScan(HTMLParser):
+    """Slots, call-site wrappers, share metas, and ld+json image values."""
 
     _VOID = frozenset(
         {
@@ -227,10 +331,33 @@ class _AllowlistSlotParser(HTMLParser):
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
-        self.stack: list[tuple[str, _Slot | None]] = []
+        self.stack: list[tuple[str, _Slot | None, bool]] = []
         self.slots: list[_Slot] = []
         self.og_images: list[str] = []
         self.twitter_images: list[str] = []
+        self.itemprop_images: list[str] = []
+        self.wrapper_problems: list[str] = []
+        self.style_blocks: list[str] = []
+        self.ld_json: list[str] = []
+        self._capture_style = False
+        self._capture_ld = False
+        self._style_parts: list[str] = []
+        self._ld_parts: list[str] = []
+
+    def _in_wrapper(self) -> bool:
+        return any(is_wrap for _tag, _slot, is_wrap in self.stack)
+
+    def _note_wrapper_media(self, tag: str, ad: dict[str, str]) -> None:
+        if tag in MEDIA_DESCENDANT_TAGS:
+            self.wrapper_problems.append(f"<{tag} class={ad.get('class', '')!r}>")
+        if tag == "input" and ad.get("type", "").lower() == "image":
+            self.wrapper_problems.append(f"<input type=image class={ad.get('class', '')!r}>")
+        if ad.get("srcset"):
+            self.wrapper_problems.append(f"srcset on <{tag} class={ad.get('class', '')!r}>")
+        if _style_paints_media(ad.get("style", "")):
+            self.wrapper_problems.append(
+                f"painted style on <{tag} class={ad.get('class', '')!r}>: {ad.get('style', '')!r}"
+            )
 
     def handle_starttag(self, tag: str, attrs) -> None:
         ad = {str(k).lower(): str(v or "") for k, v in attrs}
@@ -238,44 +365,65 @@ class _AllowlistSlotParser(HTMLParser):
         if tag == "meta":
             prop = ad.get("property", "").lower()
             name = ad.get("name", "").lower()
+            itemprop = ad.get("itemprop", "").lower()
             if prop == "og:image":
                 self.og_images.append(ad.get("content", ""))
             if name == "twitter:image":
                 self.twitter_images.append(ad.get("content", ""))
+            if itemprop == "image":
+                self.itemprop_images.append(ad.get("content", ""))
+        if tag == "style":
+            self._capture_style = True
+            self._style_parts = []
+        if tag == "script" and "ld+json" in ad.get("type", "").lower():
+            self._capture_ld = True
+            self._ld_parts = []
         slot = None
         if classes & SLOT_CLASSES:
             slot = _Slot(tag, classes, ad)
             self.slots.append(slot)
-        for _tag, ancestor in self.stack:
+        is_wrap = bool(classes & WRAPPER_CLASSES)
+        if self._in_wrapper() or is_wrap:
+            self._note_wrapper_media(tag, ad)
+        for _tag, ancestor, _wrap in self.stack:
             if ancestor is None:
                 continue
             ancestor.child_tags.append(tag)
             ancestor.descendant_classes.update(classes)
         if tag not in self._VOID:
-            self.stack.append((tag, slot))
-        elif slot is not None:
-            # Void media host (<embed class="person-media">) is a finished slot.
-            pass
+            self.stack.append((tag, slot, is_wrap))
 
     def handle_endtag(self, tag: str) -> None:
+        if tag == "style" and self._capture_style:
+            self.style_blocks.append("".join(self._style_parts))
+            self._capture_style = False
+            self._style_parts = []
+        if tag == "script" and self._capture_ld:
+            self.ld_json.append("".join(self._ld_parts))
+            self._capture_ld = False
+            self._ld_parts = []
         for index in range(len(self.stack) - 1, -1, -1):
             if self.stack[index][0] == tag:
                 del self.stack[index:]
                 break
 
     def handle_data(self, data: str) -> None:
-        for _tag, slot in self.stack:
+        if self._capture_style:
+            self._style_parts.append(data)
+        if self._capture_ld:
+            self._ld_parts.append(data)
+        for _tag, slot, _wrap in self.stack:
             if slot is not None:
                 slot.text_parts.append(data)
 
     def handle_comment(self, data: str) -> None:
-        for _tag, slot in self.stack:
+        for _tag, slot, _wrap in self.stack:
             if slot is not None:
                 slot.comments.append(data)
 
 
-def _parse_page(html: str) -> _AllowlistSlotParser:
-    parser = _AllowlistSlotParser()
+def _parse_page(html: str) -> _PageScan:
+    parser = _PageScan()
     parser.feed(html)
     parser.close()
     return parser
@@ -298,13 +446,6 @@ class ImagelessLiveEdition(unittest.TestCase):
                 "",
                 f"rendered {label} is not exactly empty: {rendered[label]!r}",
             )
-            src = (ROOT / "layouts" / "partials" / label).read_text(encoding="utf-8")
-            self.assertEqual(
-                _partial_emitted_markup(src),
-                "",
-                f"{label} source emits markup after comments: "
-                f"{_partial_emitted_markup(src)!r}",
-            )
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / "dist"
             result = subprocess.run(
@@ -320,6 +461,12 @@ class ImagelessLiveEdition(unittest.TestCase):
             self.assertTrue(walked, "Hugo produced no HTML pages")
             self.assertEqual(pages, walked)
             self.assertGreater(len(pages), 0)
+            css_hits: list[str] = []
+            for css_path in sorted(dest.rglob("*.css")):
+                rel = css_path.relative_to(dest).as_posix()
+                for rule in painted_css_rules(css_path.read_text(encoding="utf-8")):
+                    css_hits.append(f"{rel}: {rule}")
+            self.assertEqual(css_hits, [], f"built CSS paints person/hero media: {css_hits}")
             scanned: list[Path] = []
             for path in pages:
                 rel = path.relative_to(dest).as_posix()
@@ -355,6 +502,19 @@ class ImagelessLiveEdition(unittest.TestCase):
                         f"{rel} person-media/nrt-hero-media/nrt-hero slot "
                         f"is not exactly empty: {slot_hits}",
                     )
+                    self.assertEqual(
+                        parsed.wrapper_problems,
+                        [],
+                        f"{rel} call-site wrapper has media: {parsed.wrapper_problems}",
+                    )
+                    style_hits: list[str] = []
+                    for block in parsed.style_blocks:
+                        style_hits.extend(painted_css_rules(block))
+                    self.assertEqual(
+                        style_hits,
+                        [],
+                        f"{rel} <style> paints person/hero media: {style_hits}",
+                    )
                     self.assertTrue(parsed.og_images, f"{rel} is missing og:image")
                     if not _is_redirect_page(html):
                         self.assertTrue(
@@ -374,6 +534,25 @@ class ImagelessLiveEdition(unittest.TestCase):
                             f"{rel} twitter:image is {content!r}, "
                             f"want {expected_share}",
                         )
+                    for content in parsed.itemprop_images:
+                        self.assertEqual(
+                            content,
+                            expected_share,
+                            f"{rel} itemprop=image is {content!r}, "
+                            f"want {expected_share}",
+                        )
+                    for blob in parsed.ld_json:
+                        try:
+                            payload = json.loads(blob)
+                        except json.JSONDecodeError as exc:
+                            self.fail(f"{rel} ld+json is not JSON: {exc}: {blob[:200]!r}")
+                        for value in ldjson_image_values(payload):
+                            self.assertEqual(
+                                value,
+                                expected_share,
+                                f"{rel} ld+json image is {value!r}, "
+                                f"want {expected_share}",
+                            )
             self.assertEqual(sorted(scanned), walked)
             self.assertEqual(len(scanned), len(walked))
         print("LIVE_EDITION_HUGO_RENDER_RAN", flush=True)
