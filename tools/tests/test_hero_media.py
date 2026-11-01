@@ -53,7 +53,8 @@ class HeroRights(unittest.TestCase):
         self.assertNotIn('nrt-chiefs-feed',html)
         self.assertNotIn('initChiefsFeed',js)
         self.assertNotIn('createTimeline',js)
-        self.assertIn('nrt-hero-media.html',html)
+        self.assertNotIn('partial "nrt-hero-media.html"', html)
+        self.assertIn("Heroes render nothing", html)
 
     def test_future_people_and_stats_have_no_model_image_urls(self):
         n=schema.normalize({'personnel':[{'move':'Signed','detail':'Test','players':['Player Name'],'image':'https://unlicensed'}],
