@@ -1,10 +1,14 @@
 {
   "droppedSentences": [
-    "Kansas City, 5-1, visits the Broncos on Sun Nov 1, 3:25 PM CT on CBS as a 1.5-point favorite, with Rashee Rice expected back after Seattle won 20-3.",
-    "Kelce still led the receivers with 4 catches for 44 yards, and Gray won two 19-yard targets.",
-    "Butker's misses from 58 and 45, plus a turnover on downs, left the scoring line at one field goal."
+    "A 24-13 lead after the third-quarter touchdown became 24-28, the AFC West lead went with it, and Andy Reid spent Monday on self-inflicted issues rather than a yardage excuse.",
+    "Patrick Mahomes was 30-of-41 for 321 yards and three touchdowns, a 120.1 rating, with Kansas City at 399 yards, 22 first downs, 6-of-14 on third down, no turnovers, and 31:29 of possession.",
+    "31:29 possession, 22 first downs, 6-of-14 on third down, and 399 total yards against a Denver team at 294"
   ],
-  "correctedSentences": [],
-  "leftoverIssues": [],
-  "holdAutomerge": false
+  "correctedSentences": [
+    "unverifiable opponent Patrick Mahomes; holding"
+  ],
+  "leftoverIssues": [
+    "replay not run"
+  ],
+  "holdAutomerge": true
 }
