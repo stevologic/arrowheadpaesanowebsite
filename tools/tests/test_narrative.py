@@ -14253,6 +14253,55 @@ class Oct14EditionGates(unittest.TestCase):
             leftover_after,
         )
 
+    def test_modified_team_td_count_still_flags(self):
+        """``Four total Denver touchdowns`` is a real count, not event copy."""
+        recap = generate._recap_for_edition(
+            {
+                "lastGameReview": {
+                    "opponent": "Denver Broncos",
+                    "score": "KC 24–28",
+                }
+            }
+        )
+        last = {
+            "id": "401873033",
+            "completed": True,
+            "opponent": "Denver Broncos",
+            "kcScore": 24,
+            "oppScore": 28,
+        }
+        modified = {
+            "lastGameReview": {
+                "opponent": "Denver Broncos",
+                "result": "L",
+                "score": "KC 24–28",
+                "lede": "Four total Denver touchdowns decided it.",
+            }
+        }
+        issues = facts.check_review(modified, last, recap, changed=True)
+        self.assertTrue(
+            any(
+                "DEN touchdown count 4 disagrees with ESPN 3" in item
+                for item in issues
+            ),
+            issues,
+        )
+        jets = {
+            "lastGameReview": {
+                "opponent": "Denver Broncos",
+                "result": "L",
+                "score": "KC 24–28",
+                "lede": (
+                    "First two Jets snaps after a Chiefs touchdown "
+                    "or field goal, the moment Denver answered."
+                ),
+            }
+        }
+        leftover = facts.check_review(jets, last, recap, changed=True)
+        self.assertFalse(
+            any("touchdown count" in item for item in leftover), leftover
+        )
+
     def test_seattle_preview_binds_chargers_prior_22_6(self):
         """22-6 next to Chargers is ESPN 401873006, not Seattle 3-20.
 

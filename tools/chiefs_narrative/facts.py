@@ -2422,6 +2422,41 @@ def _exact_alias_team(phrase: str, aliases: dict[str, str]) -> str:
     return aliases.get(token) or aliases.get(compact) or ""
 
 
+_COUNT_TEAM_MODIFIER = re.compile(
+    r"^(?:(?:the|total|rushing|passing|receiving|offensive|defensive|"
+    r"unanswered|combined|overall|only|just|early|late|"
+    r"(?:first|second)[- ]half)\s+)+",
+    re.I,
+)
+_COUNT_EVENT_COPY = re.compile(
+    r"\b(?:snaps?|after|before|following|when|while|once)\b",
+    re.I,
+)
+
+
+def _count_captured_team(team_raw: str, aliases: dict[str, str]) -> str | None:
+    """Team from the words between the number and touchdowns/field goals.
+
+    Empty string means fall through to the sentence subject. None means the
+    capture is event copy (``two Jets snaps after a Chiefs touchdown``),
+    not a team total. Modifiers stay valid: ``four total Denver touchdowns``.
+    """
+    raw = (team_raw or "").strip()
+    if not raw:
+        return ""
+    exact = _exact_alias_team(raw, aliases)
+    if exact:
+        return exact
+    stripped = _COUNT_TEAM_MODIFIER.sub("", raw).strip()
+    if stripped:
+        exact = _exact_alias_team(stripped, aliases)
+        if exact:
+            return exact
+    if _COUNT_EVENT_COPY.search(raw):
+        return None
+    return _alias_team(raw, aliases) or None
+
+
 def _box_yards_int(raw) -> int | None:
     token = str(raw or "").replace(",", "").strip()
     if not token:
@@ -3361,11 +3396,10 @@ def _count_issue(
 ):
     claimed = _parse_count_word(match.group(1))
     team_raw = (match.group(2) or "").strip()
-    # "First two Jets snaps after a Chiefs touchdown" is not a team TD count.
-    # The captured group must be a team name as a whole, not a substring hit.
-    team = _exact_alias_team(team_raw, aliases) if team_raw else ""
-    if team_raw and not team:
+    captured = _count_captured_team(team_raw, aliases)
+    if captured is None:
         return None
+    team = captured
     if not team:
         sentence = _sentence_at(text, match.start())
         lead = re.match(
