@@ -190,6 +190,22 @@ def _allowed_facts(recap: dict | None) -> list[str]:
     ]
     plays = recap.get("scoringPlays") or []
     if plays:
+        td_counts: dict[str, int] = {}
+        for play in plays:
+            if not isinstance(play, dict):
+                continue
+            typ = (play.get("type") or "").strip().lower()
+            if typ != "td" and "touchdown" not in typ:
+                continue
+            team = (play.get("team") or "?").strip().upper() or "?"
+            td_counts[team] = td_counts.get(team, 0) + 1
+        if td_counts:
+            listed = ", ".join(
+                f"{team}={count}" for team, count in sorted(td_counts.items())
+            )
+            lines.append(
+                "  TOUCHDOWN COUNTS (whole game, from scoring plays): " + listed
+            )
         lines.append("  SCORING PLAYS IN ORDER (team and scorer):")
         for play in plays:
             if not isinstance(play, dict):
@@ -367,6 +383,9 @@ def _last_game_brief(signals: dict, phase: dict) -> str:
         f"  {game.get('seasonType','reg')} wk{game.get('week')} "
         f"{when} KC {loc} {game.get('opponent')}"
         f"{status} at {game.get('venue') or '—'}",
+        "  Only this last-game final may appear unlabeled. Any other final "
+        "must name that opponent — do not drop a prior score (3-20, 22-6) "
+        "into this review.",
     ]
     part = collect.kickoff_part_of_day(game.get("date") or "")
     if part:

@@ -798,6 +798,22 @@ class DeskSections(unittest.TestCase):
             self.assertEqual(collect.fetch_game_recap("1"), {})
         self.assertEqual(collect.fetch_game_recap(""), {})
 
+    def test_scoring_lines_keep_the_ninth_score(self):
+        """Week 8 DEN had 9 scoring plays; a cap of 8 hid Coleman's winner."""
+        plays = []
+        for idx in range(9):
+            plays.append(
+                {
+                    "team": {"abbreviation": "DEN" if idx % 2 else "KC"},
+                    "text": f"score {idx + 1}",
+                    "period": {"number": 4},
+                    "clock": {"displayValue": "1:56"},
+                }
+            )
+        lines = collect._scoring_lines(plays)
+        self.assertEqual(len(lines), 9)
+        self.assertIn("score 9", lines[-1])
+
     def test_parse_player_usage_emits_passing_touchdowns(self):
         box = {
             "players": [
@@ -3775,6 +3791,8 @@ class LiveGamePhase(unittest.TestCase):
             [self.WEEK4],
         )
         self.assertIn("SCORING PLAYS", text)
+        self.assertIn("TOUCHDOWN COUNTS (whole game, from scoring plays): KC=1", text)
+        self.assertIn("Only this last-game final may appear unlabeled", text)
         self.assertIn("Q2 2:00 KC INT — Trent McDuffie (0 yd) — KC 14–7", text)
         self.assertIn("Q3 8:12 KC TD — Travis Kelce (11 yd)", text)
         self.assertIn("SCORING TABLE", text)
@@ -6822,6 +6840,8 @@ class FactCheck(unittest.TestCase):
         self.assertIn("Never write the opponent clock as Kansas City's", text)
         self.assertIn("Possession time belongs to the team", prompts.SYSTEM_PROMPT)
         self.assertIn("SCORING PLAYS IN ORDER", text)
+        self.assertIn("TOUCHDOWN COUNTS (whole game, from scoring plays):", text)
+        self.assertIn("Only this last-game final may appear unlabeled", text)
         self.assertIn("Kenneth Walker III", text)
         self.assertIn("Ollie Gordon II", text)
         self.assertLess(text.index("ALLOWED FACTS"), text.index("LAST-GAME BOX"))
@@ -14093,6 +14113,145 @@ class Oct14EditionGates(unittest.TestCase):
             self.assertEqual(rc, 0, out.getvalue())
             self.assertNotIn("replay not run", out.getvalue())
             self.assertIn("archive replay gate: ok", out.getvalue())
+
+    def test_denver_week8_replay_uses_rematch_box(self):
+        """24-28 Denver is 401873033; 31-10 opener stays 401872931.
+
+        A Week 8 Review with no rematch fixture was ``replay not run`` on
+        every morning after Nov 1 (runs 41682723153 / 41512635595). Mapping
+        Denver only to Week 1, or leaving the rematch unwired, must fail.
+        """
+        from tools.tests.archive_replay import last_game_for_edition
+
+        slate = frozen_schedule()
+        week8 = {
+            "edition": "Week 8 · Review",
+            "phase": {"mode": "review"},
+            "lastGameReview": {
+                "opponent": "Denver Broncos",
+                "score": "KC 24–28",
+            },
+        }
+        opener = {
+            "lastGameReview": {
+                "opponent": "Denver Broncos",
+                "score": "KC 31–10",
+            },
+        }
+        last8 = last_game_for_edition(week8, slate)
+        last_open = last_game_for_edition(opener, slate)
+        self.assertEqual(str((last8 or {}).get("id")), "401873033")
+        self.assertEqual(
+            ((last8 or {}).get("kcScore"), (last8 or {}).get("oppScore")),
+            (24, 28),
+        )
+        self.assertEqual(str((last_open or {}).get("id")), "401872931")
+        self.assertFalse(generate.replay_fixture_missing(week8))
+        recap = generate._recap_for_edition(week8)
+        self.assertEqual(str(recap.get("eventId")), "401873033")
+        self.assertEqual(facts.official_count_by_team(recap, "td").get("KC"), 3)
+        self.assertEqual(facts.official_count_by_team(recap, "td").get("DEN"), 3)
+        prior = recap.get("prior") or {}
+        self.assertEqual(str(prior.get("eventId")), "401873022")
+        self.assertEqual(prior.get("opponent"), "Seattle Seahawks")
+        opener_recap = generate._recap_for_edition(opener)
+        self.assertEqual(str(opener_recap.get("eventId")), "401872931")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "narrative.json"
+            path.write_text(json.dumps(week8) + "\n", encoding="utf-8")
+            with patch.object(generate.config, "NARRATIVE_JSON", path):
+                with redirect_stdout(io.StringIO()) as out:
+                    rc = generate.main(["--gate-replay"])
+            self.assertEqual(rc, 0, out.getvalue())
+            self.assertNotIn("replay not run", out.getvalue())
+            self.assertIn("archive replay gate: ok", out.getvalue())
+
+    def test_denver_td_count_mismatch_is_dropped_not_rewritten(self):
+        """Salvage may drop a bad TD count; it must not change the number."""
+        recap = generate._recap_for_edition(
+            {
+                "lastGameReview": {
+                    "opponent": "Denver Broncos",
+                    "score": "KC 24–28",
+                }
+            }
+        )
+        last = {
+            "id": "401873033",
+            "completed": True,
+            "opponent": "Denver Broncos",
+            "kcScore": 24,
+            "oppScore": 28,
+        }
+        dirty = {
+            "headline": "Mile High slipped to 24-28.",
+            "dek": "Kansas City is 5-2 after a 24-28 loss at Denver.",
+            "theEdge": "Arrowhead is a 9.5-point reply on CBS.",
+            "edition": "2026 Week 8 · Review",
+            "phase": {"mode": "review", "week": 8},
+            "lastGameReview": {
+                "opponent": "Denver Broncos",
+                "result": "L",
+                "score": "KC 24–28",
+                "lede": "Kansas City lost 24-28 at Empower Field.",
+                "analysis": [
+                    {
+                        "body": (
+                            "All three Kansas City touchdowns were throws: "
+                            "11, 73, and 4 yards."
+                        )
+                    },
+                    {
+                        "body": "Two Denver touchdowns and a missed 54 flipped it."
+                    },
+                    {
+                        "body": (
+                            "First two Jets snaps after a Chiefs touchdown "
+                            "or field goal, the moment Denver answered a "
+                            "24-13 lead with points."
+                        )
+                    },
+                ],
+            },
+        }
+        jets = dirty["lastGameReview"]["analysis"][2]["body"]
+        issues = facts.check_review(dirty, last, recap, changed=True)
+        self.assertTrue(
+            any("touchdown count" in item and "DEN" in item for item in issues),
+            issues,
+        )
+        self.assertFalse(
+            any("touchdown count" in item and "Jets" in item for item in issues),
+            issues,
+        )
+        self.assertIsNone(
+            facts._correct_sentence(
+                "Two Denver touchdowns and a missed 54 flipped it.",
+                "DEN touchdown count 2 disagrees with ESPN 3 "
+                "('Two Denver touchdowns')",
+                recap,
+                last,
+            )
+        )
+        fixed, logs = facts.apply_fact_corrections(dirty, issues, recap, last)
+        self.assertFalse(any(" → " in row and "touchdown" in row.lower() for row in logs), logs)
+        leftover = facts.check_review(fixed, last, recap, changed=True)
+        repaired = (
+            facts.repair_offending_copy(fixed, leftover, last, recap)
+            if leftover
+            else fixed
+        )
+        blob = facts.edition_text(repaired)
+        self.assertNotIn("Two Denver touchdowns", blob)
+        self.assertNotIn("Three Denver touchdowns", blob)
+        self.assertNotIn("All one Kansas City touchdowns", blob)
+        self.assertIn("All three Kansas City touchdowns were throws", blob)
+        self.assertIn(jets, blob)
+        leftover_after = facts.check_review(repaired, last, recap, changed=True)
+        self.assertFalse(
+            any("touchdown count" in item for item in leftover_after),
+            leftover_after,
+        )
 
     def test_seattle_preview_binds_chargers_prior_22_6(self):
         """22-6 next to Chargers is ESPN 401873006, not Seattle 3-20.

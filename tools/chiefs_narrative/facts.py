@@ -2411,6 +2411,17 @@ def _alias_team(phrase: str, aliases: dict[str, str]) -> str:
     return ""
 
 
+def _exact_alias_team(phrase: str, aliases: dict[str, str]) -> str:
+    """Resolve a whole phrase to a team. No substring 'Chiefs' inside other copy."""
+    token = _norm_team_phrase(phrase)
+    if not token:
+        return ""
+    compact = token.replace(".", "").replace(" ", "")
+    if compact.upper() in _NFL_ABBR and compact.isalpha() and len(compact) <= 3:
+        return compact.upper()
+    return aliases.get(token) or aliases.get(compact) or ""
+
+
 def _box_yards_int(raw) -> int | None:
     token = str(raw or "").replace(",", "").strip()
     if not token:
@@ -3349,7 +3360,12 @@ def _count_issue(
     label: str,
 ):
     claimed = _parse_count_word(match.group(1))
-    team = _alias_team(match.group(2) or "", aliases)
+    team_raw = (match.group(2) or "").strip()
+    # "First two Jets snaps after a Chiefs touchdown" is not a team TD count.
+    # The captured group must be a team name as a whole, not a substring hit.
+    team = _exact_alias_team(team_raw, aliases) if team_raw else ""
+    if team_raw and not team:
+        return None
     if not team:
         sentence = _sentence_at(text, match.start())
         lead = re.match(
@@ -9217,7 +9233,7 @@ def _refuse_rush_swap(
 
 
 _REWRITE_BOX_KINDS = frozenset(
-    {"first downs", "team rushing", "team passing", "touchdown count"}
+    {"first downs", "team rushing", "team passing"}
 )
 _REWRITE_PLAYER_KINDS = frozenset(
     {"pass attempts", "rush attempts", "sacks", "touches"}
@@ -9257,15 +9273,10 @@ def _correct_sentence(
         claimed = int(num.group("claimed"))
         official = int(num.group("official"))
         if kind == "touchdown count":
-            if _SEASON_TD_LEDGER.search(sentence or ""):
-                return None
-            if re.search(
-                r"\b(?:mahomes|walker|thornton|kelce|rice|worthy|butker)\b",
-                sentence or "",
-                re.I,
-            ):
-                return None
-            return _swap_count_in_sentence(sentence, claimed, official)
+            # Counts are drop-only. Rewriting "two"/"three" minted
+            # "All one Kansas City touchdowns" and retargeted "First two
+            # Jets snaps" on the Week 8 DEN review (run 41682723153).
+            return None
         if kind == "touches":
             named = re.search(
                 r"\sfor\s+([A-Za-z. '’-]+?)\s+\(",
