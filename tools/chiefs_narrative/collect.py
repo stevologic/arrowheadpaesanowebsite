@@ -1066,7 +1066,7 @@ def parse_drive_results(drives) -> list[dict]:
     return out
 
 
-def _scoring_lines(plays: list, limit: int = 8) -> list[str]:
+def _scoring_lines(plays: list, limit: int = 16) -> list[str]:
     out = []
     for play in plays or []:
         if not isinstance(play, dict):

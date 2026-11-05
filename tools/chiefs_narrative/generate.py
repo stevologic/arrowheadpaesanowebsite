@@ -1466,21 +1466,28 @@ _RECAP_FIXTURES = (
     (("miami",), "espn_401872952_recap.json"),
     (("las vegas", "raiders"), "espn_401872976_recap.json"),
     (("seattle", "seahawks"), "espn_401873022_recap.json"),
+    (("denver", "broncos"), "espn_401873033_recap.json"),
+    (("denver", "broncos"), "espn_401872931_recap.json"),
 )
 # Same chain archive_replay uses: last-game fixture + prior-game fixture.
 _PRIOR_RECAP_FIXTURE = {
+    "espn_401873033_recap.json": "espn_401873022_recap.json",
     "espn_401873022_recap.json": "espn_401873006_recap.json",
     "espn_401872976_recap.json": "espn_401872952_recap.json",
     "espn_401872952_recap.json": "espn_401872945_recap.json",
+    "espn_401872931_recap.json": "espn_401873305_recap.json",
 }
 # Full names, not just abbr. A Seattle Preview that cites "Chargers" and
 # "a 22-6 win" (ESPN 401873006) cannot bind from LAC/la on the frozen slate.
 _FIXTURE_OPPONENT = {
+    "espn_401873033_recap.json": ("Denver Broncos", "DEN"),
     "espn_401873022_recap.json": ("Seattle Seahawks", "SEA"),
     "espn_401873006_recap.json": ("Los Angeles Chargers", "LAC"),
+    "espn_401873305_recap.json": ("Seattle Seahawks", "SEA"),
     "espn_401872952_recap.json": ("Miami Dolphins", "MIA"),
     "espn_401872945_recap.json": ("Indianapolis Colts", "IND"),
     "espn_401872976_recap.json": ("Las Vegas Raiders", "LV"),
+    "espn_401872931_recap.json": ("Denver Broncos", "DEN"),
 }
 
 
@@ -1601,22 +1608,55 @@ def _signed_review_already_published(ph: dict | None) -> bool:
     return True
 
 
+def _edition_review_score(narrative: dict) -> tuple[int, int] | None:
+    review = (narrative or {}).get("lastGameReview") or {}
+    match = re.search(r"(\d+)\s*[–-]\s*(\d+)", str(review.get("score") or ""))
+    if not match:
+        return None
+    return int(match.group(1)), int(match.group(2))
+
+
+def _recap_final_score(recap: dict | None) -> tuple[int, int] | None:
+    plays = (recap or {}).get("scoringPlays") or []
+    if not plays:
+        return None
+    last = plays[-1]
+    try:
+        return int(last["kcScore"]), int(last["oppScore"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 def _recap_for_edition(narrative: dict) -> dict:
     """Load the truth recap from this checkout's tools/ fixtures.
 
     Edition QA overlays only data/ + public/images/narrative from a PR.
     Fixtures stay on main so a fork cannot swap the ESPN recap.
+    Rematches (Denver 31-10 vs 24-28) pick the box that matches the
+    edition score; otherwise the most recent listed fixture for that
+    opponent.
     """
     review = narrative.get("lastGameReview") or {}
     opponent = (review.get("opponent") or "").lower()
     fixtures = config.REPO_ROOT / "tools" / "tests" / "fixtures"
+    wanted = _edition_review_score(narrative)
+    matches: list[tuple[str, dict]] = []
     for tokens, name in _RECAP_FIXTURES:
-        if any(token in opponent for token in tokens):
-            path = fixtures / name
-            if path.is_file():
-                recap = json.loads(path.read_text(encoding="utf-8"))
+        if not any(token in opponent for token in tokens):
+            continue
+        path = fixtures / name
+        if not path.is_file():
+            continue
+        recap = json.loads(path.read_text(encoding="utf-8"))
+        matches.append((name, recap))
+    if not matches:
+        return {}
+    if wanted:
+        for name, recap in matches:
+            if _recap_final_score(recap) == wanted:
                 return _attach_prior_recap(recap, name, fixtures)
-    return {}
+    name, recap = matches[0]
+    return _attach_prior_recap(recap, name, fixtures)
 
 
 def recap_is_usable(recap: dict | None) -> bool:
@@ -1632,8 +1672,9 @@ def recap_is_usable(recap: dict | None) -> bool:
 def replay_fixture_missing(narrative: dict | None) -> bool:
     """True when a Review names an opponent we have no ESPN replay fixture for.
 
-    Miami, Las Vegas, and Seattle recaps are wired into ``_RECAP_FIXTURES``.
-    A Chargers review must hold automerge instead of passing silently.
+    Miami, Las Vegas, Seattle, and Denver recaps are wired into
+    ``_RECAP_FIXTURES``. A Chargers review must hold automerge instead of
+    passing silently.
     """
     payload = narrative or {}
     review = payload.get("lastGameReview") or {}

@@ -2411,6 +2411,52 @@ def _alias_team(phrase: str, aliases: dict[str, str]) -> str:
     return ""
 
 
+def _exact_alias_team(phrase: str, aliases: dict[str, str]) -> str:
+    """Resolve a whole phrase to a team. No substring 'Chiefs' inside other copy."""
+    token = _norm_team_phrase(phrase)
+    if not token:
+        return ""
+    compact = token.replace(".", "").replace(" ", "")
+    if compact.upper() in _NFL_ABBR and compact.isalpha() and len(compact) <= 3:
+        return compact.upper()
+    return aliases.get(token) or aliases.get(compact) or ""
+
+
+_COUNT_TEAM_MODIFIER = re.compile(
+    r"^(?:(?:the|total|rushing|passing|receiving|offensive|defensive|"
+    r"unanswered|combined|overall|only|just|early|late|"
+    r"(?:first|second)[- ]half)\s+)+",
+    re.I,
+)
+_COUNT_EVENT_COPY = re.compile(
+    r"\b(?:snaps?|after|before|following|when|while|once)\b",
+    re.I,
+)
+
+
+def _count_captured_team(team_raw: str, aliases: dict[str, str]) -> str | None:
+    """Team from the words between the number and touchdowns/field goals.
+
+    Empty string means fall through to the sentence subject. None means the
+    capture is event copy (``two Jets snaps after a Chiefs touchdown``),
+    not a team total. Modifiers stay valid: ``four total Denver touchdowns``.
+    """
+    raw = (team_raw or "").strip()
+    if not raw:
+        return ""
+    exact = _exact_alias_team(raw, aliases)
+    if exact:
+        return exact
+    stripped = _COUNT_TEAM_MODIFIER.sub("", raw).strip()
+    if stripped:
+        exact = _exact_alias_team(stripped, aliases)
+        if exact:
+            return exact
+    if _COUNT_EVENT_COPY.search(raw):
+        return None
+    return _alias_team(raw, aliases) or None
+
+
 def _box_yards_int(raw) -> int | None:
     token = str(raw or "").replace(",", "").strip()
     if not token:
@@ -3349,7 +3395,11 @@ def _count_issue(
     label: str,
 ):
     claimed = _parse_count_word(match.group(1))
-    team = _alias_team(match.group(2) or "", aliases)
+    team_raw = (match.group(2) or "").strip()
+    captured = _count_captured_team(team_raw, aliases)
+    if captured is None:
+        return None
+    team = captured
     if not team:
         sentence = _sentence_at(text, match.start())
         lead = re.match(
@@ -9217,7 +9267,7 @@ def _refuse_rush_swap(
 
 
 _REWRITE_BOX_KINDS = frozenset(
-    {"first downs", "team rushing", "team passing", "touchdown count"}
+    {"first downs", "team rushing", "team passing"}
 )
 _REWRITE_PLAYER_KINDS = frozenset(
     {"pass attempts", "rush attempts", "sacks", "touches"}
@@ -9257,15 +9307,10 @@ def _correct_sentence(
         claimed = int(num.group("claimed"))
         official = int(num.group("official"))
         if kind == "touchdown count":
-            if _SEASON_TD_LEDGER.search(sentence or ""):
-                return None
-            if re.search(
-                r"\b(?:mahomes|walker|thornton|kelce|rice|worthy|butker)\b",
-                sentence or "",
-                re.I,
-            ):
-                return None
-            return _swap_count_in_sentence(sentence, claimed, official)
+            # Counts are drop-only. Rewriting "two"/"three" minted
+            # "All one Kansas City touchdowns" and retargeted "First two
+            # Jets snaps" on the Week 8 DEN review (run 41682723153).
+            return None
         if kind == "touches":
             named = re.search(
                 r"\sfor\s+([A-Za-z. '’-]+?)\s+\(",
