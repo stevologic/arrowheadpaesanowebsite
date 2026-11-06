@@ -698,6 +698,209 @@ class Week9PreviewLeftoverReplay(unittest.TestCase):
             leftover_script,
         )
 
+    def test_score_after_class_false_clocked_scores_drop(self):
+        """False N-M after/following a clocked score drops; 14-6 is not invented.
+
+        The play-order skip exempts every score + after/following + Qn clock
+        TD/FG, including alternate nouns and wrapped whitespace. Each of
+        those must independently fail ESPN 401873033 (14-6 after Q2 7:40).
+        """
+        variants = (
+            "A 7-3 lead after Q2 7:40 touchdown became 24-28",
+            "A 7-3 lead following the Q2 7:40 touchdown became 24-28",
+            "A 7-3 advantage after the Q2 7:40 touchdown became 24-28",
+            "A 7-3 lead\nafter Q2 7:40 touchdown became 24-28",
+            "A 7-3 edge after the Q2 7:40 TD became 24-28",
+            "A 7-3 deficit following Q2 7:40 touchdown became 24-28",
+            "A 7-3 cushion after the Q2\n7:40 touchdown became 24-28",
+        )
+        for sentence in variants:
+            with self.subTest(sentence=sentence):
+                dirty = self._lede(sentence)
+                issues = self._issues(dirty)
+                self.assertTrue(
+                    any("score progression" in item for item in issues),
+                    issues,
+                )
+                self.assertIsNone(
+                    facts._correct_sentence(
+                        sentence, issues[0], self.RECAP, self.LAST
+                    )
+                )
+                repaired = facts.repair_offending_copy(
+                    dirty, issues, self.LAST, self.RECAP, frozen_schedule()
+                )
+                blob = facts.edition_text(repaired)
+                self.assertNotIn("7-3", blob)
+                self.assertNotIn("14-6", blob)
+                leftover = self._issues(repaired)
+                self.assertFalse(
+                    any("score progression" in item for item in leftover),
+                    leftover,
+                )
+                drops = facts.dropped_sentences(dirty, repaired)
+                self.assertTrue(drops, blob)
+                self.assertTrue(
+                    facts.should_hold_automerge(
+                        drops, repaired, leftover=leftover
+                    )
+                )
+        true_issues = self._issues(self._lede(self.TRUE_PROGRESSION))
+        self.assertEqual(true_issues, [])
+        self.assertIn(
+            self.TRUE_PROGRESSION,
+            facts.edition_text(self._lede(self.TRUE_PROGRESSION)),
+        )
+
+    def test_incidental_player_does_not_verify_unknown_club(self):
+        """Unknown-club boxes stay rejected when a recap player is mentioned.
+
+        Stop-tokens and recap surnames may verify Patrick Mahomes / P.Mahomes
+        / KC / Kansas City / Chiefs as the subject. They must not verify
+        Seattle or Green Bay because Walker, Rice, Kelce, or Mahomes appears
+        in a with/without/not/minus/except tail.
+        """
+        box = "was 18 first downs, 88 rush, 246 net pass, 25:39."
+        subjects = (
+            "Seattle without Walker",
+            "Seattle with Rice",
+            "Seattle without Kelce",
+            "Seattle not Mahomes",
+            "Seattle minus Walker",
+            "Seattle except Kelce",
+            "Green Bay without Mahomes",
+            "Green Bay with Rice",
+        )
+        slate = frozen_schedule()
+        for subject in subjects:
+            sentence = f"{subject} {box}"
+            with self.subTest(subject=subject):
+                unknown = facts._unknown_was_opponent(
+                    sentence, self.LAST, self.RECAP, slate
+                )
+                self.assertTrue(unknown, sentence)
+                dirty = self._lede(sentence)
+                issues = self._issues(dirty)
+                self.assertTrue(
+                    any("unverifiable" in item for item in issues),
+                    issues,
+                )
+                repaired = facts.repair_offending_copy(
+                    dirty, issues, self.LAST, self.RECAP, slate
+                )
+                blob = facts.edition_text(repaired)
+                self.assertNotIn(subject, blob)
+                leftover = self._issues(repaired)
+                self.assertFalse(
+                    any(
+                        "unverifiable" in item and subject.split()[0] in item
+                        for item in leftover
+                    ),
+                    leftover,
+                )
+        for club in ("Seattle", "Green Bay"):
+            sentence = f"{club} {box}"
+            self.assertEqual(
+                facts._unknown_was_opponent(
+                    sentence, self.LAST, self.RECAP, slate
+                ),
+                club,
+            )
+            issues = self._issues(self._lede(sentence))
+            self.assertTrue(
+                any("unverifiable" in item for item in issues),
+                (club, issues),
+            )
+        for name in ("Patrick Mahomes", "P.Mahomes", "Mahomes"):
+            player_box = self.MAHOMES_BOX.replace("Patrick Mahomes", name, 1)
+            self.assertEqual(
+                facts._unknown_was_opponent(
+                    player_box, self.LAST, self.RECAP, slate
+                ),
+                "",
+                name,
+            )
+            issues = self._issues(self._lede(player_box))
+            self.assertFalse(
+                any("unverifiable" in item and "opponent" in item for item in issues),
+                (name, issues),
+            )
+            self.assertIn(player_box, facts.edition_text(self._lede(player_box)))
+        for name in ("KC", "Kansas City", "Chiefs"):
+            team_box = self.MAHOMES_BOX.replace("Patrick Mahomes", name, 1)
+            self.assertEqual(
+                facts._unknown_was_opponent(
+                    team_box, self.LAST, self.RECAP, slate
+                ),
+                "",
+                name,
+            )
+            issues = self._issues(self._lede(team_box))
+            self.assertFalse(
+                any(
+                    "opponent" in item and name in item and "unverifiable" in item
+                    for item in issues
+                ),
+                (name, issues),
+            )
+
+    def test_in_field_multiline_score_claim_drops_whole_sentence(self):
+        """Wrapped in-field score-afters drop whole; no orphaned prefix."""
+        wrapped = "A 24-13 lead after the Q3\n1:38 touchdown became 17-13"
+        dirty = self._lede(wrapped)
+        issues = self._issues(dirty)
+        self.assertTrue(
+            any("score progression" in item for item in issues),
+            issues,
+        )
+        repaired = facts.repair_offending_copy(
+            dirty, issues, self.LAST, self.RECAP, frozen_schedule()
+        )
+        blob = facts.edition_text(repaired)
+        self.assertNotIn("A 24-13 lead after the Q3", blob)
+        self.assertNotIn("24-13", blob)
+        leftover = self._issues(repaired)
+        self.assertFalse(
+            any("score progression" in item for item in leftover),
+            leftover,
+        )
+        drops = facts.dropped_sentences(dirty, repaired)
+        self.assertTrue(drops)
+        self.assertTrue(
+            facts.should_hold_automerge(drops, repaired, leftover=leftover)
+        )
+
+        true_wrap = "A 24-13 lead after the Q3\n1:38 touchdown became 24-28"
+        true_issues = self._issues(self._lede(true_wrap))
+        self.assertEqual(true_issues, [])
+        self.assertIn(
+            "24-13",
+            facts.edition_text(self._lede(true_wrap)),
+        )
+
+        mixed = (
+            "The preview stays on the Jets. A 24-13 lead after the Q3\n"
+            "1:38 touchdown became 17-13. Cover-2 still heads the series."
+        )
+        mixed_dirty = self._lede(mixed)
+        mixed_issues = self._issues(mixed_dirty)
+        self.assertTrue(
+            any("score progression" in item for item in mixed_issues),
+            mixed_issues,
+        )
+        mixed_repaired = facts.repair_offending_copy(
+            mixed_dirty,
+            mixed_issues,
+            self.LAST,
+            self.RECAP,
+            frozen_schedule(),
+        )
+        mixed_blob = facts.edition_text(mixed_repaired)
+        self.assertIn("The preview stays on the Jets", mixed_blob)
+        self.assertIn("Cover-2 still heads the series", mixed_blob)
+        self.assertNotIn("A 24-13 lead after the Q3", mixed_blob)
+        self.assertNotIn("became 17-13", mixed_blob)
+
     def test_week9_leftover_mutants_are_killed(self):
         """Named mutants: empty-team opponent, down rewrite, play-order skip."""
         rows = []

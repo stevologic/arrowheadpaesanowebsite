@@ -1029,17 +1029,14 @@ _AFTER_FOLLOWING = re.compile(
     re.IGNORECASE,
 )
 # "24-13 lead after the Q3 1:38 touchdown" is a score-after, not play A after B.
+# Right-span grammar the play-order skip exempts; validator uses the same class.
 _CLOCKED_SCORE_AFTER = re.compile(
     r"^(?:the\s+)?Q(\d)\s+(\d{1,2}:\d{2})\s+"
     r"(?:touchdown|field goal|\bTD\b)",
     re.IGNORECASE,
 )
-_SCORE_AFTER_CLOCK_LEAD = re.compile(
-    r"\b(?P<a>\d{1,2})\s*[–-]\s*(?P<b>\d{1,2})\s+lead\b"
-    r".{0,80}?"
-    r"\bafter the Q(?P<q>\d)\s+(?P<clock>\d{1,2}:\d{2})\s+"
-    r"(?P<kind>touchdown|field goal|\bTD\b)\b",
-    re.IGNORECASE,
+_SPAN_SCORE = re.compile(
+    r"\b(?P<a>\d{1,2})\s*[–-]\s*(?P<b>\d{1,2})\b",
 )
 _SCORE_BECAME = re.compile(
     r"\bbecame\s+(?P<c>\d{1,2})\s*[–-]\s*(?P<d>\d{1,2})\b",
@@ -4249,12 +4246,63 @@ def _later_score_pairs(
     return pairs
 
 
+def _clocked_score_after_claim(left: str, right: str):
+    """Parts for a clocked score-after, or None when this is not that class.
+
+    Same grammar the play-order skip exempts: a score in the left span of
+    after/following whose right span is Qn clock TD/FG. Noun (lead,
+    advantage, edge, …) and wrapping whitespace do not change the class.
+    """
+    clocked = _CLOCKED_SCORE_AFTER.match((right or "").strip())
+    if not clocked:
+        return None
+    hits = list(_SPAN_SCORE.finditer(left or ""))
+    if not hits:
+        return None
+    hit = hits[-1]
+    claimed = _int_pair(hit.group("a"), hit.group("b"))
+    if not claimed:
+        return None
+    try:
+        quarter = int(clocked.group(1))
+    except (TypeError, ValueError):
+        return None
+    return (
+        claimed,
+        hit.group("a"),
+        hit.group("b"),
+        quarter,
+        clocked.group(2) or "",
+        _event_kind(clocked.group(0) or ""),
+    )
+
+
+def _iter_clocked_score_after(text: str):
+    """after/following matches that are clocked score-after claims."""
+    for match in _AFTER_FOLLOWING.finditer(text or ""):
+        left = _left_span(text, match.start())
+        right = _right_span(text, match.end())
+        claim = _clocked_score_after_claim(left, right)
+        if claim:
+            yield match, claim
+
+
+def _score_after_official(
+    recap: dict | None,
+    claim: tuple,
+) -> tuple[dict | None, tuple[int, int] | None]:
+    _claimed, _a, _b, quarter, clock, kind = claim
+    play = _scoring_play_at(recap, quarter, clock, kind)
+    official = _play_score_pair(play) if play else None
+    return play, official
+
+
 def _check_score_progression(
     text: str,
     recap: dict | None,
     last_game: dict | None = None,
 ) -> list[str]:
-    """'N-M lead after the Qn clock TD became A-B' must match ESPN score-afters.
+    """Every exempted score-after must match the ESPN scoring play at that clock.
 
     Play-order 'after' is the wrong class: a 24-13 lead after Q3 1:38 that
     became 24-28 is a collapse, not a claim that the Gray TD happened after
@@ -4269,27 +4317,20 @@ def _check_score_progression(
         return []
     issues = []
     seen: set[str] = set()
-    for match in _SCORE_AFTER_CLOCK_LEAD.finditer(text):
+    for match, claim in _iter_clocked_score_after(text):
+        claimed, a_raw, b_raw, quarter, clock, _kind = claim
         sentence = _sentence_at(text, match.start())
         key = sentence.lower()
         if key in seen:
             continue
-        claimed = _int_pair(match.group("a"), match.group("b"))
-        try:
-            quarter = int(match.group("q"))
-        except (TypeError, ValueError):
-            continue
-        clock = match.group("clock") or ""
-        kind = _event_kind(match.group("kind") or "")
-        play = _scoring_play_at(recap, quarter, clock, kind)
-        official = _play_score_pair(play) if play else None
+        play, official = _score_after_official(recap, claim)
         if not play or not claimed or not official or not _pair_allowed(
             claimed, {official, (official[1], official[0])}
         ):
             seen.add(key)
             issues.append(
                 "score progression "
-                f"{match.group('a')}-{match.group('b')} after Q{quarter} "
+                f"{a_raw}-{b_raw} after Q{quarter} "
                 f"{clock} is not an ESPN score-after ({sentence!r})"
             )
             continue
@@ -4320,9 +4361,7 @@ def _check_play_sequence(text: str, recap: dict | None) -> list[str]:
         right = _right_span(text, match.end())
         if _AFTER_NON_PLAY.search(right):
             continue
-        if _CLOCKED_SCORE_AFTER.match(right) and re.search(
-            r"\b\d{1,2}\s*[–-]\s*\d{1,2}\b", left
-        ):
+        if _clocked_score_after_claim(left, right):
             continue
         first = _resolve_timeline_event(left, events, prefer_last=True)
         second = _resolve_timeline_event(right, events)
@@ -8774,6 +8813,88 @@ def _drop_inverted_play_order(value, recap: dict | None):
     return value
 
 
+def _cut_in_field_sentence(text: str, index: int) -> str:
+    """Remove the period-bounded sentence at index, keeping wrapped newlines in it.
+
+    Newline splitting is the wrong boundary for an in-field wrapped claim.
+    """
+    start, end = _sentence_span(text, index)
+    if end < len(text) and text[end] in ".!?":
+        end += 1
+    cut = text[:start] + text[end:]
+    cut = re.sub(r"[ \t]+\n", "\n", cut)
+    cut = re.sub(r"\n[ \t]+", "\n", cut)
+    cut = re.sub(r"\n{3,}", "\n\n", cut)
+    cut = re.sub(r"[ \t]{2,}", " ", cut)
+    cut = re.sub(r"\s+([.!?])", r"\1", cut)
+    return cut.strip()
+
+
+def _drop_invalid_score_progression_text(
+    text: str,
+    recap: dict | None,
+    last_game: dict | None = None,
+) -> str:
+    """Drop complete in-field sentences whose score-after still fails ESPN.
+
+    Salvage that splits on newlines would keep 'A 24-13 lead after the Q3'
+    after deleting the wrapped clock line. That orphaned prefix is still
+    the same claim and must not publish as clean copy.
+    """
+    if not text or not recap:
+        return text
+    current = text
+    for _ in range(8):
+        if not _check_score_progression(current, recap, last_game):
+            return current
+        progressed = False
+        for match, _claim in _iter_clocked_score_after(current):
+            sentence = _sentence_at(current, match.start())
+            if not _check_score_progression(sentence, recap, last_game):
+                continue
+            nxt = _cut_in_field_sentence(current, match.start())
+            if nxt != current:
+                current = nxt
+                progressed = True
+                break
+        if not progressed:
+            break
+    return current
+
+
+def _drop_invalid_score_progression(
+    value,
+    recap: dict | None,
+    last_game: dict | None = None,
+):
+    """Walk every section and remove invalid in-field score-after claims."""
+    if not recap:
+        return value
+    if isinstance(value, str):
+        return _drop_invalid_score_progression_text(value, recap, last_game)
+    if isinstance(value, list):
+        out = []
+        for item in value:
+            kept = _drop_invalid_score_progression(item, recap, last_game)
+            if kept in (None, "", [], {}):
+                continue
+            out.append(kept)
+        return out
+    if isinstance(value, dict):
+        out = {}
+        for key, item in value.items():
+            if key in _PROTECTED_KEYS:
+                out[key] = item
+                continue
+            kept = _drop_invalid_score_progression(item, recap, last_game)
+            if kept not in (None, "", [], {}):
+                out[key] = kept
+            elif key in ("lede", "body", "why", "coaching", "note"):
+                out[key] = kept if isinstance(kept, str) else ""
+        return out
+    return value
+
+
 def safe_score_lede(last_game: dict | None) -> str:
     last = last_game or {}
     opp = (last.get("opponent") or "the opponent").strip()
@@ -8907,6 +9028,15 @@ _WAS_LEAD_STOP = frozenset(
         "walker",
         "rice",
     }
+)
+# Role/incidental tails: 'Seattle without Walker' is still Seattle.
+_BOX_SUBJECT_ROLE = re.compile(
+    r"\s+(?:"
+    r"without|with|not|minus|plus|except|versus|vs\.?|"
+    r"beside|alongside|featuring|including|excluding|"
+    r"despite|absent|sans|less|and|or|but|nor"
+    r")\s+",
+    re.I,
 )
 _BOX_KIND_PATTERNS = (
     re.compile(r"\d+\s+first downs\b", re.I),
@@ -9246,6 +9376,18 @@ def _named_is_recap_player(named: str, recap: dict | None) -> bool:
     return False
 
 
+def _box_subject_head(named: str) -> str:
+    """Club or player that owns the box, ignoring incidental or negated names.
+
+    'Seattle without Walker' is Seattle. 'Patrick Mahomes' stays the QB.
+    A recap surname in a modifier must not verify an unknown opponent.
+    """
+    text = (named or "").strip()
+    if not text:
+        return ""
+    return _BOX_SUBJECT_ROLE.split(text, maxsplit=1)[0].strip()
+
+
 def _unknown_was_opponent(
     sentence: str,
     last_game: dict | None,
@@ -9262,12 +9404,8 @@ def _unknown_was_opponent(
     if not match:
         return ""
     named = (match.group("team") or "").strip()
-    if not named or named.lower() in _WAS_LEAD_STOP:
-        return ""
-    tokens = {part.lower() for part in re.findall(r"[A-Za-z]+", named)}
-    if tokens & _WAS_LEAD_STOP:
-        return ""
-    if _named_is_recap_player(named, recap):
+    head = _box_subject_head(named)
+    if not head or head.lower() in _WAS_LEAD_STOP:
         return ""
     if re.search(r"\b(?:report|injury|thursday)\b", named, re.I):
         return ""
@@ -9292,10 +9430,14 @@ def _unknown_was_opponent(
     if _AGAINST_OTHER_TEAM.search(text):
         return ""
     aliases = _team_aliases(last_game, recap, schedule)
-    team = _alias_team(named, aliases)
+    team = _alias_team(head, aliases)
     if team == "KC":
         return ""
     if team in _recap_box_teams(last_game, recap):
+        return ""
+    if team:
+        return named
+    if _named_is_recap_player(head, recap):
         return ""
     return named
 
@@ -9892,6 +10034,14 @@ def repair_offending_copy(
     """Drop offending sentences, then leftover fragments in every section."""
     payload = copy.deepcopy(narrative or {})
     generated_at = str(payload.get("generatedAt") or "")
+    # In-field wrapped score-afters must drop as one period sentence before
+    # newline splitting can keep an orphaned prefix as clean salvage.
+    if recap:
+        for key in _EDITION_KEYS:
+            if key in payload:
+                payload[key] = _drop_invalid_score_progression(
+                    payload[key], recap, last_game
+                )
     snippets = violation_snippets(
         [
             item
