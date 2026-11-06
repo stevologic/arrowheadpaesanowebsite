@@ -1028,6 +1028,23 @@ _AFTER_FOLLOWING = re.compile(
     r"\b(?P<rel>after|following)\s+(?:the\s+)?",
     re.IGNORECASE,
 )
+# "24-13 lead after the Q3 1:38 touchdown" is a score-after, not play A after B.
+_CLOCKED_SCORE_AFTER = re.compile(
+    r"^(?:the\s+)?Q(\d)\s+(\d{1,2}:\d{2})\s+"
+    r"(?:touchdown|field goal|\bTD\b)",
+    re.IGNORECASE,
+)
+_SCORE_AFTER_CLOCK_LEAD = re.compile(
+    r"\b(?P<a>\d{1,2})\s*[–-]\s*(?P<b>\d{1,2})\s+lead\b"
+    r".{0,80}?"
+    r"\bafter the Q(?P<q>\d)\s+(?P<clock>\d{1,2}:\d{2})\s+"
+    r"(?P<kind>touchdown|field goal|\bTD\b)\b",
+    re.IGNORECASE,
+)
+_SCORE_BECAME = re.compile(
+    r"\bbecame\s+(?P<c>\d{1,2})\s*[–-]\s*(?P<d>\d{1,2})\b",
+    re.IGNORECASE,
+)
 _SEQUENCE_SCORE = re.compile(
     r"(?:from the (\d+)\b|(\d+)[-\s]yard(?:s)?\s+(?:TD|touchdown|field goal)\b"
     r"|(\d{1,2})\s*[–-]\s*(\d{1,2}))",
@@ -4168,6 +4185,129 @@ def _sequence_source_span(text: str, match: re.Match, left: str, right: str) -> 
     return text[start:end]
 
 
+def _play_score_pair(play: dict | None) -> tuple[int, int] | None:
+    payload = play or {}
+    pair = _int_pair(payload.get("kcScore"), payload.get("oppScore"))
+    if pair:
+        return pair
+    after = payload.get("scoreAfter") or ""
+    match = re.search(r"(\d+)\s*[–-]\s*(\d+)", after)
+    if not match:
+        return None
+    return _int_pair(match.group(1), match.group(2))
+
+
+def _scoring_play_at(
+    recap: dict | None,
+    quarter: int,
+    clock: str,
+    kind: str = "",
+) -> dict | None:
+    hits = []
+    for play in (recap or {}).get("scoringPlays") or []:
+        if not isinstance(play, dict):
+            continue
+        if _play_quarter(play) != quarter:
+            continue
+        if _clock_seconds(play.get("clock")) != _clock_seconds(clock):
+            continue
+        if kind:
+            play_kind = _event_kind(play.get("type") or "")
+            if play_kind != kind:
+                continue
+        hits.append(play)
+    if len(hits) != 1:
+        return None
+    return hits[0]
+
+
+def _later_score_pairs(
+    recap: dict | None,
+    play: dict | None,
+    last_game: dict | None = None,
+) -> set[tuple[int, int]]:
+    pairs: set[tuple[int, int]] = set()
+    rows = [
+        row
+        for row in (recap or {}).get("scoringPlays") or []
+        if isinstance(row, dict)
+    ]
+    started = False
+    for row in rows:
+        if not started:
+            if row is play:
+                started = True
+            continue
+        pair = _play_score_pair(row)
+        if pair:
+            pairs.add(pair)
+            pairs.add((pair[1], pair[0]))
+    final = _slate_final_pair(last_game) or _recap_final_pair(recap)
+    if final:
+        pairs.add(final)
+        pairs.add((final[1], final[0]))
+    return pairs
+
+
+def _check_score_progression(
+    text: str,
+    recap: dict | None,
+    last_game: dict | None = None,
+) -> list[str]:
+    """'N-M lead after the Qn clock TD became A-B' must match ESPN score-afters.
+
+    Play-order 'after' is the wrong class: a 24-13 lead after Q3 1:38 that
+    became 24-28 is a collapse, not a claim that the Gray TD happened after
+    Coleman's. Unverifiable clocks or jumped-to scores drop, never rewrite.
+    """
+    plays = [
+        play
+        for play in (recap or {}).get("scoringPlays") or []
+        if isinstance(play, dict)
+    ]
+    if not text or not plays:
+        return []
+    issues = []
+    seen: set[str] = set()
+    for match in _SCORE_AFTER_CLOCK_LEAD.finditer(text):
+        sentence = _sentence_at(text, match.start())
+        key = sentence.lower()
+        if key in seen:
+            continue
+        claimed = _int_pair(match.group("a"), match.group("b"))
+        try:
+            quarter = int(match.group("q"))
+        except (TypeError, ValueError):
+            continue
+        clock = match.group("clock") or ""
+        kind = _event_kind(match.group("kind") or "")
+        play = _scoring_play_at(recap, quarter, clock, kind)
+        official = _play_score_pair(play) if play else None
+        if not play or not claimed or not official or not _pair_allowed(
+            claimed, {official, (official[1], official[0])}
+        ):
+            seen.add(key)
+            issues.append(
+                "score progression "
+                f"{match.group('a')}-{match.group('b')} after Q{quarter} "
+                f"{clock} is not an ESPN score-after ({sentence!r})"
+            )
+            continue
+        became = _SCORE_BECAME.search(sentence)
+        if not became:
+            continue
+        later = _int_pair(became.group("c"), became.group("d"))
+        if later and _pair_allowed(later, _later_score_pairs(recap, play, last_game)):
+            continue
+        seen.add(key)
+        issues.append(
+            "score progression became "
+            f"{became.group('c')}-{became.group('d')} after Q{quarter} "
+            f"{clock} is not a later ESPN score-after ({sentence!r})"
+        )
+    return issues
+
+
 def _check_play_sequence(text: str, recap: dict | None) -> list[str]:
     """'A after B' / 'A following B' must match ESPN play order."""
     events = _timeline(recap)
@@ -4179,6 +4319,10 @@ def _check_play_sequence(text: str, recap: dict | None) -> list[str]:
         left = _left_span(text, match.start())
         right = _right_span(text, match.end())
         if _AFTER_NON_PLAY.search(right):
+            continue
+        if _CLOCKED_SCORE_AFTER.match(right) and re.search(
+            r"\b\d{1,2}\s*[–-]\s*\d{1,2}\b", left
+        ):
             continue
         first = _resolve_timeline_event(left, events, prefer_last=True)
         second = _resolve_timeline_event(right, events)
@@ -7785,6 +7929,7 @@ def check_review(
                 issues.extend(_check_stat_lines(text, recap, last_game))
                 issues.extend(_check_first_lead(text, recap, last_game))
                 issues.extend(_check_play_sequence(text, recap))
+                issues.extend(_check_score_progression(text, recap, last_game))
                 issues.extend(_check_turnover_credit(text, recap))
                 issues.extend(
                     _check_absolute_claims(
@@ -9086,6 +9231,21 @@ def _is_box_like_lead(sentence: str) -> bool:
     return bool(_HELD_BOX_LEAD.match((sentence or "").strip()))
 
 
+def _named_is_recap_player(named: str, recap: dict | None) -> bool:
+    """True when the box subject is a recap player (Mahomes), not a club."""
+    last = _player_last(named)
+    if not last:
+        return False
+    keys = {(named or "").strip().lower(), last}
+    teams = _player_teams(recap)
+    if keys & set(teams):
+        return True
+    prior = (recap or {}).get("prior") or {}
+    if prior:
+        return bool(keys & set(_player_teams(prior)))
+    return False
+
+
 def _unknown_was_opponent(
     sentence: str,
     last_game: dict | None,
@@ -9103,6 +9263,11 @@ def _unknown_was_opponent(
         return ""
     named = (match.group("team") or "").strip()
     if not named or named.lower() in _WAS_LEAD_STOP:
+        return ""
+    tokens = {part.lower() for part in re.findall(r"[A-Za-z]+", named)}
+    if tokens & _WAS_LEAD_STOP:
+        return ""
+    if _named_is_recap_player(named, recap):
         return ""
     if re.search(r"\b(?:report|injury|thursday)\b", named, re.I):
         return ""
@@ -9128,6 +9293,8 @@ def _unknown_was_opponent(
         return ""
     aliases = _team_aliases(last_game, recap, schedule)
     team = _alias_team(named, aliases)
+    if team == "KC":
+        return ""
     if team in _recap_box_teams(last_game, recap):
         return ""
     return named

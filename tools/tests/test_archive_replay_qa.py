@@ -500,6 +500,273 @@ class DiagramDownDistanceReplay(unittest.TestCase):
         self.assertEqual(sum(1 for _name, killed in rows if killed), 3)
 
 
+class Week9PreviewLeftoverReplay(unittest.TestCase):
+    """Runs 42150481858 / 42256744412: Week 9 Preview leftover classes."""
+
+    LAST = _denver_last()
+    RECAP = _load_recap("espn_401873033_recap.json")
+    MAHOMES_BOX = (
+        "Patrick Mahomes was 30-of-41 for 321 yards and 3 touchdowns "
+        "with a 120.1 rating, the offense posted 22 first downs, 399 yards, "
+        "and 6-of-14 on third down, and Kansas City held the ball 31:29."
+    )
+    SUTTON_SIT = (
+        "Jets 1st-and-10, especially if Kansas City leads, after Sutton's "
+        "23-yard catch and Waddle's 35-yard catch in Denver"
+    )
+    TRUE_PROGRESSION = (
+        "A 24-13 lead after the Q3 1:38 touchdown became 24-28"
+    )
+    BAD_PROGRESSION = (
+        "A 21-10 lead after the Q3 1:38 touchdown became 17-28"
+    )
+    JETS_SCRIPT = (
+        "The Jets script should keep Walker near a 20-carry day so "
+        "41 attempts and 10 hits are not the identity."
+    )
+
+    def _lede(self, sentence: str) -> dict:
+        return {
+            "lastGameReview": {
+                "opponent": "Denver Broncos",
+                "result": "L",
+                "score": "KC 24–28",
+                "lede": sentence,
+            }
+        }
+
+    def _issues(self, narrative: dict) -> list[str]:
+        return facts.check_review(
+            narrative, self.LAST, self.RECAP, schedule=frozen_schedule()
+        )
+
+    def test_kc_qb_box_is_not_an_opponent(self):
+        """(a) Patrick Mahomes KC box must not be classified as opponent."""
+        unknown = facts._unknown_was_opponent(
+            self.MAHOMES_BOX, self.LAST, self.RECAP, frozen_schedule()
+        )
+        self.assertEqual(unknown, "")
+        issues = self._issues(self._lede(self.MAHOMES_BOX))
+        self.assertFalse(
+            any("Patrick Mahomes" in item and "unverifiable" in item for item in issues),
+            issues,
+        )
+        self.assertFalse(
+            any("opponent Patrick Mahomes" in item for item in issues),
+            issues,
+        )
+        fixed, logs = facts.apply_fact_corrections(
+            self._lede(self.MAHOMES_BOX),
+            issues,
+            self.RECAP,
+            self.LAST,
+            frozen_schedule(),
+        )
+        self.assertFalse(
+            any("unverifiable opponent Patrick Mahomes" in line for line in logs),
+            logs,
+        )
+        self.assertIn(self.MAHOMES_BOX, facts.edition_text(fixed))
+        self.assertEqual(self._issues(fixed), [])
+
+        last_name = self.MAHOMES_BOX.replace("Patrick Mahomes", "Mahomes", 1)
+        self.assertEqual(
+            facts._unknown_was_opponent(
+                last_name, self.LAST, self.RECAP, frozen_schedule()
+            ),
+            "",
+        )
+        seattle = (
+            "Seattle was 18 first downs, 88 rush, 246 net pass, 25:39."
+        )
+        self.assertEqual(
+            facts._unknown_was_opponent(
+                seattle, self.LAST, self.RECAP, frozen_schedule()
+            ),
+            "Seattle",
+        )
+
+    def test_preview_diagram_prior_receiver_situation_drops(self):
+        """(b) Jets 1st-and-10 glued to Sutton/Waddle Denver catches drops."""
+        dirty = {
+            "lastGameReview": {
+                "opponent": "Denver Broncos",
+                "result": "L",
+                "score": "KC 24–28",
+                "lede": "At Empower Field at Mile High, Denver won 28-24.",
+            },
+            "xsandos": [
+                {
+                    "title": "Cover-2 to start the Jets series",
+                    "situation": self.SUTTON_SIT,
+                    "concept": "cover_two",
+                    "why": "Two deep takes the shot away.",
+                }
+            ],
+        }
+        issues = self._issues(dirty)
+        self.assertTrue(
+            any("down-and-distance" in item and "1st-and-10" in item for item in issues),
+            issues,
+        )
+        self.assertIsNone(
+            facts._correct_sentence(
+                self.SUTTON_SIT, issues[0], self.RECAP, self.LAST
+            )
+        )
+        repaired = facts.repair_offending_copy(
+            dirty, issues, self.LAST, self.RECAP, frozen_schedule()
+        )
+        cover = repaired["xsandos"][0]
+        situation = cover.get("situation") or ""
+        self.assertNotIn("1st-and-10", situation)
+        self.assertNotIn("2nd-and-6", situation)
+        self.assertNotIn("Sutton", situation)
+        self.assertNotIn("Waddle", situation)
+        self.assertEqual(cover.get("why"), "Two deep takes the shot away.")
+        leftover = self._issues(repaired)
+        self.assertFalse(
+            any("down-and-distance" in item for item in leftover), leftover
+        )
+
+    def test_score_progression_and_jets_denver_script_drop(self):
+        """(c) Unverifiable progression / conflated Jets+Denver scripts drop."""
+        true_issues = self._issues(self._lede(self.TRUE_PROGRESSION))
+        self.assertFalse(
+            any("play order" in item for item in true_issues), true_issues
+        )
+        self.assertFalse(
+            any("score progression" in item for item in true_issues),
+            true_issues,
+        )
+        self.assertEqual(true_issues, [])
+
+        bad = self._lede(self.BAD_PROGRESSION)
+        bad_issues = self._issues(bad)
+        self.assertTrue(
+            any("score progression" in item for item in bad_issues),
+            bad_issues,
+        )
+        self.assertIsNone(
+            facts._correct_sentence(
+                self.BAD_PROGRESSION, bad_issues[0], self.RECAP, self.LAST
+            )
+        )
+        repaired = facts.repair_offending_copy(
+            bad, bad_issues, self.LAST, self.RECAP, frozen_schedule()
+        )
+        blob = facts.edition_text(repaired)
+        self.assertNotIn("21-10", blob)
+        self.assertNotIn("17-28", blob)
+        self.assertNotIn("A 24-13 lead after the Q3 1:38", blob)
+        leftover = self._issues(repaired)
+        self.assertFalse(
+            any("score progression" in item for item in leftover), leftover
+        )
+
+        script = self._lede(self.JETS_SCRIPT)
+        script_issues = self._issues(script)
+        self.assertTrue(
+            any("rush attempts 41" in item for item in script_issues),
+            script_issues,
+        )
+        self.assertIsNone(
+            facts._correct_sentence(
+                self.JETS_SCRIPT, script_issues[0], self.RECAP, self.LAST
+            )
+        )
+        script_fixed, script_logs = facts.apply_fact_corrections(
+            script, script_issues, self.RECAP, self.LAST, frozen_schedule()
+        )
+        self.assertFalse(
+            any(" → " in row and "41" in row for row in script_logs),
+            script_logs,
+        )
+        dropped = facts.repair_offending_copy(
+            script_fixed,
+            script_issues,
+            self.LAST,
+            self.RECAP,
+            frozen_schedule(),
+        )
+        script_blob = facts.edition_text(dropped)
+        self.assertNotIn("41 attempts", script_blob)
+        self.assertNotIn("24 attempts", script_blob)
+        leftover_script = self._issues(dropped)
+        self.assertFalse(
+            any("rush attempts 41" in item for item in leftover_script),
+            leftover_script,
+        )
+
+    def test_week9_leftover_mutants_are_killed(self):
+        """Named mutants: empty-team opponent, down rewrite, play-order skip."""
+        rows = []
+        survivors = []
+        slate = frozen_schedule()
+
+        def _old_unknown(sentence, last_game, recap, schedule=None):
+            text = (sentence or "").strip()
+            match = facts._WAS_BOX_LEAD.match(text)
+            if not match:
+                return ""
+            named = (match.group("team") or "").strip()
+            aliases = facts._team_aliases(last_game, recap, schedule)
+            team = facts._alias_team(named, aliases)
+            if team in facts._recap_box_teams(last_game, recap):
+                return ""
+            return named
+
+        with patch.object(facts, "_unknown_was_opponent", side_effect=_old_unknown):
+            old_issues = self._issues(self._lede(self.MAHOMES_BOX))
+        opponent_class = any(
+            "Patrick Mahomes" in item and "unverifiable" in item
+            for item in old_issues
+        )
+        current_clean = facts._unknown_was_opponent(
+            self.MAHOMES_BOX, self.LAST, self.RECAP, slate
+        ) == ""
+        killed = opponent_class and current_clean
+        rows.append(("empty-team opponent class", killed))
+        if not killed:
+            survivors.append("empty-team opponent class")
+
+        leftover = [
+            "down-and-distance 1st-and-10 disagrees with ESPN 2nd-and-6 "
+            f"({self.SUTTON_SIT!r})"
+        ]
+        rewritten = facts._correct_sentence(
+            self.SUTTON_SIT, leftover[0], self.RECAP, self.LAST
+        )
+        drop_only = rewritten is None
+        rows.append(("diagram situation rewrite", drop_only))
+        if not drop_only:
+            survivors.append("diagram situation rewrite")
+
+        class _NeverMatch:
+            def match(self, *_a, **_k):
+                return None
+
+        with patch.object(facts, "_CLOCKED_SCORE_AFTER", _NeverMatch()):
+            order = facts._check_play_sequence(
+                self.TRUE_PROGRESSION, self.RECAP
+            )
+        skip_killed = any("play order" in item for item in order)
+        current_order = facts._check_play_sequence(
+            self.TRUE_PROGRESSION, self.RECAP
+        )
+        skip_killed = skip_killed and not current_order
+        rows.append(("clocked score-after play-order skip", skip_killed))
+        if not skip_killed:
+            survivors.append("clocked score-after play-order skip")
+
+        self.assertEqual(
+            survivors,
+            [],
+            "survivors: " + ", ".join(survivors) + f" rows={rows}",
+        )
+        self.assertEqual(sum(1 for _name, killed in rows if killed), 3)
+
+
 class BoxLeaderReplay(unittest.TestCase):
     SEA_LAST = _slate_game("401873022")
     SEA = _load_recap("espn_401873022_recap.json")
