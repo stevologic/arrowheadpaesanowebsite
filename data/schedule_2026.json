@@ -163,10 +163,10 @@
     "homeAway": "away",
     "venue": "Empower Field at Mile High",
     "tv": "CBS",
-    "completed": false,
+    "completed": true,
     "inProgress": false,
-    "kcScore": null,
-    "oppScore": null,
+    "kcScore": 24,
+    "oppScore": 28,
     "kickoff": "Sun, Nov 1 · 3:25 PM CT"
   },
   {
