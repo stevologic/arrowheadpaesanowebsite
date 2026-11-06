@@ -1,10 +1,10 @@
 {
   "droppedSentences": [
-    "Kansas City, 5-1, visits the Broncos on Sun Nov 1, 3:25 PM CT on CBS as a 1.5-point favorite, with Rashee Rice expected back after Seattle won 20-3.",
-    "Kelce still led the receivers with 4 catches for 44 yards, and Gray won two 19-yard targets.",
-    "Butker's misses from 58 and 45, plus a turnover on downs, left the scoring line at one field goal."
+    "Volume without the last two drives is how a good box becomes a loss.",
+    "A 24-13 lead after the Q3 1:38 touchdown became 24-28",
+    "The Jets script should keep Walker near a 20-carry day so 41 attempts and 10 hits are not the identity."
   ],
   "correctedSentences": [],
   "leftoverIssues": [],
-  "holdAutomerge": false
+  "holdAutomerge": true
 }
