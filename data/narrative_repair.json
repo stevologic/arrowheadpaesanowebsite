@@ -1,10 +1,21 @@
 {
   "droppedSentences": [
-    "Kansas City, 5-1, visits the Broncos on Sun Nov 1, 3:25 PM CT on CBS as a 1.5-point favorite, with Rashee Rice expected back after Seattle won 20-3.",
-    "Kelce still led the receivers with 4 catches for 44 yards, and Gray won two 19-yard targets.",
-    "Butker's misses from 58 and 45, plus a turnover on downs, left the scoring line at one field goal."
+    "A 24-13 lead after the Q3 1:38 touchdown became 24-28.",
+    "Denver\u2019s 39-yard field goal at Q1 9:43 set an early deficit Kansas City spent the middle of the game erasing.",
+    "A one-cut zone on first down is how Bieniemy keeps Mahomes out of another 41-throw, 10-hit afternoon and still feeds the back who had 25 touches.",
+    "Kansas City answered with an 11-yard touchdown at Q1 6:04, trailed 7-6 after a 45-yard Denver field goal, then a 73-yard touchdown at Q2 7:40 made it 14-6.",
+    "Denver\u2019s 1-yard touchdown at Q2 1:15 cut it to 14-13, Harrison Butker\u2019s 45-yard field goal at Q2 0:19 made it 17-13, and a 4-yard touchdown at Q3 1:38 pushed the lead to 24-13.",
+    "That 11-point cushion did not survive the fourth.",
+    "The 4-yard touchdown at Q3 1:38 made it 24-13."
   ],
-  "correctedSentences": [],
-  "leftoverIssues": [],
-  "holdAutomerge": false
+  "correctedSentences": [
+    "All three Kansas City touchdowns were throws: 11, 73, and 4 yards. \u2192 All one Kansas City touchdowns were throws: 11, 73, and 4 yards.",
+    "Two Denver touchdowns and a missed 54 flipped it. \u2192 Three Denver touchdowns and a missed 54 flipped it.",
+    "First two Jets snaps after a Chiefs touchdown or field goal, the moment Denver answered a 24-13 lead with points. \u2192 First three Jets snaps after a Chiefs touchdown or field goal, the moment Denver answered a 24-13 lead with points."
+  ],
+  "leftoverIssues": [
+    "salvage dropped enough to hold automerge",
+    "replay not run"
+  ],
+  "holdAutomerge": true
 }
