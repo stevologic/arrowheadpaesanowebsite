@@ -122,6 +122,324 @@ class DownAndDistanceReplay(unittest.TestCase):
         self.assertEqual(self._issues(sentence), [], sentence)
 
 
+def _denver_last() -> dict:
+    return {
+        "id": "401873033",
+        "week": 8,
+        "seasonType": "reg",
+        "completed": True,
+        "opponent": "Denver Broncos",
+        "opponentAbbr": "DEN",
+        "opponentShort": "Broncos",
+        "kcScore": 24,
+        "oppScore": 28,
+    }
+
+
+def _week9_diagram_flatten(why: str | None = None) -> dict:
+    """Cover-2 situation + prior-card playmakers + Denver why.
+
+    Run 42079160087 leftover: archive replay glued four-verts labels
+    to the Cover-2 caption and treated ``1st-and-10`` as a PBP claim.
+    """
+    return {
+        "lastGameReview": {
+            "opponent": "Denver Broncos",
+            "result": "L",
+            "score": "KC 24–28",
+            "lede": "At Empower Field at Mile High, Denver won 28-24.",
+        },
+        "xsandos": [
+            {
+                "title": "Four verts once the flats are honored",
+                "situation": "1st-and-10 or after a successful screen",
+                "concept": "four_verts",
+                "why": "Johnson’s 128-yard day is already in the offense.",
+                "labels": {
+                    "x": "go",
+                    "z": "go",
+                    "te": "seam to the hash",
+                },
+                "playmakers": [
+                    {"name": "Emmett Johnson", "role": "seam"},
+                    {"name": "Xavier Worthy", "role": "outside vertical"},
+                    {"name": "Travis Kelce", "role": "opposite seam"},
+                ],
+            },
+            {
+                "title": "Cover-2 to start the Jets series",
+                "situation": "1st-and-10, Jets opening drive, take the deep shot off the table",
+                "concept": "cover_two",
+                "why": why
+                or (
+                    "Denver gained 294 and still scored on a 1-yard "
+                    "touchdown, a 2-yard touchdown, and Coleman’s 5-yard run"
+                ),
+                "labels": {
+                    "x": "cloud corner",
+                    "z": "cloud corner",
+                    "te": "hook curl",
+                },
+                "playmakers": [
+                    {"name": "Steve Spagnuolo", "role": "Cover-2 call"},
+                    {"name": "Nick Bolton", "role": "hook fit and run rally"},
+                ],
+            },
+        ],
+    }
+
+
+class DiagramDownDistanceReplay(unittest.TestCase):
+    LAST = _denver_last()
+    RECAP = _load_recap("espn_401873033_recap.json")
+
+    def _issues(self, narrative: dict) -> list[str]:
+        return facts.check_review(
+            narrative, self.LAST, self.RECAP, schedule=frozen_schedule()
+        )
+
+    def test_prospective_xsandos_caption_is_not_an_archive_claim(self):
+        """Week 9 Cover-2 situation must not bind Johnson + Denver yards."""
+        issues = self._issues(_week9_diagram_flatten())
+        self.assertFalse(
+            any("down-and-distance" in item for item in issues),
+            issues,
+        )
+        synthetic = _week9_diagram_flatten(
+            "Johnson’s 4-yard answer is the reminder, not a Jets PBP."
+        )
+        issues = self._issues(synthetic)
+        self.assertFalse(
+            any("down-and-distance" in item for item in issues),
+            issues,
+        )
+
+    def test_sentence_flatten_still_binds_so_the_class_is_real(self):
+        """Mutant: period-only windows re-create the 42079160087 leftover."""
+        blob = facts.edition_text(
+            _week9_diagram_flatten(
+                "Johnson’s 4-yard answer is the reminder, not a Jets PBP."
+            )
+        )
+        idx = blob.index("1st-and-10, Jets opening drive")
+        sentence = facts._sentence_at(blob, idx)
+        window = facts._claim_window(blob, idx)
+        self.assertIn("1st-and-10", sentence)
+        self.assertIn("Emmett Johnson", sentence)
+        self.assertIn("4-yard", sentence)
+        self.assertIn("1st-and-10", window)
+        self.assertNotIn("Emmett Johnson", window)
+        self.assertNotIn("4-yard", window)
+
+    def test_play_bound_prose_still_fails(self):
+        sentence = (
+            "A late 1st-and-10 to Johnson for 4 yards ended the series."
+        )
+        issues = self._issues(
+            {
+                "lastGameReview": {
+                    "opponent": "Denver Broncos",
+                    "result": "L",
+                    "score": "KC 24–28",
+                    "lede": sentence,
+                }
+            }
+        )
+        blob = " ".join(issues)
+        self.assertTrue(blob, sentence)
+        self.assertIn("down-and-distance", blob)
+        self.assertIn("3rd-and-3", blob)
+
+    def test_salvage_drops_diagram_situation_from_flatten_leftover(self):
+        dirty = _week9_diagram_flatten(
+            "Johnson’s 4-yard answer is the reminder, not a Jets PBP."
+        )
+        leftover = [
+            "down-and-distance 1st-and-10 disagrees with ESPN 3rd-and-3 "
+            "('go\\ngo\\nseam to the hash\\nEmmett Johnson\\nseam\\n"
+            "Xavier Worthy\\noutside vertical\\nTravis Kelce\\n"
+            "opposite seam\\nCover-2 to start the Jets series\\n"
+            "1st-and-10, Jets opening drive, take the deep shot off the "
+            "table\\ncover_two\\nJohnson’s 4-yard answer is the reminder, "
+            "not a Jets PBP.')"
+        ]
+        repaired = facts.repair_offending_copy(
+            dirty, leftover, self.LAST, self.RECAP, frozen_schedule()
+        )
+        cover = next(
+            card
+            for card in repaired["xsandos"]
+            if "Cover-2" in (card.get("title") or "")
+        )
+        self.assertNotIn("1st-and-10", cover.get("situation") or "")
+        self.assertIn("4-yard answer", cover.get("why") or "")
+        four = next(
+            card
+            for card in repaired["xsandos"]
+            if "Four verts" in (card.get("title") or "")
+        )
+        self.assertEqual(four["playmakers"][0]["name"], "Emmett Johnson")
+
+    def test_play_bound_why_is_dropped_not_rewritten(self):
+        dirty = _week9_diagram_flatten()
+        dirty["xsandos"][1]["why"] = (
+            "A late 1st-and-10 to Johnson for 4 yards ended the series."
+        )
+        issues = self._issues(dirty)
+        self.assertTrue(
+            any("down-and-distance" in item for item in issues), issues
+        )
+        repaired = facts.repair_offending_copy(
+            dirty, issues, self.LAST, self.RECAP, frozen_schedule()
+        )
+        cover = next(
+            card
+            for card in repaired["xsandos"]
+            if "Cover-2" in (card.get("title") or "")
+        )
+        self.assertNotIn("1st-and-10 to Johnson for 4 yards", cover.get("why") or "")
+        leftover = self._issues(repaired)
+        self.assertFalse(
+            any("down-and-distance" in item for item in leftover), leftover
+        )
+
+    def test_denver_offense_unit_is_not_invented(self):
+        """#318: KC 6-of-14 / 22 first downs must not become 'Denver offense'."""
+        dirty = (
+            "The Denver offense was 6-of-14 on third down with 22 first downs."
+        )
+        rewritten = facts._reword_misattributed_box(
+            dirty, self.RECAP, self.LAST, frozen_schedule()
+        )
+        self.assertEqual(
+            rewritten,
+            "Against Denver, Kansas City had 6-of-14 on third down "
+            "with 22 first downs.",
+        )
+        self.assertNotIn("Denver offense", rewritten)
+        narrative = {
+            "lastGameReview": {
+                "opponent": "Denver Broncos",
+                "result": "L",
+                "score": "KC 24–28",
+                "lede": dirty,
+            }
+        }
+        issues = self._issues(narrative)
+        fixed, logs = facts.apply_fact_corrections(
+            narrative, issues, self.RECAP, self.LAST, frozen_schedule()
+        )
+        blob = facts.edition_text(fixed)
+        self.assertNotIn("Denver offense", blob)
+        self.assertNotIn(dirty, blob)
+        self.assertTrue(
+            "Against Denver, Kansas City had" in blob or dirty not in blob,
+            (blob, logs),
+        )
+
+    def test_diagram_down_distance_mutants_are_killed(self):
+        """Named mutants: sentence flatten, invented unit, empty leftovers."""
+        rows = []
+        survivors = []
+        synthetic = _week9_diagram_flatten(
+            "Johnson’s 4-yard answer is the reminder, not a Jets PBP."
+        )
+
+        with patch.object(facts, "_claim_window", facts._sentence_at):
+            issues = self._issues(synthetic)
+        flatten_killed = any("down-and-distance" in item for item in issues)
+        rows.append(("sentence_at flatten", flatten_killed))
+        if not flatten_killed:
+            survivors.append("sentence_at flatten")
+
+        dirty = (
+            "The Denver offense was 6-of-14 on third down with 22 first downs."
+        )
+        current = facts._reword_misattributed_box(
+            dirty, self.RECAP, self.LAST, frozen_schedule()
+        )
+
+        def _uncleaned(named, aliases):
+            team = facts._alias_team(named, aliases)
+            if not team or team == "KC":
+                return None
+            return team, named
+
+        with patch.object(facts, "_verified_box_team_name", side_effect=_uncleaned):
+            invented = facts._reword_misattributed_box(
+                dirty, self.RECAP, self.LAST, frozen_schedule()
+            )
+        unit_killed = (
+            bool(current)
+            and "Denver offense" not in current
+            and invented is None
+        )
+        rows.append(("invented Denver offense unit", unit_killed))
+        if not unit_killed:
+            survivors.append("invented Denver offense unit")
+
+        from tools.tests.test_narrative import HeadlineUniqueness
+
+        pad = (
+            "Kansas City is 5-2 and turns to the Jets after Denver. "
+            "The tape is early downs, the kick file, and the next snap. "
+        ) * 120
+        draft = {
+            "headline": "Week 9 Preview: leftoverIssues must list leftovers",
+            "dek": pad,
+            "theEdge": pad,
+            "storyline": pad,
+            "currentState": pad,
+            "gamePlan": pad,
+            "edition": "2026 Week 9 · Preview",
+            "phase": {"type": "regular", "mode": "preview", "week": 9},
+            "lastGameReview": {
+                "opponent": "Denver Broncos",
+                "result": "L",
+                "score": "KC 24–28",
+                "lede": pad,
+                "takeaways": [
+                    {
+                        "title": "Butker from 99",
+                        "body": "The special-teams file is still open.",
+                    }
+                ],
+            },
+        }
+        hard = [
+            "field-goal yardage 99 is not a KC ESPN kick ('Butker from 99')"
+        ]
+        llm = Mock(return_value=(draft, "grok"))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            archive = root / "narrative_archive.json"
+            editions = root / "narrative_editions"
+            editions.mkdir()
+            archive.write_text("[]\n", encoding="utf-8")
+            extra = [
+                patch.object(facts, "check_review", return_value=[]),
+                patch.object(facts, "check_diagram_captions", return_value=[]),
+                patch.object(generate, "archive_replay_issues", return_value=hard),
+                patch.object(generate, "replay_fixture_missing", return_value=False),
+            ]
+            with HeadlineUniqueness()._generation_stack(
+                llm=llm, archive=archive, editions=editions, extra=extra
+            ):
+                result = generate.build("grok", persist_schedule=False)
+        leftover = result.get("leftoverIssues") or []
+        listed_killed = any("field-goal yardage 99" in item for item in leftover)
+        rows.append(("leftoverIssues listed", listed_killed))
+        if not listed_killed:
+            survivors.append("leftoverIssues listed")
+
+        self.assertEqual(
+            survivors,
+            [],
+            "survivors: " + ", ".join(survivors) + f" rows={rows}",
+        )
+        self.assertEqual(sum(1 for _name, killed in rows if killed), 3)
+
+
 class BoxLeaderReplay(unittest.TestCase):
     SEA_LAST = _slate_game("401873022")
     SEA = _load_recap("espn_401873022_recap.json")

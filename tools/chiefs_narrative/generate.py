@@ -1404,6 +1404,17 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
     if leak_notes:
         emit_held(leak_notes)
 
+    # #318: unfixable hard leftovers must be listed, not []. A rewrite
+    # that "succeeds" then restore_required_copy can re-expose a leftover
+    # after leftover_issues was already snapshotted.
+    if not replay_fixture_missing(narrative):
+        _, hard = split_replay_issues(
+            archive_replay_issues(narrative, schedule)
+        )
+        for item in hard:
+            if item not in leftover_issues:
+                leftover_issues.append(item)
+
     # 6. Render diagrams only after uniqueness and fact-check have passed.
     _render_diagrams(narrative)
     caption_issues = facts.check_diagram_captions(narrative)

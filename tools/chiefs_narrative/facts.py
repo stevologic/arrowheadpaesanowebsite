@@ -4358,6 +4358,24 @@ def _sentence_at(text: str, index: int) -> str:
     return text[start:end].strip()
 
 
+def _claim_window(text: str, index: int) -> str:
+    """Play-bound window: period sentence clipped to this line.
+
+    ``edition_text`` joins xsandos / SVG caption fields with newlines. A
+    prospective Cover-2 situation (``1st-and-10, Jets opening drive``)
+    must not bind Johnson from the previous card's playmakers or yards
+    from the next why. Scheme talk stays scheme talk.
+    """
+    start, end = _sentence_span(text, index)
+    line_start = text.rfind("\n", start, index)
+    if line_start >= start:
+        start = line_start + 1
+    line_end = text.find("\n", index, end)
+    if start <= line_end < end:
+        end = line_end
+    return text[start:end].strip()
+
+
 def _check_turnover_credit(text: str, recap: dict | None) -> list[str]:
     """Credit for forcing/recovering a turnover must match the play text."""
     plays = _plays(recap)
@@ -7426,7 +7444,7 @@ def _check_down_and_distance(text: str, recap: dict | None) -> list[str]:
     issues: list[str] = []
     seen: set[str] = set()
     for match in _PLAY_DOWN_DISTANCE.finditer(text):
-        sentence = _sentence_at(text, match.start())
+        sentence = _claim_window(text, match.start())
         yards = _claimed_play_yards(sentence)
         if yards is None:
             continue
@@ -8419,6 +8437,43 @@ def _completes_failing_title_join(
     return False
 
 
+def _is_flatten_down_distance_line(
+    sentence: str,
+    snippets: list[str],
+    last_game: dict | None,
+    recap: dict | None,
+    schedule=None,
+) -> bool:
+    """True when this line is the down-and-distance half of a field flatten.
+
+    Archive replay joins xsandos labels / playmakers / situation / why
+    with newlines. Salvage already drops a title+body completing line;
+    a prospective SVG/situation caption (``1st-and-10, Jets opening
+    drive``) must drop the same way. Isolated scheme talk stays; the
+    archive why line is not this path.
+    """
+    if recap is None or not sentence or not _PLAY_DOWN_DISTANCE.search(sentence):
+        return False
+    if sentence_fails_review(sentence, last_game, recap, schedule):
+        return False
+    needle = sentence.strip()
+    if not needle:
+        return False
+    for snip in snippets or []:
+        if "\n" not in (snip or ""):
+            continue
+        lines = [part.strip() for part in snip.split("\n") if part.strip()]
+        if needle not in lines and not any(
+            _sentence_has_snippet(sentence, part) for part in lines
+        ):
+            continue
+        if sentence_fails_review(snip, last_game, recap, schedule):
+            return True
+        if _claimed_play_yards(snip) is not None:
+            return True
+    return False
+
+
 def joined_edition_hard_issues(
     narrative: dict | None,
     last_game: dict | None,
@@ -8460,6 +8515,10 @@ def _drop_text(
     sentences = _split_sentences(text)
     kept = []
     for sent in sentences:
+        if _is_flatten_down_distance_line(
+            sent, needles, last_game, recap, schedule
+        ):
+            continue
         if not any(_sentence_has_snippet(sent, snip) for snip in needles):
             kept.append(sent)
             continue
@@ -8928,6 +8987,26 @@ def _schedule_opponent_names(
     return sorted(names, key=len, reverse=True)
 
 
+_BOX_UNIT_TAIL = re.compile(
+    r"\s+(?:offense|defence|defense|special teams|o-line|d-line|"
+    r"offensive line|defensive line|unit|side)$",
+    re.I,
+)
+
+
+def _verified_box_team_name(named: str, aliases: dict[str, str]) -> tuple[str, str] | None:
+    """Map '{City} offense' to a verified opponent, never an invented unit."""
+    cleaned = _BOX_UNIT_TAIL.sub("", (named or "").strip()).strip()
+    if not cleaned:
+        return None
+    if re.search(r"\b(?:offense|defence|defense|unit)\b", cleaned, re.I):
+        return None
+    team = _alias_team(cleaned, aliases)
+    if not team or team == "KC":
+        return None
+    return team, cleaned
+
+
 def _against_team_phrase(
     named: str,
     last_game: dict | None,
@@ -9078,10 +9157,11 @@ def _opponent_was_box_match(
         return None
     aliases = _team_aliases(last_game, recap, schedule)
     named = (match.group("team") or "").strip()
-    team = _alias_team(named, aliases)
-    if not team or team == "KC":
+    verified = _verified_box_team_name(named, aliases)
+    if not verified:
         return None
-    return team, named, match.group("rest").strip().rstrip(".")
+    team, display = verified
+    return team, display, match.group("rest").strip().rstrip(".")
 
 
 def _claimed_box_stats(sentence: str) -> list[tuple[str, object]]:
@@ -9158,6 +9238,10 @@ def _reword_misattributed_box(
     if not _box_stats_match_kc(sentence, recap, game):
         return None
     phrase = _against_team_phrase(display, last_game, recap, schedule)
+    if not phrase or re.search(
+        r"\b(?:offense|defence|defense|unit)\b", phrase, re.I
+    ):
+        return None
     return f"Against {phrase}, Kansas City had {rest}."
 
 
