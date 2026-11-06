@@ -1154,13 +1154,24 @@ def _walk_prose(value, parts: list[str]) -> None:
             _walk_prose(item, parts)
 
 
-def edition_text(narrative: dict | None) -> str:
-    """Flatten every generated section the writer can put a score into."""
-    payload = narrative or {}
+def _edition_fields(narrative: dict | None) -> list[str]:
+    """Each walked prose string, unjoined.
+
+    ``edition_text`` joins these with newlines for archive quotes. Down-
+    and-distance must run per field so a Cover-2 situation does not bind
+    a previous card's player or the next why, while a newline *inside*
+    one lede still stays one claim.
+    """
     parts: list[str] = []
+    payload = narrative or {}
     for key in _EDITION_KEYS:
         _walk_prose(payload.get(key), parts)
-    return "\n".join(p for p in parts if p)
+    return [p for p in parts if p]
+
+
+def edition_text(narrative: dict | None) -> str:
+    """Flatten every generated section the writer can put a score into."""
+    return "\n".join(_edition_fields(narrative))
 
 
 def prose_text(narrative: dict | None) -> str:
@@ -4359,21 +4370,13 @@ def _sentence_at(text: str, index: int) -> str:
 
 
 def _claim_window(text: str, index: int) -> str:
-    """Play-bound window: period sentence clipped to this line.
+    """Play-bound window inside one field: period sentence only.
 
-    ``edition_text`` joins xsandos / SVG caption fields with newlines. A
-    prospective Cover-2 situation (``1st-and-10, Jets opening drive``)
-    must not bind Johnson from the previous card's playmakers or yards
-    from the next why. Scheme talk stays scheme talk.
+    Field boundaries come from ``_edition_fields`` / ``check_review``,
+    not from clipping every newline. A historical claim the writer
+    wrapped (``1st-and-10 pass\\nfor 4 yards``) stays one sentence.
     """
-    start, end = _sentence_span(text, index)
-    line_start = text.rfind("\n", start, index)
-    if line_start >= start:
-        start = line_start + 1
-    line_end = text.find("\n", index, end)
-    if start <= line_end < end:
-        end = line_end
-    return text[start:end].strip()
+    return _sentence_at(text, index)
 
 
 def _check_turnover_credit(text: str, recap: dict | None) -> list[str]:
@@ -7805,7 +7808,8 @@ def check_review(
                 issues.extend(_check_eligible_on_score(text, recap))
                 issues.extend(_check_int_clocks(text, recap))
                 issues.extend(_check_pass_touchdowns(text, recap))
-                issues.extend(_check_down_and_distance(text, recap))
+                for field in _edition_fields(narrative):
+                    issues.extend(_check_down_and_distance(field, recap))
                 issues.extend(_check_box_leaders(text, recap))
     else:
         issues.extend(
@@ -8995,13 +8999,13 @@ _BOX_UNIT_TAIL = re.compile(
 
 
 def _verified_box_team_name(named: str, aliases: dict[str, str]) -> tuple[str, str] | None:
-    """Map '{City} offense' to a verified opponent, never an invented unit."""
+    """Map '{City} offense' to a verified opponent. Exact alias only."""
     cleaned = _BOX_UNIT_TAIL.sub("", (named or "").strip()).strip()
     if not cleaned:
         return None
     if re.search(r"\b(?:offense|defence|defense|unit)\b", cleaned, re.I):
         return None
-    team = _alias_team(cleaned, aliases)
+    team = _exact_alias_team(cleaned, aliases)
     if not team or team == "KC":
         return None
     return team, cleaned
