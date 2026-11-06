@@ -1154,13 +1154,24 @@ def _walk_prose(value, parts: list[str]) -> None:
             _walk_prose(item, parts)
 
 
-def edition_text(narrative: dict | None) -> str:
-    """Flatten every generated section the writer can put a score into."""
-    payload = narrative or {}
+def _edition_fields(narrative: dict | None) -> list[str]:
+    """Each walked prose string, unjoined.
+
+    ``edition_text`` joins these with newlines for archive quotes. Down-
+    and-distance must run per field so a Cover-2 situation does not bind
+    a previous card's player or the next why, while a newline *inside*
+    one lede still stays one claim.
+    """
     parts: list[str] = []
+    payload = narrative or {}
     for key in _EDITION_KEYS:
         _walk_prose(payload.get(key), parts)
-    return "\n".join(p for p in parts if p)
+    return [p for p in parts if p]
+
+
+def edition_text(narrative: dict | None) -> str:
+    """Flatten every generated section the writer can put a score into."""
+    return "\n".join(_edition_fields(narrative))
 
 
 def prose_text(narrative: dict | None) -> str:
@@ -2411,6 +2422,52 @@ def _alias_team(phrase: str, aliases: dict[str, str]) -> str:
     return ""
 
 
+def _exact_alias_team(phrase: str, aliases: dict[str, str]) -> str:
+    """Resolve a whole phrase to a team. No substring 'Chiefs' inside other copy."""
+    token = _norm_team_phrase(phrase)
+    if not token:
+        return ""
+    compact = token.replace(".", "").replace(" ", "")
+    if compact.upper() in _NFL_ABBR and compact.isalpha() and len(compact) <= 3:
+        return compact.upper()
+    return aliases.get(token) or aliases.get(compact) or ""
+
+
+_COUNT_TEAM_MODIFIER = re.compile(
+    r"^(?:(?:the|total|rushing|passing|receiving|offensive|defensive|"
+    r"unanswered|combined|overall|only|just|early|late|"
+    r"(?:first|second)[- ]half)\s+)+",
+    re.I,
+)
+_COUNT_EVENT_COPY = re.compile(
+    r"\b(?:snaps?|after|before|following|when|while|once)\b",
+    re.I,
+)
+
+
+def _count_captured_team(team_raw: str, aliases: dict[str, str]) -> str | None:
+    """Team from the words between the number and touchdowns/field goals.
+
+    Empty string means fall through to the sentence subject. None means the
+    capture is event copy (``two Jets snaps after a Chiefs touchdown``),
+    not a team total. Modifiers stay valid: ``four total Denver touchdowns``.
+    """
+    raw = (team_raw or "").strip()
+    if not raw:
+        return ""
+    exact = _exact_alias_team(raw, aliases)
+    if exact:
+        return exact
+    stripped = _COUNT_TEAM_MODIFIER.sub("", raw).strip()
+    if stripped:
+        exact = _exact_alias_team(stripped, aliases)
+        if exact:
+            return exact
+    if _COUNT_EVENT_COPY.search(raw):
+        return None
+    return _alias_team(raw, aliases) or None
+
+
 def _box_yards_int(raw) -> int | None:
     token = str(raw or "").replace(",", "").strip()
     if not token:
@@ -3349,7 +3406,11 @@ def _count_issue(
     label: str,
 ):
     claimed = _parse_count_word(match.group(1))
-    team = _alias_team(match.group(2) or "", aliases)
+    team_raw = (match.group(2) or "").strip()
+    captured = _count_captured_team(team_raw, aliases)
+    if captured is None:
+        return None
+    team = captured
     if not team:
         sentence = _sentence_at(text, match.start())
         lead = re.match(
@@ -4306,6 +4367,16 @@ def _sentence_span(text: str, index: int) -> tuple[int, int]:
 def _sentence_at(text: str, index: int) -> str:
     start, end = _sentence_span(text, index)
     return text[start:end].strip()
+
+
+def _claim_window(text: str, index: int) -> str:
+    """Play-bound window inside one field: period sentence only.
+
+    Field boundaries come from ``_edition_fields`` / ``check_review``,
+    not from clipping every newline. A historical claim the writer
+    wrapped (``1st-and-10 pass\\nfor 4 yards``) stays one sentence.
+    """
+    return _sentence_at(text, index)
 
 
 def _check_turnover_credit(text: str, recap: dict | None) -> list[str]:
@@ -7376,7 +7447,7 @@ def _check_down_and_distance(text: str, recap: dict | None) -> list[str]:
     issues: list[str] = []
     seen: set[str] = set()
     for match in _PLAY_DOWN_DISTANCE.finditer(text):
-        sentence = _sentence_at(text, match.start())
+        sentence = _claim_window(text, match.start())
         yards = _claimed_play_yards(sentence)
         if yards is None:
             continue
@@ -7737,7 +7808,8 @@ def check_review(
                 issues.extend(_check_eligible_on_score(text, recap))
                 issues.extend(_check_int_clocks(text, recap))
                 issues.extend(_check_pass_touchdowns(text, recap))
-                issues.extend(_check_down_and_distance(text, recap))
+                for field in _edition_fields(narrative):
+                    issues.extend(_check_down_and_distance(field, recap))
                 issues.extend(_check_box_leaders(text, recap))
     else:
         issues.extend(
@@ -8369,6 +8441,43 @@ def _completes_failing_title_join(
     return False
 
 
+def _is_flatten_down_distance_line(
+    sentence: str,
+    snippets: list[str],
+    last_game: dict | None,
+    recap: dict | None,
+    schedule=None,
+) -> bool:
+    """True when this line is the down-and-distance half of a field flatten.
+
+    Archive replay joins xsandos labels / playmakers / situation / why
+    with newlines. Salvage already drops a title+body completing line;
+    a prospective SVG/situation caption (``1st-and-10, Jets opening
+    drive``) must drop the same way. Isolated scheme talk stays; the
+    archive why line is not this path.
+    """
+    if recap is None or not sentence or not _PLAY_DOWN_DISTANCE.search(sentence):
+        return False
+    if sentence_fails_review(sentence, last_game, recap, schedule):
+        return False
+    needle = sentence.strip()
+    if not needle:
+        return False
+    for snip in snippets or []:
+        if "\n" not in (snip or ""):
+            continue
+        lines = [part.strip() for part in snip.split("\n") if part.strip()]
+        if needle not in lines and not any(
+            _sentence_has_snippet(sentence, part) for part in lines
+        ):
+            continue
+        if sentence_fails_review(snip, last_game, recap, schedule):
+            return True
+        if _claimed_play_yards(snip) is not None:
+            return True
+    return False
+
+
 def joined_edition_hard_issues(
     narrative: dict | None,
     last_game: dict | None,
@@ -8410,6 +8519,10 @@ def _drop_text(
     sentences = _split_sentences(text)
     kept = []
     for sent in sentences:
+        if _is_flatten_down_distance_line(
+            sent, needles, last_game, recap, schedule
+        ):
+            continue
         if not any(_sentence_has_snippet(sent, snip) for snip in needles):
             kept.append(sent)
             continue
@@ -8878,6 +8991,26 @@ def _schedule_opponent_names(
     return sorted(names, key=len, reverse=True)
 
 
+_BOX_UNIT_TAIL = re.compile(
+    r"\s+(?:offense|defence|defense|special teams|o-line|d-line|"
+    r"offensive line|defensive line|unit|side)$",
+    re.I,
+)
+
+
+def _verified_box_team_name(named: str, aliases: dict[str, str]) -> tuple[str, str] | None:
+    """Map '{City} offense' to a verified opponent. Exact alias only."""
+    cleaned = _BOX_UNIT_TAIL.sub("", (named or "").strip()).strip()
+    if not cleaned:
+        return None
+    if re.search(r"\b(?:offense|defence|defense|unit)\b", cleaned, re.I):
+        return None
+    team = _exact_alias_team(cleaned, aliases)
+    if not team or team == "KC":
+        return None
+    return team, cleaned
+
+
 def _against_team_phrase(
     named: str,
     last_game: dict | None,
@@ -9028,10 +9161,11 @@ def _opponent_was_box_match(
         return None
     aliases = _team_aliases(last_game, recap, schedule)
     named = (match.group("team") or "").strip()
-    team = _alias_team(named, aliases)
-    if not team or team == "KC":
+    verified = _verified_box_team_name(named, aliases)
+    if not verified:
         return None
-    return team, named, match.group("rest").strip().rstrip(".")
+    team, display = verified
+    return team, display, match.group("rest").strip().rstrip(".")
 
 
 def _claimed_box_stats(sentence: str) -> list[tuple[str, object]]:
@@ -9108,6 +9242,10 @@ def _reword_misattributed_box(
     if not _box_stats_match_kc(sentence, recap, game):
         return None
     phrase = _against_team_phrase(display, last_game, recap, schedule)
+    if not phrase or re.search(
+        r"\b(?:offense|defence|defense|unit)\b", phrase, re.I
+    ):
+        return None
     return f"Against {phrase}, Kansas City had {rest}."
 
 
@@ -9217,7 +9355,7 @@ def _refuse_rush_swap(
 
 
 _REWRITE_BOX_KINDS = frozenset(
-    {"first downs", "team rushing", "team passing", "touchdown count"}
+    {"first downs", "team rushing", "team passing"}
 )
 _REWRITE_PLAYER_KINDS = frozenset(
     {"pass attempts", "rush attempts", "sacks", "touches"}
@@ -9257,15 +9395,10 @@ def _correct_sentence(
         claimed = int(num.group("claimed"))
         official = int(num.group("official"))
         if kind == "touchdown count":
-            if _SEASON_TD_LEDGER.search(sentence or ""):
-                return None
-            if re.search(
-                r"\b(?:mahomes|walker|thornton|kelce|rice|worthy|butker)\b",
-                sentence or "",
-                re.I,
-            ):
-                return None
-            return _swap_count_in_sentence(sentence, claimed, official)
+            # Counts are drop-only. Rewriting "two"/"three" minted
+            # "All one Kansas City touchdowns" and retargeted "First two
+            # Jets snaps" on the Week 8 DEN review (run 41682723153).
+            return None
         if kind == "touches":
             named = re.search(
                 r"\sfor\s+([A-Za-z. '’-]+?)\s+\(",

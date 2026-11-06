@@ -24,8 +24,10 @@ _EVENT_BY_OPP = {
 # Regular-season rematches that share an opponent with an earlier fixture.
 _EXTRA_EVENTS_BY_OPP = {
     "seattle seahawks": ("401873022",),
+    "denver broncos": ("401873033",),
 }
 _PRIOR = {
+    "401873033": "401873022",
     "401873022": "401873006",
     "401872976": "401872952",
     "401872952": "401872945",
