@@ -14415,6 +14415,148 @@ class Oct14EditionGates(unittest.TestCase):
             any("touchdown count" in item for item in explicit_issues),
             explicit_issues,
         )
+        late = (
+            "In the first half, Denver scored one touchdown "
+            "before a late Kansas City drive."
+        )
+        idx = late.find("one touchdown")
+        self.assertEqual(
+            facts._count_scope(late, idx, idx + len("one touchdown")),
+            frozenset({1, 2}),
+        )
+        opening_q = "Kansas City scored one touchdown in the opening quarter."
+        idx = opening_q.find("one touchdown")
+        self.assertEqual(
+            facts._count_scope(opening_q, idx, idx + len("one touchdown")),
+            frozenset({1}),
+        )
+        opening_drive = (
+            "Denver scored two touchdowns in the second half "
+            "after an opening drive stalled."
+        )
+        idx = opening_drive.find("two touchdowns")
+        self.assertEqual(
+            facts._count_scope(opening_drive, idx, idx + len("two touchdowns")),
+            frozenset({3, 4}),
+        )
+
+    def test_count_scope_play_clock_nearest_weak_and_sentence(self):
+        """Play-clock skip, nearest qualifier, sentence binding, late/opening.
+
+        These are behavioral pins, not source-text meta checks. Dropping
+        the play-clock ``continue``, dropping ``late`` from the weak set,
+        ranking leftmost instead of nearest, or searching the whole text
+        must fail here so a false whole-game count cannot publish and a
+        true Q4/H1 sentence is not dropped.
+        """
+        recap = generate._recap_for_edition(
+            {
+                "lastGameReview": {
+                    "opponent": "Denver Broncos",
+                    "score": "KC 24–28",
+                }
+            }
+        )
+        last = {
+            "id": "401873033",
+            "completed": True,
+            "opponent": "Denver Broncos",
+            "kcScore": 24,
+            "oppScore": 28,
+        }
+
+        def scope(text, phrase):
+            idx = text.find(phrase)
+            self.assertGreaterEqual(idx, 0, phrase)
+            return facts._count_scope(text, idx, idx + len(phrase))
+
+        def review(lede):
+            return facts.check_review(
+                {
+                    "lastGameReview": {
+                        "opponent": "Denver Broncos",
+                        "result": "L",
+                        "score": "KC 24–28",
+                        "lede": lede,
+                    }
+                },
+                last,
+                recap,
+                changed=True,
+            )
+
+        clocks = "Two Denver touchdowns, at Q4 8:55 and Q4 1:56, flipped it."
+        self.assertIsNone(scope(clocks, "Two Denver touchdowns"))
+        clock_issues = review(clocks)
+        self.assertTrue(
+            any(
+                "DEN touchdown count 2 disagrees with ESPN 3" in item
+                for item in clock_issues
+            ),
+            clock_issues,
+        )
+
+        late = (
+            "In the first half, Denver scored one touchdown "
+            "before a late Kansas City drive."
+        )
+        self.assertEqual(scope(late, "one touchdown"), frozenset({1, 2}))
+        late_issues = review(
+            "Denver scored one touchdown in the first half "
+            "before a late Kansas City field goal."
+        )
+        self.assertFalse(
+            any("touchdown count" in item for item in late_issues),
+            late_issues,
+        )
+
+        opening_q = "Kansas City scored one touchdown in the opening quarter."
+        self.assertEqual(scope(opening_q, "one touchdown"), frozenset({1}))
+        opening_drive = (
+            "Denver scored two touchdowns in the second half "
+            "after an opening drive stalled."
+        )
+        self.assertEqual(
+            scope(opening_drive, "two touchdowns"),
+            frozenset({3, 4}),
+        )
+        opening_issues = review(
+            "Denver scored one touchdown in the first half "
+            "after an opening Kansas City drive stalled."
+        )
+        self.assertFalse(
+            any("touchdown count" in item for item in opening_issues),
+            opening_issues,
+        )
+
+        nearest = (
+            "Kansas City led 14-6 in the first half, and two Denver "
+            "touchdowns in the fourth quarter flipped it."
+        )
+        self.assertEqual(scope(nearest, "two Denver touchdowns"), frozenset({4}))
+        nearest_issues = review(nearest)
+        self.assertFalse(
+            any("touchdown count" in item for item in nearest_issues),
+            nearest_issues,
+        )
+
+        bound = (
+            "Denver scored one touchdown in the first half. "
+            "Two Denver touchdowns flipped it."
+        )
+        self.assertIsNone(scope(bound, "Two Denver touchdowns"))
+        bound_issues = review(bound)
+        self.assertTrue(
+            any(
+                "DEN touchdown count 2 disagrees with ESPN 3" in item
+                for item in bound_issues
+            ),
+            bound_issues,
+        )
+        self.assertFalse(
+            any("ESPN 1" in item for item in bound_issues),
+            bound_issues,
+        )
 
     def test_count_scope_char_window_mutant_is_killed(self):
         """Reverting count-scope to a ±72-char search reintroduces ESPN 0."""

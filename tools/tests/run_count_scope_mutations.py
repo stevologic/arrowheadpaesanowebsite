@@ -13,7 +13,11 @@ TESTS = [
     (
         "tools.tests.test_narrative.Oct14EditionGates."
         "test_q4_denver_td_count_ignores_prior_sentence_clock"
-    )
+    ),
+    (
+        "tools.tests.test_narrative.Oct14EditionGates."
+        "test_count_scope_play_clock_nearest_weak_and_sentence"
+    ),
 ]
 
 
@@ -77,6 +81,60 @@ def main() -> int:
             "new": (
                 "        weak = 0\n"
                 "        ranked.append((weak, dist, side, match.start(), token))\n"
+            ),
+            "tests": TESTS,
+        },
+        {
+            "id": "M3-drop-play-clock-skip",
+            "desc": "treat Qn MM:SS play clocks as count windows",
+            "path": FACTS,
+            "old": (
+                "        if re.match(r\"q[1-4]$\", token) and "
+                "_PLAY_CLOCK_AFTER.match(after):\n"
+                "            continue\n"
+            ),
+            "new": (
+                "        if re.match(r\"q[1-4]$\", token) and "
+                "_PLAY_CLOCK_AFTER.match(after):\n"
+                "            pass\n"
+            ),
+            "tests": TESTS,
+        },
+        {
+            "id": "M5-weak-set-missing-late",
+            "desc": "drop late from the weak adjective set",
+            "path": FACTS,
+            "old": (
+                '_WEAK_COUNT_SCOPES = frozenset({"early", "opening", "late"})\n'
+            ),
+            "new": (
+                '_WEAK_COUNT_SCOPES = frozenset({"early", "opening"})\n'
+            ),
+            "tests": TESTS,
+        },
+        {
+            "id": "M6-leftmost-not-nearest",
+            "desc": "leftmost qualifier instead of nearest (distance zeroed)",
+            "path": FACTS,
+            "old": (
+                "        ranked.append((weak, dist, side, match.start(), token))\n"
+            ),
+            "new": (
+                "        ranked.append((weak, 0, 0, match.start(), token))\n"
+            ),
+            "tests": TESTS,
+        },
+        {
+            "id": "M8-whole-text-window",
+            "desc": "search the whole text instead of the claim sentence",
+            "path": FACTS,
+            "old": (
+                "    sent_start, sent_end = _sentence_span(text, start)\n"
+                "    window = text[sent_start:sent_end]\n"
+            ),
+            "new": (
+                "    sent_start, sent_end = 0, len(text)\n"
+                "    window = text[sent_start:sent_end]\n"
             ),
             "tests": TESTS,
         },
