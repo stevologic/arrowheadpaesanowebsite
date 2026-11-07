@@ -1,10 +1,12 @@
 {
   "droppedSentences": [
-    "Volume without the last two drives is how a good box becomes a loss.",
-    "A 24-13 lead after the Q3 1:38 touchdown became 24-28",
-    "The Jets script should keep Walker near a 20-carry day so 41 attempts and 10 hits are not the identity."
+    "Patrick Mahomes was 30-of-41 for 321 yards and three touchdowns, Kansas City posted 22 first downs, 399 total yards, and 31:29 of possession, and Emmett Johnson's 73-yard touchdown was the explosive play of the afternoon in Denver.",
+    "Two deep and five under takes the shot away from a 2-6 offense and lets the rally tackle match a rushing total Kansas City held to 77 yards on 23 attempts in Denver."
   ],
-  "correctedSentences": [],
+  "correctedSentences": [
+    "unverifiable opponent team line; holding",
+    "unverifiable opponent Patrick Mahomes; holding"
+  ],
   "leftoverIssues": [],
   "holdAutomerge": true
 }

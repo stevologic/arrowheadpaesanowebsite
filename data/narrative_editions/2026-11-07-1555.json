@@ -1,0 +1,582 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-07T15:55:35+00:00",
+  "updatedAt": "2026-11-07T16:00:45+00:00",
+  "generator": "grok:grok-4.7",
+  "heroMediaId": "none",
+  "phase": {
+    "type": "regular",
+    "label": "Week 9",
+    "week": 9,
+    "mode": "preview"
+  },
+  "edition": "2026 Week 9 · Preview",
+  "record": "5-2",
+  "headline": "A 2-6 Jets team, an 8.5-point home price, and a lead Denver cashed",
+  "sectionTitles": {
+    "lastGame": "399 yards and a 24-13 lead that did not hold",
+    "currentState": "Two straight losses, a quiet ground game, Delane out",
+    "gamePlan": "Make the Jets defend the whole field at Arrowhead",
+    "pressConferences": "Reid, Glenn, and the Week 9 podium"
+  },
+  "dek": "Kansas City hosts the New York Jets on Sun Nov 8, 12:00 PM CT on CBS laying 8.5 after Denver closed a 24-28 game at Empower Field.",
+  "videoHook": "The number says get-right week. The tape from Denver says finish the drive.",
+  "theEdge": "ESPN FPI lists Kansas City at 80.2 percent to beat the Jets at home, and DraftKings has the Chiefs minus 8.5 on a 47.5 total — a home favorite that still has to turn 399 yards into a finished game.",
+  "editorNotes": [
+    "Market is ESPN FPI 80.2 percent and DraftKings KC -8.5, O/U 47.5 — not the prior edition's 80.3 / minus 10.",
+    "Scoring-play players are unknown on the ESPN table except Emmett Johnson's 73-yard touchdown, credited by Arrowhead Pride.",
+    "Mansoor Delane is ruled out; the wire does not list a position.",
+    "Seattle box (213 yards, 24:09) is prior-game only and is not blended into the Denver review.",
+    "Karlaftis forced the Nix fumble; Adam Trautman recovered it for Denver. No KC takeaway on that play.",
+    "Team net passing is 309; Mahomes' 321 is the player line. Team rush is 90 on 24, not Walker's 69."
+  ],
+  "pressConferences": [
+    {
+      "url": "https://www.youtube.com/watch?v=nqvb2RIZyVM",
+      "videoId": "nqvb2RIZyVM",
+      "speaker": "Andy Reid, Alohi Gilman, and Noah Gray",
+      "channel": "Kansas City Chiefs",
+      "title": "Andy Reid, R Mason Thomas, Alohi Gilman, and Noah Gray Speak to Media | NOVEMBER 6, 2026",
+      "date": "2026-11-06",
+      "dateLabel": "Fri Nov 6, 2026"
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=wZ8g-93NFgI",
+      "videoId": "wZ8g-93NFgI",
+      "speaker": "Steve Spagnuolo, Eric Bieniemy, Dave Toub, and Chris Jones",
+      "channel": "Kansas City Chiefs",
+      "title": "Dave Toub, Steve Spagnuolo, Eric Bieniemy and Chris Jones Speak to Media | NOVEMBER 5, 2026",
+      "date": "2026-11-05",
+      "dateLabel": "Thu Nov 5, 2026"
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=iRHY6GRCD1Y",
+      "videoId": "iRHY6GRCD1Y",
+      "speaker": "Andy Reid, Patrick Mahomes, Rashee Rice, and George Karlaftis",
+      "channel": "Kansas City Chiefs",
+      "title": "Andy Reid, Patrick Mahomes, George Karlaftis, and Rashee Rice Speak to Media | NOVEMBER 4, 2026",
+      "date": "2026-11-04",
+      "dateLabel": "Wed Nov 4, 2026"
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=Gn9CPDWkW_g",
+      "videoId": "Gn9CPDWkW_g",
+      "speaker": "Andy Reid",
+      "channel": "Kansas City Chiefs",
+      "title": "Andy Reid Speaks to the Media | NOVEMBER 2, 2026",
+      "date": "2026-11-02",
+      "dateLabel": "Mon Nov 2, 2026"
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=ST7W30O4DNA",
+      "videoId": "ST7W30O4DNA",
+      "speaker": "Andy Reid, Patrick Mahomes, and Chris Jones",
+      "channel": "Kansas City Chiefs",
+      "title": "Andy Reid, Patrick Mahomes & Chris Jones Postgame Press Conferences - NFL Week 8",
+      "date": "2026-11-01",
+      "dateLabel": "Sun Nov 1, 2026"
+    }
+  ],
+  "storyline": {
+    "lede": "Week 9 at GEHA Field at Arrowhead Stadium is the assignment that has to reset a 5-2 season, not a victory lap over a 2-6 New York Jets team. Andy Reid's club hosts Aaron Glenn's Jets on Sun Nov 8, 12:00 PM CT on CBS as an 8.5-point favorite, with ESPN FPI at 80.2 percent, after Denver turned a 24-13 Kansas City lead into a 24-28 final.",
+    "body": [
+      "The Denver tape is the context, not the headline. None of that kept Jonah Coleman from the 5-yard score that made it 24-28, or kept Harrison Butker's 54-yard try from sailing wide right.",
+      "The Jets are 2-6 and evaluating Glenn in his second season opposite Reid in his 28th. That is a real coaching gap and a real home lean. It is also a team that can sit in zone, clutter the quick game, and dare Kansas City to finish drives the way the Broncos just refused to let them finish.",
+      "Arrowhead Addict has the pass rush on a historically disappointing pace, with Chris Jones and the line in the crosshairs, and Kenneth Walker III's 21-carry, 69-yard line at Denver is the latest roadblock in a record chase that stalled in both losses. Steve Spagnuolo does not get a soft install just because the opponent is 2-6. He gets a chance to call Cover 2 and a zone blitz with a plan, after Kansas City recorded two quarterback hits and George Karlaftis's one sack on Bo Nix.",
+      "The rest of the slate does not wait. Atlanta is Sun Nov 15, 12:00 PM CT, then Arizona at home, then Buffalo on Thanksgiving. This Jets game is the one Kansas City can still script."
+    ]
+  },
+  "lastGameReview": {
+    "opponent": "Denver Broncos",
+    "label": "Week 8 · Sun, Nov 1 · 3:25 PM CT",
+    "result": "L",
+    "score": "KC 24–28",
+    "lede": "Denver opened with a field goal at Q1 9:43, Kansas City answered with an 11-yard touchdown at Q1 6:04, and the clubs traded blows until a 4-yard Kansas City touchdown at Q3 1:38 made it 24-13. Two Denver touchdowns in the fourth quarter, from the 2 and the 5, flipped it to 24-28.",
+    "analysis": [
+      {
+        "body": "The box says Kansas City controlled the day and lost the ending. Chiefs: 22 first downs, 6-of-14 on third down, 90 rushing yards on 24 attempts, 309 net passing yards, 399 total yards, 11 drives, no turnovers, 31:29 possession. Broncos: 21 first downs, 2-of-11 on third down, 77 rushing yards on 23 attempts, 217 net passing yards, 294 total yards, 11 drives, no turnovers, 28:31 possession. Both sides scored three touchdowns. Denver added two field goals; Kansas City added one."
+      },
+      {
+        "body": "Mahomes's line was 30-of-41, 321 yards, three touchdowns, two sacks, a 120.1 rating, with 10 quarterback hits recorded by Denver. Nix was 20-of-32 with one sack and a 103.9 rating. Kansas City recorded two quarterback hits. Karlaftis had the sack, and on that play he forced a fumble that Adam Trautman recovered for Denver. An earlier Creed Humphrey fumble was recovered by Mahomes. The takeaway column stayed empty."
+      },
+      {
+        "body": "Walker carried 21 times for 69 yards and finished with 25 touches. Johnson had five catches for 128 yards and a touchdown — the 73-yard score at Q2 7:40, per Arrowhead Pride — plus one rush. Rashee Rice caught seven, Travis Kelce five, Xavier Worthy three. The ground game never became a 90-yard team total that felt like control: 24 attempts, a lot of them Walker, and Denver still lived in the pocket with 10 hits."
+      },
+      {
+        "body": "The finish is on film in plain language. At Q4 2:36 Butker missed from 54, wide right. Denver then scored from the 5 on Coleman up the middle at Q4 1:56. Kansas City got to the Denver 1 — Walker right end to the 1, then up the middle for no gain — and the game ended on downs. Mina Kimes's point about one crucial yard, and the separate debate about Reid and quarterback sneaks, both sit on that sequence. The eligible report shows Hunter Nourzad in on one Kansas City snap at Q4 15:00, not on the final series."
+      }
+    ],
+    "takeaways": [
+      {
+        "title": "Explosives were real",
+        "body": "Johnson's 128 yards and the 73-yard touchdown gave Kansas City a 14-6 lead, and Mahomes's three touchdowns on 30 completions were enough to build 24-13. The downfield answer is still in the offense."
+      },
+      {
+        "title": "The rush did not travel",
+        "body": "Two quarterback hits and Karlaftis's sack were the pressure tally against Nix. Denver still ran 23 times for 77 and closed with short touchdowns."
+      },
+      {
+        "title": "Short yardage decided it",
+        "body": "A missed 54-yard field goal and a final series that died at the 1 turned 399 yards into a loss. Third-and-short and goal-to-go are the install, not a vibe."
+      }
+    ],
+    "whatWorked": [
+      "Mahomes at 30-of-41, 321 yards, three touchdowns, and a 120.1 rating",
+      "Johnson's five catches, 128 yards, and 73-yard touchdown",
+      "Third down at 6-of-14 against a Denver offense that was 2-of-11",
+      "Possession at 31:29 and 22 first downs with a clean turnover column"
+    ],
+    "whatDidnt": [
+      "Protecting a 24-13 lead once the fourth quarter started",
+      "Ten quarterback hits and two sacks allowed on Mahomes",
+      "Two quarterback hits generated, one sack, on a Broncos offense that still scored 28",
+      "Walker at 69 yards on 21 carries inside a 90-yard team rushing total",
+      "Butker's missed 54-yard field goal and the final series stopped at the Denver 1"
+    ]
+  },
+  "currentState": {
+    "lede": "Kansas City is 5-2, losers of two straight after a 5-0 start, and the market still treats the Jets as a get-right home game. The staff has to treat it as a finishing test: red zone, pass rush, and a run game that has gone quiet in both losses.",
+    "record": "5-2",
+    "workOn": [
+      {
+        "title": "Goal-to-go that is not a hope",
+        "body": "Denver ended the game with Kansas City at the 1 after Walker was stopped up the middle. Against a 2-6 Jets team the script still has to include a called answer inside the 5, with Rice and Kelce as blockers or targets and Walker as the hammer, not a scramble drill."
+      },
+      {
+        "title": "A pass rush that shows up on the call sheet",
+        "body": "Arrowhead Addict's historic-low framing matches the Denver tally: two quarterback hits, Karlaftis with the sack. Spagnuolo cannot wait on a four-man rush to tilt a Jets game by itself. The zone blitz is the manufactured answer."
+      },
+      {
+        "title": "Early-down carries that are not empty volume",
+        "body": "Walker touched the ball 25 times and gained 69 on 21 rushes. Eric Bieniemy needs inside zone that creates second-and-manageable so Mahomes is not living in a 41-attempt, 10-hit pocket again."
+      }
+    ],
+    "thinkAbout": [
+      {
+        "title": "Is the 8.5 a trap or a fair tax?",
+        "body": "FPI at 80.2 percent and DraftKings at minus 8.5 on 47.5 say the Jets are the lesser side. The Denver close says a double-digit emotional lean is how leads get donated. Play the number as a favorite that must play all four quarters."
+      },
+      {
+        "title": "Receiver help versus the players already here",
+        "body": "Arrowhead Pride's Garrett Wilson debate and the cooler Brian Thomas Jr. report are roster noise. On this roster Rice had seven catches, Kelce five, Johnson 128 yards, and Worthy's expanded role is drawing public skepticism after three catches in Denver. The Jets plan should feature the hot hands first."
+      },
+      {
+        "title": "How thin is the back end with Delane out?",
+        "body": "Arrowhead Pride's final injury report rules Mansoor Delane out for the Jets. Spagnuolo's Cover 2 has to be called with that absence priced in, not as a press-man bet the wire does not support."
+      }
+    ]
+  },
+  "gamePlan": {
+    "opponent": "New York Jets",
+    "lede": "The Jets come to Arrowhead at 2-6 with Glenn in year two, and Kansas City is laying 8.5 on Sun Nov 8, 12:00 PM CT. The plan is to stress width and the seams, steal easy yards before the rush arrives, and call pressure instead of hoping the four-man rush recreates a sack total it did not post in Denver.",
+    "howTheyMatch": "Kansas City's offense just produced 399 yards and three touchdowns on the road and still lost because the finishing snaps and the pass rush did not match the yardage. The Jets' record says they will not sustain drives the way Denver did at 2-of-11, but a Glenn defense that keeps the ball in front can turn Mahomes's 10-hit pocket into another long afternoon of throws if Bieniemy does not mix screens, mesh, and inside zone. Spagnuolo's problem is the same one Arrowhead Addict named: heat has to be designed. Delane's absence pushes the shell toward two-deep rally tackling rather than a hero coverage the report does not give you.",
+    "keys": [
+      {
+        "title": "Finish inside the 10",
+        "body": "If the drive reaches the Jets' 5, do not replay the Denver 1-yard stop. Call Walker inside zone with a declared tight end, and keep Rice or Kelce as the flat answer if the linebacker fits hard."
+      },
+      {
+        "title": "Get Johnson the ball in space before asking for another 73",
+        "body": "His five catches and 128 yards are the trending skill on the Arrowhead Pride midseason board. A screen and a seam are enough. Do not wait on a broken play."
+      },
+      {
+        "title": "Rush with a dropper, not a prayer",
+        "body": "Karlaftis can win one-on-one — he did, once, and forced a fumble Denver kept. The call this week is a zone blitz that drops a lineman and rushes a second-level player so the Jets quarterback cannot sit at the top of his drop."
+      },
+      {
+        "title": "Keep the Jets out of explosives with Cover 2",
+        "body": "Two deep, five under, rally. Denver hit a 35-yard Waddle catch and a 23-yard Sutton catch when the shell lost the landmark. Do not give a 2-6 offense that same picture."
+      }
+    ],
+    "script": [
+      "Open with under-center inside zone to Walker and a Mahomes keep only if the end crashes — his two rushes in Denver were scrambles, not a package.",
+      "On second-and-medium, mesh with Rice and Kelce crossing and Johnson as the checkdown so 10 hits do not become the story again.",
+      "Steal a first down with a Walker or Johnson screen before the Jets can tee off the way Denver's rush did on two sacks.",
+      "Once the safeties squeeze, throw four verticals with Johnson and Noah Gray bending to the hash and Worthy running the outside vertical he was targeted on in Denver.",
+      "On defense, open in Cover 2 and tag a zone blitz on the first third-and-5-to-7. Do not tell the story that a blitz created a takeaway. Tell the rush to arrive.",
+      "Inside the 5, declare the tight end, run Walker, and have Mahomes ready to throw the flat. The Denver ending is the caution tape."
+    ]
+  },
+  "nextGame": {
+    "label": "Week 9 · Sun, Nov 8 · 12:00 PM CT",
+    "opponent": "New York Jets",
+    "at": "Arrowhead Stadium",
+    "tv": "CBS",
+    "note": "Home favorite, DraftKings KC -8.5, total 47.5, kickoff Sun Nov 8, 12:00 PM CT."
+  },
+  "markets": {
+    "game": {
+      "opponent": "New York Jets",
+      "label": "Sun, Nov 8 · 12:00 PM CT",
+      "homeAway": "home",
+      "kcWin": 80.2,
+      "spreadDetail": "KC -8.5",
+      "overUnder": 47.5,
+      "source": "ESPN FPI win probability; ESPN / DraftKings spread",
+      "url": "https://www.espn.com/nfl/game/_/gameId/401873045"
+    },
+    "model": {
+      "kcWin": 80.2,
+      "oppWin": 19.7,
+      "label": "ESPN FPI game projection",
+      "source": "ESPN FPI",
+      "url": "https://www.espn.com/nfl/fpi"
+    },
+    "vegas": {
+      "provider": "DraftKings",
+      "spreadDetail": "KC -8.5",
+      "overUnder": 47.5,
+      "homeMoneyline": -470.0,
+      "awayMoneyline": 360.0,
+      "source": "ESPN / DraftKings",
+      "url": "https://www.espn.com/nfl/lines"
+    }
+  },
+  "spotlight": [
+    {
+      "tag": "Trending",
+      "title": "Emmett Johnson is the midseason bull",
+      "body": "Arrowhead Pride's market-movers piece puts the rookie on the up list, and the Denver line backs it: five catches, 128 yards, one touchdown, six touches. Mahomes clearing space for the celebration, as Pride noted, is the teammate detail. The plan detail is simpler: he has to be a featured answer against the Jets, not a one-play spike."
+    },
+    {
+      "tag": "Rush",
+      "title": "The pass rush is the loud question",
+      "body": "Arrowhead Addict has the unit on a historically disappointing pace and names Chris Jones in the worry. Denver supplied the count: two quarterback hits, Karlaftis with the only sack. That is the edge the Jets can live with if Spagnuolo stays static."
+    }
+  ],
+  "matchups": [
+    {
+      "unit": "Mahomes and the skill group vs. the Jets defense",
+      "chiefs": "Patrick Mahomes, Rashee Rice, Travis Kelce, Emmett Johnson, Xavier Worthy",
+      "opponent": "Jets defense under Aaron Glenn",
+      "edge": "KC",
+      "note": "A 30-of-41, three-touchdown road line and 399 yards are a real offense. The Jets are 2-6. The edge holds only if Kansas City finishes drives."
+    },
+    {
+      "unit": "Chiefs pass rush vs. Jets protection",
+      "chiefs": "George Karlaftis, Chris Jones, Steve Spagnuolo",
+      "opponent": "Jets offensive line",
+      "edge": "PUSH",
+      "note": "Karlaftis won one sack and forced a fumble Denver recovered. Two quarterback hits is not a rush that should be favored on reputation alone. The zone blitz is how Kansas City manufactures the edge."
+    },
+    {
+      "unit": "Kenneth Walker III vs. the Jets run fit",
+      "chiefs": "Kenneth Walker III, Eric Bieniemy",
+      "opponent": "Jets front seven",
+      "edge": "PUSH",
+      "note": "Twenty-one carries and 25 touches say he is the identity back. Sixty-nine yards say the fit has been winning. Inside zone has to be cleaner than the Denver right-end and up-the-middle snaps that never stacked explosives."
+    },
+    {
+      "unit": "Short yardage and the goal line",
+      "chiefs": "Andy Reid, Patrick Mahomes, Kenneth Walker III",
+      "opponent": "Jets goal-line front",
+      "edge": "OPP",
+      "note": "The last series died at the Denver 1, and the sneak debate is already public. Until that snap is solved, the opponent gets the leverage point even at 2-6."
+    },
+    {
+      "unit": "Spagnuolo's shell vs. the Jets passing game",
+      "chiefs": "Steve Spagnuolo, with Mansoor Delane out",
+      "opponent": "Jets skill, including the Garrett Wilson trade chatter around the roster",
+      "edge": "KC",
+      "note": "Cover 2 fits an absent Delane better than press-man heroics. Denver's 217 net passing yards came with explosives; take the deep ball away and rally."
+    }
+  ],
+  "xsandos": [
+    {
+      "title": "Walker inside zone to open the count",
+      "situation": "First-and-10, first series, Jets still setting the front at Arrowhead",
+      "concept": "inside_zone",
+      "why": "Walker had the volume in Denver — 21 carries, 69 yards, 25 touches — inside a 90-yard team rushing day that never stressed Denver's fit. A 2-6 Jets front has to be made to play downhill before it sits on Mahomes, who took 10 quarterback hits and two sacks.",
+      "coaching": "Bieniemy: under center, zone steps, one cut. Walker presses the play-side hip and bends only after the linebacker declares. Do not bounce it into a hero run. Mahomes carries the run fake with his eyes so the end cannot crash free the way pressure crashed free in Denver.",
+      "labels": {
+        "x": "crack replace",
+        "z": "stalk and widen",
+        "te": "down block, then climb"
+      },
+      "playmakers": [
+        {
+          "name": "Kenneth Walker III",
+          "role": "inside zone back, one cut"
+        },
+        {
+          "name": "Patrick Mahomes",
+          "role": "under-center mesh and carry fake"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-07-1555/xo-inside_zone.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Mesh to Rice and Kelce",
+      "situation": "Second-and-6 to 8, Jets in man or a tilted zone look",
+      "concept": "mesh",
+      "why": "Rice caught seven balls and Kelce five in Denver. Those are the chain-movers while Worthy's three catches sit inside a public slump. Mesh gives Mahomes a defined throw before the 10-hit pocket shows up again.",
+      "coaching": "Rice and Kelce cross at five yards and rub. Johnson sits the checkdown if both crossers are jumped. Mahomes hitches once and throws the open crosser; he does not drift into a sack trying to layer a third read.",
+      "labels": {
+        "x": "spot sit",
+        "z": "corner if the flat empties",
+        "te": "shallow cross"
+      },
+      "playmakers": [
+        {
+          "name": "Rashee Rice",
+          "role": "shallow crosser"
+        },
+        {
+          "name": "Travis Kelce",
+          "role": "opposite shallow crosser"
+        },
+        {
+          "name": "Emmett Johnson",
+          "role": "checkdown outlet"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-07-1555/xo-mesh.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Screen to steal the down",
+      "situation": "Second-and-long after a negative, or first play after a Jets pressure look",
+      "concept": "spacing_screen",
+      "why": "Denver sacked Mahomes twice and hit him 10 times. A screen to Walker or Johnson is the easy offense that punishes a rush selling out up the field, and it gets Johnson the ball in space after a 128-yard day without asking for another 73-yard catch.",
+      "coaching": "The line shows pass, then releases. Walker or Johnson catches on the move and follows the first color outside the tackle. Mahomes's job is a firm throw, not a hero pump. If the Jets drop eight, check to the quick out instead of forcing the screen into traffic.",
+      "labels": {
+        "x": "stalk and block",
+        "z": "vertical clear",
+        "te": "arc and lead"
+      },
+      "playmakers": [
+        {
+          "name": "Kenneth Walker III",
+          "role": "screen back"
+        },
+        {
+          "name": "Emmett Johnson",
+          "role": "alternate screen target"
+        },
+        {
+          "name": "Patrick Mahomes",
+          "role": "quick throw, then get rid of it"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-07-1555/xo-spacing_screen.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Four verticals once the safeties squeeze",
+      "situation": "Second-and-5 or better, after inside zone and mesh have moved the Jets linebackers",
+      "concept": "four_verts",
+      "why": "Johnson already won a 73-yard touchdown against Denver, and Mahomes was willing to throw incomplete deep to Worthy and Cyrus Allen. Against a 2-6 opponent the seams should be a called shot, not an accident, with Kelce or Gray bending and Worthy running past the corner.",
+      "coaching": "Johnson and Gray bend to the hash. Worthy and the opposite outside receiver stay on their verticals. Mahomes reads the middle safety: if that safety sits on Johnson, throw the outside; if he expands, throw the seam. No need to label the fake. Just throw the open vertical.",
+      "labels": {
+        "x": "outside vertical",
+        "z": "outside vertical",
+        "te": "seam to the hash"
+      },
+      "playmakers": [
+        {
+          "name": "Emmett Johnson",
+          "role": "seam"
+        },
+        {
+          "name": "Xavier Worthy",
+          "role": "outside vertical"
+        },
+        {
+          "name": "Noah Gray",
+          "role": "second seam"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-07-1555/xo-four_verts.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Cover 2 to start the Jets series",
+      "situation": "Jets first-and-10, and any second-and-long after a stuff",
+      "concept": "cover_two",
+      "why": "Delane is out, and Denver still found Sutton for 23 and Waddle for 35 when the landmarks slipped.",
+      "coaching": "Spagnuolo: corners sink to the deep half landmark, no peeking in the backfield. Nick Bolton and the other hook players carry the crosser to the next zone. Karlaftis rushes his gap without freelancing into a coverage bust. Tackle the catch; do not hunt a strip that is not there.",
+      "labels": {
+        "x": "deep half",
+        "z": "deep half",
+        "te": "hook to curl"
+      },
+      "playmakers": [
+        {
+          "name": "Steve Spagnuolo",
+          "role": "Cover 2 call"
+        },
+        {
+          "name": "George Karlaftis",
+          "role": "contain rush, then flatten"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-07-1555/xo-cover_two.svg",
+      "side": "defense"
+    },
+    {
+      "title": "Zone blitz on third-and-medium",
+      "situation": "Jets third-and-5 to 7, first time they need a throw to stay on schedule",
+      "concept": "zone_blitz",
+      "why": "This is a call to use, after a Denver game in which Kansas City recorded two quarterback hits and Karlaftis's one sack. Jones and the line need a picture that rushes a second-level player and drops a lineman so Glenn's protection cannot slide to the same side every snap.",
+      "coaching": "Show four, send the second-level rusher, drop the defensive lineman into the hook the blitzer left. Karlaftis loops only if the call says loop; otherwise he rushes the man over him. The coverage behind it is zone, so the dropped lineman has a landmark, not a spy assignment. Do not credit this call with a takeaway it has not earned. Credit it if the quarterback throws before he wants to.",
+      "labels": {
+        "x": "deep zone landmark",
+        "z": "flat drop",
+        "te": "hook vacated by the rusher"
+      },
+      "playmakers": [
+        {
+          "name": "Steve Spagnuolo",
+          "role": "zone-blitz call"
+        },
+        {
+          "name": "George Karlaftis",
+          "role": "edge on the simulated pressure"
+        },
+        {
+          "name": "Chris Jones",
+          "role": "rush or drop, as tagged"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-07-1555/xo-zone_blitz.svg",
+      "side": "defense"
+    }
+  ],
+  "coaching": [
+    {
+      "topic": "Reid in year 28, Glenn in year two",
+      "detail": "Arrowhead Pride frames the podium as Reid looking ahead to Glenn's Jets. The edge is preparation and pace, not a speech. Reid still has to answer the short-yardage snaps that ended Denver."
+    },
+    {
+      "topic": "Bieniemy's down-and-distance menu",
+      "detail": "Thirty completions and three touchdowns were not enough without a run that moved the chains and a plan inside the 5. The Jets script should be zone, mesh, screen, then verticals — in that order."
+    },
+    {
+      "topic": "Spagnuolo and a rush that must be called",
+      "detail": "Two quarterback hits will not carry a home favorite. Cover 2 plus a tagged zone blitz is the weekly answer while the four-man rush searches for a second sack."
+    }
+  ],
+  "injuries": [
+    {
+      "player": "Mansoor Delane",
+      "status": "Out",
+      "note": "Ruled out on the Week 9 final injury report ahead of the Jets.",
+      "source": "Arrowhead Pride"
+    }
+  ],
+  "personnel": [
+    {
+      "move": "Receiver-market noise, not a completed deal",
+      "detail": "Pride's Let's Argue piece floats a Garrett Wilson pursuit. A separate Arrowhead Addict report says the Brian Thomas Jr. path cooled. Neither is a roster move. The players who have to play Sunday are already on the touches list.",
+      "players": [
+        "Rashee Rice",
+        "Travis Kelce",
+        "Emmett Johnson",
+        "Xavier Worthy"
+      ]
+    },
+    {
+      "move": "Walker remains the carry back",
+      "detail": "Twenty-one rushes and four catches in Denver, even on a 69-yard day. Johnson's one rush and five catches are the changeup, not a committee takeover.",
+      "players": [
+        "Kenneth Walker III",
+        "Emmett Johnson"
+      ]
+    }
+  ],
+  "strategies": [
+    "Lean on Rice, Kelce, and Johnson in the quick game so Mahomes is not absorbing another 10-hit, two-sack pocket.",
+    "Give Walker early-down inside zone and judge the run by second-down distance, not carry count.",
+    "Call the zone blitz on the Jets' first third-and-medium instead of waiting on a four-man rush that produced one sack in Denver.",
+    "Start in Cover 2 with Delane out and rally to the catch.",
+    "Script a goal-line call before the drive gets there, using the Denver stop at the 1 as the reason."
+  ],
+  "debates": [
+    "Does minus 8.5 at home against a 2-6 team hide the finishing problem Denver just exposed?",
+    "Should Reid add a quarterback sneak, or is the fix a better Walker call and a tighter formation?",
+    "Is Johnson now a featured piece, or was the 73-yard touchdown a one-play spike on a 128-yard day?",
+    "With the pass rush this quiet, is a zone blitz every third down the right Spagnuolo answer or a coverage risk?"
+  ],
+  "sources": [
+    {
+      "title": "Chiefs' pass rush is on pace for a historically disappointing season",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/chiefs-pass-rush-is-on-pace-for-a-historically-disappointing-season-01m6mtb3tjt8?utm_source=RSS",
+      "note": "Pass-rush trajectory and the Chris Jones question."
+    },
+    {
+      "title": "Kenneth Walker's quest to break Eric Dickerson's record hits another roadblock",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/kenneth-walker-s-quest-to-break-eric-dickerson-s-record-hits-another-roadblock-01m6h8ry00w6?utm_source=RSS",
+      "note": "Walker quiet in both losses after the 5-0 start."
+    },
+    {
+      "title": "Chiefs News: Patrick Mahomes reminds us how he’s a great teammate",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/215457/chiefs-news-patrick-mahomes-reminds-great-teammate",
+      "note": "Johnson's 73-yard touchdown and first career score."
+    },
+    {
+      "title": "Chiefs Market Movers: Who’s Trending at Midseason?",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-roster/215400/chiefs-market-movers-trending-midseason",
+      "note": "Johnson listed among midseason bulls."
+    },
+    {
+      "title": "Chiefs-Jets Week 9 Final Injury Report: Mansoor Delane ruled out",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-injuries/215417/chiefs-jets-week-9-final-injury-report-mansoor-delane-ruled-out",
+      "note": "Delane ruled out for the Jets game."
+    },
+    {
+      "title": "What the Chiefs are saying about the Jets",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/215380/what-chiefs-saying-about-jets",
+      "note": "Reid in his 28th season, Glenn in year two."
+    },
+    {
+      "title": "Chiefs-Jets: 5 Things to Watch in Week 9 matchup",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/215273/chiefs-jets-5-things-watch-week-9-matchup",
+      "note": "Jets at 2-6, Chiefs at 5-2, 28-24 Denver loss as context."
+    },
+    {
+      "title": "Mina Kimes sounds off on Chiefs' inability to gain one crucial yard",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/mina-kimes-sounds-off-on-chiefs-inability-to-gain-one-crucial-yard-01m6pp7z91ez?utm_source=RSS",
+      "note": "Short-yardage failure framing after two losses."
+    },
+    {
+      "title": "Andy Reid's refusal to run quarterback sneaks continues to haunt the Chiefs",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/andy-reid-s-refusal-to-run-quarterback-sneaks-continues-to-haunt-the-chiefs-01m6emsyb9s7?utm_source=RSS",
+      "note": "Sneak debate tied to the goal-line stop."
+    },
+    {
+      "title": "Let’s Argue: Chiefs should strike a deal for Garrett Wilson",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-roster/215068/chiefs-hot-takes-should-strike-deal-garrett-wilson",
+      "note": "Trade debate, not a transaction."
+    },
+    {
+      "title": "Chiefs' hopes for Brian Thomas Jr. trade take a hit with latest Jaguars report",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/chiefs-hopes-brian-thomas-jr-trade-take-hit-latest-jaguars-report?utm_source=RSS",
+      "note": "Thomas path cooled before the deadline talk."
+    },
+    {
+      "title": "Xavier Worthy's expanded role is only making his struggles more obvious",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/xavier-worthy-s-expanded-role-is-only-making-his-struggles-more-obvious-01m6fhv4ps8k?utm_source=RSS",
+      "note": "Public skepticism on Worthy's role."
+    },
+    {
+      "title": "How to Watch and Listen | Week 9: Jets vs. Chiefs",
+      "publisher": "Chiefs.com",
+      "url": "https://www.chiefs.com/news/how-to-watch-and-listen-week-9-jets-vs-chiefs",
+      "note": "Watch details for the Jets game."
+    }
+  ],
+  "slug": "2026-11-07-1555"
+}

@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import copy
 import hashlib
+import importlib
 import io
 import json
 import os
@@ -14301,6 +14302,160 @@ class Oct14EditionGates(unittest.TestCase):
         self.assertFalse(
             any("touchdown count" in item for item in leftover), leftover
         )
+
+    def test_q4_denver_td_count_ignores_prior_sentence_clock(self):
+        """Run 42388486140: a previous-sentence ``at Q3 1:38`` must not
+        rebind ``Two Denver touchdowns in the fourth quarter`` onto Q3.
+
+        ESPN 401873033: Denver scored two Q4 TDs (Adkins 2, Coleman 5)
+        and three TDs all game. The ±72-char window reported ESPN 0
+        because Q3 has zero Denver TDs. Whole-game ``Two Denver
+        touchdowns`` is still 2 vs 3 and must remain a leftover.
+        """
+        recap = generate._recap_for_edition(
+            {
+                "lastGameReview": {
+                    "opponent": "Denver Broncos",
+                    "score": "KC 24–28",
+                }
+            }
+        )
+        last = {
+            "id": "401873033",
+            "completed": True,
+            "opponent": "Denver Broncos",
+            "kcScore": 24,
+            "oppScore": 28,
+        }
+        self.assertEqual(facts.official_count_by_team(recap, "td").get("DEN"), 3)
+        self.assertEqual(
+            facts.official_count_by_team(recap, "td", quarters=frozenset({4})).get(
+                "DEN"
+            ),
+            2,
+        )
+        self.assertEqual(
+            facts.official_count_by_team(recap, "td", quarters=frozenset({3})).get(
+                "DEN", 0
+            ),
+            0,
+        )
+        q4 = {
+            "lastGameReview": {
+                "opponent": "Denver Broncos",
+                "result": "L",
+                "score": "KC 24–28",
+                "lede": (
+                    "Denver opened with a field goal at Q1 9:43, Kansas City "
+                    "answered with an 11-yard touchdown at Q1 6:04, and the "
+                    "clubs traded blows until a 4-yard Kansas City touchdown "
+                    "at Q3 1:38 made it 24-13. Two Denver touchdowns in the "
+                    "fourth quarter, from the 2 and the 5, flipped it to 24-28."
+                ),
+            }
+        }
+        q4_issues = facts.check_review(q4, last, recap, changed=True)
+        self.assertFalse(
+            any("touchdown count" in item for item in q4_issues),
+            q4_issues,
+        )
+        token = "Two Denver touchdowns"
+        idx = q4["lastGameReview"]["lede"].find(token)
+        self.assertGreaterEqual(idx, 0)
+        self.assertEqual(
+            facts._count_scope(q4["lastGameReview"]["lede"], idx, idx + len(token)),
+            frozenset({4}),
+        )
+        whole = {
+            "lastGameReview": {
+                "opponent": "Denver Broncos",
+                "result": "L",
+                "score": "KC 24–28",
+                "lede": "Two Denver touchdowns flipped a 24-13 lead.",
+            }
+        }
+        whole_issues = facts.check_review(whole, last, recap, changed=True)
+        self.assertTrue(
+            any(
+                "DEN touchdown count 2 disagrees with ESPN 3" in item
+                for item in whole_issues
+            ),
+            whole_issues,
+        )
+        self.assertFalse(
+            any("ESPN 0" in item for item in whole_issues),
+            whole_issues,
+        )
+
+    def test_count_scope_char_window_mutant_is_killed(self):
+        """Reverting count-scope to a ±72-char search reintroduces ESPN 0."""
+        path = Path(facts.__file__)
+        original = path.read_text(encoding="utf-8")
+        old = (
+            "    sent_start, sent_end = _sentence_span(text, start)\n"
+            "    window = text[sent_start:sent_end]\n"
+        )
+        new = (
+            "    window = text[max(0, start - 72) : min(len(text), end + 72)]\n"
+            "    match = _COUNT_SCOPE.search(window)\n"
+            "    if not match:\n"
+            "        return None\n"
+            "    token = _normalize_scope_token(match.group(1))\n"
+            "    if token in _WHOLE_GAME_SCOPES:\n"
+            "        return None\n"
+            "    if token in _SCOPE_QUARTERS:\n"
+            "        return _SCOPE_QUARTERS[token]\n"
+            "    return \"skip\"\n"
+            "    sent_start, sent_end = _sentence_span(text, start)\n"
+            "    window = text[sent_start:sent_end]\n"
+        )
+        self.assertIn(old, original)
+        path.write_text(original.replace(old, new, 1), encoding="utf-8")
+        try:
+            importlib.reload(facts)
+            recap = generate._recap_for_edition(
+                {
+                    "lastGameReview": {
+                        "opponent": "Denver Broncos",
+                        "score": "KC 24–28",
+                    }
+                }
+            )
+            last = {
+                "id": "401873033",
+                "completed": True,
+                "opponent": "Denver Broncos",
+                "kcScore": 24,
+                "oppScore": 28,
+            }
+            lede = (
+                "Denver opened with a field goal at Q1 9:43, Kansas City "
+                "answered with an 11-yard touchdown at Q1 6:04, and the "
+                "clubs traded blows until a 4-yard Kansas City touchdown "
+                "at Q3 1:38 made it 24-13. Two Denver touchdowns in the "
+                "fourth quarter, from the 2 and the 5, flipped it to 24-28."
+            )
+            issues = facts.check_review(
+                {
+                    "lastGameReview": {
+                        "opponent": "Denver Broncos",
+                        "result": "L",
+                        "score": "KC 24–28",
+                        "lede": lede,
+                    }
+                },
+                last,
+                recap,
+                changed=True,
+            )
+            killed = any(
+                "DEN touchdown count 2 disagrees with ESPN 0" in item
+                for item in issues
+            )
+            self.assertTrue(killed, issues)
+        finally:
+            path.write_text(original, encoding="utf-8")
+            importlib.reload(facts)
 
     def test_seattle_preview_binds_chargers_prior_22_6(self):
         """22-6 next to Chargers is ESPN 401873006, not Seattle 3-20.

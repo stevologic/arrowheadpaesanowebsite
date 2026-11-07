@@ -1004,6 +1004,8 @@ _COUNT_SCOPE = re.compile(
 _WHOLE_GAME_SCOPES = frozenset(
     {"in the game", "all game", "on the day", "overall", "total"}
 )
+# ``Q3 1:38`` is a scoring-play clock, not a count window.
+_PLAY_CLOCK_AFTER = re.compile(r"^\s+\d{1,2}:\d{2}\b")
 _SCOPE_QUARTERS = {
     "early": frozenset({1, 2}),
     "opening": frozenset({1, 2}),
@@ -2562,12 +2564,32 @@ def _normalize_scope_token(raw: str) -> str:
 
 
 def _count_scope(text: str, start: int, end: int):
-    """Return None (whole game), a quarter frozenset, or 'skip'."""
-    window = text[max(0, start - 72) : min(len(text), end + 72)]
-    match = _COUNT_SCOPE.search(window)
-    if not match:
+    """Return None (whole game), a quarter frozenset, or 'skip'.
+
+    Qualifiers live in this sentence. A previous-sentence play clock
+    (``at Q3 1:38``) must not rebind a later ``in the fourth quarter``
+    count onto Q3 (run 42388486140: DEN Q4 TDs reported as ESPN 0).
+    """
+    sent_start, sent_end = _sentence_span(text, start)
+    window = text[sent_start:sent_end]
+    rel_start = max(0, start - sent_start)
+    rel_end = max(rel_start, min(len(window), end - sent_start))
+    ranked: list[tuple[int, int, int, str]] = []
+    for match in _COUNT_SCOPE.finditer(window):
+        token = _normalize_scope_token(match.group(1))
+        after = window[match.end() : match.end() + 8]
+        if re.match(r"q[1-4]$", token) and _PLAY_CLOCK_AFTER.match(after):
+            continue
+        if match.end() <= rel_start:
+            dist, side = rel_start - match.end(), 1
+        elif match.start() >= rel_end:
+            dist, side = match.start() - rel_end, 0
+        else:
+            dist, side = 0, 0
+        ranked.append((dist, side, match.start(), token))
+    if not ranked:
         return None
-    token = _normalize_scope_token(match.group(1))
+    token = min(ranked)[3]
     if token in _WHOLE_GAME_SCOPES:
         return None
     if token in _SCOPE_QUARTERS:
