@@ -113,6 +113,18 @@ def main() -> int:
             "tests": TESTS,
         },
         {
+            "id": "M5b-weak-set-missing-opening",
+            "desc": "drop opening from the weak adjective set",
+            "path": FACTS,
+            "old": (
+                '_WEAK_COUNT_SCOPES = frozenset({"early", "opening", "late"})\n'
+            ),
+            "new": (
+                '_WEAK_COUNT_SCOPES = frozenset({"early", "late"})\n'
+            ),
+            "tests": TESTS,
+        },
+        {
             "id": "M6-leftmost-not-nearest",
             "desc": "leftmost qualifier instead of nearest (distance zeroed)",
             "path": FACTS,

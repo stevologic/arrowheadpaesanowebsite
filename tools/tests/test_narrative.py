@@ -14444,10 +14444,10 @@ class Oct14EditionGates(unittest.TestCase):
         """Play-clock skip, nearest qualifier, sentence binding, late/opening.
 
         These are behavioral pins, not source-text meta checks. Dropping
-        the play-clock ``continue``, dropping ``late`` from the weak set,
-        ranking leftmost instead of nearest, or searching the whole text
-        must fail here so a false whole-game count cannot publish and a
-        true Q4/H1 sentence is not dropped.
+        the play-clock ``continue``, dropping ``late`` or ``opening`` from
+        the weak set, ranking leftmost instead of nearest, or searching
+        the whole text must fail here so a false whole-game count cannot
+        publish and a true Q4/H1/H2 sentence is not dropped.
         """
         recap = generate._recap_for_edition(
             {
@@ -14527,6 +14527,23 @@ class Oct14EditionGates(unittest.TestCase):
         self.assertFalse(
             any("touchdown count" in item for item in opening_issues),
             opening_issues,
+        )
+        opening_nearer = (
+            "In the second half, Denver scored two touchdowns "
+            "after an opening Kansas City drive stalled."
+        )
+        self.assertEqual(
+            scope(opening_nearer, "two touchdowns"),
+            frozenset({3, 4}),
+        )
+        opening_answered = review(
+            "In the second half, after a long Kansas City drive "
+            "ended in a field goal, two Denver touchdowns answered "
+            "an opening score."
+        )
+        self.assertFalse(
+            any("touchdown count" in item for item in opening_answered),
+            opening_answered,
         )
 
         nearest = (
