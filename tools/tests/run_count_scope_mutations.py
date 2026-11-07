@@ -66,6 +66,20 @@ def main() -> int:
             ),
             "tests": TESTS,
         },
+        {
+            "id": "weak-adjective-outranks-quarter",
+            "desc": "let nearer early/late beat an explicit fourth quarter",
+            "path": FACTS,
+            "old": (
+                "        weak = 1 if token in _WEAK_COUNT_SCOPES else 0\n"
+                "        ranked.append((weak, dist, side, match.start(), token))\n"
+            ),
+            "new": (
+                "        weak = 0\n"
+                "        ranked.append((weak, dist, side, match.start(), token))\n"
+            ),
+            "tests": TESTS,
+        },
     ]
 
     killed = 0

@@ -1006,6 +1006,9 @@ _WHOLE_GAME_SCOPES = frozenset(
 )
 # ``Q3 1:38`` is a scoring-play clock, not a count window.
 _PLAY_CLOCK_AFTER = re.compile(r"^\s+\d{1,2}:\d{2}\b")
+# Adjectives that can describe a lead, deficit, or drive — not a count window
+# when an explicit quarter/half is also in the sentence.
+_WEAK_COUNT_SCOPES = frozenset({"early", "opening", "late"})
 _SCOPE_QUARTERS = {
     "early": frozenset({1, 2}),
     "opening": frozenset({1, 2}),
@@ -2574,7 +2577,7 @@ def _count_scope(text: str, start: int, end: int):
     window = text[sent_start:sent_end]
     rel_start = max(0, start - sent_start)
     rel_end = max(rel_start, min(len(window), end - sent_start))
-    ranked: list[tuple[int, int, int, str]] = []
+    ranked: list[tuple[int, int, int, int, str]] = []
     for match in _COUNT_SCOPE.finditer(window):
         token = _normalize_scope_token(match.group(1))
         after = window[match.end() : match.end() + 8]
@@ -2586,10 +2589,11 @@ def _count_scope(text: str, start: int, end: int):
             dist, side = match.start() - rel_end, 0
         else:
             dist, side = 0, 0
-        ranked.append((dist, side, match.start(), token))
+        weak = 1 if token in _WEAK_COUNT_SCOPES else 0
+        ranked.append((weak, dist, side, match.start(), token))
     if not ranked:
         return None
-    token = min(ranked)[3]
+    token = min(ranked)[4]
     if token in _WHOLE_GAME_SCOPES:
         return None
     if token in _SCOPE_QUARTERS:

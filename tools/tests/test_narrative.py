@@ -14386,6 +14386,35 @@ class Oct14EditionGates(unittest.TestCase):
             any("ESPN 0" in item for item in whole_issues),
             whole_issues,
         )
+        explicit = (
+            "In the fourth quarter, Denver scored two touchdowns "
+            "to erase an early Kansas City lead."
+        )
+        idx = explicit.find("two touchdowns")
+        self.assertEqual(
+            facts._count_scope(explicit, idx, idx + len("two touchdowns")),
+            frozenset({4}),
+        )
+        explicit_issues = facts.check_review(
+            {
+                "lastGameReview": {
+                    "opponent": "Denver Broncos",
+                    "result": "L",
+                    "score": "KC 24–28",
+                    "lede": (
+                        "In the fourth quarter, two Denver touchdowns "
+                        "erased an early Kansas City lead."
+                    ),
+                }
+            },
+            last,
+            recap,
+            changed=True,
+        )
+        self.assertFalse(
+            any("touchdown count" in item for item in explicit_issues),
+            explicit_issues,
+        )
 
     def test_count_scope_char_window_mutant_is_killed(self):
         """Reverting count-scope to a ±72-char search reintroduces ESPN 0."""
