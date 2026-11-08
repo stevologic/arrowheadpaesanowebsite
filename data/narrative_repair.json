@@ -1,9 +1,5 @@
 {
-  "droppedSentences": [
-    "Volume without the last two drives is how a good box becomes a loss.",
-    "A 24-13 lead after the Q3 1:38 touchdown became 24-28",
-    "The Jets script should keep Walker near a 20-carry day so 41 attempts and 10 hits are not the identity."
-  ],
+  "droppedSentences": [],
   "correctedSentences": [],
   "leftoverIssues": [],
   "holdAutomerge": true
