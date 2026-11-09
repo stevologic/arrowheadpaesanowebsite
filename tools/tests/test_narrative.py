@@ -15044,8 +15044,8 @@ class LastGameSubjectGate(unittest.TestCase):
         self.assertFalse(self._official_final_leftover(leftover, "24-28"), leftover)
 
     def test_broncos_subject_lost_24_28_next_to_jets_keeps_denver(self):
-        """I1 drop last_opp: only DEN keeps this line."""
-        debate = "The Broncos lost 24-28 Jets finished 35-12."
+        """I1 drop last_opp: subject DEN, nearest label Jets, only last_opp keeps."""
+        debate = "The Broncos vs the Jets lost 24-28 extra Jets."
         self.assertEqual(self._subject(debate), "DEN")
         leftover = self._leftover(debate)
         self.assertFalse(self._official_final_leftover(leftover, "24-28"), leftover)
@@ -15188,6 +15188,7 @@ class LastGameSubjectGate(unittest.TestCase):
             "The Cowboys lost 24-28 Jets finished 35-12.": True,
             "Kansas City lost 24-28 Jets finished 35-12.": False,
             "The Broncos lost 24-28 Jets finished 35-12.": False,
+            "The Broncos vs the Jets lost 24-28 extra Jets.": False,
             (
                 "Does minus 10 against the Jets overrate a team that just "
                 "lost 24-28 after leading 24-13?"
