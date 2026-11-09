@@ -14262,11 +14262,13 @@ class Oct14EditionGates(unittest.TestCase):
             self.assertIn("held leftover", err.getvalue())
             self.assertIn("24-28", err.getvalue())
 
-    def test_preview_lost_24_28_next_to_jets_drops_not_rewritten(self):
+    def test_preview_lost_24_28_next_to_jets_keeps_denver_final(self):
         """Run 42614467098 leftover: Preview debate named Jets and lost 24-28.
 
         After the Jets final posted 35-12, nearest-label bound Denver's
-        leftover to NYJ. Drop the score claim; do not rewrite 24-28 to 35-12.
+        leftover to NYJ. 24-28 is the last-game official; keep it. A Jets
+        Review that still says lost 24-28 must fail, and salvage must not
+        rewrite 24-28 to 35-12.
         """
         recap = generate._recap_for_edition(
             {
@@ -14289,7 +14291,7 @@ class Oct14EditionGates(unittest.TestCase):
                 game["completed"] = True
                 game["kcScore"] = 35
                 game["oppScore"] = 12
-        dirty = {
+        preview = {
             "edition": "2026 Week 9 · Preview",
             "phase": {"mode": "preview", "week": 9},
             "headline": "Jets at Arrowhead.",
@@ -14305,30 +14307,45 @@ class Oct14EditionGates(unittest.TestCase):
                 "Does minus 10 against the Jets overrate a team that just lost 24-28 after leading 24-13?",
             ],
         }
-        leftover = facts.check_review(dirty, last, recap, schedule=slate, changed=True)
-        self.assertTrue(
+        leftover = facts.check_review(
+            preview, last, recap, schedule=slate, changed=True
+        )
+        self.assertFalse(
             any("24-28" in item and "official final" in item for item in leftover),
             leftover,
         )
+        live = json.loads(config.NARRATIVE_JSON.read_text(encoding="utf-8"))
+        self.assertEqual(live.get("heroMediaId"), "none")
+        self.assertEqual(live.get("nextGame", {}).get("tv"), "CBS")
+        self.assertIn("12:00 PM CT", live.get("nextGame", {}).get("label") or "")
+        jets_wrong = self._week9_jets_review(
+            score="KC 24–28",
+            lede="Kansas City lost 24-28 to the Jets.",
+        )
+        jets_last = generate._last_game_from_edition(jets_wrong)
+        jets_recap = generate._recap_for_edition(jets_wrong)
+        jets_left = facts.check_review(
+            jets_wrong, jets_last, jets_recap, schedule=slate, changed=True
+        )
         self.assertTrue(
-            any("lost 24-28" in item for item in leftover), leftover
+            any("lost 24-28" in item and "official final" in item for item in jets_left),
+            jets_left,
         )
         self.assertIsNone(
             facts._correct_sentence(
-                dirty["debates"][0], leftover[0], recap, last
+                "Kansas City lost 24-28 to the Jets.",
+                jets_left[0],
+                jets_recap,
+                jets_last,
             )
         )
-        repaired = facts.repair_offending_copy(dirty, leftover, last, recap, slate)
+        repaired = facts.repair_offending_copy(
+            jets_wrong, jets_left, jets_last, jets_recap, slate
+        )
         blob = facts.edition_text(repaired)
         self.assertNotIn("lost 24-28", blob)
         self.assertNotIn("lost 35-12", blob)
         self.assertNotIn("won 35-12", blob)
-        live = json.loads(config.NARRATIVE_JSON.read_text(encoding="utf-8"))
-        self.assertNotIn("lost 24-28", facts.edition_text(live))
-        self.assertIn("24-13 lead", json.dumps(live.get("debates") or []))
-        self.assertEqual(live.get("heroMediaId"), "none")
-        self.assertEqual(live.get("nextGame", {}).get("tv"), "CBS")
-        self.assertIn("12:00 PM CT", live.get("nextGame", {}).get("label") or "")
 
     def test_jets_week9_score_mutants_are_killed(self):
         """Named mutants: unwire fixture, trust stamped 24-28, rewrite counts, hold exits 0."""
@@ -14484,6 +14501,85 @@ class Oct14EditionGates(unittest.TestCase):
         )
         if not wired_ok:
             survivors.append("map Jets to Denver 24-28 box")
+
+        den_last = {
+            "id": "401873033",
+            "completed": True,
+            "opponent": "Denver Broncos",
+            "kcScore": 24,
+            "oppScore": 28,
+        }
+        den_recap = generate._recap_for_edition(
+            {
+                "lastGameReview": {
+                    "opponent": "Denver Broncos",
+                    "score": "KC 24–28",
+                }
+            }
+        )
+        preview = {
+            "edition": "2026 Week 9 · Preview",
+            "phase": {"mode": "preview", "week": 9},
+            "headline": "Jets at Arrowhead.",
+            "dek": "Kansas City hosts the Jets after Denver.",
+            "theEdge": "Kickoff is Sun Nov 8, 12:00 PM CT on CBS.",
+            "lastGameReview": {
+                "opponent": "Denver Broncos",
+                "result": "L",
+                "score": "KC 24–28",
+                "lede": "Denver finished it 24-28 at Empower Field.",
+            },
+            "debates": [
+                "Does minus 10 against the Jets overrate a team that just lost 24-28 after leading 24-13?",
+            ],
+        }
+        jets_slate = frozen_schedule()
+        for game in jets_slate:
+            if str(game.get("id")) == "401873045":
+                game["completed"] = True
+                game["kcScore"] = 35
+                game["oppScore"] = 12
+        current_prev = facts.check_review(
+            preview, den_last, den_recap, schedule=jets_slate, changed=True
+        )
+        orig_named = facts._named_official_final
+
+        def steal_jets(
+            sentence,
+            last_game,
+            recap=None,
+            schedule=None,
+            claimed=None,
+            claim_at=None,
+        ):
+            if claimed == (24, 28) and re.search(r"\bjets\b", sentence or "", re.I):
+                return (35, 12)
+            return orig_named(
+                sentence, last_game, recap, schedule, claimed, claim_at
+            )
+
+        with patch.object(facts, "_named_official_final", side_effect=steal_jets):
+            mutant_prev = facts.check_review(
+                preview, den_last, den_recap, schedule=jets_slate, changed=True
+            )
+        steal_killed = not any(
+            "24-28" in item and "official final" in item for item in current_prev
+        ) and any(
+            "24-28" in item and "official final" in item for item in mutant_prev
+        )
+        rows.append(
+            {
+                "mutant": "nearest Jets 35-12 steals Denver leftover 24-28",
+                "test": "test_preview_lost_24_28_next_to_jets_keeps_denver_final",
+                "actual": (
+                    f"current={current_prev!r} mutant={mutant_prev!r}"
+                ),
+                "expected": "current keeps 24-28; mutant flags official-final",
+                "killed": steal_killed,
+            }
+        )
+        if not steal_killed:
+            survivors.append("nearest Jets 35-12 steals Denver leftover 24-28")
 
         lines = [
             "# Week 9 Jets score mutants",

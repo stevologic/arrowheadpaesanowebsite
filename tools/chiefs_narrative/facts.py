@@ -2786,7 +2786,22 @@ def _named_official_final(
         local = [row for row in hits if line_start <= row[0] < line_end]
         if local:
             nearest = min(local, key=lambda row: (abs(row[0] - at), -row[1]))
-            return nearest[2]
+            official = nearest[2]
+            if (
+                official == claimed
+                or (official[1], official[0]) == claimed
+            ):
+                return official
+            # Same-line "Jets" must not steal Denver's leftover 24-28
+            # once the Jets box is 35-12 (run 42614467098). A nearer
+            # Raiders 30-27 next to 22-6 still wins so Chargers cannot
+            # rescue it from across the paragraph.
+            if last_pair and (
+                last_pair == claimed
+                or (last_pair[1], last_pair[0]) == claimed
+            ):
+                return last_pair
+            return official
     if claimed:
         if last_pair and (
             last_pair == claimed or (last_pair[1], last_pair[0]) == claimed
