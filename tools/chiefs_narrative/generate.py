@@ -53,6 +53,7 @@ FACT_CHECK_UNIQUENESS_RETRIES = 1
 # 65-minute job; 6 × 600s does.
 LLM_CALL_BUDGET = 6
 REPLAY_NOT_RUN = "replay not run"
+HARD_REPLAY_RC = 1
 
 
 class LlmCallBudget:
@@ -1856,7 +1857,7 @@ def main(argv=None) -> int:
                     "  archive replay gate: held leftover; failing the run",
                     file=sys.stderr,
                 )
-            return 1
+            return HARD_REPLAY_RC
         if held:
             emit_held(held)
             return 0

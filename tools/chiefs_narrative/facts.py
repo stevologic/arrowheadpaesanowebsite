@@ -609,6 +609,11 @@ _POSSESSION_OBJECT = re.compile(
     r"\b(?:the\s+)?[A-Za-z][A-Za-z '’-]+?\s+(?:game|finale|tape|film|box)\b",
     re.IGNORECASE,
 )
+# Unlabeled last-game voice on this site is KC ("a team that just lost").
+_UNLABELED_KC_SUBJECT = re.compile(
+    r"\ba team that(?:\s+\w+){0,4}\s+(?:just\s+)?(?:lost|won)\b",
+    re.IGNORECASE,
+)
 _KC_VOICED_TOP = re.compile(
     r"(?:^|\n)\s*time of possession\s*\(\d{1,2}:\d{2}\)",
     re.IGNORECASE,
@@ -2679,18 +2684,56 @@ def _recap_final_pair(block: dict | None) -> tuple[int, int] | None:
     return _int_pair(last.get("kcScore"), last.get("oppScore"))
 
 
+def _strip_kc_opponent_code(code: str | None) -> str:
+    token = (code or "").strip().upper()
+    return token if token and token != "KC" else ""
+
+
+def _aliases_without_kc_opp(
+    last_game: dict | None, recap: dict | None, schedule=None
+) -> dict[str, str]:
+    """Team aliases that never treat KC as the last-game opponent code.
+
+    Recap oppAbbr=KC would otherwise map 'Denver Broncos' onto KC, and an
+    empty abbr would mint BRO from 'Broncos' and block the schedule DEN.
+    """
+    last_clean = dict(last_game or {})
+    recap_clean = dict(recap or {})
+    recap_abbr = _strip_kc_opponent_code(recap_clean.get("oppAbbr"))
+    last_abbr = _strip_kc_opponent_code(last_clean.get("opponentAbbr"))
+    recap_clean["oppAbbr"] = recap_abbr
+    last_clean["opponentAbbr"] = last_abbr
+    if not recap_abbr:
+        recap_clean["opponent"] = ""
+        if not last_abbr:
+            last_clean["opponent"] = ""
+    return _team_aliases(last_clean, recap_clean, schedule)
+
+
 def _last_game_opp_code(
     last_game: dict | None, recap: dict | None, schedule=None
 ) -> str:
     """NFL code for the last-game opponent (DEN, NYJ, LAC, …)."""
-    aliases = _team_aliases(last_game, recap, schedule)
-    abbr = (
-        ((recap or {}).get("oppAbbr") or "")
-        or ((last_game or {}).get("opponentAbbr") or "")
-    ).strip().upper()
-    if abbr and abbr != "KC":
-        return abbr
-    return _alias_team((last_game or {}).get("opponent") or "", aliases)
+    recap_abbr = _strip_kc_opponent_code((recap or {}).get("oppAbbr"))
+    last_abbr = _strip_kc_opponent_code((last_game or {}).get("opponentAbbr"))
+    if recap_abbr:
+        return recap_abbr
+    if last_abbr:
+        return last_abbr
+    name = (
+        ((last_game or {}).get("opponent") or "")
+        or ((recap or {}).get("opponent") or "")
+    ).strip()
+    for game in schedule or []:
+        if not isinstance(game, dict):
+            continue
+        abbr = _strip_kc_opponent_code(game.get("opponentAbbr"))
+        if not abbr:
+            continue
+        opp = (game.get("opponent") or "").strip()
+        if name and opp and name.lower() == opp.lower():
+            return abbr
+    return _alias_team(name, _aliases_without_kc_opp(last_game, recap, schedule))
 
 
 def _score_clause_subject_team(
@@ -2700,11 +2743,22 @@ def _score_clause_subject_team(
     recap: dict | None,
     schedule=None,
 ) -> str:
-    """Team code of the score-clause subject, ignoring 'against Team' objects."""
-    aliases = _team_aliases(last_game, recap, schedule)
+    """Team code of the score-clause subject, ignoring 'against Team' objects.
+
+    An unknown or unparsed subject stays ''. Only a positive KC / last-opp
+    code may skip nearest-opponent binding. 'a team that just lost' is KC.
+    """
+    aliases = _aliases_without_kc_opp(last_game, recap, schedule)
     subject = _subject_clause(sentence or "", claim_at)
     cleaned = _POSSESSION_OBJECT.sub(" ", _LOCATION_TEAM.sub(" ", subject))
-    return _last_name_in(cleaned, aliases)
+    named = _last_name_in(cleaned, aliases)
+    if named:
+        return named
+    # _LOOSE_WON_LOST starts at 'lost', so the clause may end before the verb.
+    probe = (subject or "") + " " + (sentence or "")[claim_at : claim_at + 16]
+    if _UNLABELED_KC_SUBJECT.search(probe):
+        return "KC"
+    return ""
 
 
 def _named_official_final(
@@ -2816,10 +2870,9 @@ def _named_official_final(
             nearest = min(local, key=lambda row: (abs(row[0] - at), -row[1]))
             official = nearest[2]
             # Skip nearest-opponent binding (return the last-game official)
-            # only when the score-clause subject is the last game: its
-            # opponent, KC, or unlabeled ("a team that just lost"). A
-            # third-club subject ("The Jets lost 24-28", nearer Raiders
-            # next to Chargers 22-6) keeps develop nearest-label binding.
+            # only on a positive score-clause subject: KC or the last-game
+            # opponent. Unknown, alias-miss, and unparsed subjects stay on
+            # develop nearest-label binding.
             if last_pair and (
                 last_pair == claimed
                 or (last_pair[1], last_pair[0]) == claimed
@@ -2828,7 +2881,7 @@ def _named_official_final(
                     sentence or "", at, last_game, recap, schedule
                 )
                 last_opp = _last_game_opp_code(last_game, recap, schedule)
-                if subject in {"", "KC", last_opp}:
+                if subject and subject in {"KC", last_opp}:
                     return last_pair
             return official
     if claimed:
