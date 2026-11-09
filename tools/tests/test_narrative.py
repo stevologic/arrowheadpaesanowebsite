@@ -14166,6 +14166,593 @@ class Oct14EditionGates(unittest.TestCase):
             self.assertNotIn("replay not run", out.getvalue())
             self.assertIn("archive replay gate: ok", out.getvalue())
 
+    def _week9_jets_review(self, *, score="KC 35–12", lede=""):
+        return {
+            "edition": "2026 Week 9 · Review",
+            "phase": {"mode": "review", "week": 9},
+            "headline": "Arrowhead closed 35-12.",
+            "dek": "Kansas City beat the Jets 35-12 at Arrowhead on CBS.",
+            "theEdge": "The next kickoff is Atlanta on Sun Nov 15, 12:00 PM CT on CBS.",
+            "lastGameReview": {
+                "opponent": "New York Jets",
+                "result": "W",
+                "score": score,
+                "lede": lede or "Kansas City beat the Jets 35-12 at Arrowhead.",
+            },
+        }
+
+    def test_jets_week9_replay_uses_box_and_rejects_denver_final(self):
+        """35-12 Jets is 401873045. 24-28 is Denver, not the Jets final.
+
+        Run 42614467098 held on ``lost 24-28`` after the slate posted
+        KC 35 NYJ 12. ESPN kickoff remains Sun Nov 8, 12:00 PM CT on CBS.
+        """
+        from tools.tests.archive_replay import last_game_for_edition
+
+        slate = frozen_schedule()
+        week9 = self._week9_jets_review()
+        last9 = last_game_for_edition(week9, slate)
+        self.assertEqual(str((last9 or {}).get("id")), "401873045")
+        self.assertEqual(
+            ((last9 or {}).get("kcScore"), (last9 or {}).get("oppScore")),
+            (35, 12),
+        )
+        self.assertFalse(generate.replay_fixture_missing(week9))
+        recap = generate._recap_for_edition(week9)
+        self.assertEqual(str(recap.get("eventId")), "401873045")
+        self.assertEqual(facts.official_count_by_team(recap, "td").get("KC"), 5)
+        self.assertEqual(facts.official_count_by_team(recap, "td").get("NYJ", 0), 0)
+        prior = recap.get("prior") or {}
+        self.assertEqual(str(prior.get("eventId")), "401873033")
+        self.assertEqual(prior.get("opponent"), "Denver Broncos")
+        gate_last = generate._last_game_from_edition(week9)
+        self.assertEqual((gate_last.get("kcScore"), gate_last.get("oppScore")), (35, 12))
+        issues = facts.check_review(week9, gate_last, recap, schedule=slate, changed=True)
+        self.assertEqual(issues, [], issues)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "narrative.json"
+            path.write_text(json.dumps(week9) + "\n", encoding="utf-8")
+            with patch.object(generate.config, "NARRATIVE_JSON", path):
+                with redirect_stdout(io.StringIO()) as out:
+                    rc = generate.main(["--gate-replay"])
+            self.assertEqual(rc, 0, out.getvalue())
+            self.assertNotIn("replay not run", out.getvalue())
+            self.assertIn("archive replay gate: ok", out.getvalue())
+
+        wrong = self._week9_jets_review(
+            score="KC 24–28",
+            lede="Kansas City lost 24-28 to the Jets.",
+        )
+        wrong_last = generate._last_game_from_edition(wrong)
+        self.assertEqual(
+            (wrong_last.get("kcScore"), wrong_last.get("oppScore")),
+            (35, 12),
+            "edition header 24-28 must not become the official Jets final",
+        )
+        leftover = facts.check_review(
+            wrong, wrong_last, recap, schedule=slate, changed=True
+        )
+        self.assertTrue(
+            any("24-28" in item and "official final" in item for item in leftover),
+            leftover,
+        )
+        self.assertIsNone(
+            facts._correct_sentence(
+                "Kansas City lost 24-28 to the Jets.",
+                leftover[0],
+                recap,
+                wrong_last,
+            )
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "narrative.json"
+            repair = Path(tmp) / "repair.json"
+            path.write_text(json.dumps(wrong) + "\n", encoding="utf-8")
+            repair.write_text(
+                json.dumps({"holdAutomerge": True}) + "\n", encoding="utf-8"
+            )
+            buf = io.StringIO()
+            err = io.StringIO()
+            with patch.object(generate.config, "NARRATIVE_JSON", path), patch.object(
+                generate.config, "REPAIR_JSON", repair
+            ):
+                with redirect_stdout(buf), patch("sys.stderr", err):
+                    rc = generate.main(["--gate-replay"])
+            self.assertEqual(rc, 1, buf.getvalue() + err.getvalue())
+            self.assertIn("held leftover", err.getvalue())
+            self.assertIn("24-28", err.getvalue())
+
+    def test_jets_review_beat_broncos_35_12_gate_replay_exits_1(self):
+        """B1 e2e: Jets Review lede attributing 35-12 to Denver must fail."""
+        slate = frozen_schedule()
+        week9 = self._week9_jets_review(
+            score="KC 35–12",
+            lede="Kansas City beat the Broncos 35-12 last week.",
+        )
+        recap = generate._recap_for_edition(week9)
+        last = generate._last_game_from_edition(week9)
+        leftover = facts.check_review(
+            week9, last, recap, schedule=slate, changed=True
+        )
+        self.assertTrue(
+            any("35-12" in item and "official final" in item for item in leftover),
+            leftover,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "narrative.json"
+            repair = Path(tmp) / "repair.json"
+            path.write_text(json.dumps(week9) + "\n", encoding="utf-8")
+            repair.write_text(
+                json.dumps({"holdAutomerge": True}) + "\n", encoding="utf-8"
+            )
+            buf = io.StringIO()
+            err = io.StringIO()
+            with patch.object(generate.config, "NARRATIVE_JSON", path), patch.object(
+                generate.config, "REPAIR_JSON", repair
+            ):
+                with redirect_stdout(buf), patch("sys.stderr", err):
+                    rc = generate.main(["--gate-replay"])
+            blob = buf.getvalue() + err.getvalue()
+            self.assertEqual(rc, 1, blob)
+            self.assertIn("score 35-12 is not the official final", err.getvalue())
+
+    def test_preview_lost_24_28_next_to_jets_flags_unlabeled_debate(self):
+        """Unlabeled C1 debate FLAGs; Jets Review lost 24-28 still fails.
+
+        Fail-closed: no unlabeled-KC promotion. A Jets Review that still
+        says lost 24-28 must fail, and salvage must not rewrite 24-28 to 35-12.
+        """
+        recap = generate._recap_for_edition(
+            {
+                "lastGameReview": {
+                    "opponent": "Denver Broncos",
+                    "score": "KC 24–28",
+                }
+            }
+        )
+        last = {
+            "id": "401873033",
+            "completed": True,
+            "opponent": "Denver Broncos",
+            "kcScore": 24,
+            "oppScore": 28,
+        }
+        slate = frozen_schedule()
+        for game in slate:
+            if str(game.get("id")) == "401873045":
+                game["completed"] = True
+                game["kcScore"] = 35
+                game["oppScore"] = 12
+        preview = {
+            "edition": "2026 Week 9 · Preview",
+            "phase": {"mode": "preview", "week": 9},
+            "headline": "Jets at Arrowhead.",
+            "dek": "Kansas City hosts the Jets after Denver.",
+            "theEdge": "Kickoff is Sun Nov 8, 12:00 PM CT on CBS.",
+            "lastGameReview": {
+                "opponent": "Denver Broncos",
+                "result": "L",
+                "score": "KC 24–28",
+                "lede": "Denver finished it 24-28 at Empower Field.",
+            },
+            "debates": [
+                "Does minus 10 against the Jets overrate a team that just lost 24-28 after leading 24-13?",
+            ],
+        }
+        leftover = facts.check_review(
+            preview, last, recap, schedule=slate, changed=True
+        )
+        self.assertTrue(
+            any("24-28" in item and "official final" in item for item in leftover),
+            leftover,
+        )
+        live = json.loads(config.NARRATIVE_JSON.read_text(encoding="utf-8"))
+        self.assertEqual(live.get("heroMediaId"), "none")
+        self.assertEqual(live.get("nextGame", {}).get("tv"), "CBS")
+        self.assertIn("12:00 PM CT", live.get("nextGame", {}).get("label") or "")
+        jets_wrong = self._week9_jets_review(
+            score="KC 24–28",
+            lede="Kansas City lost 24-28 to the Jets.",
+        )
+        jets_last = generate._last_game_from_edition(jets_wrong)
+        jets_recap = generate._recap_for_edition(jets_wrong)
+        jets_left = facts.check_review(
+            jets_wrong, jets_last, jets_recap, schedule=slate, changed=True
+        )
+        self.assertTrue(
+            any("lost 24-28" in item and "official final" in item for item in jets_left),
+            jets_left,
+        )
+        self.assertIsNone(
+            facts._correct_sentence(
+                "Kansas City lost 24-28 to the Jets.",
+                jets_left[0],
+                jets_recap,
+                jets_last,
+            )
+        )
+        repaired = facts.repair_offending_copy(
+            jets_wrong, jets_left, jets_last, jets_recap, slate
+        )
+        blob = facts.edition_text(repaired)
+        self.assertNotIn("lost 24-28", blob)
+        self.assertNotIn("lost 35-12", blob)
+        self.assertNotIn("won 35-12", blob)
+
+    def test_jets_as_subject_lost_24_28_on_denver_last_is_leftover(self):
+        """'The Jets lost 24-28' on Denver's last-game line must leftover."""
+        recap = generate._recap_for_edition(
+            {
+                "lastGameReview": {
+                    "opponent": "Denver Broncos",
+                    "score": "KC 24–28",
+                }
+            }
+        )
+        last = {
+            "id": "401873033",
+            "completed": True,
+            "opponent": "Denver Broncos",
+            "kcScore": 24,
+            "oppScore": 28,
+        }
+        slate = frozen_schedule()
+        for game in slate:
+            if str(game.get("id")) == "401873045":
+                game["completed"] = True
+                game["kcScore"] = 35
+                game["oppScore"] = 12
+        preview = {
+            "edition": "2026 Week 9 · Preview",
+            "phase": {"mode": "preview", "week": 9},
+            "headline": "Jets at Arrowhead.",
+            "dek": "Kansas City hosts the Jets after Denver.",
+            "theEdge": "Kickoff is Sun Nov 8, 12:00 PM CT on CBS.",
+            "lastGameReview": {
+                "opponent": "Denver Broncos",
+                "result": "L",
+                "score": "KC 24–28",
+                "lede": "The Jets lost 24-28 after leading 24-13.",
+            },
+            "debates": [
+                "The Jets lost 24-28 after leading 24-13.",
+            ],
+        }
+        leftover = facts.check_review(
+            preview, last, recap, schedule=slate, changed=True
+        )
+        self.assertTrue(
+            any("24-28" in item and "official final" in item for item in leftover),
+            leftover,
+        )
+
+    def test_chargers_last_22_6_next_to_nearer_raiders_is_leftover(self):
+        """Chargers last-game 22-6 next to a nearer Raiders must leftover."""
+        recap = json.loads(
+            (FIXTURES / "espn_401873006_recap.json").read_text(encoding="utf-8")
+        )
+        recap["oppAbbr"] = recap.get("oppAbbr") or "LAC"
+        last = {
+            "id": "401873006",
+            "completed": True,
+            "opponent": "Los Angeles Chargers",
+            "opponentAbbr": "LAC",
+            "kcScore": 22,
+            "oppScore": 6,
+        }
+        slate = frozen_schedule()
+        for game in slate:
+            if str(game.get("id")) == "401873006":
+                game["completed"] = True
+                game["kcScore"] = 22
+                game["oppScore"] = 6
+            if str(game.get("id")) == "401872976":
+                game["completed"] = True
+                game["kcScore"] = 30
+                game["oppScore"] = 27
+        edition = {
+            "edition": "2026 Week 6 · Review",
+            "phase": {"mode": "review", "week": 6},
+            "headline": "Chargers tape.",
+            "dek": "Kansas City beat the Chargers 22-6.",
+            "theEdge": "Next week.",
+            "lastGameReview": {
+                "opponent": "Los Angeles Chargers",
+                "result": "W",
+                "score": "KC 22–6",
+                "lede": (
+                    "The Raiders lost 22-6 after Las Vegas had just "
+                    "finished 30-27."
+                ),
+                "analysis": [
+                    {
+                        "body": (
+                            "The Raiders lost 22-6 after Las Vegas had just "
+                            "finished 30-27."
+                        )
+                    }
+                ],
+            },
+        }
+        leftover = facts.check_review(
+            edition, last, recap, schedule=slate, changed=True
+        )
+        self.assertTrue(
+            any("22-6" in item and "official final" in item for item in leftover),
+            leftover,
+        )
+
+    def test_jets_week9_score_mutants_are_killed(self):
+        """Named mutants: unwire fixture, trust stamped 24-28, rewrite counts, hold exits 0."""
+        from tools.tests.archive_replay import last_game_for_edition
+
+        rows = []
+        survivors = []
+        report = FIXTURES / "week9_jets_score_mutations.md"
+        slate = frozen_schedule()
+        week9 = self._week9_jets_review()
+        recap = generate._recap_for_edition(week9)
+        wrong = self._week9_jets_review(
+            score="KC 24–28",
+            lede="Kansas City lost 24-28 to the Jets.",
+        )
+
+        unwired = [
+            row
+            for row in generate._RECAP_FIXTURES
+            if "401873045" not in row[1]
+        ]
+        with patch.object(generate, "_RECAP_FIXTURES", unwired):
+            missing = generate.replay_fixture_missing(week9)
+            last_pair = generate._recap_final_score(
+                generate._recap_for_edition(week9)
+            )
+        unwire_killed = missing is True and last_pair != (35, 12)
+        rows.append(
+            {
+                "mutant": "unwire Jets 401873045 fixture",
+                "test": "replay_fixture_missing(week9) is True",
+                "actual": f"missing={missing} recap_final={last_pair}",
+                "expected": "missing=True recap_final!=(35, 12)",
+                "killed": unwire_killed,
+            }
+        )
+        if not unwire_killed:
+            survivors.append("unwire Jets 401873045 fixture")
+
+        def _stamped_last(narrative):
+            review = narrative.get("lastGameReview") or {}
+            match = re.search(r"(\d+)\s*[–-]\s*(\d+)", review.get("score") or "")
+            return {
+                "completed": True,
+                "kcScore": int(match.group(1)) if match else None,
+                "oppScore": int(match.group(2)) if match else None,
+                "opponent": review.get("opponent") or "",
+            }
+
+        stamped = _stamped_last(wrong)
+        stamped_issues = facts.check_review(
+            wrong, stamped, recap, schedule=slate, changed=True
+        )
+        espn_last = generate._last_game_from_edition(wrong)
+        espn_issues = facts.check_review(
+            wrong, espn_last, recap, schedule=slate, changed=True
+        )
+        stamp_killed = not any(
+            "24-28" in item and "official final" in item for item in stamped_issues
+        ) and any(
+            "24-28" in item and "official final" in item for item in espn_issues
+        )
+        rows.append(
+            {
+                "mutant": "trust edition header 24-28 as Jets official",
+                "test": "test_jets_week9_replay_uses_box_and_rejects_denver_final",
+                "actual": (
+                    f"stamped_issues={stamped_issues!r} "
+                    f"espn_last={espn_last.get('kcScore')}-"
+                    f"{espn_last.get('oppScore')} espn_issues={espn_issues!r}"
+                ),
+                "expected": "stamped 24-28 passes; ESPN 35-12 leftover still fails",
+                "killed": stamp_killed,
+            }
+        )
+        if not stamp_killed:
+            survivors.append("trust edition header 24-28 as Jets official")
+
+        violation = next(
+            item for item in espn_issues if "24-28" in item and "official final" in item
+        )
+        current_fix = facts._correct_sentence(
+            "Kansas City lost 24-28 to the Jets.", violation, recap, espn_last
+        )
+
+        def _rewrite_final(sentence, viol, recap_arg=None, last_arg=None):
+            if "official final" in (viol or "") and "24-28" in (sentence or ""):
+                return sentence.replace("lost 24-28", "won 35-12")
+            return facts._correct_sentence(sentence, viol, recap_arg, last_arg)
+
+        with patch.object(facts, "_correct_sentence", side_effect=_rewrite_final):
+            rewritten = facts._correct_sentence(
+                "Kansas City lost 24-28 to the Jets.",
+                violation,
+                recap,
+                espn_last,
+            )
+        rewrite_killed = current_fix is None and rewritten == (
+            "Kansas City won 35-12 to the Jets."
+        )
+        rows.append(
+            {
+                "mutant": "rewrite lost 24-28 to won 35-12",
+                "test": "drop-only _correct_sentence on official-final leftover",
+                "actual": f"current={current_fix!r} mutant={rewritten!r}",
+                "expected": "current=None mutant rewrites the count",
+                "killed": rewrite_killed,
+            }
+        )
+        if not rewrite_killed:
+            survivors.append("rewrite lost 24-28 to won 35-12")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "narrative.json"
+            repair = Path(tmp) / "repair.json"
+            path.write_text(json.dumps(wrong) + "\n", encoding="utf-8")
+            repair.write_text(
+                json.dumps({"holdAutomerge": True}) + "\n", encoding="utf-8"
+            )
+            err = io.StringIO()
+            with patch.object(generate.config, "NARRATIVE_JSON", path), patch.object(
+                generate.config, "REPAIR_JSON", repair
+            ):
+                with redirect_stdout(io.StringIO()), patch("sys.stderr", err):
+                    held_rc = generate.main(["--gate-replay"])
+                with patch.object(generate, "HARD_REPLAY_RC", 0), redirect_stdout(
+                    io.StringIO()
+                ), patch("sys.stderr", io.StringIO()):
+                    mutant_rc = generate.main(["--gate-replay"])
+        hold_killed = held_rc == 1 and mutant_rc == 0
+        rows.append(
+            {
+                "mutant": "gate-replay returns 0 on hard leftover",
+                "test": "held leftover still exits non-zero",
+                "actual": f"live_rc={held_rc} hold_zero_rc={mutant_rc}",
+                "expected": "live HARD_REPLAY_RC=1; mutant patched HARD_REPLAY_RC=0 returns 0",
+                "killed": hold_killed,
+            }
+        )
+        if not hold_killed:
+            survivors.append("gate-replay returns 0 on hard leftover")
+
+        from tools.tests import archive_replay
+
+        wired = last_game_for_edition(week9, slate)
+        mut_events = dict(archive_replay._EVENT_BY_OPP)
+        mut_events["new york jets"] = "401873033"
+        with patch.object(archive_replay, "_EVENT_BY_OPP", mut_events):
+            mutant_mapped = last_game_for_edition(week9, slate)
+        map_killed = (
+            str((wired or {}).get("id")) == "401873045"
+            and (wired or {}).get("kcScore") == 35
+            and str((mutant_mapped or {}).get("id")) == "401873033"
+        )
+        rows.append(
+            {
+                "mutant": "map Jets to Denver 24-28 box",
+                "test": "last_game_for_edition Week 9 Review is 401873045 / 35-12",
+                "actual": (
+                    f"current id={(wired or {}).get('id')} "
+                    f"score={(wired or {}).get('kcScore')}-{(wired or {}).get('oppScore')}; "
+                    f"mutant id={(mutant_mapped or {}).get('id')} "
+                    f"score={(mutant_mapped or {}).get('kcScore')}-{(mutant_mapped or {}).get('oppScore')}"
+                ),
+                "expected": "current id=401873045 score=35-12; mutant id=401873033",
+                "killed": map_killed,
+            }
+        )
+        if not map_killed:
+            survivors.append("map Jets to Denver 24-28 box")
+
+        den_last = {
+            "id": "401873033",
+            "completed": True,
+            "opponent": "Denver Broncos",
+            "kcScore": 24,
+            "oppScore": 28,
+        }
+        den_recap = generate._recap_for_edition(
+            {
+                "lastGameReview": {
+                    "opponent": "Denver Broncos",
+                    "score": "KC 24–28",
+                }
+            }
+        )
+        preview = {
+            "edition": "2026 Week 9 · Preview",
+            "phase": {"mode": "preview", "week": 9},
+            "headline": "Jets at Arrowhead.",
+            "dek": "Kansas City hosts the Jets after Denver.",
+            "theEdge": "Kickoff is Sun Nov 8, 12:00 PM CT on CBS.",
+            "lastGameReview": {
+                "opponent": "Denver Broncos",
+                "result": "L",
+                "score": "KC 24–28",
+                "lede": "Denver finished it 24-28 at Empower Field.",
+            },
+            "debates": [
+                "The Broncos vs the Jets lost 24-28 extra Jets.",
+            ],
+        }
+        jets_slate = frozen_schedule()
+        for game in jets_slate:
+            if str(game.get("id")) == "401873045":
+                game["completed"] = True
+                game["kcScore"] = 35
+                game["oppScore"] = 12
+        current_prev = facts.check_review(
+            preview, den_last, den_recap, schedule=jets_slate, changed=True
+        )
+        orig_named = facts._named_official_final
+
+        def steal_jets(
+            sentence,
+            last_game,
+            recap=None,
+            schedule=None,
+            claimed=None,
+            claim_at=None,
+        ):
+            if claimed == (24, 28) and re.search(r"\bjets\b", sentence or "", re.I):
+                return (35, 12)
+            return orig_named(
+                sentence, last_game, recap, schedule, claimed, claim_at
+            )
+
+        with patch.object(facts, "_named_official_final", side_effect=steal_jets):
+            mutant_prev = facts.check_review(
+                preview, den_last, den_recap, schedule=jets_slate, changed=True
+            )
+        steal_killed = not any(
+            "24-28" in item and "official final" in item for item in current_prev
+        ) and any(
+            "24-28" in item and "official final" in item for item in mutant_prev
+        )
+        rows.append(
+            {
+                "mutant": "nearest Jets 35-12 steals Denver leftover 24-28",
+                "test": "test_broncos_subject_lost_24_28_next_to_jets_keeps_denver",
+                "actual": (
+                    f"current={current_prev!r} mutant={mutant_prev!r}"
+                ),
+                "expected": "current keeps 24-28; mutant flags official-final",
+                "killed": steal_killed,
+            }
+        )
+        if not steal_killed:
+            survivors.append("nearest Jets 35-12 steals Denver leftover 24-28")
+
+        lines = [
+            "# Week 9 Jets score mutants",
+            "",
+            "| mutant | behavioural test | actual | expected | result |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+        for row in rows:
+            status = "KILLED" if row["killed"] else "SURVIVED"
+            cell = lambda value: str(value).replace("|", "\\|").replace("\n", " ")
+            lines.append(
+                "| {mutant} | {test} | {actual} | {expected} | **{status}** |".format(
+                    mutant=cell(row["mutant"]),
+                    test=cell(row["test"]),
+                    actual=cell(row["actual"]),
+                    expected=cell(row["expected"]),
+                    status=status,
+                )
+            )
+        report.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        self.assertEqual(survivors, [], rows)
+        self.assertTrue(report.is_file(), report)
+
     def test_denver_td_count_mismatch_is_dropped_not_rewritten(self):
         """Salvage may drop a bad TD count; it must not change the number."""
         recap = generate._recap_for_edition(
@@ -14364,6 +14951,734 @@ class Oct14EditionGates(unittest.TestCase):
             any("22-6" in item and "official final" in item for item in leftover),
             leftover,
         )
+
+
+class LastGameSubjectGate(unittest.TestCase):
+    """Positive KC/last-opp override; unknown subjects keep develop nearest."""
+
+    def _denver_last(self, **extra):
+        last = {
+            "id": "401873033",
+            "completed": True,
+            "opponent": "Denver Broncos",
+            "kcScore": 24,
+            "oppScore": 28,
+        }
+        last.update(extra)
+        return last
+
+    def _denver_recap(self, **extra):
+        recap = generate._recap_for_edition(
+            {
+                "lastGameReview": {
+                    "opponent": "Denver Broncos",
+                    "score": "KC 24–28",
+                }
+            }
+        )
+        recap.update(extra)
+        return recap
+
+    def _jets_slate(self):
+        slate = frozen_schedule()
+        for game in slate:
+            if str(game.get("id")) == "401873045":
+                game["completed"] = True
+                game["kcScore"] = 35
+                game["oppScore"] = 12
+            if str(game.get("id")) == "401872976":
+                game["completed"] = True
+                game["kcScore"] = 30
+                game["oppScore"] = 27
+            if str(game.get("id")) == "401873006":
+                game["completed"] = True
+                game["kcScore"] = 22
+                game["oppScore"] = 6
+        return slate
+
+    def _preview(self, debate: str, *, lede: str | None = None):
+        return {
+            "edition": "2026 Week 9 · Preview",
+            "phase": {"mode": "preview", "week": 9},
+            "headline": "Jets at Arrowhead.",
+            "dek": "Kansas City hosts the Jets after Denver.",
+            "theEdge": "Kickoff is Sun Nov 8, 12:00 PM CT on CBS.",
+            "lastGameReview": {
+                "opponent": "Denver Broncos",
+                "result": "L",
+                "score": "KC 24–28",
+                "lede": lede if lede is not None else debate,
+            },
+            "debates": [debate],
+        }
+
+    def _official_final_leftover(self, leftover, score: str) -> bool:
+        return any(score in item and "official final" in item for item in leftover)
+
+    def _jets_last(self, **extra):
+        last = {
+            "id": "401873045",
+            "completed": True,
+            "opponent": "New York Jets",
+            "kcScore": 35,
+            "oppScore": 12,
+        }
+        last.update(extra)
+        return last
+
+    def _jets_recap(self, **extra):
+        recap = generate._recap_for_edition(
+            {
+                "lastGameReview": {
+                    "opponent": "New York Jets",
+                    "score": "KC 35–12",
+                }
+            }
+        )
+        recap.update(extra)
+        return recap
+
+    def _preview_for(self, debate: str, last, recap):
+        last = last if last is not None else self._denver_last()
+        if str(last.get("id")) == "401873045":
+            opponent, score, result, edition, mode = (
+                "New York Jets",
+                "KC 35–12",
+                "W",
+                "2026 Week 9 · Review",
+                "review",
+            )
+        elif str(last.get("id")) == "401873006":
+            opponent, score, result, edition, mode = (
+                "Los Angeles Chargers",
+                "KC 22–6",
+                "L",
+                "2026 Week 6 · Review",
+                "review",
+            )
+        else:
+            opponent, score, result, edition, mode = (
+                "Denver Broncos",
+                "KC 24–28",
+                "L",
+                "2026 Week 9 · Preview",
+                "preview",
+            )
+        return {
+            "edition": edition,
+            "phase": {"mode": mode, "week": 9},
+            "headline": "Jets at Arrowhead.",
+            "dek": "Kansas City hosts the Jets after Denver.",
+            "theEdge": "Kickoff is Sun Nov 8, 12:00 PM CT on CBS.",
+            "lastGameReview": {
+                "opponent": opponent,
+                "result": result,
+                "score": score,
+                "lede": debate,
+            },
+            "debates": [debate],
+        }
+
+    def _leftover(self, debate: str, last=None, recap=None, slate=None):
+        last = last if last is not None else self._denver_last()
+        recap = recap if recap is not None else self._denver_recap()
+        return facts.check_review(
+            self._preview_for(debate, last, recap),
+            last,
+            recap,
+            schedule=slate if slate is not None else self._jets_slate(),
+            changed=True,
+        )
+
+    def _subject(self, sentence: str, last=None, recap=None, slate=None):
+        hit = re.search(
+            r"\b(?:won|lost|beat|fell)\s+\d",
+            sentence,
+            re.IGNORECASE,
+        )
+        if not hit:
+            hit = re.search(r"\b(?:24\s*[–-]\s*28|28\s*[–-]\s*24)\b", sentence)
+        if not hit:
+            hit = re.search(r"\b\d{1,2}\s*[–-]\s*\d{1,2}\b", sentence)
+        at = hit.start() if hit else 0
+        last = last if last is not None else self._denver_last()
+        recap = recap if recap is not None else self._denver_recap()
+        return facts._score_clause_subject_team(
+            sentence,
+            at,
+            last,
+            recap,
+            slate if slate is not None else self._jets_slate(),
+        )
+
+    def _assert_official_final(self, debate, score, *, leftover, last=None, recap=None, slate=None):
+        issues = self._leftover(debate, last=last, recap=recap, slate=slate)
+        got = self._official_final_leftover(issues, score)
+        self.assertEqual(got, leftover, issues)
+
+    def test_allowed_against_jets_unlabeled_debate_is_leftover(self):
+        """C1 has no named KC/last_opp subject; fail closed."""
+        sentence = (
+            "Does minus 10 against the Jets overrate a team that just "
+            "lost 24-28 after leading 24-13?"
+        )
+        self.assertEqual(self._subject(sentence), "")
+        leftover = self._leftover(sentence)
+        self.assertTrue(self._official_final_leftover(leftover, "24-28"), leftover)
+
+    def test_alias_gang_green_on_denver_last_is_leftover(self):
+        debate = "Gang Green lost 24-28 Jets finished 35-12."
+        self.assertEqual(self._subject(debate), "")
+        leftover = self._leftover(debate)
+        self.assertTrue(self._official_final_leftover(leftover, "24-28"), leftover)
+
+    def test_unparsed_following_score_on_denver_last_is_leftover(self):
+        debate = "lost 24-28 Jets finished 35-12."
+        self.assertEqual(self._subject(debate), "")
+        leftover = self._leftover(debate)
+        self.assertTrue(self._official_final_leftover(leftover, "24-28"), leftover)
+
+    def test_unknown_cowboys_on_denver_last_is_leftover(self):
+        debate = "The Cowboys lost 24-28 Jets finished 35-12."
+        self.assertEqual(self._subject(debate), "")
+        leftover = self._leftover(debate)
+        self.assertTrue(self._official_final_leftover(leftover, "24-28"), leftover)
+
+    def test_empty_subject_does_not_take_last_game_override(self):
+        """I1 drop '': unlabeled/unknown stays nearest, not last_pair."""
+        debate = "Gang Green lost 24-28 Jets finished 35-12."
+        leftover = self._leftover(debate)
+        self.assertTrue(self._official_final_leftover(leftover, "24-28"), leftover)
+
+    def test_kc_subject_lost_24_28_next_to_jets_keeps_denver(self):
+        """I1 drop 'KC': only the KC member keeps this line."""
+        debate = "Kansas City lost 24-28 Jets finished 35-12."
+        self.assertEqual(self._subject(debate), "KC")
+        leftover = self._leftover(debate)
+        self.assertFalse(self._official_final_leftover(leftover, "24-28"), leftover)
+
+    def test_broncos_subject_lost_24_28_next_to_jets_keeps_denver(self):
+        """I1 drop last_opp: subject DEN, nearest label Jets, only last_opp keeps."""
+        debate = "The Broncos vs the Jets lost 24-28 extra Jets."
+        self.assertEqual(self._subject(debate), "DEN")
+        leftover = self._leftover(debate)
+        self.assertFalse(self._official_final_leftover(leftover, "24-28"), leftover)
+
+    def test_widened_subject_set_must_not_keep_jets_as_subject(self):
+        """I1 widen set: Jets-as-subject on a Denver last-game line leftovers."""
+        debate = "The Jets lost 24-28 Jets finished 35-12."
+        self.assertEqual(self._subject(debate), "NYJ")
+        leftover = self._leftover(debate)
+        self.assertTrue(self._official_final_leftover(leftover, "24-28"), leftover)
+
+    def test_swapped_28_24_on_denver_last_next_to_jets_keeps(self):
+        """I2 swapped-pair disjunct inside the new gate."""
+        debate = "Kansas City lost 28-24 Jets finished 35-12."
+        leftover = self._leftover(debate)
+        self.assertFalse(self._official_final_leftover(leftover, "28-24"), leftover)
+
+    def test_last_game_opp_prefers_recap_abbr_over_last_game_abbr(self):
+        """I3 recap oppAbbr wins over last_game opponentAbbr."""
+        last = self._denver_last(opponentAbbr="NYJ", opponent="New York Jets")
+        recap = self._denver_recap(oppAbbr="DEN")
+        self.assertEqual(facts._last_game_opp_code(last, recap, self._jets_slate()), "DEN")
+        leftover = self._leftover(
+            "The Broncos lost 24-28 Jets finished 35-12.",
+            last=last,
+            recap=recap,
+        )
+        self.assertFalse(self._official_final_leftover(leftover, "24-28"), leftover)
+
+    def test_last_game_opp_skips_kc_abbr_and_uses_alias(self):
+        """I3 abbr != 'KC' guard: recap KC still aliases Denver."""
+        last = self._denver_last(opponentAbbr="", opponent="Denver Broncos")
+        recap = self._denver_recap(oppAbbr="KC")
+        self.assertEqual(facts._last_game_opp_code(last, recap, self._jets_slate()), "DEN")
+        leftover = self._leftover(
+            "The Broncos lost 24-28 Jets finished 35-12.",
+            last=last,
+            recap=recap,
+        )
+        self.assertFalse(self._official_final_leftover(leftover, "24-28"), leftover)
+
+    def test_empty_last_opp_does_not_fail_open_on_unknown_subject(self):
+        """I3 empty abbr + empty alias: last_opp '' must not match empty subject."""
+        last = self._denver_last(opponent="", opponentAbbr="")
+        recap = self._denver_recap(oppAbbr="", opponent="")
+        recap.pop("oppAbbr", None)
+        recap.pop("opponent", None)
+        self.assertEqual(facts._last_game_opp_code(last, recap, []), "")
+        leftover = self._leftover(
+            "Gang Green lost 24-28 Jets finished 35-12.",
+            last=last,
+            recap=recap,
+        )
+        self.assertTrue(self._official_final_leftover(leftover, "24-28"), leftover)
+
+    def test_location_team_strip_keeps_kc_at_the_jets(self):
+        """I4 _LOCATION_TEAM strip: 'at the Jets' is not the score subject."""
+        debate = "Kansas City at the Jets lost 24-28 immediately Jets."
+        self.assertEqual(self._subject(debate), "KC")
+        leftover = self._leftover(debate)
+        self.assertFalse(self._official_final_leftover(leftover, "24-28"), leftover)
+
+    def test_possession_object_strip_keeps_kc_sat_on_the_jets(self):
+        """I4 _POSSESSION_OBJECT strip: 'sat on the Jets' is not the subject."""
+        debate = "Kansas City sat on the Jets lost 24-28 immediately Jets."
+        self.assertEqual(self._subject(debate), "KC")
+        leftover = self._leftover(debate)
+        self.assertFalse(self._official_final_leftover(leftover, "24-28"), leftover)
+
+    def test_subject_clause_bound_does_not_promote_unlabeled_after_jets(self):
+        """I4 clause bound + fail-closed: unlabeled after Jets is not KC."""
+        debate = "The Jets finished 35-12, a team that just lost 24-28 Jets."
+        self.assertEqual(self._subject(debate), "")
+        leftover = self._leftover(debate)
+        self.assertTrue(self._official_final_leftover(leftover, "24-28"), leftover)
+
+    def test_subject_clause_bound_prior_kc_does_not_keep_unknown_later(self):
+        """I4 clause bound: earlier Kansas City must not own a later unknown subject."""
+        debate = "Kansas City finished 35-12, Gang Green lost 24-28 extra Jets."
+        self.assertEqual(self._subject(debate), "")
+        leftover = self._leftover(debate)
+        self.assertTrue(self._official_final_leftover(leftover, "24-28"), leftover)
+
+    def test_last_name_in_picks_denver_not_earlier_jets(self):
+        """I4 _last_name_in last-vs-first: 'The Jets not Denver lost' is DEN."""
+        debate = "The Jets not Denver lost 24-28 Jets."
+        self.assertEqual(self._subject(debate), "DEN")
+        leftover = self._leftover(debate)
+        self.assertFalse(self._official_final_leftover(leftover, "24-28"), leftover)
+
+    def test_denver_stamp_mismatch_falls_to_first_box_and_overwrites(self):
+        """I6 rematch picker: non-matching stamp uses matches[0] and recap_pair."""
+        stamped = {
+            "edition": "2026 Week 8 · Review",
+            "lastGameReview": {
+                "opponent": "Denver Broncos",
+                "score": "KC 99–99",
+            },
+        }
+        recap = generate._recap_for_edition(stamped)
+        last = generate._last_game_from_edition(stamped)
+        self.assertEqual(str(recap.get("eventId")), "401873033")
+        self.assertEqual(str(last.get("id")), "401873033")
+        self.assertEqual((last.get("kcScore"), last.get("oppScore")), (24, 28))
+
+    def test_denver_opener_stamp_still_binds_401872931(self):
+        """I6 rematch picker: 31-10 still binds the opener box."""
+        opener = {
+            "lastGameReview": {
+                "opponent": "Denver Broncos",
+                "score": "KC 31–10",
+            },
+        }
+        recap = generate._recap_for_edition(opener)
+        last = generate._last_game_from_edition(opener)
+        self.assertEqual(str(recap.get("eventId")), "401872931")
+        self.assertEqual(str(last.get("id")), "401872931")
+        self.assertEqual((last.get("kcScore"), last.get("oppScore")), (31, 10))
+
+    def test_last_game_completed_from_recap_pair_without_stamp(self):
+        """I6 completed = … or recap_pair, plus id from recap."""
+        blank = {
+            "lastGameReview": {
+                "opponent": "New York Jets",
+                "result": "",
+                "score": "",
+            },
+        }
+        last = generate._last_game_from_edition(blank)
+        self.assertTrue(last.get("completed"))
+        self.assertEqual(str(last.get("id")), "401873045")
+        self.assertEqual((last.get("kcScore"), last.get("oppScore")), (35, 12))
+
+    def test_b1_kc_lost_24_28_to_the_jets_is_leftover(self):
+        """B1 object 'to the Jets' is not last_opp on a Denver last-game line."""
+        self._assert_official_final(
+            "Kansas City lost 24-28 to the Jets.", "24-28", leftover=True
+        )
+
+    def test_b1_kc_lost_24_28_against_the_jets_is_leftover(self):
+        self._assert_official_final(
+            "Kansas City lost 24-28 against the Jets.", "24-28", leftover=True
+        )
+
+    def test_b1_kc_fell_24_28_to_the_jets_is_leftover(self):
+        self._assert_official_final(
+            "Kansas City fell 24-28 to the Jets.", "24-28", leftover=True
+        )
+
+    def test_b1_kc_lost_24_28_to_the_raiders_is_leftover(self):
+        self._assert_official_final(
+            "Kansas City lost 24-28 to the Raiders, and the Jets are next.",
+            "24-28",
+            leftover=True,
+        )
+
+    def test_b1_kc_never_lost_24_28_to_the_jets_is_leftover(self):
+        self._assert_official_final(
+            "Kansas City never lost 24-28 to the Jets.", "24-28", leftover=True
+        )
+
+    def test_b1_after_kc_lost_24_28_to_the_jets_is_leftover(self):
+        self._assert_official_final(
+            "After Kansas City lost 24-28 to the Jets, the line moved.",
+            "24-28",
+            leftover=True,
+        )
+
+    def test_b1_kc_lost_en_dash_24_28_to_the_jets_is_leftover(self):
+        self._assert_official_final(
+            "Kansas City lost 24–28 to the Jets.", "24-28", leftover=True
+        )
+
+    def test_b1_kc_lost_spaced_dash_24_28_to_the_jets_is_leftover(self):
+        self._assert_official_final(
+            "Kansas City lost 24 - 28 to the Jets.", "24-28", leftover=True
+        )
+
+    def test_b1_kc_beat_jets_28_24_on_denver_last_is_leftover(self):
+        self._assert_official_final(
+            "Kansas City beat the Jets 28-24.", "28-24", leftover=True
+        )
+
+    def test_b1_kc_lost_28_24_to_the_jets_is_leftover(self):
+        self._assert_official_final(
+            "Kansas City lost 28-24 to the Jets.", "28-24", leftover=True
+        )
+
+    def test_b1_unknown_object_martians_is_leftover(self):
+        """Unknown object team must not count as a last_opp match."""
+        self._assert_official_final(
+            "Kansas City lost 24-28 to the Martians, and the Jets visit.",
+            "24-28",
+            leftover=True,
+        )
+
+    def test_b1_kc_beat_denver_35_12_on_jets_last_is_leftover(self):
+        self._assert_official_final(
+            "Kansas City beat Denver 35-12.",
+            "35-12",
+            leftover=True,
+            last=self._jets_last(),
+            recap=self._jets_recap(),
+        )
+
+    def test_b1_kc_beat_broncos_35_12_on_jets_last_is_leftover(self):
+        self._assert_official_final(
+            "Kansas City beat the Broncos 35-12 last week.",
+            "35-12",
+            leftover=True,
+            last=self._jets_last(),
+            recap=self._jets_recap(),
+        )
+
+    def test_b1_c1_unlabeled_debate_is_leftover(self):
+        """C1 has no positively named KC/last_opp subject; FLAG."""
+        sentence = (
+            "Does minus 10 against the Jets overrate a team that just "
+            "lost 24-28 after leading 24-13?"
+        )
+        self.assertEqual(self._subject(sentence), "")
+        self._assert_official_final(sentence, "24-28", leftover=True)
+
+    def test_b1_kc_lost_24_28_at_denver_keeps(self):
+        self._assert_official_final(
+            "Kansas City lost 24-28 at Denver, and now the Jets visit.",
+            "24-28",
+            leftover=False,
+        )
+
+    def test_b1_broncos_beat_kc_28_24_keeps(self):
+        """last_opp subject + KC object still keeps."""
+        debate = "The Broncos beat Kansas City 28-24, and now the Jets visit."
+        self.assertEqual(self._subject(debate), "DEN")
+        self._assert_official_final(debate, "28-24", leftover=False)
+
+    def test_b1_kc_beat_the_jets_35_12_on_jets_last_keeps(self):
+        debate = "Kansas City beat the Jets 35-12."
+        self.assertEqual(
+            self._subject(debate, last=self._jets_last(), recap=self._jets_recap()),
+            "KC",
+        )
+        self._assert_official_final(
+            debate,
+            "35-12",
+            leftover=False,
+            last=self._jets_last(),
+            recap=self._jets_recap(),
+        )
+
+    def test_b1_kenny_a_jets_review_lost_24_28_to_the_jets_is_leftover(self):
+        self._assert_official_final(
+            "Kansas City lost 24-28 to the Jets.",
+            "24-28",
+            leftover=True,
+            last=self._jets_last(),
+            recap=self._jets_recap(),
+        )
+
+    def test_b1_kenny_b_jets_subject_lost_24_28_is_leftover(self):
+        self._assert_official_final(
+            "The Jets lost 24-28 after leading 24-13.", "24-28", leftover=True
+        )
+
+    def test_b1_kenny_c_raiders_22_6_nearer_than_chargers_is_leftover(self):
+        last = {
+            "id": "401873006",
+            "completed": True,
+            "opponent": "Los Angeles Chargers",
+            "kcScore": 22,
+            "oppScore": 6,
+        }
+        recap = generate._recap_for_edition(
+            {
+                "lastGameReview": {
+                    "opponent": "Los Angeles Chargers",
+                    "score": "KC 22–6",
+                }
+            }
+        )
+        self._assert_official_final(
+            "The Raiders lost 22-6 after Las Vegas had just finished 30-27.",
+            "22-6",
+            leftover=True,
+            last=last,
+            recap=recap,
+        )
+
+    def test_b2_u6_gang_green_is_a_team_that_lost_is_leftover(self):
+        debate = "Gang Green is a team that just lost 24-28, the Jets admit."
+        self.assertEqual(self._subject(debate), "")
+        self._assert_official_final(debate, "24-28", leftover=True)
+
+    def test_b2_u7_cowboys_are_a_team_that_lost_is_leftover(self):
+        debate = "The Cowboys are a team that just lost 24-28, unlike the Jets."
+        self.assertEqual(self._subject(debate), "")
+        self._assert_official_final(debate, "24-28", leftover=True)
+
+    def test_b2_u9_nobody_expected_a_team_that_lost_to_jets_is_leftover(self):
+        debate = "Nobody expected a team that lost 24-28 to the Jets to rebound."
+        self.assertEqual(self._subject(debate), "")
+        self._assert_official_final(debate, "24-28", leftover=True)
+
+    def test_b2_x5_jets_appositive_a_team_that_lost_is_leftover(self):
+        debate = "The Jets, a team that just lost 24-28, visit Sunday."
+        self.assertNotEqual(self._subject(debate), "KC")
+        self._assert_official_final(debate, "24-28", leftover=True)
+
+    def test_k5_unlabeled_has_just_lost_is_leftover(self):
+        """K5 unlabeled 'a team that has just lost' is not a named KC subject."""
+        debate = (
+            "Does minus 10 against the Jets overrate a team that has just "
+            "lost 24-28?"
+        )
+        self.assertEqual(self._subject(debate), "")
+        self._assert_official_final(debate, "24-28", leftover=True)
+
+    def test_k6_unlabeled_just_won_on_jets_last_is_leftover(self):
+        """K6 unlabeled 'a team that just won' is not a named KC subject."""
+        debate = (
+            "Who stops a team that just won 35-12, now that Denver is behind them?"
+        )
+        last, recap = self._jets_last(), self._jets_recap()
+        self.assertEqual(self._subject(debate, last=last, recap=recap), "")
+        self._assert_official_final(
+            debate, "35-12", leftover=True, last=last, recap=recap
+        )
+
+    def test_empty_or_unknown_subject_never_resolves_to_kc(self):
+        """Empty/unknown subjects stay '', never override, and FLAG."""
+        cases = [
+            "Gang Green lost 24-28 Jets finished 35-12.",
+            "The Cowboys lost 24-28 Jets finished 35-12.",
+            "Nobody expected a team that lost 24-28 to the Jets to rebound.",
+            "lost 24-28 Jets finished 35-12.",
+        ]
+        for debate in cases:
+            with self.subTest(debate=debate):
+                self.assertEqual(self._subject(debate), "")
+                leftover = self._leftover(debate)
+                self.assertTrue(
+                    self._official_final_leftover(leftover, "24-28"), leftover
+                )
+
+    def test_b4_indefinite_and_copula_unlabeled_are_leftover(self):
+        """B4: unpinned indefinite/copula members FLAG after unlabeled drop."""
+        rows = [
+            "Somebody expected a team that just lost 24-28, unlike the Jets.",
+            "Anyone remember a team that just lost 24-28, unlike the Jets?",
+            "Everybody knows a team that just lost 24-28, unlike the Jets.",
+            "No one expected a team that just lost 24-28, unlike the Jets.",
+            "The Cowboys were a team that just lost 24-28, unlike the Jets.",
+            "The Cowboys was a team that just lost 24-28, unlike the Jets.",
+        ]
+        for debate in rows:
+            with self.subTest(debate=debate):
+                self.assertNotEqual(self._subject(debate), "KC")
+                leftover = self._leftover(debate)
+                self.assertTrue(
+                    self._official_final_leftover(leftover, "24-28"), leftover
+                )
+
+    def test_k9_probe_does_not_search_later_clause(self):
+        """K9 whole-sentence probe: later 'a team that just won' must not keep."""
+        debate = "Gang Green lost 24-28, and the Jets are a team that just won."
+        self.assertEqual(self._subject(debate), "")
+        self._assert_official_final(debate, "24-28", leftover=True)
+
+    def test_k10_unlabeled_does_not_override_named_jets_subject(self):
+        """K10 phrase-before-named: Jets remains the subject, leftover."""
+        debate = "The Jets are a team that just lost 24-28."
+        self.assertEqual(self._subject(debate), "NYJ")
+        self._assert_official_final(debate, "24-28", leftover=True)
+
+    def test_k11_oppabbr_kc_without_denver_slate_does_not_keep_broncos(self):
+        """K11 raw aliases: recap KC must not map Broncos→KC and keep."""
+        last = self._denver_last(opponent="Denver Broncos", opponentAbbr="")
+        recap = self._denver_recap(oppAbbr="KC", opponent="Denver Broncos")
+        slate = [
+            game
+            for game in self._jets_slate()
+            if (game.get("opponentAbbr") or "").upper() != "DEN"
+        ]
+        debate = "The Broncos vs the Jets lost 24-28 extra Jets."
+        self.assertNotEqual(
+            self._subject(debate, last=last, recap=recap, slate=slate), "KC"
+        )
+        self._assert_official_final(
+            debate, "24-28", leftover=True, last=last, recap=recap, slate=slate
+        )
+
+    def test_k11_empty_oppabbr_still_keeps_broncos_from_schedule(self):
+        """K11 raw aliases: empty abbr still aliases Broncos→DEN from slate."""
+        last = self._denver_last(opponent="Denver Broncos", opponentAbbr="")
+        recap = self._denver_recap(oppAbbr="", opponent="Denver Broncos")
+        debate = "The Broncos vs the Jets lost 24-28 extra Jets."
+        self.assertEqual(self._subject(debate, last=last, recap=recap), "DEN")
+        self._assert_official_final(
+            debate, "24-28", leftover=False, last=last, recap=recap
+        )
+
+    def test_k12_blanked_names_without_denver_slate_do_not_mint_bro(self):
+        """K12 keep opponent names: empty abbr + no DEN row last_opp stays ''."""
+        last = self._denver_last(opponent="Denver Broncos", opponentAbbr="")
+        recap = self._denver_recap(oppAbbr="", opponent="Denver Broncos")
+        slate = [
+            game
+            for game in self._jets_slate()
+            if (game.get("opponentAbbr") or "").upper() != "DEN"
+        ]
+        debate = "The Broncos vs the Jets lost 24-28 extra Jets."
+        self.assertEqual(facts._last_game_opp_code(last, recap, slate), "")
+        self._assert_official_final(
+            debate, "24-28", leftover=True, last=last, recap=recap, slate=slate
+        )
+
+    def test_step0_new_york_alias_is_leftover(self):
+        self._assert_official_final(
+            "New York lost 24-28, and the Jets are next.", "24-28", leftover=True
+        )
+
+    def test_step0_nyj_code_subject_is_leftover(self):
+        self._assert_official_final(
+            "NYJ lost 24-28, and the Jets are next.", "24-28", leftover=True
+        )
+
+    def test_step0_jets_defense_is_leftover(self):
+        self._assert_official_final(
+            "The Jets' defense lost 24-28 in the Jets' last game.",
+            "24-28",
+            leftover=True,
+        )
+
+    def test_step0_missing_subject_is_leftover(self):
+        self._assert_official_final(
+            "Lost 24-28 against the Jets, nobody saw it coming.",
+            "24-28",
+            leftover=True,
+        )
+
+    def test_step0_bills_outside_set_is_leftover(self):
+        self._assert_official_final(
+            "The Bills lost 24-28, and the Jets are next.", "24-28", leftover=True
+        )
+
+    def test_step0_zwsp_in_jets_is_leftover(self):
+        self._assert_official_final(
+            "The Je\u200bts lost 24-28, and the Jets are next.",
+            "24-28",
+            leftover=True,
+        )
+
+    def test_step0_soft_hyphen_in_kansas_city_is_leftover(self):
+        self._assert_official_final(
+            "Kansas\u00adCity lost 24-28 to the Jets.", "24-28", leftover=True
+        )
+
+    def test_adversarial_last_game_subject_rows_on_head(self):
+        """I5 head results for the required adversarial rows."""
+        rows = {
+            "New York lost 24-28 Jets finished 35-12.": True,
+            "Gang Green lost 24-28 Jets finished 35-12.": True,
+            "NYJ lost 24-28 Jets finished 35-12.": True,
+            "Jets' defense lost 24-28 Jets finished 35-12.": True,
+            "the Jets' 24-28 loss next to the Jets.": False,
+            "the Jets never lost 24-28 next to the Jets.": True,
+            "after the Jets lost 24-28": True,
+            "following a 24-28 Jets loss next to the Jets.": False,
+            "lost 24-28 Jets finished 35-12.": True,
+            "Jets lost 24-28 after leading 24-13.": True,
+            "The Cowboys lost 24-28 Jets finished 35-12.": True,
+            "Kansas City lost 24-28 Jets finished 35-12.": False,
+            "The Broncos lost 24-28 Jets finished 35-12.": False,
+            "The Broncos vs the Jets lost 24-28 extra Jets.": False,
+            (
+                "Does minus 10 against the Jets overrate a team that just "
+                "lost 24-28 after leading 24-13?"
+            ): True,
+            "The Jets lost 24-28 Jets finished 35-12.": True,
+            "The Jets lost 24–28 Jets finished 35-12.": True,
+            "The Jets lost 24—28 Jets finished 35-12.": False,
+            "The Jets lost 24−28 Jets finished 35-12.": False,
+            "The Jets lost 24\u00ad28 Jets finished 35-12.": False,
+            "The Je\u200bts lost 24-28 next to the Jets.": True,
+            "The Jets lost 24 – 28 Jets finished 35-12.": True,
+            "The Jets lost 24 to 28 Jets finished 35-12.": False,
+            "The Jets lost 24-\n28 Jets finished 35-12.": True,
+            "Kansas City lost 28-24 Jets finished 35-12.": False,
+            "Kansas City lost 24-28 to the Jets.": True,
+            "Kansas City lost 24-28 against the Jets.": True,
+            "Kansas City fell 24-28 to the Jets.": True,
+            "Kansas City lost 24-28 to the Raiders, and the Jets are next.": True,
+            "Kansas City never lost 24-28 to the Jets.": True,
+            "After Kansas City lost 24-28 to the Jets, the line moved.": True,
+            "Kansas City beat the Jets 28-24.": True,
+            "Kansas City lost 28-24 to the Jets.": True,
+            "Gang Green is a team that just lost 24-28, the Jets admit.": True,
+            "The Cowboys are a team that just lost 24-28, unlike the Jets.": True,
+            "Nobody expected a team that lost 24-28 to the Jets to rebound.": True,
+            "The Jets, a team that just lost 24-28, visit Sunday.": True,
+            "The Jets are a team that just lost 24-28.": True,
+            "Gang Green lost 24-28, and the Jets are a team that just won.": True,
+            "Kansas City lost 24-28 at Denver, and now the Jets visit.": False,
+            "The Broncos beat Kansas City 28-24, and now the Jets visit.": False,
+            "Somebody expected a team that just lost 24-28, unlike the Jets.": True,
+            "Anyone remember a team that just lost 24-28, unlike the Jets?": True,
+            "Everybody knows a team that just lost 24-28, unlike the Jets.": True,
+            "No one expected a team that just lost 24-28, unlike the Jets.": True,
+            "The Cowboys were a team that just lost 24-28, unlike the Jets.": True,
+            "The Cowboys was a team that just lost 24-28, unlike the Jets.": True,
+        }
+        for sentence, expect_leftover in rows.items():
+            leftover = self._leftover(sentence)
+            got = any("official final" in item for item in leftover)
+            self.assertEqual(
+                got,
+                expect_leftover,
+                f"{sentence!r} leftover={leftover!r}",
+            )
 
 
 class Oct15CheckerGates(unittest.TestCase):
