@@ -614,6 +614,43 @@ _UNLABELED_KC_SUBJECT = re.compile(
     r"\ba team that(?:\s+\w+){0,4}\s+(?:just\s+)?(?:lost|won)\b",
     re.IGNORECASE,
 )
+# Score-clause object slot: "to|against|beat|at|vs <Team>".
+_SCORE_OBJECT_AFTER = re.compile(
+    r"\b(to|against|at|vs\.?|versus)\s+(?:the\s+)?"
+    r"([A-Za-z][A-Za-z '’-]+)",
+    re.IGNORECASE,
+)
+_SCORE_OBJECT_BEAT = re.compile(
+    r"\b(?:beat|fell)\s+(?:the\s+)?"
+    r"([A-Za-z][A-Za-z '’-]+?)\s*$",
+    re.IGNORECASE,
+)
+# claim_at is the start of 'beat' on _FINAL_SCORE_CLAIMS.
+_SCORE_OBJECT_BEAT_SPAN = re.compile(
+    r"\b(?:beat|fell)\s+(?:the\s+)?"
+    r"([A-Za-z][A-Za-z '’-]+?)\s+\d",
+    re.IGNORECASE,
+)
+_AFTER_SCORE_SKIP = re.compile(
+    r"^(?:(?:won|lost|beat|fell)\s+)?"
+    r"(?:(?:the\s+)?[A-Za-z][A-Za-z '’-]{1,40}\s+)?"
+    r"\d{1,2}\s*[–-]\s*\d{1,2}",
+    re.IGNORECASE,
+)
+# "The Jets, a team that just lost" — appositive, not subject-less.
+_UNLABELED_APPOSITIVE = re.compile(
+    r"((?:the\s+)?[A-Za-z][A-Za-z '’-]+?),\s+a team that\b",
+    re.IGNORECASE,
+)
+# "Gang Green is a team that just lost" — named/unknown copula subject.
+_UNLABELED_COPULA = re.compile(
+    r"((?:the\s+)?[A-Za-z][A-Za-z '’-]+?)\s+(?:is|are|was|were)\s+a team that\b",
+    re.IGNORECASE,
+)
+_UNLABELED_INDEFINITE = re.compile(
+    r"\b(?:nobody|somebody|anyone|everybody|no one)\b.{0,48}a team that\b",
+    re.IGNORECASE | re.DOTALL,
+)
 _KC_VOICED_TOP = re.compile(
     r"(?:^|\n)\s*time of possession\s*\(\d{1,2}:\d{2}\)",
     re.IGNORECASE,
@@ -2736,6 +2773,71 @@ def _last_game_opp_code(
     return _alias_team(name, _aliases_without_kc_opp(last_game, recap, schedule))
 
 
+def _resolve_object_phrase(phrase: str, aliases: dict[str, str]) -> str:
+    """NFL code for an object-slot phrase, or '' if it does not name a team."""
+    token = " ".join((phrase or "").split())
+    if not token:
+        return ""
+    return _last_name_in(token, aliases) or _alias_team(token, aliases)
+
+
+def _after_score_window(sentence: str, claim_at: int) -> str:
+    """Prose after the claimed score, cut at the next clause break."""
+    rest = _AFTER_SCORE_SKIP.sub("", (sentence or "")[claim_at:], count=1)
+    cut = len(rest)
+    for hit in _CLAUSE_BREAK.finditer(rest):
+        cut = hit.start()
+        break
+    return rest[:cut]
+
+
+def _score_clause_object_team(
+    sentence: str,
+    claim_at: int,
+    last_game: dict | None,
+    recap: dict | None,
+    schedule=None,
+) -> tuple[bool, str]:
+    """Object-slot team for this score claim.
+
+    Returns (named, code). named False means no object team. named True
+    with code '' is an unknown object — that blocks the last-game override.
+    'at Arrowhead' is a venue, not a named object team.
+    """
+    aliases = _aliases_without_kc_opp(last_game, recap, schedule)
+    subject = _subject_clause(sentence or "", claim_at)
+    span = _SCORE_OBJECT_BEAT_SPAN.search((sentence or "")[claim_at : claim_at + 80])
+    if span:
+        return True, _resolve_object_phrase(span.group(1), aliases)
+    beat = _SCORE_OBJECT_BEAT.search((subject or "").rstrip())
+    if beat:
+        return True, _resolve_object_phrase(beat.group(1), aliases)
+    after = _after_score_window(sentence or "", claim_at)
+    hit = _SCORE_OBJECT_AFTER.search(after)
+    if not hit:
+        return False, ""
+    prep = (hit.group(1) or "").lower().rstrip(".")
+    code = _resolve_object_phrase(hit.group(2), aliases)
+    if not code and prep == "at":
+        return False, ""
+    return True, code
+
+
+def _object_allows_last_game_override(
+    subject: str, last_opp: str, named: bool, obj: str
+) -> bool:
+    """Last-game leftover only when the object is last_opp, KC, or absent."""
+    if not named:
+        return True
+    if not obj:
+        return False
+    if subject == "KC" and last_opp and obj == last_opp:
+        return True
+    if subject and last_opp and subject == last_opp and obj == "KC":
+        return True
+    return False
+
+
 def _score_clause_subject_team(
     sentence: str,
     claim_at: int,
@@ -2746,16 +2848,31 @@ def _score_clause_subject_team(
     """Team code of the score-clause subject, ignoring 'against Team' objects.
 
     An unknown or unparsed subject stays ''. Only a positive KC / last-opp
-    code may skip nearest-opponent binding. 'a team that just lost' is KC.
+    code may skip nearest-opponent binding. 'a team that just lost' is KC
+    only for a truly subject-less debate phrasing — never an unknown,
+    third-club, or already-named subject.
     """
     aliases = _aliases_without_kc_opp(last_game, recap, schedule)
     subject = _subject_clause(sentence or "", claim_at)
     cleaned = _POSSESSION_OBJECT.sub(" ", _LOCATION_TEAM.sub(" ", subject))
+    cleaned = _OBJECT_TEAM.sub(" ", cleaned)
+    cleaned = _SCORE_OBJECT_BEAT.sub(" ", cleaned.rstrip())
     named = _last_name_in(cleaned, aliases)
     if named:
         return named
     # _LOOSE_WON_LOST starts at 'lost', so the clause may end before the verb.
     probe = (subject or "") + " " + (sentence or "")[claim_at : claim_at + 16]
+    head = (sentence or "")[: claim_at + 16]
+    appos = _UNLABELED_APPOSITIVE.search(head)
+    if appos:
+        return _resolve_object_phrase(appos.group(1), aliases)
+    copula = _UNLABELED_COPULA.search(subject) or _UNLABELED_COPULA.search(probe)
+    if copula:
+        return _resolve_object_phrase(copula.group(1), aliases)
+    if _UNLABELED_INDEFINITE.search(subject) or _UNLABELED_INDEFINITE.search(
+        probe
+    ):
+        return ""
     if _UNLABELED_KC_SUBJECT.search(probe):
         return "KC"
     return ""
@@ -2871,8 +2988,8 @@ def _named_official_final(
             official = nearest[2]
             # Skip nearest-opponent binding (return the last-game official)
             # only on a positive score-clause subject: KC or the last-game
-            # opponent. Unknown, alias-miss, and unparsed subjects stay on
-            # develop nearest-label binding.
+            # opponent, and only when the object slot is last_opp, KC, or
+            # empty. A named wrong/unknown object stays on develop nearest.
             if last_pair and (
                 last_pair == claimed
                 or (last_pair[1], last_pair[0]) == claimed
@@ -2881,7 +2998,14 @@ def _named_official_final(
                     sentence or "", at, last_game, recap, schedule
                 )
                 last_opp = _last_game_opp_code(last_game, recap, schedule)
-                if subject and subject in {"KC", last_opp}:
+                obj_named, obj = _score_clause_object_team(
+                    sentence or "", at, last_game, recap, schedule
+                )
+                if subject and subject in {"KC", last_opp} and (
+                    _object_allows_last_game_override(
+                        subject, last_opp, obj_named, obj
+                    )
+                ):
                     return last_pair
             return official
     if claimed:
