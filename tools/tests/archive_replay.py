@@ -20,6 +20,7 @@ _EVENT_BY_OPP = {
     "indianapolis colts": "401872945",
     "miami dolphins": "401872952",
     "las vegas raiders": "401872976",
+    "new york jets": "401873045",
 }
 # Regular-season rematches that share an opponent with an earlier fixture.
 _EXTRA_EVENTS_BY_OPP = {
@@ -27,6 +28,7 @@ _EXTRA_EVENTS_BY_OPP = {
     "denver broncos": ("401873033",),
 }
 _PRIOR = {
+    "401873045": "401873033",
     "401873033": "401873022",
     "401873022": "401873006",
     "401872976": "401872952",
@@ -40,6 +42,8 @@ _PRIOR = {
 # rebinds older Indianapolis first-down copy onto the prior KC box.
 _FIXTURE_OPPONENT = {
     "401873006": ("Los Angeles Chargers", "LAC"),
+    "401873033": ("Denver Broncos", "DEN"),
+    "401873045": ("New York Jets", "NYJ"),
 }
 _SCORE = re.compile(r"(\d+)\s*[–-]\s*(\d+)")
 
