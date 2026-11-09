@@ -53,6 +53,7 @@ FACT_CHECK_UNIQUENESS_RETRIES = 1
 # 65-minute job; 6 × 600s does.
 LLM_CALL_BUDGET = 6
 REPLAY_NOT_RUN = "replay not run"
+HARD_REPLAY_RC = 1
 
 
 class LlmCallBudget:
@@ -1463,8 +1464,16 @@ def _last_game_from_edition(narrative: dict) -> dict:
     match = re.search(r"(\d+)\s*[–-]\s*(\d+)", score)
     kc_score = int(match.group(1)) if match else None
     opp_score = int(match.group(2)) if match else None
+    recap = _recap_for_edition(narrative)
+    recap_pair = _recap_final_score(recap)
+    # ESPN box wins when the edition header disagrees (Week 9 stamped
+    # 24-28, Jets box 35-12). Missing recap keeps the stamped pair so
+    # Chargers still hold as replay-not-run instead of a fake 1-0.
+    if recap_pair:
+        kc_score, opp_score = recap_pair
     return {
-        "completed": bool(review.get("result") or score),
+        "completed": bool(review.get("result") or score or recap_pair),
+        "id": str(recap.get("eventId") or ""),
         "kcScore": kc_score,
         "oppScore": opp_score,
         "opponent": review.get("opponent") or "",
@@ -1479,9 +1488,11 @@ _RECAP_FIXTURES = (
     (("seattle", "seahawks"), "espn_401873022_recap.json"),
     (("denver", "broncos"), "espn_401873033_recap.json"),
     (("denver", "broncos"), "espn_401872931_recap.json"),
+    (("new york jets", "jets"), "espn_401873045_recap.json"),
 )
 # Same chain archive_replay uses: last-game fixture + prior-game fixture.
 _PRIOR_RECAP_FIXTURE = {
+    "espn_401873045_recap.json": "espn_401873033_recap.json",
     "espn_401873033_recap.json": "espn_401873022_recap.json",
     "espn_401873022_recap.json": "espn_401873006_recap.json",
     "espn_401872976_recap.json": "espn_401872952_recap.json",
@@ -1491,6 +1502,7 @@ _PRIOR_RECAP_FIXTURE = {
 # Full names, not just abbr. A Seattle Preview that cites "Chargers" and
 # "a 22-6 win" (ESPN 401873006) cannot bind from LAC/la on the frozen slate.
 _FIXTURE_OPPONENT = {
+    "espn_401873045_recap.json": ("New York Jets", "NYJ"),
     "espn_401873033_recap.json": ("Denver Broncos", "DEN"),
     "espn_401873022_recap.json": ("Seattle Seahawks", "SEA"),
     "espn_401873006_recap.json": ("Los Angeles Chargers", "LAC"),
@@ -1683,7 +1695,7 @@ def recap_is_usable(recap: dict | None) -> bool:
 def replay_fixture_missing(narrative: dict | None) -> bool:
     """True when a Review names an opponent we have no ESPN replay fixture for.
 
-    Miami, Las Vegas, Seattle, and Denver recaps are wired into
+    Miami, Las Vegas, Seattle, Denver, and Jets recaps are wired into
     ``_RECAP_FIXTURES``. A Chargers review must hold automerge instead of
     passing silently.
     """
@@ -1845,7 +1857,7 @@ def main(argv=None) -> int:
                     "  archive replay gate: held leftover; failing the run",
                     file=sys.stderr,
                 )
-            return 1
+            return HARD_REPLAY_RC
         if held:
             emit_held(held)
             return 0
