@@ -2679,6 +2679,34 @@ def _recap_final_pair(block: dict | None) -> tuple[int, int] | None:
     return _int_pair(last.get("kcScore"), last.get("oppScore"))
 
 
+def _last_game_opp_code(
+    last_game: dict | None, recap: dict | None, schedule=None
+) -> str:
+    """NFL code for the last-game opponent (DEN, NYJ, LAC, …)."""
+    aliases = _team_aliases(last_game, recap, schedule)
+    abbr = (
+        ((recap or {}).get("oppAbbr") or "")
+        or ((last_game or {}).get("opponentAbbr") or "")
+    ).strip().upper()
+    if abbr and abbr != "KC":
+        return abbr
+    return _alias_team((last_game or {}).get("opponent") or "", aliases)
+
+
+def _score_clause_subject_team(
+    sentence: str,
+    claim_at: int,
+    last_game: dict | None,
+    recap: dict | None,
+    schedule=None,
+) -> str:
+    """Team code of the score-clause subject, ignoring 'against Team' objects."""
+    aliases = _team_aliases(last_game, recap, schedule)
+    subject = _subject_clause(sentence or "", claim_at)
+    cleaned = _POSSESSION_OBJECT.sub(" ", _LOCATION_TEAM.sub(" ", subject))
+    return _last_name_in(cleaned, aliases)
+
+
 def _named_official_final(
     sentence: str,
     last_game: dict | None,
@@ -2787,20 +2815,21 @@ def _named_official_final(
         if local:
             nearest = min(local, key=lambda row: (abs(row[0] - at), -row[1]))
             official = nearest[2]
-            if (
-                official == claimed
-                or (official[1], official[0]) == claimed
-            ):
-                return official
-            # Same-line "Jets" must not steal Denver's leftover 24-28
-            # once the Jets box is 35-12 (run 42614467098). A nearer
-            # Raiders 30-27 next to 22-6 still wins so Chargers cannot
-            # rescue it from across the paragraph.
+            # Skip nearest-opponent binding (return the last-game official)
+            # only when the score-clause subject is the last game: its
+            # opponent, KC, or unlabeled ("a team that just lost"). A
+            # third-club subject ("The Jets lost 24-28", nearer Raiders
+            # next to Chargers 22-6) keeps develop nearest-label binding.
             if last_pair and (
                 last_pair == claimed
                 or (last_pair[1], last_pair[0]) == claimed
             ):
-                return last_pair
+                subject = _score_clause_subject_team(
+                    sentence or "", at, last_game, recap, schedule
+                )
+                last_opp = _last_game_opp_code(last_game, recap, schedule)
+                if subject in {"", "KC", last_opp}:
+                    return last_pair
             return official
     if claimed:
         if last_pair and (

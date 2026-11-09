@@ -14347,6 +14347,109 @@ class Oct14EditionGates(unittest.TestCase):
         self.assertNotIn("lost 35-12", blob)
         self.assertNotIn("won 35-12", blob)
 
+    def test_jets_as_subject_lost_24_28_on_denver_last_is_leftover(self):
+        """'The Jets lost 24-28' on Denver's last-game line must leftover."""
+        recap = generate._recap_for_edition(
+            {
+                "lastGameReview": {
+                    "opponent": "Denver Broncos",
+                    "score": "KC 24–28",
+                }
+            }
+        )
+        last = {
+            "id": "401873033",
+            "completed": True,
+            "opponent": "Denver Broncos",
+            "kcScore": 24,
+            "oppScore": 28,
+        }
+        slate = frozen_schedule()
+        for game in slate:
+            if str(game.get("id")) == "401873045":
+                game["completed"] = True
+                game["kcScore"] = 35
+                game["oppScore"] = 12
+        preview = {
+            "edition": "2026 Week 9 · Preview",
+            "phase": {"mode": "preview", "week": 9},
+            "headline": "Jets at Arrowhead.",
+            "dek": "Kansas City hosts the Jets after Denver.",
+            "theEdge": "Kickoff is Sun Nov 8, 12:00 PM CT on CBS.",
+            "lastGameReview": {
+                "opponent": "Denver Broncos",
+                "result": "L",
+                "score": "KC 24–28",
+                "lede": "The Jets lost 24-28 after leading 24-13.",
+            },
+            "debates": [
+                "The Jets lost 24-28 after leading 24-13.",
+            ],
+        }
+        leftover = facts.check_review(
+            preview, last, recap, schedule=slate, changed=True
+        )
+        self.assertTrue(
+            any("24-28" in item and "official final" in item for item in leftover),
+            leftover,
+        )
+
+    def test_chargers_last_22_6_next_to_nearer_raiders_is_leftover(self):
+        """Chargers last-game 22-6 next to a nearer Raiders must leftover."""
+        recap = json.loads(
+            (FIXTURES / "espn_401873006_recap.json").read_text(encoding="utf-8")
+        )
+        recap["oppAbbr"] = recap.get("oppAbbr") or "LAC"
+        last = {
+            "id": "401873006",
+            "completed": True,
+            "opponent": "Los Angeles Chargers",
+            "opponentAbbr": "LAC",
+            "kcScore": 22,
+            "oppScore": 6,
+        }
+        slate = frozen_schedule()
+        for game in slate:
+            if str(game.get("id")) == "401873006":
+                game["completed"] = True
+                game["kcScore"] = 22
+                game["oppScore"] = 6
+            if str(game.get("id")) == "401872976":
+                game["completed"] = True
+                game["kcScore"] = 30
+                game["oppScore"] = 27
+        edition = {
+            "edition": "2026 Week 6 · Review",
+            "phase": {"mode": "review", "week": 6},
+            "headline": "Chargers tape.",
+            "dek": "Kansas City beat the Chargers 22-6.",
+            "theEdge": "Next week.",
+            "lastGameReview": {
+                "opponent": "Los Angeles Chargers",
+                "result": "W",
+                "score": "KC 22–6",
+                "lede": (
+                    "The Raiders lost 22-6 after Las Vegas had just "
+                    "finished 30-27."
+                ),
+                "analysis": [
+                    {
+                        "body": (
+                            "The Raiders lost 22-6 after Las Vegas had just "
+                            "finished 30-27."
+                        )
+                    }
+                ],
+            },
+        }
+        leftover = facts.check_review(
+            edition, last, recap, schedule=slate, changed=True
+        )
+        self.assertTrue(
+            any("22-6" in item and "official final" in item for item in leftover),
+            leftover,
+        )
+
     def test_jets_week9_score_mutants_are_killed(self):
         """Named mutants: unwire fixture, trust stamped 24-28, rewrite counts, hold exits 0."""
         from tools.tests.archive_replay import last_game_for_edition
