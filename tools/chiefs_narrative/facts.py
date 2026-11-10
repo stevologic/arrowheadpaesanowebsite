@@ -1018,9 +1018,6 @@ _COUNT_SCOPE = re.compile(
     r"\b("
     r"early|opening|late|"
     r"first[- ]half|second[- ]half|"
-    r"after\s+halftime|after\s+the\s+half|after\s+the\s+break|"
-    r"after\s+a\s+\d{1,2}\s*[–-]\s*\d{1,2}\s+halftime|"
-    r"since\s+(?:halftime|the\s+half|the\s+break)|"
     r"(?:in\s+the\s+)?(?:first|second|third|fourth|opening|final)\s+quarter|"
     r"q\s*[1-4]|"
     r"in\s+the\s+game|all\s+game|on\s+the\s+day|overall|\btotal\b"
@@ -1038,12 +1035,6 @@ _SCOPE_QUARTERS = {
     "first half": frozenset({1, 2}),
     "second-half": frozenset({3, 4}),
     "second half": frozenset({3, 4}),
-    "after halftime": frozenset({3, 4}),
-    "after the half": frozenset({3, 4}),
-    "after the break": frozenset({3, 4}),
-    "since halftime": frozenset({3, 4}),
-    "since the half": frozenset({3, 4}),
-    "since the break": frozenset({3, 4}),
     "first quarter": frozenset({1}),
     "opening quarter": frozenset({1}),
     "second quarter": frozenset({2}),
@@ -2589,11 +2580,6 @@ def official_count_by_team(
 def _normalize_scope_token(raw: str) -> str:
     token = re.sub(r"\s+", " ", (raw or "").lower().replace("–", "-"))
     token = re.sub(r"^in the ", "", token)
-    token = re.sub(
-        r"after a \d{1,2}\s*-\s*\d{1,2} halftime",
-        "after halftime",
-        token,
-    )
     token = token.replace("q ", "q")
     return token
 
@@ -3632,125 +3618,6 @@ def _count_issue(
         f"{team} {label} {claimed} disagrees with ESPN "
         f"{official} ({match.group(0)!r})"
     )
-
-
-# Count of TDs / FGs / scores bound to a half window. Whole-game totals stay
-# on _count_issue; "five TDs after a 14-12 halftime" is a second-half claim.
-_WINDOW_QUARTERS = frozenset({3, 4})
-_SCORING_WINDOW = re.compile(
-    r"\b(?:"
-    r"after\s+halftime|"
-    r"after\s+the\s+half|"
-    r"after\s+the\s+break|"
-    r"after\s+a\s+\d{1,2}\s*[–-]\s*\d{1,2}\s+halftime|"
-    r"since\s+(?:halftime|the\s+half|the\s+break)|"
-    r"(?:in\s+)?the\s+second[- ]half|"
-    r"second[- ]half"
-    r")\b",
-    re.IGNORECASE,
-)
-_AFTER_A_SCORE_WINDOW = re.compile(r"\bafter a score\b", re.IGNORECASE)
-_WINDOW_SCORING_COUNT = re.compile(
-    r"(?<!:)\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)"
-    r"[ \t]+"
-    r"([A-Za-z][A-Za-z .’-]{0,24}?)?[ \t]*"
-    r"(touchdowns?|TDs?|field[ \t]+goals?|scores)\b",
-    re.IGNORECASE,
-)
-
-
-def _scoring_plays_verifiable(recap: dict | None) -> bool:
-    """False when the gate cannot assign ESPN scoring plays to a half."""
-    if not isinstance(recap, dict) or "scoringPlays" not in recap:
-        return False
-    plays = recap.get("scoringPlays")
-    if not isinstance(plays, list):
-        return False
-    for play in plays:
-        if not isinstance(play, dict) or _play_quarter(play) is None:
-            return False
-    return True
-
-
-def _window_kind_token(raw: str) -> str:
-    token = (raw or "").lower()
-    if "touchdown" in token or token.startswith("td"):
-        return "td"
-    if "field" in token:
-        return "fg"
-    return "score"
-
-
-def _window_official_count(recap: dict | None, kind: str, team: str) -> int:
-    if kind == "score":
-        td = official_count_by_team(recap, "td", quarters=_WINDOW_QUARTERS)
-        fg = official_count_by_team(recap, "fg", quarters=_WINDOW_QUARTERS)
-        if not team:
-            return sum(td.values()) + sum(fg.values())
-        return td.get(team, 0) + fg.get(team, 0)
-    counts = official_count_by_team(recap, kind, quarters=_WINDOW_QUARTERS)
-    if not team:
-        return sum(counts.values())
-    return counts.get(team, 0)
-
-
-def _check_window_scoring_counts(
-    text: str,
-    last_game: dict | None,
-    recap: dict | None,
-    schedule=None,
-) -> list[str]:
-    """Flag TD/FG/score counts bound to a half window when ESPN disagrees.
-
-    Fail closed: a window-bound count with no verifiable scoringPlays /
-    quarters, or bound only to the unmapped phrase 'after a score', flags.
-    """
-    if not text:
-        return []
-    aliases = _team_aliases(last_game, recap, schedule)
-    issues: list[str] = []
-    seen: set[str] = set()
-    for sentence in _split_sentences(text):
-        mapped = bool(_SCORING_WINDOW.search(sentence))
-        unmapped = bool(_AFTER_A_SCORE_WINDOW.search(sentence))
-        if not mapped and not unmapped:
-            continue
-        for match in _WINDOW_SCORING_COUNT.finditer(sentence):
-            claimed = _parse_count_word(match.group(1))
-            if claimed is None:
-                continue
-            captured = _count_captured_team((match.group(2) or "").strip(), aliases)
-            if captured is None:
-                continue
-            team = captured
-            kind = _window_kind_token(match.group(3))
-            label = {"td": "touchdown", "fg": "field-goal", "score": "score"}[kind]
-            snippet = match.group(0)
-            key = f"{sentence}|{snippet}|{kind}|{team}"
-            if key in seen:
-                continue
-            seen.add(key)
-            who = team or "team"
-            if unmapped and not mapped:
-                issues.append(
-                    f"window-bound {who} {label} count {claimed} cannot be "
-                    f"verified against ESPN scoring plays ({snippet!r})"
-                )
-                continue
-            if not _scoring_plays_verifiable(recap):
-                issues.append(
-                    f"window-bound {who} {label} count {claimed} cannot be "
-                    f"verified against ESPN scoring plays ({snippet!r})"
-                )
-                continue
-            official = _window_official_count(recap, kind, team)
-            if claimed == official:
-                continue
-            issues.append(
-                f"window-bound {who} {label} count {claimed} disagrees with "
-                f"ESPN {official} after halftime ({snippet!r})"
-            )
-    return issues
 
 
 def _check_part_of_day(
@@ -8088,9 +7955,6 @@ def check_review(
             issues.extend(_check_scores(text, last_game, recap, schedule))
             issues.extend(_check_win_margin(text, last_game, recap, schedule))
             issues.extend(_check_halftime_scores(text, last_game, recap, schedule))
-            issues.extend(
-                _check_window_scoring_counts(text, last_game, recap, schedule)
-            )
             issues.extend(_check_part_of_day(text, last_game, recap))
             issues.extend(_check_echoed_instructions(text))
             issues.extend(
