@@ -158,6 +158,58 @@ ADVERSARIAL_ROWS = (
         "develop": "FLAG",
         "note": "signoff pair with no matching edition change",
     },
+    {
+        "id": "lone_signoff_json",
+        "files": {
+            EDITION_331: EDITION_BODY,
+            SIGNOFF_JSON_331: "{}\n",
+        },
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "N1: lone .json is not a pair",
+    },
+    {
+        "id": "lone_signoff_sig",
+        "files": {
+            EDITION_331: EDITION_BODY,
+            SIGNOFF_SIG_331: "c2ln\n",
+        },
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "N1: lone .sig is not a pair",
+    },
+    {
+        "id": "leading_slash",
+        "files": {
+            EDITION_331: EDITION_BODY,
+            f"/signoff/review/{SLUG_331}.json": "{}\n",
+        },
+        "head": "FLAG",
+        "develop": "FLAG",
+        "note": "N4: leading / path",
+    },
+    {
+        "id": "uppercase_json",
+        "files": {
+            EDITION_331: EDITION_BODY,
+            f"signoff/review/{SLUG_331}.JSON": "{}\n",
+            SIGNOFF_SIG_331: "c2ln\n",
+        },
+        "head": "FLAG",
+        "develop": "FLAG",
+        "note": "N4: uppercase .JSON",
+    },
+    {
+        "id": "uppercase_sig",
+        "files": {
+            EDITION_331: EDITION_BODY,
+            SIGNOFF_JSON_331: "{}\n",
+            f"signoff/review/{SLUG_331}.SIG": "c2ln\n",
+        },
+        "head": "FLAG",
+        "develop": "FLAG",
+        "note": "N4: uppercase .SIG",
+    },
 )
 
 
@@ -184,7 +236,10 @@ def _classify(files: dict[str, str]) -> str:
     raw_paths = [
         path
         for path in files
-        if "/../" in path or path.endswith("/") or "\u200b" in path
+        if "/../" in path
+        or path.endswith("/")
+        or path.startswith("/")
+        or "\u200b" in path
     ]
     if raw_paths:
         allowed = all(
@@ -196,7 +251,12 @@ def _classify(files: dict[str, str]) -> str:
         _overlay(files)
         return "pass"
     except ValueError as exc:
-        if "outside the edition allow-list" in str(exc):
+        message = str(exc)
+        if "outside the edition allow-list" in message:
+            return "FLAG"
+        if "signoff pair requires both .json and .sig" in message:
+            return "FLAG"
+        if "refusing symlink" in message:
             return "FLAG"
         raise
 
@@ -212,17 +272,17 @@ class OverlaySignoffAllowList(unittest.TestCase):
         )
         self.assertEqual(copied, 3)
 
-    def test_allow_signoff_json(self):
-        copied = _overlay(
-            {EDITION_331: EDITION_BODY, SIGNOFF_JSON_331: "{}\n"}
-        )
-        self.assertEqual(copied, 2)
+    def test_refuse_lone_signoff_json(self):
+        with self.assertRaises(ValueError) as ctx:
+            _overlay({EDITION_331: EDITION_BODY, SIGNOFF_JSON_331: "{}\n"})
+        self.assertIn("signoff pair requires both .json and .sig", str(ctx.exception))
+        self.assertIn(SIGNOFF_JSON_331, str(ctx.exception))
 
-    def test_allow_signoff_sig(self):
-        copied = _overlay(
-            {EDITION_331: EDITION_BODY, SIGNOFF_SIG_331: "c2ln\n"}
-        )
-        self.assertEqual(copied, 2)
+    def test_refuse_lone_signoff_sig(self):
+        with self.assertRaises(ValueError) as ctx:
+            _overlay({EDITION_331: EDITION_BODY, SIGNOFF_SIG_331: "c2ln\n"})
+        self.assertIn("signoff pair requires both .json and .sig", str(ctx.exception))
+        self.assertIn(SIGNOFF_SIG_331, str(ctx.exception))
 
     def test_refuse_other_signoff_path(self):
         with self.assertRaises(ValueError) as ctx:
@@ -243,6 +303,7 @@ class OverlaySignoffAllowList(unittest.TestCase):
                     f"signoff/review/{SLUG_331}.pem": "nope\n",
                 }
             )
+        self.assertIn("outside the edition allow-list", str(ctx.exception))
         self.assertIn(f"signoff/review/{SLUG_331}.pem", str(ctx.exception))
 
     def test_refuse_extra_file_beside_valid_pair(self):
@@ -265,8 +326,10 @@ class OverlaySignoffAllowList(unittest.TestCase):
                 {
                     EDITION_331: EDITION_BODY,
                     "signoff/review/2026-10-05-0937.json": "{}\n",
+                    "signoff/review/2026-10-05-0937.sig": "c2ln\n",
                 }
             )
+        self.assertIn("outside the edition allow-list", str(ctx.exception))
         self.assertIn("2026-10-05-0937.json", str(ctx.exception))
 
     def test_refuse_nested_path(self):
@@ -277,6 +340,7 @@ class OverlaySignoffAllowList(unittest.TestCase):
                     f"signoff/review/extra/{SLUG_331}.json": "{}\n",
                 }
             )
+        self.assertIn("outside the edition allow-list", str(ctx.exception))
         self.assertIn("signoff/review/extra/", str(ctx.exception))
 
     def test_refuse_dotdot_traversal(self):
@@ -298,6 +362,7 @@ class OverlaySignoffAllowList(unittest.TestCase):
         self.assertFalse(edition_overlay.is_allowed_rel(Path(posix)))
         with self.assertRaises(ValueError) as ctx:
             _overlay({EDITION_331: EDITION_BODY, posix: "{}\n"})
+        self.assertIn("outside the edition allow-list", str(ctx.exception))
         self.assertIn("Signoff/review/", str(ctx.exception))
 
     def test_refuse_unicode_lookalike(self):
@@ -317,6 +382,86 @@ class OverlaySignoffAllowList(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             _overlay({EDITION_331: EDITION_BODY, posix: "{}\n"})
         self.assertIn("outside the edition allow-list", str(ctx.exception))
+
+    def test_refuse_leading_slash(self):
+        posix = f"/signoff/review/{SLUG_331}.json"
+        self.assertTrue(edition_overlay._has_leading_slash(posix))
+        self.assertFalse(edition_overlay._posix_is_clean(posix))
+        self.assertFalse(
+            edition_overlay.is_allowed_rel(
+                posix, edition_slugs=frozenset({SLUG_331})
+            )
+        )
+        with patch.object(
+            edition_overlay,
+            "_src_additions",
+            return_value=[("A", EDITION_331, ""), ("A", posix, "")],
+        ):
+            with self.assertRaises(ValueError) as ctx:
+                _overlay({EDITION_331: EDITION_BODY})
+        self.assertIn("outside the edition allow-list", str(ctx.exception))
+        self.assertIn(posix, str(ctx.exception))
+
+    def test_refuse_uppercase_json(self):
+        posix = f"signoff/review/{SLUG_331}.JSON"
+        self.assertIsNone(edition_overlay._signoff_slug(posix))
+        self.assertFalse(
+            edition_overlay.is_allowed_rel(
+                posix, edition_slugs=frozenset({SLUG_331})
+            )
+        )
+        with self.assertRaises(ValueError) as ctx:
+            _overlay(
+                {
+                    EDITION_331: EDITION_BODY,
+                    posix: "{}\n",
+                    SIGNOFF_SIG_331: "c2ln\n",
+                }
+            )
+        self.assertIn("outside the edition allow-list", str(ctx.exception))
+        self.assertIn(posix, str(ctx.exception))
+
+    def test_refuse_uppercase_sig(self):
+        posix = f"signoff/review/{SLUG_331}.SIG"
+        self.assertIsNone(edition_overlay._signoff_slug(posix))
+        self.assertFalse(
+            edition_overlay.is_allowed_rel(
+                posix, edition_slugs=frozenset({SLUG_331})
+            )
+        )
+        with self.assertRaises(ValueError) as ctx:
+            _overlay(
+                {
+                    EDITION_331: EDITION_BODY,
+                    SIGNOFF_JSON_331: "{}\n",
+                    posix: "c2ln\n",
+                }
+            )
+        self.assertIn("outside the edition allow-list", str(ctx.exception))
+        self.assertIn(posix, str(ctx.exception))
+
+    def test_refuse_first_symlink(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            src = Path(tmp) / "src"
+            dst = Path(tmp) / "dst"
+            narrative = Path(_LIVE_NARRATIVE)
+            (dst / narrative).parent.mkdir(parents=True, exist_ok=True)
+            (dst / narrative).write_text(NARRATIVE, encoding="utf-8")
+            (src / EDITION_331).parent.mkdir(parents=True, exist_ok=True)
+            (src / EDITION_331).write_text(EDITION_BODY, encoding="utf-8")
+            (src / SIGNOFF_JSON_331).parent.mkdir(parents=True, exist_ok=True)
+            (src / SIGNOFF_JSON_331).write_text("{}\n", encoding="utf-8")
+            (src / SIGNOFF_SIG_331).write_text("c2ln\n", encoding="utf-8")
+            elsewhere = dst / "elsewhere.json"
+            elsewhere.parent.mkdir(parents=True, exist_ok=True)
+            elsewhere.write_text("{}\n", encoding="utf-8")
+            link = dst / SIGNOFF_JSON_331
+            link.parent.mkdir(parents=True, exist_ok=True)
+            link.symlink_to(elsewhere)
+            with self.assertRaises(ValueError) as ctx:
+                edition_overlay.overlay_edition_data(src, dst)
+            self.assertIn("refusing symlink", str(ctx.exception))
+            self.assertIn(SIGNOFF_JSON_331, str(ctx.exception))
 
     def test_refuse_trailing_slash(self):
         posix = f"signoff/review/{SLUG_331}.json/"
@@ -387,6 +532,9 @@ class OverlaySignoffAllowList(unittest.TestCase):
             with self.subTest(row["id"]):
                 if row["id"] == "331_pair_with_edition":
                     self.assertEqual(_classify(row["files"]), "pass")
+                    continue
+                if row["develop"] == "pass":
+                    self.assertEqual(_classify(row["files"]), "FLAG", row)
                     continue
                 if row["develop"] == "FLAG":
                     self.assertEqual(_classify(row["files"]), "FLAG", row)

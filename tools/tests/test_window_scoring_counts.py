@@ -338,6 +338,118 @@ ADVERSARIAL_ROWS = (
         "develop": "leftover",
         "note": "I6: true 2H count; develop leftover 3 vs 5",
     },
+    {
+        "id": "one_catch_singular",
+        "sentence": "One Kansas City catch after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed singular catch",
+    },
+    {
+        "id": "two_catches",
+        "sentence": "Two Kansas City catches after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed plural catches",
+    },
+    {
+        "id": "one_carry_singular",
+        "sentence": "One Kansas City carry after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed singular carry",
+    },
+    {
+        "id": "two_carries",
+        "sentence": "Two Kansas City carries after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed plural carries",
+    },
+    {
+        "id": "one_interception_singular",
+        "sentence": "One Kansas City interception after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed singular interception",
+    },
+    {
+        "id": "two_interceptions",
+        "sentence": "Two Kansas City interceptions after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed plural interceptions",
+    },
+    {
+        "id": "one_fumble_singular",
+        "sentence": "One Kansas City fumble after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed singular fumble",
+    },
+    {
+        "id": "two_fumbles",
+        "sentence": "Two Kansas City fumbles after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed plural fumbles",
+    },
+    {
+        "id": "one_turnover_singular",
+        "sentence": "One Kansas City turnover after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed singular turnover",
+    },
+    {
+        "id": "two_turnovers",
+        "sentence": "Two Kansas City turnovers after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed plural turnovers",
+    },
+    {
+        "id": "one_reception_singular",
+        "sentence": "One Kansas City reception after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed singular reception",
+    },
+    {
+        "id": "two_receptions",
+        "sentence": "Two Kansas City receptions after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed plural receptions",
+    },
+    {
+        "id": "one_rush_singular",
+        "sentence": "One Kansas City rush after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed singular rush",
+    },
+    {
+        "id": "two_rushes",
+        "sentence": "Two Kansas City rushes after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed plural rushes",
+    },
+    {
+        "id": "one_completion_singular",
+        "sentence": "One Kansas City completion after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed singular completion",
+    },
+    {
+        "id": "two_completions",
+        "sentence": "Two Kansas City completions after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed plural completions",
+    },
 )
 
 
@@ -704,6 +816,93 @@ class WindowScoringCounts(unittest.TestCase):
                 for item in window
             ),
             window,
+        )
+
+    def _assert_fail_closed_noun(self, sentence: str, noun: str):
+        window = self._window(_review(sentence))
+        self.assertTrue(
+            any("cannot be verified" in item and noun in item for item in window),
+            window,
+        )
+
+    def test_noun_catch_fail_closed(self):
+        self._assert_fail_closed_noun(
+            "One Kansas City catch after halftime.", "catch"
+        )
+
+    def test_noun_catches_fail_closed(self):
+        self._assert_fail_closed_noun(
+            "Two Kansas City catches after halftime.", "catches"
+        )
+
+    def test_noun_carry_fail_closed(self):
+        self._assert_fail_closed_noun(
+            "One Kansas City carry after halftime.", "carry"
+        )
+
+    def test_noun_carries_fail_closed(self):
+        self._assert_fail_closed_noun(
+            "Two Kansas City carries after halftime.", "carries"
+        )
+
+    def test_noun_interception_fail_closed(self):
+        self._assert_fail_closed_noun(
+            "One Kansas City interception after halftime.", "interception"
+        )
+
+    def test_noun_interceptions_fail_closed(self):
+        self._assert_fail_closed_noun(
+            "Two Kansas City interceptions after halftime.", "interceptions"
+        )
+
+    def test_noun_fumble_fail_closed(self):
+        self._assert_fail_closed_noun(
+            "One Kansas City fumble after halftime.", "fumble"
+        )
+
+    def test_noun_fumbles_fail_closed(self):
+        self._assert_fail_closed_noun(
+            "Two Kansas City fumbles after halftime.", "fumbles"
+        )
+
+    def test_noun_turnover_fail_closed(self):
+        self._assert_fail_closed_noun(
+            "One Kansas City turnover after halftime.", "turnover"
+        )
+
+    def test_noun_turnovers_fail_closed(self):
+        self._assert_fail_closed_noun(
+            "Two Kansas City turnovers after halftime.", "turnovers"
+        )
+
+    def test_noun_reception_fail_closed(self):
+        self._assert_fail_closed_noun(
+            "One Kansas City reception after halftime.", "reception"
+        )
+
+    def test_noun_receptions_fail_closed(self):
+        self._assert_fail_closed_noun(
+            "Two Kansas City receptions after halftime.", "receptions"
+        )
+
+    def test_noun_rush_fail_closed(self):
+        self._assert_fail_closed_noun(
+            "One Kansas City rush after halftime.", "rush"
+        )
+
+    def test_noun_rushes_fail_closed(self):
+        self._assert_fail_closed_noun(
+            "Two Kansas City rushes after halftime.", "rushes"
+        )
+
+    def test_noun_completion_fail_closed(self):
+        self._assert_fail_closed_noun(
+            "One Kansas City completion after halftime.", "completion"
+        )
+
+    def test_noun_completions_fail_closed(self):
+        self._assert_fail_closed_noun(
+            "Two Kansas City completions after halftime.", "completions"
         )
 
     def test_flipped_fail_closed(self):
