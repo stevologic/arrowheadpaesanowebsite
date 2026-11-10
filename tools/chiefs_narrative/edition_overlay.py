@@ -19,6 +19,7 @@ import re
 import shutil
 import subprocess
 import sys
+import unicodedata
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -31,6 +32,20 @@ ALLOWED_FILES = {
     "data/hero_posts.json",
 }
 ALLOWED_DIRS = ("data/narrative_editions/",)
+# ASCII-only slug. Python's \d matches Unicode digits and would accept lookalikes.
+_EDITION_SLUG_ASCII = r"[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{4}"
+_SIGNOFF_DIR = "signoff/review"
+_SIGNOFF_JSON_EXT = "json"
+_SIGNOFF_SIG_EXT = "sig"
+_SIGNOFF_JSON_RE = re.compile(
+    rf"^{re.escape(_SIGNOFF_DIR)}/({_EDITION_SLUG_ASCII})\.{_SIGNOFF_JSON_EXT}$"
+)
+_SIGNOFF_SIG_RE = re.compile(
+    rf"^{re.escape(_SIGNOFF_DIR)}/({_EDITION_SLUG_ASCII})\.{_SIGNOFF_SIG_EXT}$"
+)
+_CHANGED_EDITION_JSON_RE = re.compile(
+    rf"^data/narrative_editions/({_EDITION_SLUG_ASCII})\.json$"
+)
 NARRATIVE_SLUG_XO = re.compile(
     r"^public/images/narrative/(?P<slug>\d{4}-\d{2}-\d{2}-\d{4})/"
     r"xo-(?P<concept>[A-Za-z0-9_]+)\.svg$"
@@ -149,14 +164,79 @@ def narrative_concepts(src: Path, dst: Path | None = None) -> set[str]:
     return concepts
 
 
+def _has_trailing_slash(raw: str) -> bool:
+    """True when the git path still has a trailing slash (Path.as_posix strips it)."""
+    return raw.endswith("/") or raw.endswith("\\")
+
+
+def _has_cf_or_control(text: str) -> bool:
+    """True when any code point is a Unicode control or format (Cf) character."""
+    return any(unicodedata.category(char).startswith("C") for char in text)
+
+
+def _posix_is_clean(posix: str) -> bool:
+    """Refuse traversal, trailing slash, controls, Cf, and non-ASCII lookalikes."""
+    if not posix or posix != posix.strip():
+        return False
+    if posix.startswith("/") or _has_trailing_slash(posix):
+        return False
+    if "\\" in posix or "\x00" in posix:
+        return False
+    if _has_cf_or_control(posix):
+        return False
+    for char in posix:
+        if ord(char) > 127:
+            return False
+    parts = posix.split("/")
+    if any(part in {"", ".", ".."} for part in parts):
+        return False
+    return True
+
+
+def changed_edition_slugs(entries: list[tuple[str, str, str]]) -> frozenset[str]:
+    """Slugs of data/narrative_editions/<slug>.json added or changed in this PR."""
+    slugs: set[str] = set()
+    for status, path, dest in entries:
+        if status[:1] not in {"A", "M"}:
+            continue
+        for rel in (path, dest) if dest else (path,):
+            if not _posix_is_clean(rel):
+                continue
+            match = _CHANGED_EDITION_JSON_RE.fullmatch(rel)
+            if match:
+                slugs.add(match.group(1))
+    return frozenset(slugs)
+
+
+def _signoff_slug(posix: str) -> str | None:
+    json_match = _SIGNOFF_JSON_RE.fullmatch(posix)
+    if json_match:
+        return json_match.group(1)
+    sig_match = _SIGNOFF_SIG_RE.fullmatch(posix)
+    if sig_match:
+        return sig_match.group(1)
+    return None
+
+
 def is_allowed_rel(
-    rel: Path, slug: str = "", concepts: set[str] | None = None
+    rel: Path | str,
+    slug: str = "",
+    concepts: set[str] | None = None,
+    edition_slugs: frozenset[str] | None = None,
 ) -> bool:
-    posix = rel.as_posix()
+    raw = rel if isinstance(rel, str) else rel.as_posix()
+    if _has_trailing_slash(raw):
+        return False
+    posix = raw
+    if not _posix_is_clean(posix):
+        return False
     if posix in ALLOWED_FILES:
         return True
     if any(posix.startswith(prefix) for prefix in ALLOWED_DIRS):
         return Path(posix).suffix == ".json"
+    signoff_slug = _signoff_slug(posix)
+    if signoff_slug is not None:
+        return signoff_slug in (edition_slugs or frozenset())
     match = NARRATIVE_SLUG_XO.match(posix)
     if not match:
         return False
@@ -302,6 +382,7 @@ def overlay_edition_data(
     else:
         entries = _src_additions(src)
     blocked: list[str] = []
+    edition_slugs = changed_edition_slugs(entries)
     for status, path, dest in entries:
         code = status[:1]
         if code in {"R", "C"}:
@@ -317,7 +398,7 @@ def overlay_edition_data(
             dst_path = dst / rel
             if src_path.is_symlink() or dst_path.is_symlink():
                 raise ValueError(f"refusing symlink: {rel}")
-            if not is_allowed_rel(Path(rel), slug, concepts):
+            if not is_allowed_rel(rel, slug, concepts, edition_slugs):
                 blocked.append(rel)
         if code == "D" and (
             path in PROTECTED_DELETES or _is_current_slug_svg(path, slug)
