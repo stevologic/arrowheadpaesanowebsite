@@ -169,6 +169,11 @@ def _has_trailing_slash(raw: str) -> bool:
     return raw.endswith("/") or raw.endswith("\\")
 
 
+def _has_leading_slash(raw: str) -> bool:
+    """True when the git path is absolute (leading slash or backslash)."""
+    return raw.startswith("/") or raw.startswith("\\")
+
+
 def _has_cf_or_control(text: str) -> bool:
     """True when any code point is a Unicode control or format (Cf) character."""
     return any(unicodedata.category(char).startswith("C") for char in text)
@@ -178,7 +183,7 @@ def _posix_is_clean(posix: str) -> bool:
     """Refuse traversal, trailing slash, controls, Cf, and non-ASCII lookalikes."""
     if not posix or posix != posix.strip():
         return False
-    if posix.startswith("/") or _has_trailing_slash(posix):
+    if _has_leading_slash(posix) or _has_trailing_slash(posix):
         return False
     if "\\" in posix or "\x00" in posix:
         return False
@@ -208,6 +213,31 @@ def changed_edition_slugs(entries: list[tuple[str, str, str]]) -> frozenset[str]
     return frozenset(slugs)
 
 
+def _signoff_lone_rels(entries: list[tuple[str, str, str]]) -> list[str]:
+    """Paths that are a lone .json or a lone .sig for a slug (both-or-neither)."""
+    by_slug: dict[str, dict[str, str]] = {}
+    for status, path, dest in entries:
+        if status[:1] not in {"A", "M"}:
+            continue  # pair check only counts added or changed paths
+        for rel in (path, dest) if dest else (path,):
+            if not rel or not _posix_is_clean(rel):
+                continue
+            json_match = _SIGNOFF_JSON_RE.fullmatch(rel)
+            if json_match:
+                by_slug.setdefault(json_match.group(1), {})["json"] = rel
+                continue
+            sig_match = _SIGNOFF_SIG_RE.fullmatch(rel)
+            if sig_match:
+                by_slug.setdefault(sig_match.group(1), {})["sig"] = rel
+    missing: list[str] = []
+    for parts in by_slug.values():
+        if "json" in parts and "sig" not in parts:
+            missing.append(parts["json"])
+        if "sig" in parts and "json" not in parts:
+            missing.append(parts["sig"])
+    return missing
+
+
 def _signoff_slug(posix: str) -> str | None:
     json_match = _SIGNOFF_JSON_RE.fullmatch(posix)
     if json_match:
@@ -225,7 +255,7 @@ def is_allowed_rel(
     edition_slugs: frozenset[str] | None = None,
 ) -> bool:
     raw = rel if isinstance(rel, str) else rel.as_posix()
-    if _has_trailing_slash(raw):
+    if _has_trailing_slash(raw) or _has_leading_slash(raw):
         return False
     posix = raw
     if not _posix_is_clean(posix):
@@ -407,6 +437,11 @@ def overlay_edition_data(
     if blocked:
         raise ValueError(
             "PR changes paths outside the edition allow-list: " + ", ".join(blocked)
+        )
+    lone = _signoff_lone_rels(entries)
+    if lone:
+        raise ValueError(
+            "signoff pair requires both .json and .sig: " + ", ".join(lone)
         )
     copied = 0
     for status, path, _dest in entries:
