@@ -3769,9 +3769,13 @@ _WINDOW_COUNT_NOUNS = (
     "scores",
     "score",
     "yards",
+    "yard",
     "sacks",
+    "sack",
     "points",
+    "point",
     "takeaways",
+    "takeaway",
 )
 _WINDOW_SCORING_COUNT = re.compile(
     r"(?<!:)(?<![\w-])("
@@ -3809,7 +3813,16 @@ def _scoring_plays_verifiable(recap: dict | None) -> bool:
 
 def _window_kind_token(raw: str) -> str:
     token = re.sub(r"\s+", " ", (raw or "").lower()).strip()
-    if token in {"yards", "sacks", "points", "takeaways"}:
+    if token in {
+        "yards",
+        "yard",
+        "sacks",
+        "sack",
+        "points",
+        "point",
+        "takeaways",
+        "takeaway",
+    }:
         return "unverifiable"
     if token in {"touchdown", "touchdowns"} or token in {"td", "tds"}:
         return "td"

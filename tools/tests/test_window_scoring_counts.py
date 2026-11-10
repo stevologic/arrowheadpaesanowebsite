@@ -216,8 +216,8 @@ ADVERSARIAL_ROWS = (
         "id": "two_field_goals_after_the_break",
         "sentence": "Two Kansas City field goals after the break.",
         "head": "FLAG",
-        "develop": "pass",
-        "note": "0 second-half FGs",
+        "develop": "leftover",
+        "note": "0 second-half FGs; develop leftover via after-the-break scope",
     },
     {
         "id": "three_scores_since_halftime",
@@ -272,8 +272,71 @@ ADVERSARIAL_ROWS = (
         "id": "non_second_half",
         "sentence": "Five Kansas City touchdowns in the non-second-half.",
         "head": "pass",
+        "develop": "leftover",
+        "note": "un/non prefix must not bind second-half; develop leftover via second-half",
+    },
+    {
+        "id": "one_sack_singular",
+        "sentence": "One Kansas City sack after halftime.",
+        "head": "FLAG",
         "develop": "pass",
-        "note": "un/non prefix must not bind second-half",
+        "note": "fail-closed singular sack",
+    },
+    {
+        "id": "one_yard_singular",
+        "sentence": "One Kansas City yard after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed singular yard",
+    },
+    {
+        "id": "one_point_singular",
+        "sentence": "One Kansas City point after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed singular point",
+    },
+    {
+        "id": "one_takeaway_singular",
+        "sentence": "One Kansas City takeaway after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed singular takeaway",
+    },
+    {
+        "id": "three_following_the_half",
+        "sentence": "Three Kansas City touchdowns following the half.",
+        "head": "pass",
+        "develop": "leftover",
+        "note": "I6: true 2H count; develop leftover 3 vs 5",
+    },
+    {
+        "id": "three_following_the_break",
+        "sentence": "Three Kansas City touchdowns following the break.",
+        "head": "pass",
+        "develop": "leftover",
+        "note": "I6: true 2H count; develop leftover 3 vs 5",
+    },
+    {
+        "id": "three_following_a_nn",
+        "sentence": "Three Kansas City touchdowns following a 14-12 halftime.",
+        "head": "pass",
+        "develop": "leftover",
+        "note": "I6: true 2H count; develop leftover 3 vs 5",
+    },
+    {
+        "id": "three_turned",
+        "sentence": "Three Kansas City touchdowns turned a 14-12 halftime into 35-12.",
+        "head": "pass",
+        "develop": "leftover",
+        "note": "I6: true 2H count; develop leftover 3 vs 5",
+    },
+    {
+        "id": "three_flipped",
+        "sentence": "Three Kansas City touchdowns flipped a game that was 14-12.",
+        "head": "pass",
+        "develop": "leftover",
+        "note": "I6: true 2H count; develop leftover 3 vs 5",
     },
 )
 
@@ -574,12 +637,30 @@ class WindowScoringCounts(unittest.TestCase):
             window,
         )
 
+    def test_noun_yard_fail_closed(self):
+        window = self._window(
+            _review("One Kansas City yard after halftime.")
+        )
+        self.assertTrue(
+            any("cannot be verified" in item and "yard" in item for item in window),
+            window,
+        )
+
     def test_noun_sacks_fail_closed(self):
         window = self._window(
             _review("Five Kansas City sacks after halftime.")
         )
         self.assertTrue(
             any("cannot be verified" in item and "sacks" in item for item in window),
+            window,
+        )
+
+    def test_noun_sack_fail_closed(self):
+        window = self._window(
+            _review("One Kansas City sack after halftime.")
+        )
+        self.assertTrue(
+            any("cannot be verified" in item and "sack" in item for item in window),
             window,
         )
 
@@ -592,6 +673,15 @@ class WindowScoringCounts(unittest.TestCase):
             window,
         )
 
+    def test_noun_point_fail_closed(self):
+        window = self._window(
+            _review("One Kansas City point after halftime.")
+        )
+        self.assertTrue(
+            any("cannot be verified" in item and "point" in item for item in window),
+            window,
+        )
+
     def test_noun_takeaways_fail_closed(self):
         window = self._window(
             _review("Three Kansas City takeaways after halftime.")
@@ -599,6 +689,18 @@ class WindowScoringCounts(unittest.TestCase):
         self.assertTrue(
             any(
                 "cannot be verified" in item and "takeaways" in item
+                for item in window
+            ),
+            window,
+        )
+
+    def test_noun_takeaway_fail_closed(self):
+        window = self._window(
+            _review("One Kansas City takeaway after halftime.")
+        )
+        self.assertTrue(
+            any(
+                "cannot be verified" in item and "takeaway" in item
                 for item in window
             ),
             window,
@@ -663,6 +765,53 @@ class WindowScoringCounts(unittest.TestCase):
         self.assertEqual(
             self._issues(
                 _review("Three Kansas City touchdowns following halftime.")
+            ),
+            [],
+        )
+
+    def test_scope_following_the_half_three_empty_issues(self):
+        self.assertEqual(
+            self._issues(
+                _review("Three Kansas City touchdowns following the half.")
+            ),
+            [],
+        )
+
+    def test_scope_following_the_break_three_empty_issues(self):
+        self.assertEqual(
+            self._issues(
+                _review("Three Kansas City touchdowns following the break.")
+            ),
+            [],
+        )
+
+    def test_scope_following_a_nn_three_empty_issues(self):
+        self.assertEqual(
+            self._issues(
+                _review(
+                    "Three Kansas City touchdowns following a 14-12 halftime."
+                )
+            ),
+            [],
+        )
+
+    def test_scope_turned_three_empty_issues(self):
+        self.assertEqual(
+            self._issues(
+                _review(
+                    "Three Kansas City touchdowns turned a 14-12 "
+                    "halftime into 35-12."
+                )
+            ),
+            [],
+        )
+
+    def test_scope_flipped_three_empty_issues(self):
+        self.assertEqual(
+            self._issues(
+                _review(
+                    "Three Kansas City touchdowns flipped a game that was 14-12."
+                )
             ),
             [],
         )
@@ -823,7 +972,15 @@ class WindowScoringCounts(unittest.TestCase):
             with self.subTest(row["id"]):
                 if row["develop"] == "pass":
                     continue
-                if row["id"] in {"three_after_14_12", "non_second_half"}:
+                if row["id"] in {
+                    "three_after_14_12",
+                    "non_second_half",
+                    "three_following_the_half",
+                    "three_following_the_break",
+                    "three_following_a_nn",
+                    "three_turned",
+                    "three_flipped",
+                }:
                     # Documented leftover false-positives on develop:
                     # window-scoped whole-game leftover, or un/non prefix.
                     self.assertEqual(self._classify(row["sentence"]), "pass")
