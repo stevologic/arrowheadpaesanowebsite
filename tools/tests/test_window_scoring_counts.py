@@ -1,4 +1,8 @@
-"""Window-bound TD/FG/score counts vs ESPN scoring plays (Karen B1)."""
+"""Window-bound TD/FG/score counts vs ESPN scoring plays (Karen B1).
+
+Isolating tests are named so a drop-one mutant of a single inventory
+member changes only that test's result. I6 asserts the full issue list.
+"""
 from __future__ import annotations
 
 import copy
@@ -19,6 +23,11 @@ SECOND_HALF_THREE = (
     "The second half was three Kansas City touchdowns and a defense "
     "that kept Geno Smith off the scoreboard."
 )
+WALKER_TURNED = (
+    "Walker's 102 yards on 18 carries, plus Johnson's six-yard "
+    "touchdown, turned a 14-12 halftime into 35-12"
+)
+FLIPPED = "Eighteen carries and 102 yards just flipped a game that was 14-12"
 
 LAST_JETS = {
     "id": "401873045",
@@ -30,6 +39,243 @@ LAST_JETS = {
     "oppScore": 12,
     "date": "2026-11-08T18:00:00Z",
 }
+
+# Head expected: FLAG means a window-bound issue, leftover means _count_issue,
+# pass means check_review issues for that sentence's window/count are clean
+# of both. develop_flag documents the unpatched tree (no window guard;
+# leftover only when whole-game _count_issue fires).
+ADVERSARIAL_ROWS = (
+    {
+        "id": "r1_five_after_14_12",
+        "sentence": KAREN_FIVE,
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "#331 r1; ESPN 401873045 has three 2H TDs; head must FLAG",
+    },
+    {
+        "id": "r2_three_second_half",
+        "sentence": (
+            "Three Kansas City touchdowns in the second half, "
+            "including Johnson's 6-yard score"
+        ),
+        "head": "pass",
+        "develop": "pass",
+        "note": "#331 r2; BASE second-half scope already 3=3",
+    },
+    {
+        "id": "three_after_14_12",
+        "sentence": THREE,
+        "head": "pass",
+        "develop": "leftover",
+        "note": "develop leftover 3 vs 5; head pass is the I6 fix, not a miss",
+    },
+    {
+        "id": "lede_second_half_three",
+        "sentence": SECOND_HALF_THREE,
+        "head": "pass",
+        "develop": "pass",
+        "note": "lede The second half was three...",
+    },
+    {
+        "id": "whole_game_five_no_window",
+        "sentence": (
+            "Five Kansas City touchdowns, four New York field goals, "
+            "no Jets touchdown."
+        ),
+        "head": "pass",
+        "develop": "pass",
+        "note": "true-negative: no window word, 5=5 whole game",
+    },
+    {
+        "id": "whole_game_three_no_window",
+        "sentence": "Three Kansas City touchdowns came before the break.",
+        "head": "leftover",
+        "develop": "leftover",
+        "note": "true-negative for the window guard; leftover 3 vs 5 is whole-game",
+    },
+    {
+        "id": "walker_turned",
+        "sentence": WALKER_TURNED,
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "I5/H1: yards bound to turned-halftime is fail-closed",
+    },
+    {
+        "id": "flipped_14_12",
+        "sentence": FLIPPED,
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "I5/H1: yards bound to flipped 14-12 is fail-closed",
+    },
+    {
+        "id": "following_halftime",
+        "sentence": "Five Kansas City touchdowns following halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "following = after",
+    },
+    {
+        "id": "after_the_half",
+        "sentence": "Five Kansas City touchdowns after the half.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "after the half",
+    },
+    {
+        "id": "in_the_second_half_five",
+        "sentence": "Five Kansas City touchdowns in the second half.",
+        "head": "FLAG",
+        "develop": "leftover",
+        "note": "develop leftover via second-half scope 5 vs 3; head also window-FLAG",
+    },
+    {
+        "id": "endash_14_12",
+        "sentence": "Five Kansas City touchdowns after a 14–12 halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "Unicode en dash U+2013",
+    },
+    {
+        "id": "emdash_14_12",
+        "sentence": "Five Kansas City touchdowns after a 14—12 halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "Unicode em dash U+2014 folded to hyphen",
+    },
+    {
+        "id": "minus_14_12",
+        "sentence": "Five Kansas City touchdowns after a 14−12 halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "U+2212 minus folded to hyphen",
+    },
+    {
+        "id": "soft_hyphen_14_12",
+        "sentence": "Five Kansas City touchdowns after a 14\u00ad-\u00ad12 halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "soft hyphen U+00AD stripped/folded",
+    },
+    {
+        "id": "zwsp_14_12",
+        "sentence": "Five Kansas City touchdowns after a 14\u200b-\u200b12 halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "ZWSP U+200B stripped",
+    },
+    {
+        "id": "sep_ascii_hyphen",
+        "sentence": "Five Kansas City touchdowns after a 14-12 halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "14-12",
+    },
+    {
+        "id": "sep_en_dash",
+        "sentence": "Five Kansas City touchdowns after a 14–12 halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "14–12",
+    },
+    {
+        "id": "sep_spaced_hyphen",
+        "sentence": "Five Kansas City touchdowns after a 14 - 12 halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "14 - 12",
+    },
+    {
+        "id": "negation_never_five",
+        "sentence": "Kansas City never five touchdowns after halftime.",
+        "head": "pass",
+        "develop": "pass",
+        "note": "negation: skip the count",
+    },
+    {
+        "id": "digit_5",
+        "sentence": "5 Kansas City touchdowns after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "5 vs Five",
+    },
+    {
+        "id": "word_five",
+        "sentence": "Five Kansas City touchdowns after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "Five vs 5",
+    },
+    {
+        "id": "five_tds_after_the_half",
+        "sentence": "Five Kansas City TDs after the half.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "TDs noun",
+    },
+    {
+        "id": "two_field_goals_after_the_break",
+        "sentence": "Two Kansas City field goals after the break.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "0 second-half FGs",
+    },
+    {
+        "id": "three_scores_since_halftime",
+        "sentence": "Three Kansas City scores since halftime.",
+        "head": "pass",
+        "develop": "pass",
+        "note": "3 scores = 3 TDs + 0 FG in 2H",
+    },
+    {
+        "id": "sacks_after_halftime",
+        "sentence": "Five Kansas City sacks after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed: no per-window ESPN sacks",
+    },
+    {
+        "id": "points_after_halftime",
+        "sentence": "Twenty-one Kansas City points after halftime.",
+        "head": "pass",
+        "develop": "pass",
+        "note": "twenty-one is not a number-word/digit member; not this guard",
+    },
+    {
+        "id": "points_digit_after_halftime",
+        "sentence": "21 Kansas City points after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed: no per-window ESPN points",
+    },
+    {
+        "id": "yards_after_halftime",
+        "sentence": "102 Kansas City yards after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed: no per-window ESPN yards",
+    },
+    {
+        "id": "takeaways_after_halftime",
+        "sentence": "Three Kansas City takeaways after halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "fail-closed: no per-window ESPN takeaways",
+    },
+    {
+        "id": "fourth_quarter_five",
+        "sentence": "Five Kansas City touchdowns in the fourth quarter.",
+        "head": "FLAG",
+        "develop": "leftover",
+        "note": "Q4 has 1 KC TD; develop leftover via fourth-quarter scope",
+    },
+    {
+        "id": "non_second_half",
+        "sentence": "Five Kansas City touchdowns in the non-second-half.",
+        "head": "pass",
+        "develop": "pass",
+        "note": "un/non prefix must not bind second-half",
+    },
+)
 
 
 def _review(what_worked: str, lede: str | None = None) -> dict:
@@ -50,6 +296,18 @@ def _review(what_worked: str, lede: str | None = None) -> dict:
     }
 
 
+def _window_issues(issues: list[str]) -> list[str]:
+    return [item for item in issues if "window-bound" in item]
+
+
+def _leftover_issues(issues: list[str]) -> list[str]:
+    return [
+        item
+        for item in issues
+        if "window-bound" not in item and "disagrees with ESPN" in item
+    ]
+
+
 class WindowScoringCounts(unittest.TestCase):
     def setUp(self):
         self.recap = load_recap("401873045")
@@ -62,11 +320,27 @@ class WindowScoringCounts(unittest.TestCase):
             narrative, LAST_JETS, recap if recap is not None else self.recap
         )
 
-    def _window(self, narrative: dict, recap=None):
+    def _window(self, narrative: dict, recap="default"):
         text = facts.edition_text(narrative)
-        return facts._check_window_scoring_counts(
-            text, LAST_JETS, recap if recap is not None else self.recap
-        )
+        payload = self.recap if recap == "default" else recap
+        return facts._check_window_scoring_counts(text, LAST_JETS, payload)
+
+    def _classify(self, sentence: str) -> str:
+        narrative = _review(sentence)
+        issues = self._issues(narrative)
+        if _window_issues(issues):
+            return "FLAG"
+        if _leftover_issues(issues):
+            return "leftover"
+        return "pass"
+
+    def _assert_window_flag(self, sentence: str):
+        window = self._window(_review(sentence))
+        self.assertTrue(window, window)
+
+    def _assert_window_clean(self, sentence: str):
+        window = self._window(_review(sentence))
+        self.assertEqual(window, [])
 
     def test_karen_five_after_halftime_flags(self):
         narrative = _review(KAREN_FIVE)
@@ -82,70 +356,502 @@ class WindowScoringCounts(unittest.TestCase):
         )
 
     def test_three_after_halftime_passes(self):
-        narrative = _review(THREE)
-        self.assertEqual(self._window(narrative), [])
-        self.assertFalse(
-            any("window-bound" in item for item in self._issues(narrative))
+        # I6: a correct window count must not fall through to a whole-game
+        # leftover. Assert the full issue list, not a substring absence.
+        issues = self._issues(_review(THREE))
+        self.assertEqual(issues, [])
+
+    def test_second_half_three_passes(self):
+        issues = self._issues(_review(SECOND_HALF_THREE, lede=SECOND_HALF_THREE))
+        self.assertEqual(_window_issues(issues), [])
+        self.assertEqual(
+            [item for item in issues if "touchdown count 3 disagrees" in item],
+            [],
         )
 
-    def test_second_half_was_three_passes(self):
-        narrative = _review(
-            "Walker at 22 touches and 102 rushing yards",
-            lede=SECOND_HALF_THREE,
+    def test_missing_scoring_plays_flags(self):
+        window = self._window(_review(KAREN_FIVE), recap={"oppAbbr": "NYJ"})
+        self.assertTrue(any("cannot be verified" in item for item in window), window)
+
+    def test_missing_quarters_flags(self):
+        recap = copy.deepcopy(self.recap)
+        for play in recap["scoringPlays"]:
+            play.pop("quarter", None)
+        window = self._window(_review(KAREN_FIVE), recap=recap)
+        self.assertTrue(any("cannot be verified" in item for item in window), window)
+
+    def test_after_a_score_flags(self):
+        window = self._window(
+            _review("Five Kansas City touchdowns after a score.")
         )
-        self.assertEqual(self._window(narrative), [])
-        self.assertFalse(
-            any("window-bound" in item for item in self._issues(narrative))
+        self.assertTrue(any("cannot be verified" in item for item in window), window)
+
+    def test_whole_game_five_not_this_guard(self):
+        window = self._window(_review("Five Kansas City touchdowns sealed it."))
+        self.assertEqual(window, [])
+
+    def test_verifiable_on_jets_fixture(self):
+        self.assertTrue(facts._scoring_plays_verifiable(self.recap))
+
+    # --- I1: each _SCORING_WINDOW / _WINDOW_SPECS member ---
+
+    def test_win_after_halftime(self):
+        self._assert_window_flag("Five Kansas City touchdowns after halftime.")
+
+    def test_win_after_the_half(self):
+        self._assert_window_flag("Five Kansas City touchdowns after the half.")
+
+    def test_win_after_the_break(self):
+        self._assert_window_flag("Five Kansas City touchdowns after the break.")
+
+    def test_win_after_a_nn_hyphen(self):
+        self._assert_window_flag(
+            "Five Kansas City touchdowns after a 14-12 halftime."
         )
 
-    def test_unverifiable_missing_scoring_plays_flags(self):
-        recap = {"oppAbbr": "NYJ", "kc": {"totalYards": "391"}}
-        narrative = _review("Five Kansas City touchdowns after halftime.")
-        window = self._window(narrative, recap=recap)
+    def test_win_after_a_nn_endash(self):
+        self._assert_window_flag(
+            "Five Kansas City touchdowns after a 14–12 halftime."
+        )
+
+    def test_win_since_halftime(self):
+        self._assert_window_flag("Five Kansas City touchdowns since halftime.")
+
+    def test_win_since_the_half(self):
+        self._assert_window_flag("Five Kansas City touchdowns since the half.")
+
+    def test_win_since_the_break(self):
+        self._assert_window_flag("Five Kansas City touchdowns since the break.")
+
+    def test_win_in_the_second_half(self):
+        self._assert_window_flag(
+            "Five Kansas City touchdowns in the second half."
+        )
+
+    def test_win_the_second_half(self):
+        self._assert_window_flag(
+            "The second half was five Kansas City touchdowns."
+        )
+
+    def test_win_second_half(self):
+        self._assert_window_flag(
+            "A second-half five Kansas City touchdowns closed it."
+        )
+
+    def test_win_following_halftime(self):
+        self._assert_window_flag(
+            "Five Kansas City touchdowns following halftime."
+        )
+
+    def test_win_following_the_half(self):
+        self._assert_window_flag(
+            "Five Kansas City touchdowns following the half."
+        )
+
+    def test_win_following_the_break(self):
+        self._assert_window_flag(
+            "Five Kansas City touchdowns following the break."
+        )
+
+    def test_win_following_a_nn(self):
+        self._assert_window_flag(
+            "Five Kansas City touchdowns following a 14-12 halftime."
+        )
+
+    def test_win_turned_halftime(self):
+        self._assert_window_flag(
+            "Five Kansas City touchdowns turned a 14-12 halftime into 35-12."
+        )
+
+    def test_win_flipped_score(self):
+        self._assert_window_flag(
+            "Five Kansas City touchdowns flipped a game that was 14-12."
+        )
+
+    def test_win_fourth_quarter(self):
+        window = self._window(
+            _review("Five Kansas City touchdowns in the fourth quarter.")
+        )
         self.assertTrue(
-            any("cannot be verified" in item for item in window),
+            any("window-bound" in item and "5" in item for item in window),
             window,
         )
-        issues = self._issues(narrative, recap=recap)
         self.assertTrue(
-            any("cannot be verified" in item for item in issues),
+            any("fourth quarter" in item for item in window),
+            window,
+        )
+
+    def test_win_after_a_score(self):
+        self.test_after_a_score_flags()
+
+    # --- I1 unicode fold members ---
+
+    def test_fold_em_dash(self):
+        self._assert_window_flag(
+            "Five Kansas City touchdowns after a 14—12 halftime."
+        )
+
+    def test_fold_minus(self):
+        self._assert_window_flag(
+            "Five Kansas City touchdowns after a 14−12 halftime."
+        )
+
+    def test_fold_soft_hyphen(self):
+        self._assert_window_flag(
+            "Five Kansas City touchdowns after a 14\u00ad-\u00ad12 halftime."
+        )
+
+    def test_fold_zwsp(self):
+        self._assert_window_flag(
+            "Five Kansas City touchdowns after a 14\u200b-\u200b12 halftime."
+        )
+
+    # --- I2 number words + digit ---
+
+    def test_num_one(self):
+        self._assert_window_flag("One Kansas City field goal after halftime.")
+
+    def test_num_two(self):
+        self._assert_window_flag("Two Kansas City field goals after halftime.")
+
+    def test_num_three(self):
+        self._assert_window_flag("Three Kansas City field goals after halftime.")
+
+    def test_num_four(self):
+        self._assert_window_flag("Four Kansas City field goals after halftime.")
+
+    def test_num_five(self):
+        self._assert_window_flag("Five Kansas City field goals after halftime.")
+
+    def test_num_six(self):
+        self._assert_window_flag("Six Kansas City field goals after halftime.")
+
+    def test_num_seven(self):
+        self._assert_window_flag("Seven Kansas City field goals after halftime.")
+
+    def test_num_eight(self):
+        self._assert_window_flag("Eight Kansas City field goals after halftime.")
+
+    def test_num_nine(self):
+        self._assert_window_flag("Nine Kansas City field goals after halftime.")
+
+    def test_num_ten(self):
+        self._assert_window_flag("Ten Kansas City field goals after halftime.")
+
+    def test_num_digit(self):
+        self._assert_window_flag("8 Kansas City field goals after halftime.")
+
+    # --- I2 count nouns ---
+
+    def test_noun_touchdown(self):
+        self._assert_window_flag("One Kansas City touchdown after halftime.")
+
+    def test_noun_touchdowns(self):
+        self._assert_window_flag("Five Kansas City touchdowns after halftime.")
+
+    def test_noun_td(self):
+        self._assert_window_flag("Five Kansas City TD after the half.")
+
+    def test_noun_tds(self):
+        self._assert_window_flag("Five Kansas City TDs after the half.")
+
+    def test_noun_field_goal(self):
+        self._assert_window_flag("One Kansas City field goal after the break.")
+
+    def test_noun_field_goals(self):
+        self._assert_window_flag("Two Kansas City field goals after the break.")
+
+    def test_noun_score(self):
+        self._assert_window_flag("One Kansas City score after halftime.")
+
+    def test_noun_scores(self):
+        self._assert_window_flag("Five Kansas City scores after halftime.")
+
+    def test_noun_yards_fail_closed(self):
+        window = self._window(_review(WALKER_TURNED))
+        self.assertTrue(
+            any("cannot be verified" in item and "yards" in item for item in window),
+            window,
+        )
+
+    def test_noun_sacks_fail_closed(self):
+        window = self._window(
+            _review("Five Kansas City sacks after halftime.")
+        )
+        self.assertTrue(
+            any("cannot be verified" in item and "sacks" in item for item in window),
+            window,
+        )
+
+    def test_noun_points_fail_closed(self):
+        window = self._window(
+            _review("21 Kansas City points after halftime.")
+        )
+        self.assertTrue(
+            any("cannot be verified" in item and "points" in item for item in window),
+            window,
+        )
+
+    def test_noun_takeaways_fail_closed(self):
+        window = self._window(
+            _review("Three Kansas City takeaways after halftime.")
+        )
+        self.assertTrue(
+            any(
+                "cannot be verified" in item and "takeaways" in item
+                for item in window
+            ),
+            window,
+        )
+
+    def test_flipped_fail_closed(self):
+        window = self._window(_review(FLIPPED))
+        self.assertTrue(
+            any("cannot be verified" in item and "yards" in item for item in window),
+            window,
+        )
+
+    # --- I6/I7 _COUNT_SCOPE + _SCOPE_QUARTERS + rewrite ---
+
+    def test_scope_after_halftime_three_empty_issues(self):
+        self.assertEqual(
+            self._issues(_review("Three Kansas City touchdowns after halftime.")),
+            [],
+        )
+
+    def test_scope_after_the_half_three_empty_issues(self):
+        self.assertEqual(
+            self._issues(
+                _review("Three Kansas City touchdowns after the half.")
+            ),
+            [],
+        )
+
+    def test_scope_after_the_break_three_empty_issues(self):
+        self.assertEqual(
+            self._issues(
+                _review("Three Kansas City touchdowns after the break.")
+            ),
+            [],
+        )
+
+    def test_scope_since_halftime_three_empty_issues(self):
+        self.assertEqual(
+            self._issues(
+                _review("Three Kansas City touchdowns since halftime.")
+            ),
+            [],
+        )
+
+    def test_scope_since_the_half_three_empty_issues(self):
+        self.assertEqual(
+            self._issues(
+                _review("Three Kansas City touchdowns since the half.")
+            ),
+            [],
+        )
+
+    def test_scope_since_the_break_three_empty_issues(self):
+        self.assertEqual(
+            self._issues(
+                _review("Three Kansas City touchdowns since the break.")
+            ),
+            [],
+        )
+
+    def test_scope_following_halftime_three_empty_issues(self):
+        self.assertEqual(
+            self._issues(
+                _review("Three Kansas City touchdowns following halftime.")
+            ),
+            [],
+        )
+
+    def _scope_of(self, sentence: str):
+        match = facts._TD_COUNT.search(sentence) or facts._WINDOW_SCORING_COUNT.search(
+            sentence
+        )
+        self.assertIsNotNone(match)
+        return facts._count_scope(sentence, match.start(), match.end())
+
+    def test_scope_quarters_after_halftime(self):
+        self.assertEqual(
+            self._scope_of("Three Kansas City touchdowns after halftime."),
+            frozenset({3, 4}),
+        )
+
+    def test_scope_quarters_after_the_half(self):
+        self.assertEqual(
+            self._scope_of("Three Kansas City touchdowns after the half."),
+            frozenset({3, 4}),
+        )
+
+    def test_scope_quarters_after_the_break(self):
+        self.assertEqual(
+            self._scope_of("Three Kansas City touchdowns after the break."),
+            frozenset({3, 4}),
+        )
+
+    def test_scope_quarters_since_halftime(self):
+        self.assertEqual(
+            self._scope_of("Three Kansas City touchdowns since halftime."),
+            frozenset({3, 4}),
+        )
+
+    def test_scope_quarters_since_the_half(self):
+        self.assertEqual(
+            self._scope_of("Three Kansas City touchdowns since the half."),
+            frozenset({3, 4}),
+        )
+
+    def test_scope_quarters_since_the_break(self):
+        self.assertEqual(
+            self._scope_of("Three Kansas City touchdowns since the break."),
+            frozenset({3, 4}),
+        )
+
+    def test_normalize_scope_after_a_nn_rewrite(self):
+        self.assertEqual(
+            facts._normalize_scope_token("after a 14-12 halftime"),
+            "after halftime",
+        )
+        self.assertEqual(
+            self._scope_of(
+                "Five Kansas City touchdowns after a 14-12 halftime."
+            ),
+            frozenset({3, 4}),
+        )
+        leftovers = _leftover_issues(self._issues(_review(KAREN_FIVE)))
+        self.assertTrue(
+            any("touchdown count 5 disagrees with ESPN 3" in item for item in leftovers),
+            leftovers,
+        )
+
+    def test_normalize_scope_after_a_nn_endash_rewrite(self):
+        self.assertEqual(
+            facts._normalize_scope_token("after a 14–12 halftime"),
+            "after halftime",
+        )
+
+    def test_normalize_scope_following_rewrite(self):
+        self.assertEqual(
+            facts._normalize_scope_token("following halftime"),
+            "after halftime",
+        )
+
+    def test_normalize_scope_turned_rewrite(self):
+        self.assertEqual(
+            facts._normalize_scope_token("turned a 14-12 halftime"),
+            "after halftime",
+        )
+
+    def test_normalize_scope_flipped_rewrite(self):
+        self.assertEqual(
+            facts._normalize_scope_token("flipped a game that was 14-12"),
+            "after halftime",
+        )
+
+    # --- I8: Q3 and Q4 independently ---
+
+    def test_window_quarter_3(self):
+        # Official 2H = Q3(2)+Q4(1)=3. Claiming 1 flags. Drop Q3 → official 1,
+        # this sentence would pass, so the test dies.
+        self._assert_window_flag("One Kansas City touchdown after halftime.")
+
+    def test_window_quarter_4(self):
+        # Claiming 2 flags (2≠3). Drop Q4 → official 2, this would pass.
+        self._assert_window_flag("Two Kansas City touchdowns after halftime.")
+
+    # --- I9: _scoring_plays_verifiable branches ---
+
+    def test_verifiable_recap_none(self):
+        self.assertFalse(facts._scoring_plays_verifiable(None))
+        window = self._window(_review(KAREN_FIVE), recap=None)
+        self.assertTrue(any("cannot be verified" in item for item in window), window)
+
+    def test_verifiable_recap_not_dict(self):
+        self.assertFalse(facts._scoring_plays_verifiable(["scoringPlays"]))
+        window = self._window(_review(KAREN_FIVE), recap=["scoringPlays"])
+        self.assertTrue(any("cannot be verified" in item for item in window), window)
+
+    def test_verifiable_missing_key(self):
+        recap = {"oppAbbr": "NYJ", "kc": {"totalYards": "391"}}
+        self.assertFalse(facts._scoring_plays_verifiable(recap))
+        window = self._window(_review(KAREN_FIVE), recap=recap)
+        self.assertTrue(any("cannot be verified" in item for item in window), window)
+
+    def test_verifiable_plays_not_list(self):
+        recap = {"scoringPlays": {"team": "KC"}}
+        self.assertFalse(facts._scoring_plays_verifiable(recap))
+        window = self._window(_review(KAREN_FIVE), recap=recap)
+        self.assertTrue(any("cannot be verified" in item for item in window), window)
+
+    def test_verifiable_play_not_dict(self):
+        recap = {"scoringPlays": ["not-a-play"]}
+        self.assertFalse(facts._scoring_plays_verifiable(recap))
+        window = self._window(_review(KAREN_FIVE), recap=recap)
+        self.assertTrue(any("cannot be verified" in item for item in window), window)
+
+    def test_verifiable_missing_quarter(self):
+        recap = {"scoringPlays": [{"team": "KC", "type": "TD"}]}
+        self.assertFalse(facts._scoring_plays_verifiable(recap))
+        window = self._window(_review(KAREN_FIVE), recap=recap)
+        self.assertTrue(any("cannot be verified" in item for item in window), window)
+
+    # --- wiring ---
+
+    def test_check_review_wires_window_guard(self):
+        issues = self._issues(_review(KAREN_FIVE))
+        self.assertTrue(
+            any("window-bound" in item and "5" in item for item in issues),
             issues,
         )
 
-    def test_unverifiable_missing_quarters_flags(self):
-        recap = {
-            "oppAbbr": "NYJ",
-            "scoringPlays": [{"type": "TD", "team": "KC", "yards": 6}],
-        }
-        narrative = _review("Five Kansas City touchdowns after the break.")
-        window = self._window(narrative, recap=recap)
-        self.assertTrue(
-            any("cannot be verified" in item for item in window),
-            window,
+    # --- I10 adversarial table vs head ---
+
+    def test_adversarial_table_head(self):
+        for row in ADVERSARIAL_ROWS:
+            with self.subTest(row["id"]):
+                got = self._classify(row["sentence"])
+                self.assertEqual(got, row["head"], row)
+
+    def test_head_not_weaker_than_develop(self):
+        # Head may add flags. The one documented cleaner-on-head row is
+        # Three-after-14-12 (develop leftover false-positive). Other rows
+        # where develop flags must still flag on head.
+        for row in ADVERSARIAL_ROWS:
+            with self.subTest(row["id"]):
+                if row["develop"] == "pass":
+                    continue
+                if row["id"] in {"three_after_14_12", "non_second_half"}:
+                    # Documented leftover false-positives on develop:
+                    # window-scoped whole-game leftover, or un/non prefix.
+                    self.assertEqual(self._classify(row["sentence"]), "pass")
+                    continue
+                got = self._classify(row["sentence"])
+                self.assertIn(got, {"FLAG", "leftover"}, row)
+
+    def test_negation_never_five_not_flagged(self):
+        self._assert_window_clean(
+            "Kansas City never five touchdowns after halftime."
         )
 
-    def test_after_a_score_unmapped_flags(self):
-        narrative = _review("Five Kansas City touchdowns after a score.")
-        window = self._window(narrative)
-        self.assertTrue(
-            any("cannot be verified" in item for item in window),
-            window,
+    def test_non_prefix_does_not_bind(self):
+        self._assert_window_clean(
+            "Five Kansas City touchdowns in the non-second-half."
         )
 
-    def test_whole_game_five_without_window_is_not_this_guard(self):
-        narrative = _review(
-            "Five Kansas City touchdowns, four New York field goals, "
-            "no Jets touchdown."
+    def test_scoring_play_yardage_list_not_volume(self):
+        self._assert_window_clean(
+            "After halftime the Chiefs added touchdowns of 1, 2, and 6 yards "
+            "and won by 23."
         )
-        self.assertEqual(self._window(narrative), [])
 
-    def test_window_plays_verifiable_on_jets_fixture(self):
-        self.assertTrue(facts._scoring_plays_verifiable(self.recap))
-        self.assertFalse(facts._scoring_plays_verifiable({}))
-        self.assertFalse(facts._scoring_plays_verifiable(None))
-        missing_q = copy.deepcopy(self.recap)
-        missing_q["scoringPlays"][0].pop("quarter")
-        self.assertFalse(facts._scoring_plays_verifiable(missing_q))
+    def test_far_fourth_quarter_mention_not_a_bind(self):
+        self._assert_window_clean(
+            "Fans should weigh whether 399 yards and 6-of-14 on third down "
+            "are the identity until a lead survives the fourth quarter."
+        )
 
 
 if __name__ == "__main__":

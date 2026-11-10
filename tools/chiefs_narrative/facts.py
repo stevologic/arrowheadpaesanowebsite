@@ -1014,14 +1014,42 @@ REVIEW_REQUIRES_HUMAN = True
 
 # Qualified counts are not whole-game totals. Compare against the window
 # when quarter data can compute it; otherwise skip.
+_WINDOW_FOLD_ZWSP = "\u200b"
+_WINDOW_FOLD_EM_DASH = "\u2014"
+_WINDOW_FOLD_MINUS = "\u2212"
+_WINDOW_FOLD_SOFT_HYPHEN = "\u00ad"
+
+
+def _fold_window_text(text: str) -> str:
+    """Map copy-paste dashes and ZWSP onto ASCII so window phrases still bind."""
+    if not text:
+        return text
+    text = text.replace(_WINDOW_FOLD_ZWSP, "")
+    text = text.replace(_WINDOW_FOLD_SOFT_HYPHEN, "")
+    text = text.replace(_WINDOW_FOLD_EM_DASH, "-")
+    text = text.replace(_WINDOW_FOLD_MINUS, "-")
+    return text
+
+
 _COUNT_SCOPE = re.compile(
     r"\b("
     r"early|opening|late|"
-    r"first[- ]half|second[- ]half|"
-    r"after\s+halftime|after\s+the\s+half|after\s+the\s+break|"
+    r"first[- ]half|"
+    r"(?<!non-)(?<!un-)second[- ]half|"
+    r"after\s+halftime|"
+    r"after\s+the\s+half|"
+    r"after\s+the\s+break|"
     r"after\s+a\s+\d{1,2}\s*[–-]\s*\d{1,2}\s+halftime|"
-    r"since\s+(?:halftime|the\s+half|the\s+break)|"
-    r"(?:in\s+the\s+)?(?:first|second|third|fourth|opening|final)\s+quarter|"
+    r"since\s+halftime|"
+    r"since\s+the\s+half|"
+    r"since\s+the\s+break|"
+    r"following\s+halftime|"
+    r"following\s+the\s+half|"
+    r"following\s+the\s+break|"
+    r"following\s+a\s+\d{1,2}\s*[–-]\s*\d{1,2}\s+halftime|"
+    r"turned\s+a\s+\d{1,2}\s*[–-]\s*\d{1,2}\s+halftime|"
+    r"flipped\s+a\s+game\s+that\s+was\s+\d{1,2}\s*[–-]\s*\d{1,2}|"
+    r"(?:in\s+the\s+)?(?:first|second|third|(?<!non-)(?<!un-)fourth|opening|final)\s+quarter|"
     r"q\s*[1-4]|"
     r"in\s+the\s+game|all\s+game|on\s+the\s+day|overall|\btotal\b"
     r")\b",
@@ -2587,10 +2615,22 @@ def official_count_by_team(
 
 
 def _normalize_scope_token(raw: str) -> str:
-    token = re.sub(r"\s+", " ", (raw or "").lower().replace("–", "-"))
+    token = _fold_window_text(raw or "")
+    token = re.sub(r"\s+", " ", token.lower().replace("–", "-"))
     token = re.sub(r"^in the ", "", token)
+    token = re.sub(r"^following ", "after ", token)
     token = re.sub(
         r"after a \d{1,2}\s*-\s*\d{1,2} halftime",
+        "after halftime",
+        token,
+    )
+    token = re.sub(
+        r"turned a \d{1,2}\s*-\s*\d{1,2} halftime",
+        "after halftime",
+        token,
+    )
+    token = re.sub(
+        r"flipped a game that was \d{1,2}\s*-\s*\d{1,2}",
         "after halftime",
         token,
     )
@@ -2600,7 +2640,7 @@ def _normalize_scope_token(raw: str) -> str:
 
 def _count_scope(text: str, start: int, end: int):
     """Return None (whole game), a quarter frozenset, or 'skip'."""
-    window = text[max(0, start - 72) : min(len(text), end + 72)]
+    window = _fold_window_text(text[max(0, start - 72) : min(len(text), end + 72)])
     match = _COUNT_SCOPE.search(window)
     if not match:
         return None
@@ -3636,62 +3676,226 @@ def _count_issue(
 
 # Count of TDs / FGs / scores bound to a half window. Whole-game totals stay
 # on _count_issue; "five TDs after a 14-12 halftime" is a second-half claim.
-_WINDOW_QUARTERS = frozenset({3, 4})
-_SCORING_WINDOW = re.compile(
-    r"\b(?:"
-    r"after\s+halftime|"
-    r"after\s+the\s+half|"
-    r"after\s+the\s+break|"
-    r"after\s+a\s+\d{1,2}\s*[–-]\s*\d{1,2}\s+halftime|"
-    r"since\s+(?:halftime|the\s+half|the\s+break)|"
-    r"(?:in\s+)?the\s+second[- ]half|"
-    r"second[- ]half"
-    r")\b",
-    re.IGNORECASE,
+# Named members are independent so a drop-one mutant can isolate each alt.
+_WINDOW_QUARTER_3 = 3
+_WINDOW_QUARTER_4 = 4
+_WINDOW_QUARTERS = frozenset({_WINDOW_QUARTER_3, _WINDOW_QUARTER_4})
+_WIN_AFTER_HALFTIME = re.compile(r"(?<!non-)(?<!un-)\bafter\s+halftime\b", re.I)
+_WIN_AFTER_THE_HALF = re.compile(r"(?<!non-)(?<!un-)\bafter\s+the\s+half\b", re.I)
+_WIN_AFTER_THE_BREAK = re.compile(r"(?<!non-)(?<!un-)\bafter\s+the\s+break\b", re.I)
+_WIN_AFTER_A_NN_HYPHEN = re.compile(
+    r"(?<!non-)(?<!un-)\bafter\s+a\s+\d{1,2}\s*-\s*\d{1,2}\s+halftime\b", re.I
+)
+_WIN_AFTER_A_NN_ENDASH = re.compile(
+    r"(?<!non-)(?<!un-)\bafter\s+a\s+\d{1,2}\s*–\s*\d{1,2}\s+halftime\b", re.I
+)
+_WIN_SINCE_HALFTIME = re.compile(r"(?<!non-)(?<!un-)\bsince\s+halftime\b", re.I)
+_WIN_SINCE_THE_HALF = re.compile(r"(?<!non-)(?<!un-)\bsince\s+the\s+half\b", re.I)
+_WIN_SINCE_THE_BREAK = re.compile(r"(?<!non-)(?<!un-)\bsince\s+the\s+break\b", re.I)
+_WIN_IN_THE_SECOND_HALF = re.compile(
+    r"(?<!non-)(?<!un-)\bin\s+the\s+second[- ]half\b", re.I
+)
+_WIN_THE_SECOND_HALF = re.compile(
+    r"(?<!non-)(?<!un-)(?<!in\s)the\s+second[- ]half\b", re.I
+)
+_WIN_SECOND_HALF = re.compile(
+    r"(?<!non-)(?<!un-)(?<!the\s)(?<!the-)second[- ]half\b", re.I
+)
+_WIN_FOLLOWING_HALFTIME = re.compile(
+    r"(?<!non-)(?<!un-)\bfollowing\s+halftime\b", re.I
+)
+_WIN_FOLLOWING_THE_HALF = re.compile(
+    r"(?<!non-)(?<!un-)\bfollowing\s+the\s+half\b", re.I
+)
+_WIN_FOLLOWING_THE_BREAK = re.compile(
+    r"(?<!non-)(?<!un-)\bfollowing\s+the\s+break\b", re.I
+)
+_WIN_FOLLOWING_A_NN = re.compile(
+    r"(?<!non-)(?<!un-)\bfollowing\s+a\s+\d{1,2}\s*[–-]\s*\d{1,2}\s+halftime\b",
+    re.I,
+)
+_WIN_TURNED_HALFTIME = re.compile(
+    r"\bturned\s+a\s+\d{1,2}\s*[–-]\s*\d{1,2}\s+halftime\s+into\b", re.I
+)
+_WIN_FLIPPED_SCORE = re.compile(
+    r"\bflipped\s+a\s+game\s+that\s+was\s+\d{1,2}\s*[–-]\s*\d{1,2}\b", re.I
+)
+_WIN_FOURTH_QUARTER = re.compile(
+    r"(?<!non-)(?<!un-)\b(?:in\s+the\s+fourth[- ]quarter|fourth-quarter)\b",
+    re.I,
 )
 _AFTER_A_SCORE_WINDOW = re.compile(r"\bafter a score\b", re.IGNORECASE)
+_WINDOW_SPECS = (
+    ("after_halftime", _WIN_AFTER_HALFTIME, _WINDOW_QUARTERS),
+    ("after_the_half", _WIN_AFTER_THE_HALF, _WINDOW_QUARTERS),
+    ("after_the_break", _WIN_AFTER_THE_BREAK, _WINDOW_QUARTERS),
+    ("after_a_nn_hyphen", _WIN_AFTER_A_NN_HYPHEN, _WINDOW_QUARTERS),
+    ("after_a_nn_endash", _WIN_AFTER_A_NN_ENDASH, _WINDOW_QUARTERS),
+    ("since_halftime", _WIN_SINCE_HALFTIME, _WINDOW_QUARTERS),
+    ("since_the_half", _WIN_SINCE_THE_HALF, _WINDOW_QUARTERS),
+    ("since_the_break", _WIN_SINCE_THE_BREAK, _WINDOW_QUARTERS),
+    ("in_the_second_half", _WIN_IN_THE_SECOND_HALF, _WINDOW_QUARTERS),
+    ("the_second_half", _WIN_THE_SECOND_HALF, _WINDOW_QUARTERS),
+    ("second_half", _WIN_SECOND_HALF, _WINDOW_QUARTERS),
+    ("following_halftime", _WIN_FOLLOWING_HALFTIME, _WINDOW_QUARTERS),
+    ("following_the_half", _WIN_FOLLOWING_THE_HALF, _WINDOW_QUARTERS),
+    ("following_the_break", _WIN_FOLLOWING_THE_BREAK, _WINDOW_QUARTERS),
+    ("following_a_nn", _WIN_FOLLOWING_A_NN, _WINDOW_QUARTERS),
+    ("turned_halftime", _WIN_TURNED_HALFTIME, _WINDOW_QUARTERS),
+    ("flipped_score", _WIN_FLIPPED_SCORE, _WINDOW_QUARTERS),
+    ("fourth_quarter", _WIN_FOURTH_QUARTER, frozenset({_WINDOW_QUARTER_4})),
+    ("after_a_score", _AFTER_A_SCORE_WINDOW, None),
+)
+_WINDOW_COUNT_NUMBER_WORDS = (
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+)
+_WINDOW_COUNT_DIGIT = r"\d+"
+_WINDOW_COUNT_NOUNS = (
+    "touchdowns",
+    "touchdown",
+    "TDs",
+    "TD",
+    "field[ \t]+goals",
+    "field[ \t]+goal",
+    "scores",
+    "score",
+    "yards",
+    "sacks",
+    "points",
+    "takeaways",
+)
 _WINDOW_SCORING_COUNT = re.compile(
-    r"(?<!:)\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)"
+    r"(?<!:)(?<![\w-])("
+    + "|".join(_WINDOW_COUNT_NUMBER_WORDS)
+    + r"|"
+    + _WINDOW_COUNT_DIGIT
+    + r")"
     r"[ \t]+"
     r"([A-Za-z][A-Za-z .’-]{0,24}?)?[ \t]*"
-    r"(touchdowns?|TDs?|field[ \t]+goals?|scores)\b",
+    r"("
+    + "|".join(_WINDOW_COUNT_NOUNS)
+    + r")\b",
     re.IGNORECASE,
 )
 
 
 def _scoring_plays_verifiable(recap: dict | None) -> bool:
     """False when the gate cannot assign ESPN scoring plays to a half."""
-    if not isinstance(recap, dict) or "scoringPlays" not in recap:
+    if recap is None:
         return False
-    plays = recap.get("scoringPlays")
+    if not isinstance(recap, dict):
+        return False
+    if "scoringPlays" not in recap:
+        return False
+    plays = recap["scoringPlays"]
     if not isinstance(plays, list):
         return False
     for play in plays:
-        if not isinstance(play, dict) or _play_quarter(play) is None:
+        if not isinstance(play, dict):
+            return False
+        if _play_quarter(play) is None:
             return False
     return True
 
 
 def _window_kind_token(raw: str) -> str:
-    token = (raw or "").lower()
-    if "touchdown" in token or token.startswith("td"):
+    token = re.sub(r"\s+", " ", (raw or "").lower()).strip()
+    if token in {"yards", "sacks", "points", "takeaways"}:
+        return "unverifiable"
+    if token in {"touchdown", "touchdowns"} or token in {"td", "tds"}:
         return "td"
-    if "field" in token:
+    if token.startswith("field"):
         return "fg"
-    return "score"
+    if token in {"score", "scores"}:
+        return "score"
+    return "unverifiable"
 
 
-def _window_official_count(recap: dict | None, kind: str, team: str) -> int:
+def _window_official_count(
+    recap: dict | None, kind: str, team: str, quarters: frozenset
+) -> int:
     if kind == "score":
-        td = official_count_by_team(recap, "td", quarters=_WINDOW_QUARTERS)
-        fg = official_count_by_team(recap, "fg", quarters=_WINDOW_QUARTERS)
+        td = official_count_by_team(recap, "td", quarters=quarters)
+        fg = official_count_by_team(recap, "fg", quarters=quarters)
         if not team:
             return sum(td.values()) + sum(fg.values())
         return td.get(team, 0) + fg.get(team, 0)
-    counts = official_count_by_team(recap, kind, quarters=_WINDOW_QUARTERS)
+    counts = official_count_by_team(recap, kind, quarters=quarters)
     if not team:
         return sum(counts.values())
     return counts.get(team, 0)
+
+
+def _windows_in_sentence(sentence: str) -> list[tuple[str, frozenset | None]]:
+    hits: list[tuple[str, frozenset | None]] = []
+    for name, pattern, quarters in _WINDOW_SPECS:
+        if pattern.search(sentence):
+            hits.append((name, quarters))
+    return hits
+
+
+def _gap_between(a_start: int, a_end: int, b_start: int, b_end: int) -> int:
+    if a_end <= b_start:
+        return b_start - a_end
+    if b_end <= a_start:
+        return a_start - b_end
+    return 0
+
+
+def _hits_for_count(folded: str, match) -> list[tuple[str, frozenset | None]]:
+    """Windows that actually bind this count, not a later timestamp in the sentence."""
+    span_start = max(0, match.start() - _COUNT_WINDOW_RADIUS)
+    span_end = min(len(folded), match.end() + _COUNT_WINDOW_RADIUS)
+    span = folded[span_start:span_end]
+    hits: list[tuple[str, frozenset | None]] = []
+    for name, pattern, quarters in _WINDOW_SPECS:
+        max_gap = 12 if name == "fourth_quarter" else _COUNT_WINDOW_RADIUS
+        for window_match in pattern.finditer(span):
+            abs_start = span_start + window_match.start()
+            abs_end = span_start + window_match.end()
+            gap = _gap_between(match.start(), match.end(), abs_start, abs_end)
+            if gap <= max_gap:
+                hits.append((name, quarters))
+                break
+    return hits
+
+
+def _count_is_negated(sentence: str, start: int) -> bool:
+    lead = sentence[:start]
+    return bool(re.search(r"\b(?:never|not)\b", lead, re.I))
+
+
+_COUNT_WINDOW_RADIUS = 96
+_SCORING_YARD_LIST = re.compile(
+    r"\b(?:touchdowns?|TDs?|scores?|field[ \t]+goals?)\s+of\b",
+    re.I,
+)
+
+
+def _is_scoring_play_yardage(sentence: str, match) -> bool:
+    """Play yardage ('lost six yards', 'touchdowns of 1, 2, and 6 yards')."""
+    chunk = sentence[max(0, match.start() - 48) : match.end()]
+    if _SCORING_YARD_LIST.search(chunk):
+        return True
+    lead = sentence[max(0, match.start() - 12) : match.start()]
+    return bool(re.search(r"\b(?:lost|gained)\s+$", lead, re.I))
+
+
+def _window_where_label(quarters: frozenset | None) -> str:
+    if quarters == frozenset({_WINDOW_QUARTER_4}):
+        return "in the fourth quarter"
+    if quarters == frozenset({_WINDOW_QUARTER_3}):
+        return "in the third quarter"
+    return "after halftime"
 
 
 def _check_window_scoring_counts(
@@ -3703,19 +3907,29 @@ def _check_window_scoring_counts(
     """Flag TD/FG/score counts bound to a half window when ESPN disagrees.
 
     Fail closed: a window-bound count with no verifiable scoringPlays /
-    quarters, or bound only to the unmapped phrase 'after a score', flags.
+    quarters, bound only to the unmapped phrase 'after a score', or a
+    window-bound count noun ESPN cannot split by half (yards/sacks/points/
+    takeaways), flags.
     """
     if not text:
         return []
-    aliases = _team_aliases(last_game, recap, schedule)
+    recap_for_aliases = recap if isinstance(recap, dict) else None
+    aliases = _team_aliases(last_game, recap_for_aliases, schedule)
     issues: list[str] = []
     seen: set[str] = set()
     for sentence in _split_sentences(text):
-        mapped = bool(_SCORING_WINDOW.search(sentence))
-        unmapped = bool(_AFTER_A_SCORE_WINDOW.search(sentence))
-        if not mapped and not unmapped:
-            continue
-        for match in _WINDOW_SCORING_COUNT.finditer(sentence):
+        folded = _fold_window_text(sentence)
+        for match in _WINDOW_SCORING_COUNT.finditer(folded):
+            if _count_is_negated(folded, match.start()):
+                continue
+            hits = _hits_for_count(folded, match)
+            if not hits:
+                continue
+            mapped_quarters = [q for _, q in hits if q is not None]
+            unmapped_only = bool(hits) and not mapped_quarters
+            quarters: frozenset | None = frozenset()
+            for qset in mapped_quarters:
+                quarters = quarters | qset
             claimed = _parse_count_word(match.group(1))
             if claimed is None:
                 continue
@@ -3724,31 +3938,35 @@ def _check_window_scoring_counts(
                 continue
             team = captured
             kind = _window_kind_token(match.group(3))
-            label = {"td": "touchdown", "fg": "field-goal", "score": "score"}[kind]
             snippet = match.group(0)
-            key = f"{sentence}|{snippet}|{kind}|{team}"
+            if kind == "unverifiable" and _is_scoring_play_yardage(folded, match):
+                continue
+            key = f"{folded}|{snippet}|{kind}|{team}"
             if key in seen:
                 continue
             seen.add(key)
             who = team or "team"
-            if unmapped and not mapped:
+            noun = (match.group(3) or "count").strip()
+            if kind == "unverifiable" or unmapped_only:
                 issues.append(
-                    f"window-bound {who} {label} count {claimed} cannot be "
+                    f"window-bound {who} {noun} count {claimed} cannot be "
                     f"verified against ESPN scoring plays ({snippet!r})"
                 )
                 continue
+            label = {"td": "touchdown", "fg": "field-goal", "score": "score"}[kind]
             if not _scoring_plays_verifiable(recap):
                 issues.append(
                     f"window-bound {who} {label} count {claimed} cannot be "
                     f"verified against ESPN scoring plays ({snippet!r})"
                 )
                 continue
-            official = _window_official_count(recap, kind, team)
+            official = _window_official_count(recap, kind, team, quarters)
             if claimed == official:
                 continue
+            where = _window_where_label(quarters)
             issues.append(
                 f"window-bound {who} {label} count {claimed} disagrees with "
-                f"ESPN {official} after halftime ({snippet!r})"
+                f"ESPN {official} {where} ({snippet!r})"
             )
     return issues
 
