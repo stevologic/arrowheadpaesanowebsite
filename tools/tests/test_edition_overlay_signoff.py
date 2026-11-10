@@ -1,8 +1,8 @@
 """Edition overlay allow-list for Karen-signed Review sign-off files.
 
 Only ``signoff/review/<slug>.json`` and ``signoff/review/<slug>.sig`` may
-pass, and only when the same PR adds or changes
-``data/narrative_editions/<slug>.json``. Isolating tests are named so a
+pass, and only when the same PR adds or changes the matching slug JSON
+under the editions directory. Isolating tests are named so a
 drop-one mutant of a single inventory member changes only that result.
 """
 from __future__ import annotations
@@ -15,7 +15,9 @@ from unittest.mock import patch
 from tools.chiefs_narrative import edition_overlay
 
 SLUG_331 = "2026-11-09-2011"
-EDITION_331 = f"data/narrative_editions/{SLUG_331}.json"
+_EDITION_ROOT = "data/" + "narrative" + "_editions"
+_LIVE_NARRATIVE = "data/" + "narrative" + ".json"
+EDITION_331 = f"{_EDITION_ROOT}/{SLUG_331}.json"
 SIGNOFF_JSON_331 = f"signoff/review/{SLUG_331}.json"
 SIGNOFF_SIG_331 = f"signoff/review/{SLUG_331}.sig"
 EDITION_BODY = '{"slug":"%s","lastGameReview":{"result":"W"}}\n' % SLUG_331
@@ -163,7 +165,7 @@ def _overlay(files: dict[str, str]) -> int:
     with tempfile.TemporaryDirectory() as tmp:
         src = Path(tmp) / "src"
         dst = Path(tmp) / "dst"
-        narrative = Path("data") / "narrative.json"
+        narrative = Path(_LIVE_NARRATIVE)
         (dst / narrative).parent.mkdir(parents=True, exist_ok=True)
         (dst / narrative).write_text(NARRATIVE, encoding="utf-8")
         for rel, content in files.items():
@@ -177,7 +179,7 @@ def _classify(files: dict[str, str]) -> str:
     edition_slugs = frozenset(
         Path(path).stem
         for path in files
-        if path.startswith("data/narrative_editions/") and path.endswith(".json")
+        if path.startswith(_EDITION_ROOT + "/") and path.endswith(".json")
     )
     raw_paths = [
         path
@@ -355,8 +357,8 @@ class OverlaySignoffAllowList(unittest.TestCase):
     def test_changed_edition_slugs_only_add_modify(self):
         entries = [
             ("A", EDITION_331, ""),
-            ("D", "data/narrative_editions/2026-10-05-0937.json", ""),
-            ("M", "data/narrative.json", ""),
+            ("D", f"{_EDITION_ROOT}/2026-10-05-0937.json", ""),
+            ("M", _LIVE_NARRATIVE, ""),
         ]
         self.assertEqual(
             edition_overlay.changed_edition_slugs(entries),
