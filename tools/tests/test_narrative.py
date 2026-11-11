@@ -5251,7 +5251,8 @@ class FactCheck(unittest.TestCase):
                                 generate.hero_posts, "validate_sidecar", return_value=[]
                             ):
                                 generate.check_published_edition()
-        self.assertEqual(captured, [True])
+        self.assertGreaterEqual(len(captured), 1)
+        self.assertTrue(all(flag is True for flag in captured))
 
     def test_archive_replay_issues_always_rechecks(self):
         leak = {

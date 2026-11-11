@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Drop-one mutants of B2 --check-edition guards vs isolating tests.
 
-Not named test_*.py so unittest discover does not run 6x mutations.
+Not named test_*.py so unittest discover does not run mutations.
 Control and mutant each run 6x.
 """
 from __future__ import annotations
@@ -170,6 +170,42 @@ MEMBERS: list[dict] = [
             "HoldAutomergePaths.test_inspect_pr_refuses_hold_automerge"
         ),
         "fixture": "holdAutomerge true refuses edition_merge --pr",
+    },
+    {
+        "id": "n3_changed_archive",
+        "file": "tools/chiefs_narrative/generate.py",
+        "old": (
+            "def _fact_check_changed_editions() -> list[str]:\n"
+            '    """Fact-check changed archive edition JSON files. Mutant: return []."""\n'
+        ),
+        "new": (
+            "def _fact_check_changed_editions() -> list[str]:\n"
+            '    """Fact-check changed archive edition JSON files. Mutant: return []."""\n'
+            "    return []\n"
+        ),
+        "test": (
+            "tools.tests.test_b2_check_edition."
+            "N3ChangedEditions.test_n3_archived_false_count_fails_check_edition"
+        ),
+        "fixture": "five touchdowns only in a changed archived edition file",
+    },
+    {
+        "id": "n3_live_equals_latest",
+        "file": "tools/chiefs_narrative/generate.py",
+        "old": (
+            "def _live_matches_latest_edition() -> list[str]:\n"
+            '    """Assert live narrative.json equals the latest edition file. Mutant: skip."""\n'
+        ),
+        "new": (
+            "def _live_matches_latest_edition() -> list[str]:\n"
+            '    """Assert live narrative.json equals the latest edition file. Mutant: skip."""\n'
+            "    return []\n"
+        ),
+        "test": (
+            "tools.tests.test_b2_check_edition."
+            "N3ChangedEditions.test_n3_live_differs_from_latest_fails"
+        ),
+        "fixture": "live narrative.json differs from the latest edition file",
     },
 ]
 

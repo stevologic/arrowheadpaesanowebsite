@@ -469,3 +469,152 @@ class CheckEditionRc(unittest.TestCase):
         )
         rc, blob = self._run(narrative)
         self.assertEqual(rc, 0, blob)
+
+
+class N3ChangedEditions(unittest.TestCase):
+    """Changed archive files and live==latest must fail --check-edition / replay."""
+
+    LIVE_SLUG = "2026-11-10-1726"
+    ARCHIVE_SLUG = "2026-11-09-1200"
+
+    def _payload(self, *, slug: str, generated_at: str, strategies: list[str]) -> dict:
+        return {
+            "slug": slug,
+            "generatedAt": generated_at,
+            "edition": "2026 Week 10 · Preview",
+            "phase": {"type": "regular", "mode": "preview", "week": 10},
+            "headline": "Atlanta next.",
+            "dek": "Kansas City goes to Atlanta.",
+            "theEdge": "Kansas City goes to Atlanta.",
+            "nextGame": {
+                "label": "Week 10 · Sun, Nov 15 · 12:00 PM CT",
+                "opponent": "Atlanta Falcons",
+                "tv": "CBS",
+                "kickoff": "Sun, Nov 15 · 12:00 PM CT",
+            },
+            "lastGameReview": {
+                "opponent": "New York Jets",
+                "result": "W",
+                "score": "KC 35–12",
+                "lede": "Kansas City beat the Jets 35-12.",
+                "analysis": ["Kelce scored on a 1-yard rush."],
+                "whatWorked": ["Walker scored one rushing touchdown."],
+                "whatDidnt": ["Two turnovers."],
+            },
+            "strategies": strategies,
+        }
+
+    def _run(
+        self,
+        argv: list[str],
+        *,
+        archive_changed: bool,
+        live_differs: bool,
+        archive_lie: bool = True,
+    ) -> tuple[int, str]:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data = root / "data"
+            editions = data / "narrative_editions"
+            editions.mkdir(parents=True)
+            live = self._payload(
+                slug=self.LIVE_SLUG,
+                generated_at="2026-11-10T17:26:00Z",
+                strategies=["Protect the pocket."],
+            )
+            latest = dict(live)
+            archive_strategies = (
+                ["A red-zone finish that produced five touchdowns."]
+                if archive_lie
+                else ["Protect the pocket."]
+            )
+            archive = self._payload(
+                slug=self.ARCHIVE_SLUG,
+                generated_at="2026-11-09T12:00:00Z",
+                strategies=archive_strategies,
+            )
+            if live_differs:
+                live = dict(live)
+                live["headline"] = "A different live headline."
+            (data / "narrative.json").write_text(
+                json.dumps(live) + "\n", encoding="utf-8"
+            )
+            (editions / f"{self.LIVE_SLUG}.json").write_text(
+                json.dumps(latest) + "\n", encoding="utf-8"
+            )
+            (editions / f"{self.ARCHIVE_SLUG}.json").write_text(
+                json.dumps(archive) + "\n", encoding="utf-8"
+            )
+            changed: set[str] = set()
+            if archive_changed:
+                editions_rel = "data/" + "narrative" + "_editions"
+                changed.add(f"{editions_rel}/{self.ARCHIVE_SLUG}.json")
+            buf = io.StringIO()
+            err = io.StringIO()
+            with patch.object(
+                generate.config, "NARRATIVE_JSON", data / "narrative.json"
+            ), patch.object(
+                generate.config, "EDITIONS_DIR", editions
+            ), patch.object(
+                generate.config, "DATA_DIR", data
+            ), patch.object(
+                generate.config, "REPAIR_JSON", data / "narrative_repair.json"
+            ), patch.object(
+                facts, "changed_edition_paths", return_value=changed
+            ), patch.object(
+                generate.hero_posts, "validate_sidecar", return_value=[]
+            ), patch.object(
+                generate.press_conferences, "check_embeds", return_value=[]
+            ), patch.object(
+                generate.locker_room, "check_posts", return_value=[]
+            ), patch.object(
+                facts, "check_diagram_captions", return_value=[]
+            ):
+                with redirect_stdout(buf), patch("sys.stderr", err):
+                    rc = generate.main(argv)
+            return rc, buf.getvalue() + err.getvalue()
+
+    def test_n3_archived_false_count_fails_check_edition(self):
+        rc_check, blob_check = self._run(
+            ["--check-edition"], archive_changed=True, live_differs=False
+        )
+        rc_replay, blob_replay = self._run(
+            ["--gate-replay"], archive_changed=True, live_differs=False
+        )
+        self.assertEqual(rc_check, 1, blob_check)
+        self.assertEqual(rc_replay, 1, blob_replay)
+        for blob in (blob_check, blob_replay):
+            self.assertIn(f"{self.ARCHIVE_SLUG}.json", blob)
+            self.assertIn("five touchdowns", blob)
+            self.assertIn("ESPN 4", blob)
+        self.assertNotIn("does not equal latest edition", blob_check)
+
+    def test_n3_live_differs_from_latest_fails(self):
+        rc_check, blob_check = self._run(
+            ["--check-edition"],
+            archive_changed=False,
+            live_differs=True,
+            archive_lie=True,
+        )
+        rc_replay, blob_replay = self._run(
+            ["--gate-replay"],
+            archive_changed=False,
+            live_differs=True,
+            archive_lie=True,
+        )
+        self.assertEqual(rc_check, 1, blob_check)
+        self.assertEqual(rc_replay, 1, blob_replay)
+        for blob in (blob_check, blob_replay):
+            self.assertIn("does not equal latest edition", blob)
+            self.assertIn(f"{self.LIVE_SLUG}.json", blob)
+        self.assertNotIn("five touchdowns", blob_check)
+
+    def test_n3_unchanged_archive_lie_is_grandfathered(self):
+        rc, blob = self._run(
+            ["--check-edition"], archive_changed=False, live_differs=False
+        )
+        self.assertEqual(rc, 0, blob)
+        rc_replay, blob_replay = self._run(
+            ["--gate-replay"], archive_changed=False, live_differs=False
+        )
+        self.assertEqual(rc_replay, 0, blob_replay)
