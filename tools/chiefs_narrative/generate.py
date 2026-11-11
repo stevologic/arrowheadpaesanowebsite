@@ -2012,13 +2012,22 @@ def main(argv=None) -> int:
 
     if args.check_edition:
         issues = check_published_edition()
+        transport_issues = [
+            item
+            for item in issues
+            if str(item).startswith("press conference transport:")
+        ]
         press_issues = [
             item
             for item in issues
             if str(item).startswith("press conference:")
             or str(item).startswith("locker room:")
         ]
-        other = [item for item in issues if item not in press_issues]
+        other = [
+            item
+            for item in issues
+            if item not in press_issues and item not in transport_issues
+        ]
         if press_issues:
             print("ERROR: published edition failed gates:", file=sys.stderr)
             for item in press_issues + other:
@@ -2056,6 +2065,13 @@ def main(argv=None) -> int:
                     file=sys.stderr,
                 )
             return 1
+        if transport_issues:
+            print(
+                "WARNING: presser oEmbed transport (logged, not holding):",
+                file=sys.stderr,
+            )
+            for item in transport_issues:
+                print(f"  - {item}", file=sys.stderr)
         print("  edition gates: ok")
         return 0
 

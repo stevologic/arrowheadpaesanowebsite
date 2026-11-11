@@ -24,6 +24,7 @@ OUT_DEFAULT = ROOT / "tools" / "tests" / "b2_class_coverage"
 WIN = "tools.tests.test_window_scoring_counts.WindowScoringCounts"
 B2 = "tools.tests.test_b2_check_edition"
 NARR = "tools.tests.test_narrative.FactCheck"
+PRESS = "tools.tests.test_press_conferences.PressConferenceVerification"
 
 MEMBERS: list[dict] = [
     # --- I1 score-window regexes ---
@@ -883,6 +884,48 @@ MEMBERS: list[dict] = [
         "new": "        pass\n",
         "test": f"{B2}.SourceTdScope.test_all_purpose_four_is_a_conflict",
         "fixture": "Walker's Four-Touchdown Performance vs ESPN 3",
+    },
+    # --- N4 presser oEmbed transport vs content ---
+    {
+        "item": "N4",
+        "id": "n4_oembed_retry_attempts",
+        "file": "tools/chiefs_narrative/press_conferences.py",
+        "old": "OEMBED_ATTEMPTS = 3",
+        "new": "OEMBED_ATTEMPTS = 1",
+        "test": f"{PRESS}.test_n4_transient_transport_then_success_does_not_hold",
+        "fixture": "Timeout then 200: retry recovers, no hold",
+    },
+    {
+        "item": "N4",
+        "id": "n4_transport_not_unverified",
+        "file": "tools/chiefs_narrative/press_conferences.py",
+        "old": (
+            '        if result.kind == "transport":\n'
+            "            issues.append(\n"
+            '                f"{PRESS_TRANSPORT_PREFIX} {result.detail} for {item.get(\'url\')}"\n'
+            "            )\n"
+            "            continue\n"
+        ),
+        "new": (
+            '        if result.kind == "transport":\n'
+            "            issues.append(\n"
+            '                f"press conference: unverified embed {item.get(\'url\')}"\n'
+            "            )\n"
+            "            continue\n"
+        ),
+        "test": f"{PRESS}.test_n4_persistent_transport_classified_logged_not_held",
+        "fixture": "persistent ConnectionError is transport, logged, not held",
+    },
+    {
+        "item": "N4",
+        "id": "n4_check_edition_transport_no_hold",
+        "file": "tools/chiefs_narrative/generate.py",
+        "old": (
+            "            if item not in press_issues and item not in transport_issues"
+        ),
+        "new": "            if item not in press_issues",
+        "test": f"{PRESS}.test_n4_check_edition_transport_does_not_hold",
+        "fixture": "--check-edition rc 0 on transport-only issues",
     },
 ]
 

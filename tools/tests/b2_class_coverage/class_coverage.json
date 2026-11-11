@@ -1150,5 +1150,53 @@
     "expected": "True (non-empty issues)",
     "assert_text": "False is not true : []",
     "vacuous": false
+  },
+  {
+    "item": "N4",
+    "id": "n4_oembed_retry_attempts",
+    "test": "test_n4_transient_transport_then_success_does_not_hold",
+    "test_full": "tools.tests.test_press_conferences.PressConferenceVerification.test_n4_transient_transport_then_success_does_not_hold",
+    "mutant": "tools/chiefs_narrative/press_conferences.py:30 OEMBED_ATTEMPTS = 1",
+    "file": "tools/chiefs_narrative/press_conferences.py",
+    "line": 30,
+    "fixture": "Timeout then 200: retry recovers, no hold",
+    "control": "6/6 pass",
+    "kills": "6/6",
+    "actual": "['press conference transport: Timeout: bli[46 chars]tTg']",
+    "expected": "[]",
+    "assert_text": "Lists differ: ['press conference transport: Timeout: bli[46 chars]tTg'] != [] First list contains 1 additional elements. First extra element 0: 'press conference transport: Timeout: blip for https://www.youtube.com/watch?v=wV0rX_GUtTg' + [] - ['press conference transport: Timeout: blip for ' - 'https://www.youtube.com/watch?v=wV0rX_GUtTg']",
+    "vacuous": false
+  },
+  {
+    "item": "N4",
+    "id": "n4_transport_not_unverified",
+    "test": "test_n4_persistent_transport_classified_logged_not_held",
+    "test_full": "tools.tests.test_press_conferences.PressConferenceVerification.test_n4_persistent_transport_classified_logged_not_held",
+    "mutant": "tools/chiefs_narrative/press_conferences.py:617 if result.kind == \"transport\": /             issues.append( /                 f\"press conference: unverified embed {item",
+    "file": "tools/chiefs_narrative/press_conferences.py",
+    "line": 617,
+    "fixture": "persistent ConnectionError is transport, logged, not held",
+    "control": "6/6 pass",
+    "kills": "6/6",
+    "actual": "False",
+    "expected": "True (non-empty issues)",
+    "assert_text": "False is not true",
+    "vacuous": false
+  },
+  {
+    "item": "N4",
+    "id": "n4_check_edition_transport_no_hold",
+    "test": "test_n4_check_edition_transport_does_not_hold",
+    "test_full": "tools.tests.test_press_conferences.PressConferenceVerification.test_n4_check_edition_transport_does_not_hold",
+    "mutant": "tools/chiefs_narrative/generate.py:2029 if item not in press_issues",
+    "file": "tools/chiefs_narrative/generate.py",
+    "line": 2029,
+    "fixture": "--check-edition rc 0 on transport-only issues",
+    "control": "6/6 pass",
+    "kills": "6/6",
+    "actual": "1",
+    "expected": "0",
+    "assert_text": "1 != 0",
+    "vacuous": false
   }
 ]
