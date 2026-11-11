@@ -57,6 +57,10 @@ REPLAY_NOT_RUN = "replay not run"
 HARD_REPLAY_RC = 1
 
 
+class EditionPathError(RuntimeError):
+    """Live JSON or editions dir is not under DATA_DIR."""
+
+
 class LlmCallBudget:
     """Run-wide cap on provider calls. Exhaustion skips further LLM work."""
 
@@ -1772,8 +1776,10 @@ def _edition_paths_aligned() -> bool:
     try:
         config.NARRATIVE_JSON.resolve().relative_to(config.DATA_DIR.resolve())
         config.EDITIONS_DIR.resolve().relative_to(config.DATA_DIR.resolve())
-    except ValueError:
-        return False
+    except ValueError as exc:
+        raise EditionPathError(
+            "NARRATIVE_JSON and EDITIONS_DIR must sit under DATA_DIR"
+        ) from exc
     return True
 
 
@@ -1781,7 +1787,8 @@ def _latest_edition_file() -> Path | None:
     """Newest data/narrative_editions/*.json by generatedAt, then slug."""
     if not config.EDITIONS_DIR.is_dir():
         return None
-    ranked: list[tuple[str, str, Path]] = []
+    ranked: list[tuple[datetime, str, Path]] = []
+    fallback = datetime.min.replace(tzinfo=timezone.utc)
     for path in config.EDITIONS_DIR.glob("*.json"):
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
@@ -1789,9 +1796,9 @@ def _latest_edition_file() -> Path | None:
             continue
         if not isinstance(payload, dict):
             continue
-        generated = str(payload.get("generatedAt") or "")
+        stamp = facts._parse_generated_at(payload.get("generatedAt")) or fallback
         slug = str(payload.get("slug") or path.stem)
-        ranked.append((generated, slug, path))
+        ranked.append((stamp, slug, path))
     if not ranked:
         return None
     ranked.sort()
@@ -1827,8 +1834,7 @@ def _changed_archive_edition_files() -> list[Path]:
 
 def _fact_check_changed_editions() -> list[str]:
     """Fact-check changed archive edition JSON files. Mutant: return []."""
-    if not _edition_paths_aligned():
-        return []
+    _edition_paths_aligned()
     found: list[str] = []
     live_payload = None
     if config.NARRATIVE_JSON.is_file():
@@ -1865,8 +1871,7 @@ def _fact_check_changed_editions() -> list[str]:
 
 def _live_matches_latest_edition() -> list[str]:
     """Assert live narrative.json equals the latest edition file. Mutant: skip."""
-    if not _edition_paths_aligned():
-        return []
+    _edition_paths_aligned()
     latest = _latest_edition_file()
     live_path = config.NARRATIVE_JSON
     if not live_path.is_file():
@@ -1906,8 +1911,11 @@ def check_published_edition() -> list[str]:
     issues.extend(press_conferences.check_embeds(narrative, schedule=schedule))
     issues.extend(locker_room.check_posts(narrative, schedule=schedule))
     issues.extend(hero_posts.validate_sidecar())
-    issues.extend(_fact_check_changed_editions())
-    issues.extend(_live_matches_latest_edition())
+    try:
+        issues.extend(_fact_check_changed_editions())
+        issues.extend(_live_matches_latest_edition())
+    except EditionPathError as exc:
+        issues.append(str(exc))
     return _unique_issues(issues)
 
 
@@ -1963,10 +1971,14 @@ def main(argv=None) -> int:
             print(f"  {REPLAY_NOT_RUN}")
             emit_held([REPLAY_NOT_RUN])
             return 0
+        try:
+            extra = (
+                _fact_check_changed_editions() + _live_matches_latest_edition()
+            )
+        except EditionPathError as exc:
+            extra = [str(exc)]
         held, hard = split_replay_issues(
-            archive_replay_issues(narrative)
-            + _fact_check_changed_editions()
-            + _live_matches_latest_edition()
+            archive_replay_issues(narrative) + extra
         )
         if hard:
             print(

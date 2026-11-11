@@ -34,16 +34,19 @@ class MergeLookupError(RuntimeError):
 
 
 def load_repair(root=None) -> dict:
-    """Edition repair sidecar. Missing or invalid JSON is an empty hold-closed dict."""
+    """Edition repair sidecar. Missing, unreadable, or invalid JSON is held."""
     path = Path(root) if root else config.REPO_ROOT
     repair_path = path / "data" / "narrative_repair.json"
+    held = {"holdAutomerge": True}
     if not repair_path.is_file():
-        return {}
+        return held
     try:
         loaded = json.loads(repair_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {}
-    return loaded if isinstance(loaded, dict) else {}
+        return held
+    if not isinstance(loaded, dict):
+        return held
+    return loaded
 
 
 def repair_holds_automerge(root=None) -> bool:

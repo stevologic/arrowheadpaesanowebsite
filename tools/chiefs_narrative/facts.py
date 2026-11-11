@@ -1015,7 +1015,9 @@ REVIEW_REQUIRES_HUMAN = True
 # Qualified counts are not whole-game totals. Compare against the window
 # when quarter data can compute it; otherwise skip.
 _WINDOW_FOLD_ZWSP = "\u200b"
+_WINDOW_FOLD_NBSP = "\u00a0"
 _WINDOW_FOLD_EM_DASH = "\u2014"
+_WINDOW_FOLD_FIGURE_DASH = "\u2012"
 _WINDOW_FOLD_MINUS = "\u2212"
 _WINDOW_FOLD_SOFT_HYPHEN = "\u00ad"
 
@@ -1026,7 +1028,9 @@ def _fold_window_text(text: str) -> str:
         return text
     text = text.replace(_WINDOW_FOLD_ZWSP, "")
     text = text.replace(_WINDOW_FOLD_SOFT_HYPHEN, "")
+    text = text.replace(_WINDOW_FOLD_NBSP, " ")
     text = text.replace(_WINDOW_FOLD_EM_DASH, "-")
+    text = text.replace(_WINDOW_FOLD_FIGURE_DASH, "-")
     text = text.replace(_WINDOW_FOLD_MINUS, "-")
     return text
 
@@ -8214,7 +8218,7 @@ def source_td_conflicts(news, recap: dict | None) -> list[str]:
 
 _RED_ZONE = re.compile(r"\bred[- ]zone\b", re.I)
 _RED_ZONE_EFF = re.compile(
-    r"\b(\d+)\s*(?:-|–|of|for)\s*(\d+)\s+(?:in\s+the\s+)?red[- ]zone\b",
+    r"\b(\d+)\s*(?:-(?:of|for)-|of|for|-|–)\s*(\d+)\s+(?:in\s+the\s+)?red[- ]zone\b",
     re.I,
 )
 _RED_ZONE_TRIPS = re.compile(
@@ -8225,13 +8229,13 @@ _RED_ZONE_TRIPS = re.compile(
 _THIRD_DOWN = re.compile(r"\bthird[- ]downs?\b", re.I)
 _THIRD_DOWN_BOUND = re.compile(
     r"(?:"
-    r"(?P<pre>\d+)\s*(?:-|–|of|for)\s*(?P<pre_att>\d+)[ \t]+(?:on[ \t]+)?"
+    r"(?P<pre>\d+)\s*(?:of|for|-|–)\s*(?P<pre_att>\d+)[ \t]+(?:on[ \t]+)?"
     r"third[- ]downs?"
     r"|"
     r"third[- ]downs?[ \t]+(?:conversions?[ \t]+)?"
     r"(?:at[ \t]+|were[ \t]+|was[ \t]+|went[ \t]+|of[ \t]+)?"
-    r"(?P<post>\d+)\s*(?:-|–|of|for)\s*(?P<post_att>\d+)"
-    r"(?:[ \t]+to[ \t]+(?P<to>\d+)\s*(?:-|–|of|for)\s*(?P<to_att>\d+))?"
+    r"(?P<post>\d+)\s*(?:of|for|-|–)\s*(?P<post_att>\d+)"
+    r"(?:[ \t]+to[ \t]+(?P<to>\d+)\s*(?:of|for|-|–)\s*(?P<to_att>\d+))?"
     r")",
     re.I,
 )
@@ -8256,13 +8260,16 @@ _TV_ALIASES = {
     "amazon": "prime",
     "prime": "prime",
     "prime video": "prime",
+    "peacock": "nbc",
+    "espn unlmtd": "espn",
+    "espn unlimited": "espn",
 }
 
 
 def _parse_eff_pair(raw: str):
     """Parse ESPN '6-11' / copy '6 of 11' into (made, att), or None."""
     text = _fold_window_text(raw or "")
-    hit = re.search(r"\b(\d+)\s*(?:-|of|for)\s*(\d+)\b", text, re.I)
+    hit = re.search(r"\b(\d+)\s*(?:-(?:of|for)-|of|for|-)\s*(\d+)\b", text, re.I)
     if not hit:
         return None
     return int(hit.group(1)), int(hit.group(2))
@@ -8463,7 +8470,16 @@ def _tv_matches(claimed: str, official: str) -> bool:
         return True
     left_c = re.sub(r"\s+", "", left)
     right_c = re.sub(r"\s+", "", right)
-    return left_c in right_c or right_c in left_c
+    if left_c not in right_c and right_c not in left_c:
+        return False
+    shorter, longer = (
+        (left_c, right_c) if len(left_c) <= len(right_c) else (right_c, left_c)
+    )
+    idx = longer.find(shorter)
+    after = longer[idx + len(shorter) : idx + len(shorter) + 1]
+    if after.isdigit():
+        return False
+    return True
 
 
 def _kickoff_hm(raw: str):

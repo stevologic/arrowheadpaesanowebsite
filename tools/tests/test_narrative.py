@@ -1008,6 +1008,11 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("fetch-depth: 0", gates)
         self.assertIn("Fetch develop for edition diffs", gates)
         self.assertIn("git fetch --no-tags origin develop", gates)
+        self.assertIn("review_gate --hold-repair", gates)
+        self.assertLess(
+            gates.index("review_gate --pages"),
+            gates.index("review_gate --hold-repair"),
+        )
 
     def test_edition_ci_uses_approved_pr_event_without_dispatch_merge(self):
         """Dispatch success cannot satisfy PR checks; retain human approval."""
@@ -8452,6 +8457,10 @@ class FactCheck(unittest.TestCase):
             for tree in (root, unsigned):
                 editions = tree / "data" / editions_name
                 editions.mkdir(parents=True)
+                (tree / "data" / "narrative_repair.json").write_text(
+                    json.dumps({"holdAutomerge": False}) + "\n",
+                    encoding="utf-8",
+                )
             review_bytes = (json.dumps(review) + "\n").encode("utf-8")
             preview_bytes = (json.dumps(preview) + "\n").encode("utf-8")
             (root / "data" / editions_name / "2026-10-05-0937.json").write_bytes(
@@ -14024,8 +14033,13 @@ class Oct14EditionGates(unittest.TestCase):
             path.write_text(json.dumps(narrative) + "\n", encoding="utf-8")
             with patch.object(generate.config, "NARRATIVE_JSON", path):
                 with patch.object(generate, "archive_replay_issues", return_value=held):
-                    with redirect_stdout(io.StringIO()) as out:
-                        rc = generate.main(["--gate-replay"])
+                    with patch.object(
+                        generate, "_fact_check_changed_editions", return_value=[]
+                    ), patch.object(
+                        generate, "_live_matches_latest_edition", return_value=[]
+                    ):
+                        with redirect_stdout(io.StringIO()) as out:
+                            rc = generate.main(["--gate-replay"])
             self.assertEqual(rc, 0)
             self.assertIn("held", out.getvalue())
 
@@ -14123,7 +14137,11 @@ class Oct14EditionGates(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "narrative.json"
             path.write_text(json.dumps(week7) + "\n", encoding="utf-8")
-            with patch.object(generate.config, "NARRATIVE_JSON", path):
+            with patch.object(generate.config, "NARRATIVE_JSON", path), patch.object(
+                generate, "_fact_check_changed_editions", return_value=[]
+            ), patch.object(
+                generate, "_live_matches_latest_edition", return_value=[]
+            ):
                 with redirect_stdout(io.StringIO()) as out:
                     rc = generate.main(["--gate-replay"])
             self.assertEqual(rc, 0, out.getvalue())
@@ -14175,7 +14193,11 @@ class Oct14EditionGates(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "narrative.json"
             path.write_text(json.dumps(week8) + "\n", encoding="utf-8")
-            with patch.object(generate.config, "NARRATIVE_JSON", path):
+            with patch.object(generate.config, "NARRATIVE_JSON", path), patch.object(
+                generate, "_fact_check_changed_editions", return_value=[]
+            ), patch.object(
+                generate, "_live_matches_latest_edition", return_value=[]
+            ):
                 with redirect_stdout(io.StringIO()) as out:
                     rc = generate.main(["--gate-replay"])
             self.assertEqual(rc, 0, out.getvalue())
@@ -14228,7 +14250,11 @@ class Oct14EditionGates(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "narrative.json"
             path.write_text(json.dumps(week9) + "\n", encoding="utf-8")
-            with patch.object(generate.config, "NARRATIVE_JSON", path):
+            with patch.object(generate.config, "NARRATIVE_JSON", path), patch.object(
+                generate, "_fact_check_changed_editions", return_value=[]
+            ), patch.object(
+                generate, "_live_matches_latest_edition", return_value=[]
+            ):
                 with redirect_stdout(io.StringIO()) as out:
                     rc = generate.main(["--gate-replay"])
             self.assertEqual(rc, 0, out.getvalue())

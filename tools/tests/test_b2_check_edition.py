@@ -100,6 +100,126 @@ class PlayerTdTotals(unittest.TestCase):
         self.assertEqual(walker.get("rush"), 1)
         self.assertEqual(walker.get("rec"), 2)
 
+    def test_player_scored_a_touchdown_flags(self):
+        issues = facts._check_player_td_totals(
+            "Walker scored a touchdown all day.",
+            self.recap,
+        )
+        self.assertTrue(
+            any("touchdown total 1 disagrees with ESPN 3" in item for item in issues),
+            issues,
+        )
+
+    def test_bare_player_td_all_day_flags(self):
+        issues = facts._check_player_td_totals(
+            "Walker had one touchdown all day.",
+            self.recap,
+        )
+        self.assertTrue(
+            any("touchdown total 1 disagrees with ESPN 3" in item for item in issues),
+            issues,
+        )
+
+    def test_typed_rushing_td_flags(self):
+        issues = facts._check_player_td_totals(
+            "Walker had two rushing touchdowns.",
+            self.recap,
+        )
+        self.assertTrue(
+            any("rushing" in item and "2" in item and "1" in item for item in issues),
+            issues,
+        )
+
+    def test_headline_td_perf_two_flags(self):
+        issues = facts.source_td_conflicts(
+            [
+                {
+                    "title": "Walker's two-touchdown performance",
+                    "publisher": "Chiefs.com",
+                }
+            ],
+            self.recap,
+        )
+        self.assertTrue(
+            any("total TDs 2 disagrees with ESPN 3" in item for item in issues),
+            issues,
+        )
+        self.assertIsNotNone(
+            facts._HEADLINE_TD_PERF.search("Walker's two-touchdown performance")
+        )
+
+    def test_headline_td_bare_four_flags(self):
+        issues = facts.source_td_conflicts(
+            [
+                {
+                    "title": "Four-touchdown performance from Walker",
+                    "publisher": "Chiefs.com",
+                }
+            ],
+            self.recap,
+        )
+        self.assertTrue(
+            any("total TDs 4 disagrees with ESPN 3" in item for item in issues),
+            issues,
+        )
+
+    def test_whole_game_td_scope_all_game(self):
+        issues = facts._check_player_td_totals(
+            "Walker had one touchdown all game.",
+            self.recap,
+        )
+        self.assertTrue(
+            any("touchdown total 1 disagrees with ESPN 3" in item for item in issues),
+            issues,
+        )
+
+    def test_scoring_td_line_pass_is_rec(self):
+        totals = facts.player_td_totals(
+            {
+                "scoring": ["— KC Hunt 12 Yd pass"],
+                "touches": [],
+                "plays": [],
+                "scoringPlays": [],
+            }
+        )
+        self.assertEqual((totals.get("hunt") or {}).get("rec"), 1)
+        self.assertEqual((totals.get("hunt") or {}).get("rush"), 0)
+
+    def test_pbp_pass_td_is_rec(self):
+        totals = facts.player_td_totals(
+            {
+                "touches": [],
+                "scoring": [],
+                "plays": [
+                    {"text": "P.Mahomes pass to H.Hunt for 12 yards TOUCHDOWN"}
+                ],
+                "scoringPlays": [],
+            }
+        )
+        self.assertEqual((totals.get("hunt") or {}).get("rec"), 1)
+        self.assertEqual((totals.get("hunt") or {}).get("rush"), 0)
+
+    def test_pbp_rush_td_is_rush(self):
+        totals = facts.player_td_totals(
+            {
+                "touches": [],
+                "scoring": [],
+                "plays": [{"text": "K.Hunt 1 Yd run TOUCHDOWN"}],
+                "scoringPlays": [],
+            }
+        )
+        self.assertEqual((totals.get("hunt") or {}).get("rush"), 1)
+        self.assertEqual((totals.get("hunt") or {}).get("rec"), 0)
+
+    def test_add_player_td_rush_vs_rec(self):
+        out: dict = {}
+        facts._add_player_td(out, "Hunt", "rush")
+        self.assertEqual(out["hunt"]["rush"], 1)
+        self.assertEqual(out["hunt"]["rec"], 0)
+        facts._add_player_td(out, "Hunt", "rec")
+        self.assertEqual(out["hunt"]["rec"], 1)
+        self.assertEqual(out["hunt"]["total"], 2)
+
 
 class SourceTdScope(unittest.TestCase):
     def setUp(self):
@@ -124,6 +244,19 @@ class SourceTdScope(unittest.TestCase):
         issues = facts.source_td_conflicts(news, self.recap)
         self.assertTrue(
             any("rushing TDs 2 disagrees with ESPN 1" in item for item in issues),
+            issues,
+        )
+
+    def test_all_purpose_four_is_a_conflict(self):
+        news = [
+            {
+                "title": "Walker's Four-Touchdown Performance",
+                "publisher": "Chiefs.com",
+            }
+        ]
+        issues = facts.source_td_conflicts(news, self.recap)
+        self.assertTrue(
+            any("total TDs 4 disagrees with ESPN 3" in item for item in issues),
             issues,
         )
 
@@ -236,6 +369,28 @@ class NextKickoffTv(unittest.TestCase):
         self.assertFalse(facts._tv_matches("NFL Net", "Prime Video"))
         self.assertFalse(facts._kickoff_matches("3:25 PM CT", "12:00 PM CT"))
         self.assertTrue(facts._kickoff_matches("12:00 PM CT", "12:00 PM CT"))
+
+    def test_kickoff_am_pm_variants(self):
+        self.assertTrue(facts._kickoff_matches("12:00 P.M. CT", "12:00 PM CT"))
+        self.assertTrue(facts._kickoff_matches("12:00 pm CT", "12:00 PM CT"))
+        self.assertFalse(facts._kickoff_matches("12:00 AM CT", "12:00 PM CT"))
+
+    def test_tv_aliases_nbc_peacock_and_prime_video(self):
+        self.assertEqual(facts._norm_tv("NBC"), "nbc")
+        self.assertEqual(facts._norm_tv("Prime Video"), "prime")
+        self.assertFalse(facts._tv_matches("Prime Video", "NBC"))
+        self.assertFalse(facts._tv_matches("FOX", "Prime Video"))
+        self.assertEqual(facts._norm_tv("Peacock"), "nbc")
+        self.assertTrue(facts._tv_matches("Peacock", "NBC"))
+        self.assertEqual(facts._norm_tv("ABC"), "abc")
+        self.assertEqual(facts._norm_tv("NFLN"), "nfl network")
+        self.assertEqual(facts._norm_tv("Amazon"), "prime")
+        self.assertTrue(facts._tv_matches("Amazon", "Prime Video"))
+        self.assertEqual(facts._norm_tv("ESPN Unlmtd"), "espn")
+
+    def test_tv_espn_is_not_espn2_substring(self):
+        self.assertFalse(facts._tv_matches("ESPN", "ESPN2"))
+        self.assertFalse(facts._tv_matches("ESPN2", "ESPN"))
 
 
 class RedZoneThirdDown(unittest.TestCase):
@@ -360,6 +515,182 @@ class RedZoneThirdDown(unittest.TestCase):
             [],
         )
 
+    def test_red_zone_eff_5_of_4_flags(self):
+        issues = facts._check_red_zone_counts(
+            "Kansas City was 5-of-4 in the red zone.",
+            self.recap,
+            LAST_JETS,
+        )
+        self.assertTrue(
+            any("red-zone efficiency" in item and "5-for-4" in item for item in issues),
+            issues,
+        )
+
+    def test_red_zone_space_separator_flags(self):
+        issues = facts._check_red_zone_counts(
+            "A red zone finish that produced five touchdowns.",
+            self.recap,
+            LAST_JETS,
+        )
+        self.assertTrue(
+            any("red-zone touchdown count 5 disagrees with ESPN 4" in item for item in issues),
+            issues,
+        )
+
+    def test_red_zone_trips_five_flags(self):
+        issues = facts._check_red_zone_counts(
+            "Five red-zone trips, all cashed.",
+            self.recap,
+            LAST_JETS,
+        )
+        self.assertTrue(
+            any("red-zone trips 5 disagrees with ESPN 4" in item for item in issues),
+            issues,
+        )
+
+    def test_red_zone_tds_not_trips(self):
+        recap = dict(self.recap)
+        recap["kc"] = dict(recap["kc"], redZoneEff="4-6")
+        self.assertEqual(
+            facts._check_red_zone_counts(
+                "A red-zone finish that produced four touchdowns.",
+                recap,
+                LAST_JETS,
+            ),
+            [],
+        )
+        issues = facts._check_red_zone_counts(
+            "Five red-zone trips against the Jets.",
+            recap,
+            LAST_JETS,
+        )
+        self.assertTrue(
+            any("red-zone trips 5 disagrees with ESPN 6" in item for item in issues),
+            issues,
+        )
+
+    def test_opponent_red_zone_is_not_kc(self):
+        self.assertEqual(
+            facts._check_red_zone_counts(
+                "Five Jets touchdowns in the red zone.",
+                self.recap,
+                LAST_JETS,
+            ),
+            [],
+        )
+
+    def test_red_zone_fg_kind_is_not_td(self):
+        self.assertEqual(
+            facts._check_red_zone_counts(
+                "Kansas City kicked five field goals in the red zone.",
+                self.recap,
+                LAST_JETS,
+            ),
+            [],
+        )
+
+    def test_red_zone_score_kind_flags(self):
+        issues = facts._check_red_zone_counts(
+            "Kansas City scored five scores in the red zone.",
+            self.recap,
+            LAST_JETS,
+        )
+        self.assertTrue(
+            any("red-zone touchdown count 5 disagrees with ESPN 4" in item for item in issues),
+            issues,
+        )
+
+    def test_third_down_n_of_m_words(self):
+        issues = facts._check_third_down_counts(
+            "Kansas City converted 7 of 11 third downs.",
+            self.recap,
+            LAST_JETS,
+        )
+        self.assertTrue(
+            any("7-of-11" in item and "6-11" in item for item in issues),
+            issues,
+        )
+
+    def test_third_down_singular(self):
+        issues = facts._check_third_down_counts(
+            "Kansas City converted 7 of 11 on third down.",
+            self.recap,
+            LAST_JETS,
+        )
+        self.assertTrue(
+            any("7-of-11" in item for item in issues),
+            issues,
+        )
+
+    def test_third_down_n_hyphen_m(self):
+        issues = facts._check_third_down_counts(
+            "Kansas City converted 7-11 on third down.",
+            self.recap,
+            LAST_JETS,
+        )
+        self.assertTrue(
+            any("7-of-11" in item for item in issues),
+            issues,
+        )
+
+    def test_third_down_not_across_newline(self):
+        self.assertEqual(
+            facts._check_third_down_counts(
+                "Kansas City converted 7 of 11\nthird downs.",
+                self.recap,
+                LAST_JETS,
+            ),
+            [],
+        )
+
+    def test_third_down_multiple_pairs(self):
+        issues = facts._check_third_down_counts(
+            "Kansas City third downs 6 of 11 to 3 of 12.",
+            self.recap,
+            LAST_JETS,
+        )
+        self.assertTrue(
+            any("opponent third-down" in item and "3-of-12" in item for item in issues),
+            issues,
+        )
+
+    def test_rightmost_team_seattle_third_down(self):
+        last = {
+            "opponent": "Seattle Seahawks",
+            "opponentAbbr": "SEA",
+            "opponentShort": "Seahawks",
+        }
+        recap = dict(self.recap)
+        recap["oppAbbr"] = "SEA"
+        recap["opp"] = dict(recap.get("opp") or {}, thirdDownEff="4-12")
+        recap["kc"] = dict(recap.get("kc") or {}, thirdDownEff="6-11")
+        issues = facts._check_third_down_counts(
+            "Seattle's 4 of 11 on third down was the problem.",
+            recap,
+            last,
+        )
+        self.assertTrue(
+            any("opponent third-down" in item and "4-of-11" in item for item in issues),
+            issues,
+        )
+        self.assertEqual(
+            facts._check_third_down_counts(
+                "Seattle's 4 of 12 on third down was the problem.",
+                recap,
+                last,
+            ),
+            [],
+        )
+        issues = facts._check_third_down_counts(
+            "Seattle's 3 of 12 on third down was the problem.",
+            recap,
+            last,
+        )
+        self.assertTrue(
+            any("opponent third-down" in item and "3-of-12" in item for item in issues),
+            issues,
+        )
+
 
 class HoldAutomergePaths(unittest.TestCase):
     def _root(self, hold: bool) -> Path:
@@ -414,6 +745,56 @@ class HoldAutomergePaths(unittest.TestCase):
             rc = review_gate.main(["--automerge", "--root", str(held)])
         self.assertEqual(rc, 1)
         self.assertIn("holdAutomerge", err.getvalue())
+
+    def test_load_repair_missing_is_held(self):
+        tmp = Path(tempfile.mkdtemp())
+        (tmp / "data").mkdir()
+        loaded = edition_merge.load_repair(tmp)
+        self.assertEqual(loaded.get("holdAutomerge"), True)
+        self.assertTrue(edition_merge.repair_holds_automerge(tmp))
+
+    def test_load_repair_invalid_json_is_held(self):
+        tmp = self._root(False)
+        (tmp / "data" / "narrative_repair.json").write_text("{", encoding="utf-8")
+        self.assertTrue(edition_merge.repair_holds_automerge(tmp))
+
+    def test_load_repair_non_object_is_held(self):
+        tmp = self._root(False)
+        (tmp / "data" / "narrative_repair.json").write_text("[]\n", encoding="utf-8")
+        self.assertTrue(edition_merge.repair_holds_automerge(tmp))
+
+    def test_load_repair_unreadable_is_held(self):
+        tmp = self._root(False)
+        repair = tmp / "data" / "narrative_repair.json"
+        real = Path.read_text
+
+        def boom(self, *args, **kwargs):
+            if self == repair:
+                raise OSError("boom")
+            return real(self, *args, **kwargs)
+
+        with patch.object(Path, "read_text", boom):
+            self.assertTrue(edition_merge.repair_holds_automerge(tmp))
+
+    def test_hold_repair_missing_repair_file_is_held(self):
+        tmp = Path(tempfile.mkdtemp())
+        (tmp / "data").mkdir()
+        err = io.StringIO()
+        with patch("sys.stderr", err):
+            rc = review_gate.main(["--hold-repair", "--root", str(tmp)])
+        self.assertEqual(rc, 1)
+        self.assertIn("holdAutomerge", err.getvalue())
+
+    def test_ci_gates_runs_hold_repair(self):
+        ci = (
+            Path(__file__).resolve().parents[2] / ".github" / "workflows" / "ci.yml"
+        ).read_text(encoding="utf-8")
+        gates = ci.split("automerge:")[0]
+        self.assertIn("review_gate --hold-repair", gates)
+        self.assertLess(
+            gates.index("review_gate --pages"),
+            gates.index("review_gate --hold-repair"),
+        )
 
 
 class CheckEditionRc(unittest.TestCase):
@@ -511,16 +892,26 @@ class N3ChangedEditions(unittest.TestCase):
         archive_changed: bool,
         live_differs: bool,
         archive_lie: bool = True,
+        latest_lie: bool = False,
+        git_unknown: bool = False,
+        unreadable: bool = False,
+        git_bare: bool = False,
+        live_lie: bool = False,
     ) -> tuple[int, str]:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             data = root / "data"
             editions = data / "narrative_editions"
             editions.mkdir(parents=True)
+            live_strategies = (
+                ["A red-zone finish that produced five touchdowns."]
+                if live_lie
+                else ["Protect the pocket."]
+            )
             live = self._payload(
                 slug=self.LIVE_SLUG,
                 generated_at="2026-11-10T17:26:00Z",
-                strategies=["Protect the pocket."],
+                strategies=live_strategies,
             )
             latest = dict(live)
             archive_strategies = (
@@ -536,6 +927,11 @@ class N3ChangedEditions(unittest.TestCase):
             if live_differs:
                 live = dict(live)
                 live["headline"] = "A different live headline."
+            if latest_lie:
+                latest = dict(latest)
+                latest["strategies"] = [
+                    "A red-zone finish that produced five touchdowns."
+                ]
             (data / "narrative.json").write_text(
                 json.dumps(live) + "\n", encoding="utf-8"
             )
@@ -545,10 +941,22 @@ class N3ChangedEditions(unittest.TestCase):
             (editions / f"{self.ARCHIVE_SLUG}.json").write_text(
                 json.dumps(archive) + "\n", encoding="utf-8"
             )
-            changed: set[str] = set()
-            if archive_changed:
+            if unreadable:
+                (editions / "broken.json").write_text("{", encoding="utf-8")
+            changed: set[str] | None
+            if git_unknown:
+                changed = None
+            else:
+                changed = set()
                 editions_rel = "data/" + "narrative" + "_editions"
-                changed.add(f"{editions_rel}/{self.ARCHIVE_SLUG}.json")
+                if archive_changed:
+                    changed.add(f"{editions_rel}/{self.ARCHIVE_SLUG}.json")
+                if latest_lie or live_lie:
+                    changed.add(f"{editions_rel}/{self.LIVE_SLUG}.json")
+                if unreadable:
+                    changed.add(f"{editions_rel}/broken.json")
+                if git_bare:
+                    changed.add(f"{self.ARCHIVE_SLUG}.json")
             buf = io.StringIO()
             err = io.StringIO()
             with patch.object(
@@ -618,3 +1026,123 @@ class N3ChangedEditions(unittest.TestCase):
             ["--gate-replay"], archive_changed=False, live_differs=False
         )
         self.assertEqual(rc_replay, 0, blob_replay)
+
+    def test_n3_latest_edition_false_count_fails(self):
+        rc, blob = self._run(
+            ["--check-edition"],
+            archive_changed=False,
+            live_differs=False,
+            archive_lie=False,
+            latest_lie=True,
+        )
+        self.assertEqual(rc, 1, blob)
+        self.assertIn(f"{self.LIVE_SLUG}.json", blob)
+        self.assertIn("five touchdowns", blob)
+
+    def test_n3_unreadable_edition_fails(self):
+        rc, blob = self._run(
+            ["--check-edition"],
+            archive_changed=False,
+            live_differs=False,
+            archive_lie=False,
+            unreadable=True,
+        )
+        self.assertEqual(rc, 1, blob)
+        self.assertIn("unreadable", blob)
+
+    def test_n3_unknown_git_scans_archives(self):
+        rc, blob = self._run(
+            ["--check-edition"],
+            archive_changed=False,
+            live_differs=False,
+            archive_lie=True,
+            git_unknown=True,
+        )
+        self.assertEqual(rc, 1, blob)
+        self.assertIn("five touchdowns", blob)
+
+    def test_n3_bare_name_changed_path_is_scanned(self):
+        rc, blob = self._run(
+            ["--check-edition"],
+            archive_changed=False,
+            live_differs=False,
+            archive_lie=True,
+            git_bare=True,
+        )
+        self.assertEqual(rc, 1, blob)
+        self.assertIn("five touchdowns", blob)
+        self.assertIn(f"{self.ARCHIVE_SLUG}.json", blob)
+
+    def test_n3_live_twin_skip_when_equal(self):
+        rc, blob = self._run(
+            ["--check-edition"],
+            archive_changed=False,
+            live_differs=False,
+            archive_lie=False,
+            live_lie=True,
+        )
+        self.assertEqual(rc, 1, blob)
+        self.assertIn("five touchdowns", blob)
+        self.assertNotIn(f"{self.LIVE_SLUG}.json:", blob)
+
+    def test_latest_edition_z_vs_offset_sort(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            editions = Path(tmp) / "editions"
+            editions.mkdir()
+            older = {
+                "generatedAt": "2026-11-10T13:00:00+01:00",
+                "slug": "aaa",
+            }
+            newer = {
+                "generatedAt": "2026-11-10T12:30:00Z",
+                "slug": "zzz",
+            }
+            (editions / "aaa.json").write_text(
+                json.dumps(older) + "\n", encoding="utf-8"
+            )
+            (editions / "zzz.json").write_text(
+                json.dumps(newer) + "\n", encoding="utf-8"
+            )
+            with patch.object(generate.config, "EDITIONS_DIR", editions):
+                latest = generate._latest_edition_file()
+            self.assertIsNotNone(latest)
+            self.assertEqual(latest.name, "zzz.json")
+
+    def test_edition_paths_aligned_raises_off_data_dir(self):
+        with patch.object(
+            generate.config, "NARRATIVE_JSON", Path("/tmp/narrative.json")
+        ):
+            with self.assertRaises(generate.EditionPathError) as caught:
+                generate._edition_paths_aligned()
+        self.assertIn("DATA_DIR", str(caught.exception))
+
+    def test_check_edition_errors_when_paths_misaligned(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "narrative.json"
+            path.write_text(
+                json.dumps(
+                    self._payload(
+                        slug=self.LIVE_SLUG,
+                        generated_at="2026-11-10T17:26:00Z",
+                        strategies=["Protect the pocket."],
+                    )
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            buf = io.StringIO()
+            err = io.StringIO()
+            with patch.object(generate.config, "NARRATIVE_JSON", path), patch.object(
+                generate.hero_posts, "validate_sidecar", return_value=[]
+            ), patch.object(
+                generate.press_conferences, "check_embeds", return_value=[]
+            ), patch.object(
+                generate.locker_room, "check_posts", return_value=[]
+            ), patch.object(
+                facts, "check_diagram_captions", return_value=[]
+            ):
+                with redirect_stdout(buf), patch("sys.stderr", err):
+                    rc = generate.main(["--check-edition"])
+            blob = buf.getvalue() + err.getvalue()
+            self.assertEqual(rc, 1, blob)
+            self.assertIn("DATA_DIR", blob)
