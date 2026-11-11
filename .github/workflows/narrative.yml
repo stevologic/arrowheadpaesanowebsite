@@ -514,8 +514,9 @@ jobs:
           git worktree add --detach "$GATE_BASE" "origin/develop"
           cd "$GATE_BASE"
           if ! PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.edition_merge \
-            --pr "${{ github.event.pull_request.html_url }}"; then
-            echo "Refusing edition auto-merge and promote: hold label or unresolved review findings"
+            --pr "${{ github.event.pull_request.html_url }}" \
+            --root "${GITHUB_WORKSPACE}"; then
+            echo "Refusing edition auto-merge and promote: holdAutomerge, hold label, or unresolved review findings"
             echo "refused=true" >> "$GITHUB_OUTPUT"
             gh pr merge "${{ github.event.pull_request.html_url }}" --disable-auto || true
             exit 1
@@ -561,10 +562,11 @@ jobs:
             | head -n 1)"
           cd "$GATE_BASE"
           if ! PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.edition_merge \
-            --pr "${{ github.event.pull_request.html_url }}"; then
-            echo "Refusing promote: hold label or unresolved review findings"
+            --pr "${{ github.event.pull_request.html_url }}" \
+            --root "${GITHUB_WORKSPACE}"; then
+            echo "Refusing promote: holdAutomerge, hold label, or unresolved review findings"
             if [ -n "$EXISTING" ]; then
-              gh pr close "$EXISTING" --comment "Refusing promote: hold or unresolved review findings"
+              gh pr close "$EXISTING" --comment "Refusing promote: holdAutomerge, hold, or unresolved review findings"
             fi
             exit 1
           fi
@@ -578,9 +580,10 @@ jobs:
               --body-file "$BODY_FILE")"
           fi
           if ! PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.edition_merge \
-            --pr "${{ github.event.pull_request.html_url }}"; then
-            echo "Refusing promote: hold label or unresolved review findings"
-            gh pr close "$PROMOTE_URL" --comment "Refusing promote: hold or unresolved review findings"
+            --pr "${{ github.event.pull_request.html_url }}" \
+            --root "${GITHUB_WORKSPACE}"; then
+            echo "Refusing promote: holdAutomerge, hold label, or unresolved review findings"
+            gh pr close "$PROMOTE_URL" --comment "Refusing promote: holdAutomerge, hold, or unresolved review findings"
             exit 1
           fi
           gh pr merge "$PROMOTE_URL" --merge --auto \

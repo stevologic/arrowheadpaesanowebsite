@@ -478,6 +478,8 @@ _RECAP_STAT_NAMES = (
     "turnovers",
     "firstDowns",
     "thirdDownEff",
+    "redZoneEff",
+    "redZoneEfficiency",
     "possessionTime",
     "sacks",
     "totalDrives",
@@ -492,6 +494,8 @@ def _box_stats(team_block: dict) -> dict:
         name = row.get("name") or ""
         if name in _RECAP_STAT_NAMES:
             stats[name] = str(row.get("displayValue") or row.get("value") or "").strip()
+    if stats.get("redZoneEfficiency") and not stats.get("redZoneEff"):
+        stats["redZoneEff"] = stats["redZoneEfficiency"]
     return stats
 
 
@@ -918,6 +922,16 @@ def parse_player_usage(box: dict | None) -> dict:
                     slot["rushes"] = _to_int(
                         _stat_at(stats, index_by, "rushingAttempts")
                     ) or 0
+                    rush_tds = _to_int(
+                        _stat_at(
+                            stats,
+                            index_by,
+                            "rushingTouchdowns",
+                            "touchdowns",
+                        )
+                    )
+                    if rush_tds is not None:
+                        slot["rushingTouchdowns"] = rush_tds
                 elif name == "receiving":
                     slot["catches"] = _to_int(
                         _stat_at(stats, index_by, "receptions")
@@ -925,6 +939,16 @@ def parse_player_usage(box: dict | None) -> dict:
                     slot["receivingYards"] = _to_int(
                         _stat_at(stats, index_by, "receivingYards", "yards")
                     ) or 0
+                    rec_tds = _to_int(
+                        _stat_at(
+                            stats,
+                            index_by,
+                            "receivingTouchdowns",
+                            "touchdowns",
+                        )
+                    )
+                    if rec_tds is not None:
+                        slot["receivingTouchdowns"] = rec_tds
                 elif name == "passing":
                     comp_att = _stat_at(
                         stats, index_by, "completions/passingAttempts"
@@ -982,6 +1006,10 @@ def parse_player_usage(box: dict | None) -> dict:
             }
             if slot.get("receivingYards"):
                 row["receivingYards"] = slot["receivingYards"]
+            if slot.get("rushingTouchdowns") is not None:
+                row["rushingTouchdowns"] = slot["rushingTouchdowns"]
+            if slot.get("receivingTouchdowns") is not None:
+                row["receivingTouchdowns"] = slot["receivingTouchdowns"]
             touches.append(row)
     return {
         "touches": touches,

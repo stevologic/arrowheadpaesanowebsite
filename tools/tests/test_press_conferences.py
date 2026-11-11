@@ -1,10 +1,11 @@
 """Press-conference YouTube embeds: schema, oEmbed gate, template, collector."""
 from __future__ import annotations
 
+import io
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from zoneinfo import ZoneInfo
 
 from tools.chiefs_narrative import generate, press_conferences, prompts, schema
@@ -761,6 +762,85 @@ class PressConferenceVerification(unittest.TestCase):
             rc = generate.main(["--check-edition"])
         self.assertEqual(rc, 1)
 
+    def _published_reid(self):
+        return {
+            "url": REID_URL,
+            "speaker": "Andy Reid",
+            "title": REID_TITLE,
+            "date": "2026-10-19",
+        }
+
+    def test_n4_transient_transport_then_success_does_not_hold(self):
+        calls = {"n": 0}
+
+        def fake_get(*_args, **_kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise press_conferences.requests.Timeout("blip")
+            resp = Mock()
+            resp.status_code = 200
+            resp.json.return_value = _oembed(REID_TITLE)
+            return resp
+
+        with patch.object(press_conferences.requests, "get", side_effect=fake_get):
+            with patch.object(press_conferences.time, "sleep"):
+                issues = press_conferences.check_embeds(
+                    {"pressConferences": [self._published_reid()]},
+                    phase=WEEK_PHASE,
+                )
+        self.assertEqual(issues, [])
+        self.assertEqual(calls["n"], 2)
+        with patch.object(generate, "check_published_edition", return_value=[]):
+            self.assertEqual(generate.main(["--check-edition"]), 0)
+
+    def test_n4_persistent_transport_classified_logged_not_held(self):
+        with patch.object(
+            press_conferences.requests,
+            "get",
+            side_effect=press_conferences.requests.ConnectionError("dns"),
+        ):
+            with patch.object(press_conferences.time, "sleep") as slept:
+                with patch("sys.stdout", new_callable=io.StringIO) as buf:
+                    issues = press_conferences.check_embeds(
+                        {"pressConferences": [self._published_reid()]},
+                        phase=WEEK_PHASE,
+                    )
+        self.assertTrue(issues)
+        self.assertTrue(
+            all(item.startswith("press conference transport:") for item in issues)
+        )
+        self.assertFalse(any("unverified embed" in item for item in issues))
+        self.assertIn("oEmbed transport failed", buf.getvalue())
+        self.assertEqual(slept.call_count, press_conferences.OEMBED_ATTEMPTS - 1)
+        with patch.object(generate, "check_published_edition", return_value=issues):
+            self.assertEqual(generate.main(["--check-edition"]), 0)
+
+    def test_n4_content_failure_holds(self):
+        resp = Mock()
+        resp.status_code = 404
+
+        with patch.object(press_conferences.requests, "get", return_value=resp):
+            with patch.object(press_conferences.time, "sleep") as slept:
+                issues = press_conferences.check_embeds(
+                    {"pressConferences": [self._published_reid()]},
+                    phase=WEEK_PHASE,
+                )
+        self.assertEqual(slept.call_count, 0)
+        self.assertTrue(any("unverified embed" in item for item in issues))
+        self.assertFalse(
+            any(item.startswith("press conference transport:") for item in issues)
+        )
+        with patch.object(generate, "check_published_edition", return_value=issues):
+            self.assertEqual(generate.main(["--check-edition"]), 1)
+
+    def test_n4_check_edition_transport_does_not_hold(self):
+        issues = [
+            f"press conference transport: ConnectionError: dns for {REID_URL}"
+        ]
+        with patch.object(generate, "check_published_edition", return_value=issues):
+            rc = generate.main(["--check-edition"])
+        self.assertEqual(rc, 0)
+
 
 class PressConferenceTemplate(unittest.TestCase):
     def test_template_section_is_gated_and_names_the_speaker(self):
@@ -823,6 +903,39 @@ class PressConferenceTemplate(unittest.TestCase):
         self.assertTrue(press_conferences.in_game_week(postgame, WEEK_PHASE))
         self.assertTrue(press_conferences.in_game_week(monday, WEEK_PHASE))
         self.assertFalse(press_conferences.in_game_week(friday, WEEK_PHASE))
+
+    def test_fetch_oembed_retries_once(self):
+        good = {
+            "title": REID_TITLE,
+            "author_name": "Kansas City Chiefs",
+            "author_url": "https://www.youtube.com/@KansasCityChiefs",
+        }
+        calls = {"n": 0}
+
+        def fake_get(*_args, **_kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise press_conferences.requests.RequestException("timeout")
+            resp = Mock()
+            resp.status_code = 200
+            resp.json.return_value = good
+            return resp
+
+        with patch.object(press_conferences.requests, "get", side_effect=fake_get):
+            with patch.object(press_conferences.time, "sleep"):
+                payload = press_conferences.fetch_oembed(REID_URL)
+        self.assertEqual(payload, good)
+        self.assertEqual(calls["n"], 2)
+
+    def test_fetch_oembed_still_none_after_retry(self):
+        with patch.object(
+            press_conferences.requests,
+            "get",
+            side_effect=press_conferences.requests.ConnectionError("down"),
+        ):
+            with patch.object(press_conferences.time, "sleep") as slept:
+                self.assertIsNone(press_conferences.fetch_oembed(REID_URL))
+        self.assertEqual(slept.call_count, press_conferences.OEMBED_ATTEMPTS - 1)
 
 
 if __name__ == "__main__":

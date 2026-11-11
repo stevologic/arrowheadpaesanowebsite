@@ -14,6 +14,8 @@ the same way. Nothing unverified is written into the published list.
 from __future__ import annotations
 
 import re
+import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from urllib.parse import parse_qs, urlparse
 from xml.etree import ElementTree as ET
@@ -25,6 +27,10 @@ from . import config, phase as phase_mod, schema
 
 OEMBED_ENDPOINT = "https://www.youtube.com/oembed"
 OEMBED_TIMEOUT_SEC = 8
+OEMBED_ATTEMPTS = 3
+OEMBED_BACKOFF_SEC = (0.25, 0.5)
+OEMBED_TRANSPORT_STATUSES = frozenset({429, 500, 502, 503, 504})
+PRESS_TRANSPORT_PREFIX = "press conference transport:"
 _CT = ZoneInfo("America/Chicago")
 _MISSING = object()
 
@@ -153,8 +159,17 @@ def handle_from_author_url(author_url: str) -> str:
     return handle.lstrip("@")
 
 
-def fetch_oembed(url: str, *, timeout: float = OEMBED_TIMEOUT_SEC) -> dict | None:
-    """Return the oEmbed JSON object or None. Never raises to callers."""
+@dataclass(frozen=True)
+class OEmbedResult:
+    """Tagged oEmbed lookup: ok payload, exhausted transport, or content miss."""
+
+    payload: dict | None
+    kind: str
+    detail: str = ""
+
+
+def _fetch_oembed_once(url: str, *, timeout: float) -> OEmbedResult:
+    """One YouTube oEmbed GET. Transport errors are distinct from content misses."""
     try:
         resp = requests.get(
             OEMBED_ENDPOINT,
@@ -162,15 +177,52 @@ def fetch_oembed(url: str, *, timeout: float = OEMBED_TIMEOUT_SEC) -> dict | Non
             timeout=timeout,
             allow_redirects=True,
         )
-    except requests.RequestException:
-        return None
+    except requests.RequestException as exc:
+        return OEmbedResult(None, "transport", f"{type(exc).__name__}: {exc}")
+    if resp.status_code in OEMBED_TRANSPORT_STATUSES:
+        return OEmbedResult(None, "transport", f"HTTP {resp.status_code}")
     if resp.status_code != 200:
-        return None
+        return OEmbedResult(None, "content", f"HTTP {resp.status_code}")
     try:
         payload = resp.json()
     except ValueError:
-        return None
-    return payload if isinstance(payload, dict) else None
+        return OEmbedResult(None, "content", "invalid JSON")
+    if not isinstance(payload, dict):
+        return OEmbedResult(None, "content", "oEmbed payload is not an object")
+    return OEmbedResult(payload, "ok")
+
+
+def lookup_oembed(
+    url: str,
+    *,
+    timeout: float = OEMBED_TIMEOUT_SEC,
+    sleeper=None,
+) -> OEmbedResult:
+    """Retry transport failures with bounded backoff. Content misses do not retry."""
+    pause = time.sleep if sleeper is None else sleeper
+    last = OEmbedResult(None, "transport", "no attempt")
+    for attempt in range(OEMBED_ATTEMPTS):
+        last = _fetch_oembed_once(url, timeout=timeout)
+        if last.kind != "transport":
+            return last
+        if attempt + 1 >= OEMBED_ATTEMPTS:
+            break
+        delay = OEMBED_BACKOFF_SEC[min(attempt, len(OEMBED_BACKOFF_SEC) - 1)]
+        print(
+            f"  [press] oEmbed transport retry {attempt + 1}/{OEMBED_ATTEMPTS} "
+            f"in {delay}s ({last.detail})"
+        )
+        pause(delay)
+    print(
+        f"  [press] oEmbed transport failed after {OEMBED_ATTEMPTS} attempts "
+        f"({last.detail})"
+    )
+    return last
+
+
+def fetch_oembed(url: str, *, timeout: float = OEMBED_TIMEOUT_SEC) -> dict | None:
+    """Return the oEmbed JSON object or None. Never raises to callers."""
+    return lookup_oembed(url, timeout=timeout).payload
 
 
 def author_is_allowlisted(payload: dict | None) -> bool:
@@ -556,7 +608,18 @@ def check_embeds(
             issues.append(
                 f"press conference: embed {item.get('url')} is missing the speaker it shows"
             )
-        verified = verify_embed(item, oembed_fetch=oembed_fetch, phase=phase)
+        if oembed_fetch is not None:
+            verified = verify_embed(item, oembed_fetch=oembed_fetch, phase=phase)
+            if not verified:
+                issues.append(f"press conference: unverified embed {item.get('url')}")
+            continue
+        result = lookup_oembed(item["url"])
+        if result.kind == "transport":
+            issues.append(
+                f"{PRESS_TRANSPORT_PREFIX} {result.detail} for {item.get('url')}"
+            )
+            continue
+        verified = verify_embed(item, phase=phase, payload=result.payload)
         if not verified:
             issues.append(f"press conference: unverified embed {item.get('url')}")
     return issues

@@ -27,6 +27,7 @@ import os
 import re
 import sys
 from datetime import datetime, timezone
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from . import collect, config, diagrams, facts, known_errors, odds, offline, phase as phase_mod
@@ -54,6 +55,10 @@ FACT_CHECK_UNIQUENESS_RETRIES = 1
 LLM_CALL_BUDGET = 6
 REPLAY_NOT_RUN = "replay not run"
 HARD_REPLAY_RC = 1
+
+
+class EditionPathError(RuntimeError):
+    """Live JSON or editions dir is not under DATA_DIR."""
 
 
 class LlmCallBudget:
@@ -1755,8 +1760,136 @@ def emit_held(items: list[str], *, stream=None) -> None:
                 pass
 
 
+def _unique_issues(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in items:
+        if item in seen:
+            continue
+        seen.add(item)
+        out.append(item)
+    return out
+
+
+def _edition_paths_aligned() -> bool:
+    """True when live JSON and editions dir both sit under DATA_DIR."""
+    try:
+        config.NARRATIVE_JSON.resolve().relative_to(config.DATA_DIR.resolve())
+        config.EDITIONS_DIR.resolve().relative_to(config.DATA_DIR.resolve())
+    except ValueError as exc:
+        raise EditionPathError(
+            "NARRATIVE_JSON and EDITIONS_DIR must sit under DATA_DIR"
+        ) from exc
+    return True
+
+
+def _latest_edition_file() -> Path | None:
+    """Newest data/narrative_editions/*.json by generatedAt, then slug."""
+    if not config.EDITIONS_DIR.is_dir():
+        return None
+    ranked: list[tuple[datetime, str, Path]] = []
+    fallback = datetime.min.replace(tzinfo=timezone.utc)
+    for path in config.EDITIONS_DIR.glob("*.json"):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        stamp = facts._parse_generated_at(payload.get("generatedAt")) or fallback
+        slug = str(payload.get("slug") or path.stem)
+        ranked.append((stamp, slug, path))
+    if not ranked:
+        return None
+    ranked.sort()
+    return ranked[-1][2]
+
+
+def _changed_archive_edition_files() -> list[Path]:
+    """Edition JSON files that differ from the diff base.
+
+    Unknown git state fail-closed: every on-disk edition file. An empty
+    change set does not scan grandfathered archives.
+    """
+    if not config.EDITIONS_DIR.is_dir():
+        return []
+    paths = facts.changed_edition_paths()
+    if paths is None:
+        return sorted(
+            path for path in config.EDITIONS_DIR.glob("*.json") if path.is_file()
+        )
+    wanted: set[str] = set()
+    for rel in paths:
+        posix = str(rel).replace("\\", "/")
+        if posix.startswith("data/narrative_editions/") and posix.endswith(".json"):
+            wanted.add(Path(posix).name)
+        elif posix.endswith(".json") and "/" not in posix:
+            wanted.add(posix)
+    return sorted(
+        config.EDITIONS_DIR / name
+        for name in wanted
+        if (config.EDITIONS_DIR / name).is_file()
+    )
+
+
+def _fact_check_changed_editions() -> list[str]:
+    """Fact-check changed archive edition JSON files. Mutant: return []."""
+    _edition_paths_aligned()
+    found: list[str] = []
+    live_payload = None
+    if config.NARRATIVE_JSON.is_file():
+        try:
+            loaded = json.loads(config.NARRATIVE_JSON.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            loaded = None
+        if isinstance(loaded, dict):
+            live_payload = loaded
+    live_slug = str((live_payload or {}).get("slug") or "").strip()
+    schedule = collect.load_cached_schedule()
+    for path in _changed_archive_edition_files():
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            found.append(f"{path.name}: unreadable edition JSON")
+            continue
+        if not isinstance(payload, dict):
+            found.append(f"{path.name}: edition is not an object")
+            continue
+        if (
+            live_payload is not None
+            and path.name == f"{live_slug}.json"
+            and payload == live_payload
+        ):
+            continue
+        for item in archive_replay_issues(payload, schedule=schedule):
+            if item.startswith(f"{path.name}:"):
+                found.append(item)
+            else:
+                found.append(f"{path.name}: {item}")
+    return found
+
+
+def _live_matches_latest_edition() -> list[str]:
+    """Assert live narrative.json equals the latest edition file. Mutant: skip."""
+    _edition_paths_aligned()
+    latest = _latest_edition_file()
+    live_path = config.NARRATIVE_JSON
+    if not live_path.is_file():
+        return ["data/narrative.json is missing"]
+    if latest is None:
+        return ["no edition file under data/narrative_editions/"]
+    try:
+        live = json.loads(live_path.read_text(encoding="utf-8"))
+        edition = json.loads(latest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [f"live vs latest edition: unreadable JSON ({exc})"]
+    if live == edition:
+        return []
+    return [f"data/narrative.json does not equal latest edition {latest.name}"]
+
+
 def check_published_edition() -> list[str]:
-    """Fact-check data/narrative.json plus visible XO captions."""
+    """Fact-check live narrative.json, changed edition files, and live==latest."""
     narrative = json.loads(config.NARRATIVE_JSON.read_text(encoding="utf-8"))
     last = _last_game_from_edition(narrative)
     recap = _recap_for_edition(narrative)
@@ -1778,7 +1911,12 @@ def check_published_edition() -> list[str]:
     issues.extend(press_conferences.check_embeds(narrative, schedule=schedule))
     issues.extend(locker_room.check_posts(narrative, schedule=schedule))
     issues.extend(hero_posts.validate_sidecar())
-    return issues
+    try:
+        issues.extend(_fact_check_changed_editions())
+        issues.extend(_live_matches_latest_edition())
+    except EditionPathError as exc:
+        issues.append(str(exc))
+    return _unique_issues(issues)
 
 
 def main(argv=None) -> int:
@@ -1803,7 +1941,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--check-edition",
         action="store_true",
-        help="run check_review, the SVG/why gate, press-conference oEmbed, and locker-room X resolution on data/narrative.json",
+        help="run check_review on live narrative.json, every changed data/narrative_editions file, and live==latest",
     )
     parser.add_argument(
         "--gate-replay",
@@ -1833,7 +1971,15 @@ def main(argv=None) -> int:
             print(f"  {REPLAY_NOT_RUN}")
             emit_held([REPLAY_NOT_RUN])
             return 0
-        held, hard = split_replay_issues(archive_replay_issues(narrative))
+        try:
+            extra = (
+                _fact_check_changed_editions() + _live_matches_latest_edition()
+            )
+        except EditionPathError as exc:
+            extra = [str(exc)]
+        held, hard = split_replay_issues(
+            archive_replay_issues(narrative) + extra
+        )
         if hard:
             print(
                 "ERROR: generated edition would fail archive replay:",
@@ -1866,13 +2012,22 @@ def main(argv=None) -> int:
 
     if args.check_edition:
         issues = check_published_edition()
+        transport_issues = [
+            item
+            for item in issues
+            if str(item).startswith("press conference transport:")
+        ]
         press_issues = [
             item
             for item in issues
             if str(item).startswith("press conference:")
             or str(item).startswith("locker room:")
         ]
-        other = [item for item in issues if item not in press_issues]
+        other = [
+            item
+            for item in issues
+            if item not in press_issues and item not in transport_issues
+        ]
         if press_issues:
             print("ERROR: published edition failed gates:", file=sys.stderr)
             for item in press_issues + other:
@@ -1910,6 +2065,13 @@ def main(argv=None) -> int:
                     file=sys.stderr,
                 )
             return 1
+        if transport_issues:
+            print(
+                "WARNING: presser oEmbed transport (logged, not holding):",
+                file=sys.stderr,
+            )
+            for item in transport_issues:
+                print(f"  - {item}", file=sys.stderr)
         print("  edition gates: ok")
         return 0
 

@@ -1015,7 +1015,9 @@ REVIEW_REQUIRES_HUMAN = True
 # Qualified counts are not whole-game totals. Compare against the window
 # when quarter data can compute it; otherwise skip.
 _WINDOW_FOLD_ZWSP = "\u200b"
+_WINDOW_FOLD_NBSP = "\u00a0"
 _WINDOW_FOLD_EM_DASH = "\u2014"
+_WINDOW_FOLD_FIGURE_DASH = "\u2012"
 _WINDOW_FOLD_MINUS = "\u2212"
 _WINDOW_FOLD_SOFT_HYPHEN = "\u00ad"
 
@@ -1026,7 +1028,9 @@ def _fold_window_text(text: str) -> str:
         return text
     text = text.replace(_WINDOW_FOLD_ZWSP, "")
     text = text.replace(_WINDOW_FOLD_SOFT_HYPHEN, "")
+    text = text.replace(_WINDOW_FOLD_NBSP, " ")
     text = text.replace(_WINDOW_FOLD_EM_DASH, "-")
+    text = text.replace(_WINDOW_FOLD_FIGURE_DASH, "-")
     text = text.replace(_WINDOW_FOLD_MINUS, "-")
     return text
 
@@ -1049,6 +1053,9 @@ _COUNT_SCOPE = re.compile(
     r"following\s+a\s+\d{1,2}\s*[–-]\s*\d{1,2}\s+halftime|"
     r"turned\s+a\s+\d{1,2}\s*[–-]\s*\d{1,2}\s+halftime|"
     r"flipped\s+a\s+game\s+that\s+was\s+\d{1,2}\s*[–-]\s*\d{1,2}|"
+    r"after\s+the\s+score\s+reached\s+\d{1,2}\s*[–-]\s*\d{1,2}|"
+    r"after\s+trailing\s+\d{1,2}\s*[–-]\s*\d{1,2}|"
+    r"after\s+a\s+\d{1,2}\s*[–-]\s*\d{1,2}\s+start|"
     r"(?:in\s+the\s+)?(?:first|second|third|(?<!non-)(?<!un-)fourth|opening|final)\s+quarter|"
     r"q\s*[1-4]|"
     r"in\s+the\s+game|all\s+game|on\s+the\s+day|overall|\btotal\b"
@@ -2644,7 +2651,14 @@ def _count_scope(text: str, start: int, end: int):
     match = _COUNT_SCOPE.search(window)
     if not match:
         return None
-    token = _normalize_scope_token(match.group(1))
+    raw = match.group(1) or ""
+    if re.search(
+        r"score\s+reached|after\s+trailing|after\s+a\s+\d{1,2}\s*-\s*\d{1,2}\s+start",
+        raw,
+        re.I,
+    ):
+        return "skip"
+    token = _normalize_scope_token(raw)
     if token in _WHOLE_GAME_SCOPES:
         return None
     if token in _SCOPE_QUARTERS:
@@ -3725,6 +3739,48 @@ _WIN_FOURTH_QUARTER = re.compile(
     re.I,
 )
 _AFTER_A_SCORE_WINDOW = re.compile(r"\bafter a score\b", re.IGNORECASE)
+# Score-state windows are not Q3+Q4. Counts bind to ESPN scoringPlays after
+# that score first appears. Named independently for drop-one mutants.
+_SCORE_WINDOW_REACHED = "score_reached"
+_SCORE_WINDOW_TRAILING = "score_trailing"
+_SCORE_WINDOW_START = "score_start"
+_SCORE_WINDOW_KINDS = frozenset(
+    {
+        _SCORE_WINDOW_REACHED,
+        _SCORE_WINDOW_TRAILING,
+        _SCORE_WINDOW_START,
+    }
+)
+_WIN_AFTER_SCORE_REACHED = re.compile(
+    r"(?<!non-)(?<!un-)\bafter\s+the\s+score\s+reached\s+"
+    r"(\d{1,2})\s*-\s*(\d{1,2})\b",
+    re.I,
+)
+_WIN_AFTER_SCORE_REACHED_ENDASH = re.compile(
+    r"(?<!non-)(?<!un-)\bafter\s+the\s+score\s+reached\s+"
+    r"(\d{1,2})\s*–\s*(\d{1,2})\b",
+    re.I,
+)
+_WIN_AFTER_TRAILING = re.compile(
+    r"(?<!non-)(?<!un-)\bafter\s+trailing\s+"
+    r"(\d{1,2})\s*-\s*(\d{1,2})\b",
+    re.I,
+)
+_WIN_AFTER_TRAILING_ENDASH = re.compile(
+    r"(?<!non-)(?<!un-)\bafter\s+trailing\s+"
+    r"(\d{1,2})\s*–\s*(\d{1,2})\b",
+    re.I,
+)
+_WIN_AFTER_A_START = re.compile(
+    r"(?<!non-)(?<!un-)\bafter\s+a\s+"
+    r"(\d{1,2})\s*-\s*(\d{1,2})\s+start\b",
+    re.I,
+)
+_WIN_AFTER_A_START_ENDASH = re.compile(
+    r"(?<!non-)(?<!un-)\bafter\s+a\s+"
+    r"(\d{1,2})\s*–\s*(\d{1,2})\s+start\b",
+    re.I,
+)
 _WINDOW_SPECS = (
     ("after_halftime", _WIN_AFTER_HALFTIME, _WINDOW_QUARTERS),
     ("after_the_half", _WIN_AFTER_THE_HALF, _WINDOW_QUARTERS),
@@ -3745,6 +3801,12 @@ _WINDOW_SPECS = (
     ("flipped_score", _WIN_FLIPPED_SCORE, _WINDOW_QUARTERS),
     ("fourth_quarter", _WIN_FOURTH_QUARTER, frozenset({_WINDOW_QUARTER_4})),
     ("after_a_score", _AFTER_A_SCORE_WINDOW, None),
+    ("after_score_reached", _WIN_AFTER_SCORE_REACHED, _SCORE_WINDOW_REACHED),
+    ("after_score_reached_endash", _WIN_AFTER_SCORE_REACHED_ENDASH, _SCORE_WINDOW_REACHED),
+    ("after_trailing", _WIN_AFTER_TRAILING, _SCORE_WINDOW_TRAILING),
+    ("after_trailing_endash", _WIN_AFTER_TRAILING_ENDASH, _SCORE_WINDOW_TRAILING),
+    ("after_a_start", _WIN_AFTER_A_START, _SCORE_WINDOW_START),
+    ("after_a_start_endash", _WIN_AFTER_A_START_ENDASH, _SCORE_WINDOW_START),
 )
 _WINDOW_COUNT_NUMBER_WORDS = (
     "one",
@@ -3866,7 +3928,7 @@ def _window_kind_token(raw: str) -> str:
 
 
 def _window_official_count(
-    recap: dict | None, kind: str, team: str, quarters: frozenset
+    recap: dict | None, kind: str, team: str, quarters: frozenset | None
 ) -> int:
     if kind == "score":
         td = official_count_by_team(recap, "td", quarters=quarters)
@@ -3880,8 +3942,44 @@ def _window_official_count(
     return counts.get(team, 0)
 
 
-def _windows_in_sentence(sentence: str) -> list[tuple[str, frozenset | None]]:
-    hits: list[tuple[str, frozenset | None]] = []
+def _index_after_score(
+    plays, left: int, right: int, *, trailing: bool
+) -> int | None:
+    """Index of the scoring play that first creates this score state."""
+    for i, play in enumerate(plays or []):
+        if not isinstance(play, dict):
+            continue
+        pair = _int_pair(play.get("kcScore"), play.get("oppScore"))
+        if not pair:
+            continue
+        if trailing and pair[0] >= pair[1]:
+            continue
+        if pair == (left, right) or pair == (right, left):
+            return i
+    return None
+
+
+def _window_official_after_score(
+    recap: dict | None, kind: str, team: str, spec: tuple
+) -> int | None:
+    """TD/FG/score count after the named ESPN score state, or None if missing."""
+    if not isinstance(spec, tuple) or len(spec) != 3:
+        return None
+    mode, left, right = spec
+    plays = (recap or {}).get("scoringPlays") or []
+    if not isinstance(plays, list):
+        return None
+    trailing = mode in {_SCORE_WINDOW_TRAILING, _SCORE_WINDOW_START}
+    idx = _index_after_score(plays, left, right, trailing=trailing)
+    if idx is None:
+        return None
+    sliced = dict(recap or {})
+    sliced["scoringPlays"] = plays[idx + 1 :]
+    return _window_official_count(sliced, kind, team, None)
+
+
+def _windows_in_sentence(sentence: str) -> list[tuple[str, object]]:
+    hits: list[tuple[str, object]] = []
     for name, pattern, quarters in _WINDOW_SPECS:
         if pattern.search(sentence):
             hits.append((name, quarters))
@@ -3896,13 +3994,47 @@ def _gap_between(a_start: int, a_end: int, b_start: int, b_end: int) -> int:
     return 0
 
 
-def _hits_for_count(folded: str, match) -> list[tuple[str, frozenset | None]]:
+def _score_window_spec(kind, window_match):
+    """(mode, left, right) from a score-state window, or None."""
+    if kind not in _SCORE_WINDOW_KINDS:
+        return None
+    try:
+        return (kind, int(window_match.group(1)), int(window_match.group(2)))
+    except (TypeError, ValueError, IndexError, AttributeError):
+        return None
+
+
+def _count_between(folded: str, start: int, end: int, skip_start: int) -> bool:
+    """True when another scoring-count sits strictly between two spans."""
+    lo, hi = (start, end) if start <= end else (end, start)
+    for other in _WINDOW_SCORING_COUNT.finditer(folded[lo:hi]):
+        abs_start = lo + other.start()
+        if abs_start == skip_start:
+            continue
+        if lo < abs_start < hi:
+            return True
+    return False
+
+
+def _hits_for_count(folded: str, match) -> list[tuple[str, object]]:
     """Windows that actually bind this count, not a later timestamp in the sentence."""
     span_start = max(0, match.start() - _COUNT_WINDOW_RADIUS)
     span_end = min(len(folded), match.end() + _COUNT_WINDOW_RADIUS)
     span = folded[span_start:span_end]
-    hits: list[tuple[str, frozenset | None]] = []
+    hits: list[tuple[str, object]] = []
     for name, pattern, quarters in _WINDOW_SPECS:
+        if quarters in _SCORE_WINDOW_KINDS:
+            for window_match in pattern.finditer(folded):
+                spec = _score_window_spec(quarters, window_match)
+                if spec is None:
+                    continue
+                if _count_between(
+                    folded, match.end(), window_match.start(), match.start()
+                ):
+                    continue
+                hits.append((name, spec))
+                break
+            continue
         max_gap = 12 if name == "fourth_quarter" else _COUNT_WINDOW_RADIUS
         for window_match in pattern.finditer(span):
             abs_start = span_start + window_match.start()
@@ -3935,7 +4067,15 @@ def _is_scoring_play_yardage(sentence: str, match) -> bool:
     return bool(re.search(r"\b(?:lost|gained)\s+$", lead, re.I))
 
 
-def _window_where_label(quarters: frozenset | None) -> str:
+def _window_where_label(quarters) -> str:
+    if isinstance(quarters, tuple) and len(quarters) == 3:
+        mode, left, right = quarters
+        pair = f"{left}-{right}"
+        if mode == _SCORE_WINDOW_TRAILING:
+            return f"after trailing {pair}"
+        if mode == _SCORE_WINDOW_START:
+            return f"after a {pair} start"
+        return f"after the score reached {pair}"
     if quarters == frozenset({_WINDOW_QUARTER_4}):
         return "in the fourth quarter"
     if quarters == frozenset({_WINDOW_QUARTER_3}):
@@ -3970,19 +4110,29 @@ def _check_window_scoring_counts(
             hits = _hits_for_count(folded, match)
             if not hits:
                 continue
-            mapped_quarters = [q for _, q in hits if q is not None]
-            unmapped_only = bool(hits) and not mapped_quarters
+            score_specs = [q for _, q in hits if isinstance(q, tuple)]
+            mapped_quarters = [q for _, q in hits if isinstance(q, frozenset)]
+            unmapped_only = bool(hits) and not mapped_quarters and not score_specs
             quarters: frozenset | None = frozenset()
             for qset in mapped_quarters:
                 quarters = quarters | qset
             claimed = _parse_count_word(match.group(1))
             if claimed is None:
                 continue
-            captured = _count_captured_team((match.group(2) or "").strip(), aliases)
+            team_raw = (match.group(2) or "").strip()
+            kind = _window_kind_token(match.group(3))
+            nested = re.search(
+                r"\b(touchdowns?|TDs?|field[ \t]+goals?)\b",
+                team_raw,
+                re.I,
+            )
+            if nested:
+                kind = _window_kind_token(nested.group(1))
+                team_raw = ""
+            captured = _count_captured_team(team_raw, aliases)
             if captured is None:
                 continue
             team = captured
-            kind = _window_kind_token(match.group(3))
             snippet = match.group(0)
             if kind == "unverifiable" and _is_scoring_play_yardage(folded, match):
                 continue
@@ -4003,6 +4153,23 @@ def _check_window_scoring_counts(
                 issues.append(
                     f"window-bound {who} {label} count {claimed} cannot be "
                     f"verified against ESPN scoring plays ({snippet!r})"
+                )
+                continue
+            if score_specs:
+                spec = score_specs[0]
+                official = _window_official_after_score(recap, kind, team, spec)
+                if official is None:
+                    issues.append(
+                        f"window-bound {who} {label} count {claimed} cannot be "
+                        f"verified against ESPN scoring plays ({snippet!r})"
+                    )
+                    continue
+                if claimed == official:
+                    continue
+                where = _window_where_label(spec)
+                issues.append(
+                    f"window-bound {who} {label} count {claimed} disagrees with "
+                    f"ESPN {official} {where} ({snippet!r})"
                 )
                 continue
             official = _window_official_count(recap, kind, team, quarters)
@@ -7676,6 +7843,789 @@ def _check_pass_touchdowns(text: str, recap: dict | None) -> list[str]:
     return issues
 
 
+# Whole-game player TD totals. Rushing-leader "N TD" is rushing only;
+# all-purpose copy compares rush + receiving from scoring plays and box.
+_SCORING_TD_LINE = re.compile(
+    r"—\s+(?P<team>[A-Z]{2,3})\s+(?P<player>.+?)\s+"
+    r"(?P<yards>\d+)\s+Yd\s+(?P<how>pass|rush|run)\b",
+    re.I,
+)
+_PBP_PASS_TD = re.compile(
+    r"pass[^.]{0,80}to\s+([A-Z]\.[A-Za-z''-]+)[^.]{0,40}TOUCHDOWN",
+    re.I,
+)
+_PBP_RUSH_TD = re.compile(
+    r"^([A-Z]\.[A-Za-z''-]+)\b[^.]{0,80}TOUCHDOWN",
+    re.I,
+)
+_LEADER_TD_VALUE = re.compile(r"(\d+)\s*TD\b", re.I)
+_PLAYER_SCORED_TD = re.compile(
+    r"\b(?P<player>[A-Z][A-Za-z''.-]+(?:\s+(?:III|II|IV|Jr\.?|Sr\.?|"
+    r"[A-Z][A-Za-z''.-]+))?)"
+    r"['’]?s?\s+scored\s+"
+    r"(?P<count>a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+"
+    r"(?P<kind>rushing\s+|receiving\s+|passing\s+)?"
+    r"(?:touchdowns?|TDs?)\b",
+    re.I,
+)
+_TYPED_PLAYER_TD = re.compile(
+    r"\b(?P<count>a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+"
+    r"(?P<kind>rushing|receiving)\s+"
+    r"(?:touchdowns?|TDs?)\b",
+    re.I,
+)
+_BARE_PLAYER_TD = re.compile(
+    r"\b(?P<count>one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+"
+    r"(?:touchdowns?|TDs?)\b"
+    r"(?P<scope>\s+(?:all\s+day|on\s+the\s+day|in\s+(?:the|this)\s+game))?",
+    re.I,
+)
+_HEADLINE_TD_PERF = re.compile(
+    r"(?P<player>[A-Z][A-Za-z.-]+(?:\s+[A-Z][A-Za-z.-]+)?)"
+    r"['’]?s?\s+"
+    r"(?P<count>one|two|three|four|five|six|seven|eight|nine|ten|\d+)[- ]"
+    r"(?P<kind>rushing[- ])?"
+    r"(?:touchdown|td)\s+(?:performance|game|day)",
+    re.I,
+)
+_HEADLINE_TD_BARE = re.compile(
+    r"\b(?P<count>one|two|three|four|five|six|seven|eight|nine|ten|\d+)[- ]"
+    r"(?P<kind>rushing[- ])?"
+    r"(?:touchdown|td)\s+(?:performance|game|day)",
+    re.I,
+)
+_WHOLE_GAME_TD_SCOPE = re.compile(
+    r"\b(?:all\s+day|on\s+the\s+day|in\s+(?:the|this)\s+game|all\s+game)\b",
+    re.I,
+)
+
+
+def _parse_td_count_word(raw: str):
+    token = (raw or "").strip().lower()
+    if token in {"a", "an"}:
+        return 1
+    return _parse_count_word(raw)
+
+
+def _add_player_td(out: dict, name: str, kind: str) -> None:
+    last = _player_last(name)
+    if not last:
+        return
+    slot = out.setdefault(last, {"name": name.strip(), "rush": 0, "rec": 0})
+    if len((name or "").strip()) > len(slot["name"]):
+        slot["name"] = name.strip()
+    if kind == "rec":
+        slot["rec"] += 1
+    elif kind == "rush":
+        slot["rush"] += 1
+    slot["total"] = slot["rush"] + slot["rec"]
+
+
+def player_td_totals(recap: dict | None) -> dict[str, dict]:
+    """Last-name → {name, rush, rec, total} from ESPN box, scoring, and PBP.
+
+    Total is rush + receiving. A rushing-leader 'N TD' is not this total.
+    """
+    payload = recap or {}
+    out: dict[str, dict] = {}
+    box_hit = False
+    for row in payload.get("touches") or []:
+        if not isinstance(row, dict):
+            continue
+        last = _player_last(row.get("player") or "")
+        if not last:
+            continue
+        rush = row.get("rushingTouchdowns")
+        rec = row.get("receivingTouchdowns")
+        if rush is None and rec is None:
+            continue
+        box_hit = True
+        slot = out.setdefault(
+            last, {"name": str(row.get("player") or last), "rush": 0, "rec": 0}
+        )
+        if rush is not None:
+            try:
+                slot["rush"] = int(rush)
+            except (TypeError, ValueError):
+                pass
+        if rec is not None:
+            try:
+                slot["rec"] = int(rec)
+            except (TypeError, ValueError):
+                pass
+        slot["total"] = slot["rush"] + slot["rec"]
+    if box_hit:
+        return out
+    for line in payload.get("scoring") or []:
+        hit = _SCORING_TD_LINE.search(str(line or ""))
+        if not hit:
+            continue
+        how = (hit.group("how") or "").lower()
+        kind = "rec" if how == "pass" else "rush"
+        _add_player_td(out, hit.group("player") or "", kind)
+    if out:
+        return out
+    for play in payload.get("plays") or []:
+        if not isinstance(play, dict):
+            continue
+        text = play.get("text") or ""
+        if "TOUCHDOWN" not in text.upper():
+            continue
+        passed = _PBP_PASS_TD.search(text)
+        if passed:
+            _add_player_td(out, passed.group(1), "rec")
+            continue
+        rushed = _PBP_RUSH_TD.search(text)
+        if rushed:
+            _add_player_td(out, rushed.group(1), "rush")
+    if out:
+        return out
+    for play in payload.get("scoringPlays") or []:
+        if not isinstance(play, dict) or _play_kind(play) != "td":
+            continue
+        player = (play.get("player") or "").strip()
+        if not player:
+            continue
+        blob = " ".join(
+            str(play.get(key) or "")
+            for key in ("text", "how", "type", "description")
+        )
+        if re.search(r"\bpass\b|\breceiv", blob, re.I):
+            kind = "rec"
+        elif re.search(r"\brush|\brun\b", blob, re.I):
+            kind = "rush"
+        else:
+            continue
+        _add_player_td(out, player, kind)
+        slot = out.get(_player_last(player) or "")
+        if slot:
+            slot["total"] = slot["rush"] + slot["rec"]
+    return out
+
+
+def leader_rushing_tds(recap: dict | None) -> dict[str, int]:
+    """Rushing-only TD counts from the ESPN leaders block."""
+    out: dict[str, int] = {}
+    for row in (recap or {}).get("leaders") or []:
+        if not isinstance(row, dict):
+            continue
+        if "rush" not in (row.get("category") or "").lower():
+            continue
+        last = _player_last(row.get("player") or "")
+        hit = _LEADER_TD_VALUE.search(row.get("value") or "")
+        if last and hit:
+            out[last] = int(hit.group(1))
+    return out
+
+
+def leader_td_scope_note(leader: dict | None, recap: dict | None) -> str:
+    """Annotate a rushing-leader TD so the writer does not treat it as total."""
+    row = leader or {}
+    if "rush" not in (row.get("category") or "").lower():
+        return ""
+    if not _LEADER_TD_VALUE.search(row.get("value") or ""):
+        return ""
+    last = _player_last(row.get("player") or "")
+    totals = player_td_totals(recap).get(last) or {}
+    total = totals.get("total")
+    rush = totals.get("rush")
+    rec = totals.get("rec")
+    if total and rec:
+        return (
+            f" — rushing TDs only; {row.get('player')} has {total} total TDs "
+            f"({rush} rush + {rec} rec)"
+        )
+    return " — rushing TDs only"
+
+
+def _sentence_player_last(sentence: str, recap: dict | None) -> str:
+    players = _player_teams(recap)
+    if not sentence or not players:
+        return ""
+    found = ""
+    found_at = -1
+    for last in players:
+        if len(last) < 3:
+            continue
+        for hit in re.finditer(rf"\b{re.escape(last)}\b", sentence, re.I):
+            if hit.start() >= found_at:
+                found_at = hit.start()
+                found = last
+    return found
+
+
+def _player_td_sum(row: dict) -> int:
+    """Rush + receiving. A mutant that returns only rush is the N1 miss."""
+    return int(row.get("rush") or 0) + int(row.get("rec") or 0)
+
+
+def _check_player_td_totals(text: str, recap: dict | None) -> list[str]:
+    """Flag a player's whole-game TD total that disagrees with ESPN rush+rec."""
+    if not text:
+        return []
+    totals = player_td_totals(recap)
+    if not totals:
+        return []
+    issues: list[str] = []
+    seen: set[str] = set()
+
+    def _emit(last: str, claimed: int, kind: str, snippet: str) -> None:
+        row = totals.get(last) or {}
+        if kind == "rush":
+            official = int(row.get("rush") or 0)
+            label = "rushing touchdowns"
+        elif kind == "rec":
+            official = int(row.get("rec") or 0)
+            label = "receiving touchdowns"
+        else:
+            official = _player_td_sum(row)
+            label = "touchdown total"
+        if claimed == official:
+            return
+        who = row.get("name") or last.title()
+        extra = ""
+        if kind == "total":
+            extra = f" ({row.get('rush', 0)} rush + {row.get('rec', 0)} rec)"
+        item = (
+            f"{who} {label} {claimed} disagrees with ESPN {official}"
+            f"{extra} ({snippet!r})"
+        )
+        if item in seen:
+            return
+        seen.add(item)
+        issues.append(item)
+
+    for match in _PLAYER_SCORED_TD.finditer(text):
+        sentence = _sentence_at(text, match.start())
+        kind_raw = (match.group("kind") or "").strip().lower()
+        if kind_raw.startswith("passing"):
+            continue
+        last = _player_last(match.group("player") or "") or _sentence_player_last(
+            sentence, recap
+        )
+        if last not in totals:
+            continue
+        claimed = _parse_td_count_word(match.group("count"))
+        if claimed is None:
+            continue
+        if kind_raw.startswith("rushing"):
+            kind = "rush"
+        elif kind_raw.startswith("receiving"):
+            kind = "rec"
+        else:
+            kind = "total"
+        _emit(last, claimed, kind, match.group(0))
+
+    for match in _TYPED_PLAYER_TD.finditer(text):
+        sentence = _sentence_at(text, match.start())
+        last = _sentence_player_last(sentence, recap)
+        if last not in totals:
+            continue
+        claimed = _parse_td_count_word(match.group("count"))
+        if claimed is None:
+            continue
+        kind = "rush" if match.group("kind").lower().startswith("rush") else "rec"
+        _emit(last, claimed, kind, match.group(0))
+
+    for match in _BARE_PLAYER_TD.finditer(text):
+        sentence = _sentence_at(text, match.start())
+        if _TYPED_PLAYER_TD.search(match.group(0)):
+            continue
+        if re.search(
+            r"\b(?:rushing|receiving|passing)\s+$",
+            sentence[: match.start()],
+            re.I,
+        ):
+            continue
+        last = _sentence_player_last(sentence, recap)
+        if last not in totals:
+            continue
+        lead = sentence.strip()
+        if re.match(r"^(?:the\s+)?(?:kansas\s+city|chiefs|kc)\b", lead, re.I):
+            continue
+        if re.search(r"\b(?:kansas\s+city|chiefs|kc)\s+scored\b", sentence, re.I):
+            continue
+        claimed = _parse_td_count_word(match.group("count"))
+        if claimed is None:
+            continue
+        scoped = bool(match.group("scope")) or bool(
+            _WHOLE_GAME_TD_SCOPE.search(sentence)
+        )
+        scored = bool(re.search(r"\bscored\b", sentence, re.I))
+        if not scoped and not scored:
+            continue
+        _emit(last, claimed, "total", match.group(0))
+    return issues
+
+
+def source_td_conflicts(news, recap: dict | None) -> list[str]:
+    """Wire TD claims vs ESPN. Compare rushing headlines to rushing TDs only.
+
+    An all-purpose 'three-touchdown performance' is the rush+rec total, not
+    the rushing-leader's last number. A rushing-only leader line of 1 TD
+    against a Chiefs.com total of 3 is not a conflict when ESPN total is 3.
+    """
+    totals = player_td_totals(recap)
+    rush_only = leader_rushing_tds(recap)
+    if not totals and not rush_only:
+        return []
+    issues: list[str] = []
+    for item in news or []:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get("title") or "")
+        publisher = str(item.get("publisher") or "wire")
+        hit = _HEADLINE_TD_PERF.search(title)
+        if not hit:
+            hit = _HEADLINE_TD_BARE.search(title)
+        if not hit:
+            continue
+        claimed = _parse_td_count_word(hit.group("count"))
+        if claimed is None:
+            continue
+        kind_raw = (hit.groupdict().get("kind") or "").lower()
+        rushing_claim = "rush" in kind_raw
+        player = ""
+        if hit.re is _HEADLINE_TD_PERF:
+            player = _player_last(hit.group("player") or "")
+        if not player:
+            blob = title
+            for last in list(totals) + list(rush_only):
+                if re.search(rf"\b{re.escape(last)}\b", blob, re.I):
+                    player = last
+                    break
+        if not player:
+            continue
+        if rushing_claim:
+            official = rush_only.get(player)
+            if official is None:
+                official = (totals.get(player) or {}).get("rush")
+            label = "rushing TDs"
+        else:
+            row = totals.get(player) or {}
+            official = _player_td_sum(row) if row else None
+            label = "total TDs"
+        if official is None:
+            continue
+        if claimed == official:
+            continue
+        issues.append(
+            f"{publisher} {player} {label} {claimed} disagrees with ESPN "
+            f"{official} ({title!r})"
+        )
+    return issues
+
+
+_RED_ZONE = re.compile(r"\bred[- ]zone\b", re.I)
+_RED_ZONE_EFF = re.compile(
+    r"\b(\d+)\s*(?:-(?:of|for)-|of|for|-|–)\s*(\d+)\s+(?:in\s+the\s+)?red[- ]zone\b",
+    re.I,
+)
+_RED_ZONE_TRIPS = re.compile(
+    r"\b(one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+"
+    r"red[- ]zone\s+trips?\b",
+    re.I,
+)
+_THIRD_DOWN = re.compile(r"\bthird[- ]downs?\b", re.I)
+_THIRD_DOWN_BOUND = re.compile(
+    r"(?:"
+    r"(?P<pre>\d+)\s*(?:of|for|-|–)\s*(?P<pre_att>\d+)[ \t]+(?:on[ \t]+)?"
+    r"third[- ]downs?"
+    r"|"
+    r"third[- ]downs?[ \t]+(?:conversions?[ \t]+)?"
+    r"(?:at[ \t]+|were[ \t]+|was[ \t]+|went[ \t]+|of[ \t]+)?"
+    r"(?P<post>\d+)\s*(?:of|for|-|–)\s*(?P<post_att>\d+)"
+    r"(?:[ \t]+to[ \t]+(?P<to>\d+)\s*(?:of|for|-|–)\s*(?P<to_att>\d+))?"
+    r")",
+    re.I,
+)
+_KICKOFF_CT = re.compile(
+    r"\b(\d{1,2}):(\d{2})\s*(a\.?m\.?|p\.?m\.?)\s*CT\b",
+    re.I,
+)
+_TV_CLAIM = re.compile(
+    r"\b(CBS|FOX|NBC|ESPN|ABC|NFL\s*Net(?:work)?|NFLN|Amazon|"
+    r"Prime\s+Video)\b",
+    re.I,
+)
+_TV_ALIASES = {
+    "cbs": "cbs",
+    "fox": "fox",
+    "nbc": "nbc",
+    "espn": "espn",
+    "abc": "abc",
+    "nfln": "nfl network",
+    "nfl net": "nfl network",
+    "nfl network": "nfl network",
+    "amazon": "prime",
+    "prime": "prime",
+    "prime video": "prime",
+    "peacock": "nbc",
+    "espn unlmtd": "espn",
+    "espn unlimited": "espn",
+}
+
+
+def _parse_eff_pair(raw: str):
+    """Parse ESPN '6-11' / copy '6 of 11' into (made, att), or None."""
+    text = _fold_window_text(raw or "")
+    hit = re.search(r"\b(\d+)\s*(?:-(?:of|for)-|of|for|-)\s*(\d+)\b", text, re.I)
+    if not hit:
+        return None
+    return int(hit.group(1)), int(hit.group(2))
+
+
+def _box_eff(recap: dict | None, team: str, *keys: str):
+    payload = recap or {}
+    box = payload.get("kc") if team == "KC" else payload.get("opp")
+    if not isinstance(box, dict):
+        return None
+    for key in keys:
+        pair = _parse_eff_pair(str(box.get(key) or ""))
+        if pair:
+            return pair
+    return None
+
+
+def _red_zone_tds(pair: tuple[int, int]) -> int:
+    """TD (made) side of ESPN redZoneEff. Mutant: return trips instead."""
+    return int(pair[0])
+
+
+def _red_zone_trips(pair: tuple[int, int]) -> int:
+    return int(pair[1])
+
+
+def _check_red_zone_counts(
+    text: str,
+    recap: dict | None,
+    last_game: dict | None = None,
+    schedule=None,
+) -> list[str]:
+    """Flag red-zone TD/trip counts that disagree with ESPN team stats."""
+    official = _box_eff(recap, "KC", "redZoneEff", "redZoneEfficiency")
+    if not text or official is None:
+        return []
+    tds = _red_zone_tds(official)
+    trips = _red_zone_trips(official)
+    aliases = _team_aliases(
+        last_game, recap if isinstance(recap, dict) else None, schedule
+    )
+    issues: list[str] = []
+    seen: set[str] = set()
+    for sentence in _split_sentences(text):
+        folded = _fold_window_text(sentence)
+        if not _RED_ZONE.search(folded):
+            continue
+        for match in _RED_ZONE_EFF.finditer(folded):
+            claimed = (int(match.group(1)), int(match.group(2)))
+            if claimed == (tds, trips):
+                continue
+            item = (
+                f"red-zone efficiency {claimed[0]}-for-{claimed[1]} disagrees "
+                f"with ESPN {tds}-{trips} ({match.group(0)!r})"
+            )
+            if item not in seen:
+                seen.add(item)
+                issues.append(item)
+        for match in _RED_ZONE_TRIPS.finditer(folded):
+            claimed = _parse_count_word(match.group(1))
+            if claimed is None or claimed == trips:
+                continue
+            item = (
+                f"red-zone trips {claimed} disagrees with ESPN {trips} "
+                f"({match.group(0)!r})"
+            )
+            if item not in seen:
+                seen.add(item)
+                issues.append(item)
+        for match in _WINDOW_SCORING_COUNT.finditer(folded):
+            kind = _window_kind_token(match.group(3))
+            if kind not in {"td", "score"}:
+                continue
+            if _count_is_negated(folded, match.start()):
+                continue
+            claimed = _parse_count_word(match.group(1))
+            if claimed is None or claimed == tds:
+                continue
+            captured = _count_captured_team(
+                (match.group(2) or "").strip(), aliases
+            )
+            if captured and captured != "KC":
+                continue
+            item = (
+                f"red-zone touchdown count {claimed} disagrees with ESPN "
+                f"{tds} ({match.group(0)!r})"
+            )
+            if item not in seen:
+                seen.add(item)
+                issues.append(item)
+    return issues
+
+
+def _third_down_pair(recap: dict | None, team: str):
+    """Official third-down (made, att). Mutant: return the other team's pair."""
+    return _box_eff(recap, team, "thirdDownEff")
+
+
+def _rightmost_team(span: str, aliases: dict[str, str]) -> str:
+    """Team named closest before a conversion count; default KC."""
+    best = ""
+    best_at = -1
+    for name, team in aliases.items():
+        if len(name) < 2:
+            continue
+        for hit in re.finditer(rf"\b{re.escape(name)}\b", span, re.I):
+            if hit.start() >= best_at:
+                best_at = hit.start()
+                best = team
+    return best or "KC"
+
+
+def _third_down_claimed_pairs(match) -> list[tuple[int, int]]:
+    pairs: list[tuple[int, int]] = []
+    pre, pre_att = match.group("pre"), match.group("pre_att")
+    post, post_att = match.group("post"), match.group("post_att")
+    to_made, to_att = match.group("to"), match.group("to_att")
+    if pre and pre_att:
+        pairs.append((int(pre), int(pre_att)))
+    if post and post_att:
+        pairs.append((int(post), int(post_att)))
+    if to_made and to_att:
+        pairs.append((int(to_made), int(to_att)))
+    return pairs
+
+
+def _check_third_down_counts(
+    text: str, recap: dict | None, last_game: dict | None = None, schedule=None
+) -> list[str]:
+    """Flag third-down conversion counts that disagree with ESPN team stats."""
+    if not text:
+        return []
+    kc = _third_down_pair(recap, "KC")
+    opp = _third_down_pair(recap, "OPP")
+    if kc is None and opp is None:
+        return []
+    aliases = _team_aliases(
+        last_game, recap if isinstance(recap, dict) else None, schedule
+    )
+    issues: list[str] = []
+    seen: set[str] = set()
+    folded = _fold_window_text(text)
+    for match in _THIRD_DOWN_BOUND.finditer(folded):
+        if re.match(r"\s+for\s+\d+", folded[match.end() : match.end() + 16], re.I):
+            continue
+        lead = folded[max(0, match.start() - 48) : match.start()]
+        first_team = _rightmost_team(lead, aliases)
+        pairs = _third_down_claimed_pairs(match)
+        for index, claimed in enumerate(pairs):
+            if index == 0:
+                team = first_team
+            elif first_team == "KC":
+                team = "OPP"
+            else:
+                team = "KC"
+            official = kc if team == "KC" else opp
+            if official is None:
+                continue
+            if claimed == official:
+                continue
+            if (
+                team == "KC"
+                and opp
+                and claimed == opp
+                and not re.search(
+                    r"\b(?:kc|chiefs|kansas city)\s+"
+                    r"(?:was|were|went|converted|is|are)\b",
+                    lead,
+                    re.I,
+                )
+            ):
+                continue
+            who = "KC" if team == "KC" else "opponent"
+            item = (
+                f"{who} third-down conversions {claimed[0]}-of-{claimed[1]} "
+                f"disagree with ESPN {official[0]}-{official[1]} "
+                f"({match.group(0)!r})"
+            )
+            if item not in seen:
+                seen.add(item)
+                issues.append(item)
+    return issues
+
+
+def _norm_tv(raw: str) -> str:
+    token = re.sub(r"\s+", " ", (raw or "").strip().lower())
+    token = token.replace(".", "")
+    return _TV_ALIASES.get(token, token)
+
+
+def _tv_matches(claimed: str, official: str) -> bool:
+    """Like-with-like TV compare. Mutant: always return True."""
+    left = _norm_tv(claimed)
+    right = _norm_tv(official)
+    if not left or not right:
+        return True
+    if left == right:
+        return True
+    left_c = re.sub(r"\s+", "", left)
+    right_c = re.sub(r"\s+", "", right)
+    if left_c not in right_c and right_c not in left_c:
+        return False
+    shorter, longer = (
+        (left_c, right_c) if len(left_c) <= len(right_c) else (right_c, left_c)
+    )
+    idx = longer.find(shorter)
+    after = longer[idx + len(shorter) : idx + len(shorter) + 1]
+    if after.isdigit():
+        return False
+    return True
+
+
+def _kickoff_hm(raw: str):
+    hit = _KICKOFF_CT.search(_fold_window_text(raw or ""))
+    if not hit:
+        return None
+    hour = int(hit.group(1))
+    minute = int(hit.group(2))
+    ampm = re.sub(r"[.]", "", hit.group(3).lower())
+    if ampm.startswith("p") and hour != 12:
+        hour += 12
+    if ampm.startswith("a") and hour == 12:
+        hour = 0
+    return hour, minute
+
+
+def _kickoff_matches(claimed: str, official: str) -> bool:
+    """Kickoff clock compare. Mutant: always return True."""
+    left = _kickoff_hm(claimed)
+    right = _kickoff_hm(official)
+    if left is None or right is None:
+        return True
+    return left == right
+
+
+def _slate_next_game(narrative: dict | None, schedule) -> dict | None:
+    """ESPN slate row for this edition's nextGame, including completed weeks.
+
+    Do not fall back to the currently upcoming game when the opponent is a
+    different club — archive replay would compare historical TV/kickoff to
+    this week's slate.
+    """
+    nxt = (narrative or {}).get("nextGame") or {}
+    if not isinstance(nxt, dict):
+        nxt = {}
+    wanted = (nxt.get("opponent") or "").strip().lower()
+    wanted = re.sub(r"^(?:vs\.?|@|at)\s+", "", wanted, flags=re.I).strip()
+    if not wanted:
+        return None
+    blob = " ".join(
+        str(nxt.get(key) or "")
+        for key in ("label", "note", "at", "tv", "opponent")
+    )
+    week_hit = re.search(r"\b(?:week|wk\.?)\s+(\d+)\b", blob, re.I)
+    wanted_week = int(week_hit.group(1)) if week_hit else None
+    preseason = bool(re.search(r"\bpre(?:season)?\b|\bwk\.?\s+\d+", blob, re.I))
+    matches: list[dict] = []
+    for game in schedule or []:
+        if not isinstance(game, dict):
+            continue
+        opp = (game.get("opponent") or "").strip().lower()
+        if not opp:
+            continue
+        if wanted == opp or wanted in opp or opp in wanted:
+            matches.append(game)
+    if not matches:
+        return None
+
+    def _live(rows: list[dict]) -> list[dict]:
+        return [
+            game
+            for game in rows
+            if not game.get("completed") and not game.get("inProgress")
+        ]
+
+    def _pre(rows: list[dict]) -> list[dict]:
+        return [game for game in rows if (game.get("seasonType") or "") == "pre"]
+
+    def _reg(rows: list[dict]) -> list[dict]:
+        return [game for game in rows if (game.get("seasonType") or "reg") != "pre"]
+
+    if wanted_week is not None:
+        week_rows = [game for game in matches if game.get("week") == wanted_week]
+        pre_typed = _pre(week_rows)
+        reg_typed = _reg(week_rows)
+        if preseason and pre_typed:
+            return pre_typed[0]
+        if pre_typed and not reg_typed:
+            return pre_typed[0]
+        if reg_typed:
+            return (_live(reg_typed) or reg_typed)[0]
+        if pre_typed:
+            return pre_typed[0]
+    pool = _pre(matches) if preseason else matches
+    pool = pool or matches
+    live = _live(_reg(pool) or pool)
+    if live and not preseason:
+        return live[0]
+    return pool[0]
+
+
+def _official_kickoff_blob(game: dict) -> str:
+    date = game.get("date") or ""
+    prompt = collect.kickoff_prompt(date) if date else ""
+    label = game.get("kickoff") or ""
+    return " ".join(p for p in (prompt, label) if p)
+
+
+def _check_next_kickoff_tv(narrative: dict | None, schedule=None) -> list[str]:
+    """Flag a next-game kickoff clock or TV network that is not the ESPN slate."""
+    if schedule is None:
+        return []
+    game = _slate_next_game(narrative, schedule)
+    if not game:
+        return []
+    official_tv = str(game.get("tv") or "").strip()
+    official_kick = _official_kickoff_blob(game)
+    nxt = (narrative or {}).get("nextGame") or {}
+    blobs = []
+    if isinstance(nxt, dict):
+        blobs.extend(
+            str(nxt.get(key) or "")
+            for key in ("tv", "label", "note", "opponent", "at")
+        )
+    issues: list[str] = []
+    seen: set[str] = set()
+    for blob in blobs:
+        if not blob.strip():
+            continue
+        for match in _TV_CLAIM.finditer(blob):
+            claimed = match.group(1)
+            if re.match(r"\s*FPI\b", blob[match.end() :], re.I):
+                continue
+            if _tv_matches(claimed, official_tv):
+                continue
+            item = (
+                f"next-game TV {claimed} disagrees with ESPN {official_tv} "
+                f"({match.group(0)!r})"
+            )
+            if item not in seen:
+                seen.add(item)
+                issues.append(item)
+        if not _kickoff_matches(blob, official_kick):
+            claimed = _KICKOFF_CT.search(_fold_window_text(blob))
+            snippet = claimed.group(0) if claimed else blob
+            official_hm = _KICKOFF_CT.search(_fold_window_text(official_kick))
+            expected = official_hm.group(0) if official_hm else official_kick
+            item = (
+                f"next-game kickoff {snippet} disagrees with ESPN {expected}"
+            )
+            if item not in seen:
+                seen.add(item)
+                issues.append(item)
+    return issues
+
+
 # In-season offline editions from the Grok path have been 3,929–4,726 words.
 # The 2026-09-29 fallback was ~1,925 and must not auto-publish.
 OFFLINE_WORD_FLOOR = 3000
@@ -8390,6 +9340,13 @@ def check_review(
                 issues.extend(_check_eligible_on_score(text, recap))
                 issues.extend(_check_int_clocks(text, recap))
                 issues.extend(_check_pass_touchdowns(text, recap))
+                issues.extend(_check_player_td_totals(text, recap))
+                issues.extend(
+                    _check_red_zone_counts(text, recap, last_game, schedule)
+                )
+                issues.extend(
+                    _check_third_down_counts(text, recap, last_game, schedule)
+                )
                 for field in _edition_fields(narrative):
                     issues.extend(_check_down_and_distance(field, recap))
                 issues.extend(_check_box_leaders(text, recap))
@@ -8399,6 +9356,7 @@ def check_review(
                 edition_text(narrative), narrative, changed=changed
             )
         )
+    issues.extend(_check_next_kickoff_tv(narrative, schedule))
     issues.extend(_check_prediction_markets(narrative))
     issues.extend(_check_offseason_slate(narrative, schedule))
     issues.extend(_check_playoff_next_unknown(narrative, schedule))

@@ -1,0 +1,605 @@
+[
+  {
+    "id": "r1_five_after_14_12",
+    "sentence": "Five Kansas City touchdowns after a 14-12 halftime, including Johnson\u2019s 6-yard score",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "#331 r1; ESPN 401873045 has three 2H TDs; head must FLAG",
+    "pass": true
+  },
+  {
+    "id": "r2_three_second_half",
+    "sentence": "Three Kansas City touchdowns in the second half, including Johnson's 6-yard score",
+    "expected": "pass",
+    "got": "pass",
+    "develop": "pass",
+    "note": "#331 r2; BASE second-half scope already 3=3",
+    "pass": true
+  },
+  {
+    "id": "three_after_14_12",
+    "sentence": "Three Kansas City touchdowns after a 14-12 halftime, including Johnson\u2019s 6-yard score",
+    "expected": "pass",
+    "got": "pass",
+    "develop": "leftover",
+    "note": "develop leftover 3 vs 5; head pass is the I6 fix, not a miss",
+    "pass": true
+  },
+  {
+    "id": "lede_second_half_three",
+    "sentence": "The second half was three Kansas City touchdowns and a defense that kept Geno Smith off the scoreboard.",
+    "expected": "pass",
+    "got": "pass",
+    "develop": "pass",
+    "note": "lede The second half was three...",
+    "pass": true
+  },
+  {
+    "id": "whole_game_five_no_window",
+    "sentence": "Five Kansas City touchdowns, four New York field goals, no Jets touchdown.",
+    "expected": "pass",
+    "got": "pass",
+    "develop": "pass",
+    "note": "true-negative: no window word, 5=5 whole game",
+    "pass": true
+  },
+  {
+    "id": "whole_game_three_no_window",
+    "sentence": "Three Kansas City touchdowns came before the break.",
+    "expected": "leftover",
+    "got": "leftover",
+    "develop": "leftover",
+    "note": "true-negative for the window guard; leftover 3 vs 5 is whole-game",
+    "pass": true
+  },
+  {
+    "id": "walker_turned",
+    "sentence": "Walker's 102 yards on 18 carries, plus Johnson's six-yard touchdown, turned a 14-12 halftime into 35-12",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "I5/H1: yards bound to turned-halftime is fail-closed",
+    "pass": true
+  },
+  {
+    "id": "flipped_14_12",
+    "sentence": "Eighteen carries and 102 yards just flipped a game that was 14-12",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "I5/H1: yards bound to flipped 14-12 is fail-closed",
+    "pass": true
+  },
+  {
+    "id": "following_halftime",
+    "sentence": "Five Kansas City touchdowns following halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "following = after",
+    "pass": true
+  },
+  {
+    "id": "after_the_half",
+    "sentence": "Five Kansas City touchdowns after the half.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "after the half",
+    "pass": true
+  },
+  {
+    "id": "in_the_second_half_five",
+    "sentence": "Five Kansas City touchdowns in the second half.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "leftover",
+    "note": "develop leftover via second-half scope 5 vs 3; head also window-FLAG",
+    "pass": true
+  },
+  {
+    "id": "endash_14_12",
+    "sentence": "Five Kansas City touchdowns after a 14\u201312 halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "Unicode en dash U+2013",
+    "pass": true
+  },
+  {
+    "id": "emdash_14_12",
+    "sentence": "Five Kansas City touchdowns after a 14\u201412 halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "Unicode em dash U+2014 folded to hyphen",
+    "pass": true
+  },
+  {
+    "id": "minus_14_12",
+    "sentence": "Five Kansas City touchdowns after a 14\u221212 halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "U+2212 minus folded to hyphen",
+    "pass": true
+  },
+  {
+    "id": "soft_hyphen_14_12",
+    "sentence": "Five Kansas City touchdowns after a 14\u00ad-\u00ad12 halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "soft hyphen U+00AD stripped/folded",
+    "pass": true
+  },
+  {
+    "id": "zwsp_14_12",
+    "sentence": "Five Kansas City touchdowns after a 14\u200b-\u200b12 halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "ZWSP U+200B stripped",
+    "pass": true
+  },
+  {
+    "id": "sep_ascii_hyphen",
+    "sentence": "Five Kansas City touchdowns after a 14-12 halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "14-12",
+    "pass": true
+  },
+  {
+    "id": "sep_en_dash",
+    "sentence": "Five Kansas City touchdowns after a 14\u201312 halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "14\u201312",
+    "pass": true
+  },
+  {
+    "id": "sep_spaced_hyphen",
+    "sentence": "Five Kansas City touchdowns after a 14 - 12 halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "14 - 12",
+    "pass": true
+  },
+  {
+    "id": "negation_never_five",
+    "sentence": "Kansas City never five touchdowns after halftime.",
+    "expected": "pass",
+    "got": "pass",
+    "develop": "pass",
+    "note": "negation: skip the count",
+    "pass": true
+  },
+  {
+    "id": "i12_figure_dash",
+    "sentence": "Five Kansas City touchdowns after a 14\u201212 halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "U+2012 figure dash folded to hyphen",
+    "pass": true
+  },
+  {
+    "id": "i12_nbsp_reached",
+    "sentence": "Kansas City scored five touchdowns after the score reached 14\u00a0\u2013\u00a012.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "NBSP inside 14\u201312",
+    "pass": true
+  },
+  {
+    "id": "i12_non_after_reached",
+    "sentence": "Five Kansas City touchdowns non-after the score reached 14-12.",
+    "expected": "pass",
+    "got": "pass",
+    "develop": "pass",
+    "note": "un/non lookbehind on after the score reached",
+    "pass": true
+  },
+  {
+    "id": "i12_following_the_score_reached",
+    "sentence": "Five Kansas City touchdowns following the score reached 14-12.",
+    "expected": "pass",
+    "got": "pass",
+    "develop": "pass",
+    "note": "following the score reached is not after",
+    "pass": true
+  },
+  {
+    "id": "i12_had_reached",
+    "sentence": "Five Kansas City touchdowns after the score had reached 14-12.",
+    "expected": "pass",
+    "got": "pass",
+    "develop": "pass",
+    "note": "had reached is not the bind",
+    "pass": true
+  },
+  {
+    "id": "i12_falling_behind",
+    "sentence": "Five Kansas City touchdowns after falling behind 0-6.",
+    "expected": "pass",
+    "got": "pass",
+    "develop": "pass",
+    "note": "falling behind is not trailing",
+    "pass": true
+  },
+  {
+    "id": "i12_once_trailing",
+    "sentence": "Five Kansas City touchdowns once trailing 6-0.",
+    "expected": "pass",
+    "got": "pass",
+    "develop": "pass",
+    "note": "once trailing is not after trailing",
+    "pass": true
+  },
+  {
+    "id": "i12_never_trailed",
+    "sentence": "Kansas City never trailed 6-0 after the score reached 14-12.",
+    "expected": "pass",
+    "got": "pass",
+    "develop": "pass",
+    "note": "negation / no count noun",
+    "pass": true
+  },
+  {
+    "id": "i12_digit_five_reached",
+    "sentence": "Kansas City scored 5 touchdowns after the score reached 14-12.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "digit 5 vs word five on the new score window",
+    "pass": true
+  },
+  {
+    "id": "i12_td_singular_reached",
+    "sentence": "Kansas City scored 5 touchdown after the score reached 14-12.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "singular touchdown on the new score window",
+    "pass": true
+  },
+  {
+    "id": "digit_5",
+    "sentence": "5 Kansas City touchdowns after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "5 vs Five",
+    "pass": true
+  },
+  {
+    "id": "word_five",
+    "sentence": "Five Kansas City touchdowns after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "Five vs 5",
+    "pass": true
+  },
+  {
+    "id": "five_tds_after_the_half",
+    "sentence": "Five Kansas City TDs after the half.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "TDs noun",
+    "pass": true
+  },
+  {
+    "id": "two_field_goals_after_the_break",
+    "sentence": "Two Kansas City field goals after the break.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "leftover",
+    "note": "0 second-half FGs; develop leftover via after-the-break scope",
+    "pass": true
+  },
+  {
+    "id": "three_scores_since_halftime",
+    "sentence": "Three Kansas City scores since halftime.",
+    "expected": "pass",
+    "got": "pass",
+    "develop": "pass",
+    "note": "3 scores = 3 TDs + 0 FG in 2H",
+    "pass": true
+  },
+  {
+    "id": "sacks_after_halftime",
+    "sentence": "Five Kansas City sacks after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed: no per-window ESPN sacks",
+    "pass": true
+  },
+  {
+    "id": "points_after_halftime",
+    "sentence": "Twenty-one Kansas City points after halftime.",
+    "expected": "pass",
+    "got": "pass",
+    "develop": "pass",
+    "note": "twenty-one is not a number-word/digit member; not this guard",
+    "pass": true
+  },
+  {
+    "id": "points_digit_after_halftime",
+    "sentence": "21 Kansas City points after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed: no per-window ESPN points",
+    "pass": true
+  },
+  {
+    "id": "yards_after_halftime",
+    "sentence": "102 Kansas City yards after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed: no per-window ESPN yards",
+    "pass": true
+  },
+  {
+    "id": "takeaways_after_halftime",
+    "sentence": "Three Kansas City takeaways after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed: no per-window ESPN takeaways",
+    "pass": true
+  },
+  {
+    "id": "fourth_quarter_five",
+    "sentence": "Five Kansas City touchdowns in the fourth quarter.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "leftover",
+    "note": "Q4 has 1 KC TD; develop leftover via fourth-quarter scope",
+    "pass": true
+  },
+  {
+    "id": "non_second_half",
+    "sentence": "Five Kansas City touchdowns in the non-second-half.",
+    "expected": "pass",
+    "got": "pass",
+    "develop": "leftover",
+    "note": "un/non prefix must not bind second-half; develop leftover via second-half",
+    "pass": true
+  },
+  {
+    "id": "one_sack_singular",
+    "sentence": "One Kansas City sack after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed singular sack",
+    "pass": true
+  },
+  {
+    "id": "one_yard_singular",
+    "sentence": "One Kansas City yard after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed singular yard",
+    "pass": true
+  },
+  {
+    "id": "one_point_singular",
+    "sentence": "One Kansas City point after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed singular point",
+    "pass": true
+  },
+  {
+    "id": "one_takeaway_singular",
+    "sentence": "One Kansas City takeaway after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed singular takeaway",
+    "pass": true
+  },
+  {
+    "id": "three_following_the_half",
+    "sentence": "Three Kansas City touchdowns following the half.",
+    "expected": "pass",
+    "got": "pass",
+    "develop": "leftover",
+    "note": "I6: true 2H count; develop leftover 3 vs 5",
+    "pass": true
+  },
+  {
+    "id": "three_following_the_break",
+    "sentence": "Three Kansas City touchdowns following the break.",
+    "expected": "pass",
+    "got": "pass",
+    "develop": "leftover",
+    "note": "I6: true 2H count; develop leftover 3 vs 5",
+    "pass": true
+  },
+  {
+    "id": "three_following_a_nn",
+    "sentence": "Three Kansas City touchdowns following a 14-12 halftime.",
+    "expected": "pass",
+    "got": "pass",
+    "develop": "leftover",
+    "note": "I6: true 2H count; develop leftover 3 vs 5",
+    "pass": true
+  },
+  {
+    "id": "three_turned",
+    "sentence": "Three Kansas City touchdowns turned a 14-12 halftime into 35-12.",
+    "expected": "pass",
+    "got": "pass",
+    "develop": "leftover",
+    "note": "I6: true 2H count; develop leftover 3 vs 5",
+    "pass": true
+  },
+  {
+    "id": "three_flipped",
+    "sentence": "Three Kansas City touchdowns flipped a game that was 14-12.",
+    "expected": "pass",
+    "got": "pass",
+    "develop": "leftover",
+    "note": "I6: true 2H count; develop leftover 3 vs 5",
+    "pass": true
+  },
+  {
+    "id": "one_catch_singular",
+    "sentence": "One Kansas City catch after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed singular catch",
+    "pass": true
+  },
+  {
+    "id": "two_catches",
+    "sentence": "Two Kansas City catches after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed plural catches",
+    "pass": true
+  },
+  {
+    "id": "one_carry_singular",
+    "sentence": "One Kansas City carry after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed singular carry",
+    "pass": true
+  },
+  {
+    "id": "two_carries",
+    "sentence": "Two Kansas City carries after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed plural carries",
+    "pass": true
+  },
+  {
+    "id": "one_interception_singular",
+    "sentence": "One Kansas City interception after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed singular interception",
+    "pass": true
+  },
+  {
+    "id": "two_interceptions",
+    "sentence": "Two Kansas City interceptions after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed plural interceptions",
+    "pass": true
+  },
+  {
+    "id": "one_fumble_singular",
+    "sentence": "One Kansas City fumble after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed singular fumble",
+    "pass": true
+  },
+  {
+    "id": "two_fumbles",
+    "sentence": "Two Kansas City fumbles after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed plural fumbles",
+    "pass": true
+  },
+  {
+    "id": "one_turnover_singular",
+    "sentence": "One Kansas City turnover after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed singular turnover",
+    "pass": true
+  },
+  {
+    "id": "two_turnovers",
+    "sentence": "Two Kansas City turnovers after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed plural turnovers",
+    "pass": true
+  },
+  {
+    "id": "one_reception_singular",
+    "sentence": "One Kansas City reception after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed singular reception",
+    "pass": true
+  },
+  {
+    "id": "two_receptions",
+    "sentence": "Two Kansas City receptions after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed plural receptions",
+    "pass": true
+  },
+  {
+    "id": "one_rush_singular",
+    "sentence": "One Kansas City rush after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed singular rush",
+    "pass": true
+  },
+  {
+    "id": "two_rushes",
+    "sentence": "Two Kansas City rushes after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed plural rushes",
+    "pass": true
+  },
+  {
+    "id": "one_completion_singular",
+    "sentence": "One Kansas City completion after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed singular completion",
+    "pass": true
+  },
+  {
+    "id": "two_completions",
+    "sentence": "Two Kansas City completions after halftime.",
+    "expected": "FLAG",
+    "got": "FLAG",
+    "develop": "pass",
+    "note": "fail-closed plural completions",
+    "pass": true
+  }
+]
