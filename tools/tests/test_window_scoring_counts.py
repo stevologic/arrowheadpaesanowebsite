@@ -659,6 +659,64 @@ class WindowScoringCounts(unittest.TestCase):
     def test_win_after_a_score(self):
         self.test_after_a_score_flags()
 
+    def test_win_after_score_reached(self):
+        self._assert_window_flag(
+            "Kansas City scored five touchdowns after the score reached 14-12."
+        )
+
+    def test_win_after_score_reached_endash(self):
+        self._assert_window_flag(
+            "Kansas City scored five touchdowns after the score reached 14–12."
+        )
+
+    def test_win_after_trailing(self):
+        self._assert_window_flag(
+            "Kansas City scored four touchdowns after trailing 6-0."
+        )
+
+    def test_win_after_a_start(self):
+        self._assert_window_flag(
+            "Kansas City scored four touchdowns after a 0-6 start."
+        )
+
+    def test_win_conjunct_after_score_reached(self):
+        self._assert_window_flag(
+            "Five Kansas City touchdowns and no need for a made field goal "
+            "after the score reached 14–12."
+        )
+
+    def test_m_after_check_review_flags(self):
+        issues = self._issues(
+            _review(
+                "Kansas City scored five touchdowns after the score reached 14–12."
+            )
+        )
+        self.assertTrue(
+            any(
+                "window-bound" in item
+                and "5" in item
+                and "3" in item
+                for item in issues
+            ),
+            issues,
+        )
+
+    def test_five_after_0_6_start_passes(self):
+        issues = self._issues(
+            _review("Kansas City scored five touchdowns after a 0-6 start.")
+        )
+        self.assertEqual(
+            [item for item in issues if "window-bound" in item],
+            [],
+        )
+
+    def test_whole_game_five_still_passes(self):
+        issues = self._issues(_review("Five Kansas City touchdowns."))
+        self.assertEqual(
+            [item for item in issues if "touchdown count 5 disagrees" in item],
+            [],
+        )
+
     # --- I1 unicode fold members ---
 
     def test_fold_em_dash(self):

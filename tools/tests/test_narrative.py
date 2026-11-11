@@ -7722,27 +7722,30 @@ class FactCheck(unittest.TestCase):
             "reviewDecision": "APPROVED",
             "headRefOid": "new-head",
         }
-        with patch.object(edition_merge, "fetch_pr", return_value=pr):
-            with patch.object(edition_merge, "fetch_review_threads", return_value=[]):
-                result = edition_merge.inspect_pr("12")
+        with patch.object(edition_merge, "repair_holds_automerge", return_value=False):
+            with patch.object(edition_merge, "fetch_pr", return_value=pr):
+                with patch.object(edition_merge, "fetch_review_threads", return_value=[]):
+                    result = edition_merge.inspect_pr("12")
         self.assertTrue(result["refused"])
         self.assertEqual(result["reason"], "no approval at current head")
         pr["reviews"] = [{"state": "APPROVED", "commit": "new-head"}]
-        with patch.object(edition_merge, "fetch_pr", return_value=pr):
-            with patch.object(edition_merge, "fetch_review_threads", return_value=[]):
-                ok = edition_merge.inspect_pr("12")
+        with patch.object(edition_merge, "repair_holds_automerge", return_value=False):
+            with patch.object(edition_merge, "fetch_pr", return_value=pr):
+                with patch.object(edition_merge, "fetch_review_threads", return_value=[]):
+                    ok = edition_merge.inspect_pr("12")
         self.assertFalse(ok["refused"])
         self.assertTrue(edition_merge.REQUIRE_HEAD_APPROVAL)
 
     def test_inspect_pr_missing_number_fails_closed(self):
-        with patch.object(
-            edition_merge,
-            "fetch_pr",
-            return_value={"labels": [], "reviews": [], "headRefOid": "abc"},
-        ):
-            with self.assertRaises(edition_merge.MergeLookupError):
-                edition_merge.inspect_pr("12")
-            self.assertEqual(edition_merge.main(["--pr", "12"]), 1)
+        with patch.object(edition_merge, "repair_holds_automerge", return_value=False):
+            with patch.object(
+                edition_merge,
+                "fetch_pr",
+                return_value={"labels": [], "reviews": [], "headRefOid": "abc"},
+            ):
+                with self.assertRaises(edition_merge.MergeLookupError):
+                    edition_merge.inspect_pr("12")
+                self.assertEqual(edition_merge.main(["--pr", "12"]), 1)
 
     def test_review_threads_paginate_past_100(self):
         pages = [
@@ -7828,6 +7831,7 @@ class FactCheck(unittest.TestCase):
         )
         self.assertIn("edition_merge", scripts)
         self.assertIn("--pr", scripts)
+        self.assertIn('--root "${GITHUB_WORKSPACE}"', scripts)
         self.assertLess(scripts.index("edition_merge"), scripts.index("gh pr merge"))
         self.assertIn("Refusing edition auto-merge and promote", scripts)
         self.assertIn("Promote develop to main", " ".join(
@@ -8143,9 +8147,17 @@ class FactCheck(unittest.TestCase):
             "python -m tools.chiefs_narrative.review_gate --pages --dist dist",
             pages_scripts,
         )
+        self.assertIn(
+            "python -m tools.chiefs_narrative.review_gate --hold-repair",
+            pages_scripts,
+        )
         self.assertLess(
             pages_scripts.index("hugo --gc --minify"),
             pages_scripts.index("review_gate --pages --dist dist"),
+        )
+        self.assertLess(
+            pages_scripts.index("review_gate --hold-repair"),
+            pages_scripts.index("git push"),
         )
         # G7: `review_gate --pages || true`
         self.assertIsNone(
@@ -9546,6 +9558,7 @@ class FactCheck(unittest.TestCase):
         self.assertIn(
             "python -P -m tools.chiefs_narrative.edition_merge", publish_blob
         )
+        self.assertIn('--root "${GITHUB_WORKSPACE}"', publish_blob)
         self.assertLess(
             publish_blob.index("edition_merge"),
             publish_blob.index("gh pr merge"),

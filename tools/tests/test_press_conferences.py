@@ -4,7 +4,7 @@ from __future__ import annotations
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from zoneinfo import ZoneInfo
 
 from tools.chiefs_narrative import generate, press_conferences, prompts, schema
@@ -823,6 +823,36 @@ class PressConferenceTemplate(unittest.TestCase):
         self.assertTrue(press_conferences.in_game_week(postgame, WEEK_PHASE))
         self.assertTrue(press_conferences.in_game_week(monday, WEEK_PHASE))
         self.assertFalse(press_conferences.in_game_week(friday, WEEK_PHASE))
+
+    def test_fetch_oembed_retries_once(self):
+        good = {
+            "title": REID_TITLE,
+            "author_name": "Kansas City Chiefs",
+            "author_url": "https://www.youtube.com/@KansasCityChiefs",
+        }
+        calls = {"n": 0}
+
+        def fake_get(*_args, **_kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise press_conferences.requests.RequestException("timeout")
+            resp = Mock()
+            resp.status_code = 200
+            resp.json.return_value = good
+            return resp
+
+        with patch.object(press_conferences.requests, "get", side_effect=fake_get):
+            payload = press_conferences.fetch_oembed(REID_URL)
+        self.assertEqual(payload, good)
+        self.assertEqual(calls["n"], 2)
+
+    def test_fetch_oembed_still_none_after_retry(self):
+        with patch.object(
+            press_conferences.requests,
+            "get",
+            side_effect=press_conferences.requests.RequestException("down"),
+        ):
+            self.assertIsNone(press_conferences.fetch_oembed(REID_URL))
 
 
 if __name__ == "__main__":

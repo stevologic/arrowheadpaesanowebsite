@@ -47,7 +47,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from tools.chiefs_narrative import config
+from tools.chiefs_narrative import config, edition_merge
 
 REVIEW_SIGNOFF_REQUIRED = True
 SIGNOFF_DIR = "signoff/review"
@@ -1087,6 +1087,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Review edition publish gate")
     parser.add_argument("--automerge", action="store_true")
     parser.add_argument("--pages", action="store_true")
+    parser.add_argument(
+        "--hold-repair",
+        action="store_true",
+        help="refuse when data/narrative_repair.json holdAutomerge is true",
+    )
     parser.add_argument("--base", help="git ref to diff against for --automerge")
     parser.add_argument("--root", default="")
     parser.add_argument(
@@ -1099,7 +1104,23 @@ def main(argv: list[str] | None = None) -> int:
     root = Path(args.root) if args.root else config.REPO_ROOT
     paths = list(args.paths)
     try:
+        if args.hold_repair:
+            if edition_merge.repair_holds_automerge(root):
+                print(
+                    "Refusing Pages deploy: holdAutomerge is true in "
+                    "data/narrative_repair.json",
+                    file=sys.stderr,
+                )
+                return 1
+            return 0
         if args.automerge:
+            if edition_merge.repair_holds_automerge(root):
+                print(
+                    "Refusing automerge: holdAutomerge is true in "
+                    "data/narrative_repair.json",
+                    file=sys.stderr,
+                )
+                return 1
             if not paths:
                 paths = _git_changed(args.base or "origin/main", root)
             if automerge_blocked(paths, root=root):
@@ -1127,7 +1148,7 @@ def main(argv: list[str] | None = None) -> int:
     except GateError as exc:
         print(f"review gate failed closed: {exc}", file=sys.stderr)
         return 1
-    parser.error("choose --automerge or --pages")
+    parser.error("choose --automerge, --pages, or --hold-repair")
     return 2
 
 

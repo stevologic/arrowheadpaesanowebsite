@@ -15,16 +15,40 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
+
+from . import config
 
 
 HOLD_LABEL = "hold"
 CHANGES_REQUESTED = "CHANGES_REQUESTED"
 APPROVED = "APPROVED"
 REQUIRE_HEAD_APPROVAL = True
+HOLD_AUTOMERGE_REASON = (
+    "holdAutomerge is true in data/narrative_repair.json"
+)
 
 
 class MergeLookupError(RuntimeError):
     """GitHub API failed; refuse closed instead of merging."""
+
+
+def load_repair(root=None) -> dict:
+    """Edition repair sidecar. Missing or invalid JSON is an empty hold-closed dict."""
+    path = Path(root) if root else config.REPO_ROOT
+    repair_path = path / "data" / "narrative_repair.json"
+    if not repair_path.is_file():
+        return {}
+    try:
+        loaded = json.loads(repair_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return loaded if isinstance(loaded, dict) else {}
+
+
+def repair_holds_automerge(root=None) -> bool:
+    """True when data/narrative_repair.json asks every merge/deploy path to hold."""
+    return bool(load_repair(root).get("holdAutomerge"))
 
 
 def _label_names(labels) -> list[str]:
@@ -260,7 +284,15 @@ def promote_pr_url(title: str, prs: list[dict] | None = None, runner=None) -> st
     return ""
 
 
-def inspect_pr(pr_ref: str) -> dict:
+def inspect_pr(pr_ref: str, *, root=None) -> dict:
+    if repair_holds_automerge(root):
+        return {
+            "url": pr_ref,
+            "number": None,
+            "head": None,
+            "reason": HOLD_AUTOMERGE_REASON,
+            "refused": True,
+        }
     pr = fetch_pr(pr_ref)
     number = pr.get("number")
     if number is None:
@@ -289,6 +321,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--pr", help="PR URL or number")
     parser.add_argument(
+        "--root",
+        default="",
+        help="checkout that holds data/narrative_repair.json (PR tree)",
+    )
+    parser.add_argument(
         "--promote-url",
         action="store_true",
         help="print the develop→main promote PR URL for --title",
@@ -305,7 +342,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.pr:
         parser.error("--pr is required")
     try:
-        result = inspect_pr(args.pr)
+        result = inspect_pr(args.pr, root=args.root or None)
     except MergeLookupError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1

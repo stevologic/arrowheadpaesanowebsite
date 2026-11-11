@@ -153,8 +153,8 @@ def handle_from_author_url(author_url: str) -> str:
     return handle.lstrip("@")
 
 
-def fetch_oembed(url: str, *, timeout: float = OEMBED_TIMEOUT_SEC) -> dict | None:
-    """Return the oEmbed JSON object or None. Never raises to callers."""
+def _fetch_oembed_once(url: str, *, timeout: float) -> dict | None:
+    """One YouTube oEmbed GET. Transient failures return None."""
     try:
         resp = requests.get(
             OEMBED_ENDPOINT,
@@ -171,6 +171,17 @@ def fetch_oembed(url: str, *, timeout: float = OEMBED_TIMEOUT_SEC) -> dict | Non
     except ValueError:
         return None
     return payload if isinstance(payload, dict) else None
+
+
+def fetch_oembed(url: str, *, timeout: float = OEMBED_TIMEOUT_SEC) -> dict | None:
+    """Return the oEmbed JSON object or None. Never raises to callers.
+
+    Retry once on a miss so a transient lookup cannot red --check-edition.
+    """
+    payload = _fetch_oembed_once(url, timeout=timeout)
+    if payload is None:
+        payload = _fetch_oembed_once(url, timeout=timeout)
+    return payload
 
 
 def author_is_allowlisted(payload: dict | None) -> bool:

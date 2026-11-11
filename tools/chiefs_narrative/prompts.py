@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
-from . import collect, config, diagrams, phase as phase_mod
+from . import collect, config, diagrams, facts, phase as phase_mod
 
 
 SYSTEM_PROMPT = """\
@@ -163,6 +163,8 @@ def _allowed_facts(recap: dict | None) -> list[str]:
                 "totalYards",
                 "possessionTime",
                 "thirdDownEff",
+                "redZoneEff",
+                "redZoneEfficiency",
                 "turnovers",
                 "sacks",
                 "totalDrives",
@@ -181,6 +183,8 @@ def _allowed_facts(recap: dict | None) -> list[str]:
                 "totalYards",
                 "possessionTime",
                 "thirdDownEff",
+                "redZoneEff",
+                "redZoneEfficiency",
                 "turnovers",
                 "sacks",
                 "totalDrives",
@@ -439,10 +443,33 @@ def _last_game_brief(signals: dict, phase: dict) -> str:
         for row in drives:
             lines.append(_format_drive_result(row))
     for leader in recap.get("leaders") or []:
+        scope = facts.leader_td_scope_note(leader, recap)
         lines.append(
             f"  KC leader: {leader.get('player')} — {leader.get('category')} "
-            f"({leader.get('value')})"
+            f"({leader.get('value')}){scope}"
         )
+    td_rows = facts.player_td_totals(recap)
+    if td_rows:
+        lines.append(
+            "  PLAYER TOUCHDOWNS (whole-game rush + receiving from ESPN "
+            "scoring plays and box; a rushing-leader N TD is rushing only — "
+            "do not compare it to an all-purpose total):"
+        )
+        for last in sorted(td_rows):
+            row = td_rows[last]
+            lines.append(
+                f"    {row.get('name') or last}: {row.get('rush', 0)} rushing + "
+                f"{row.get('rec', 0)} receiving = {row.get('total', 0)} total"
+            )
+    conflicts = facts.source_td_conflicts((signals or {}).get("news") or [], recap)
+    if conflicts:
+        lines.append(
+            "  SOURCE TD CONFLICTS (like-with-like only: rushing headlines vs "
+            "rushing TDs, all-purpose totals vs rush+rec — not a rushing-leader "
+            "TD against a three-touchdown headline):"
+        )
+        for item in conflicts:
+            lines.append(f"    {item}")
     prior = recap.get("prior") or {}
     if prior.get("kc") or prior.get("opp"):
         label = prior.get("opponent") or prior.get("oppAbbr") or "prior opponent"
