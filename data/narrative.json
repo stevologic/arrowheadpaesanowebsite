@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-11-10T17:26:36+00:00",
-  "updatedAt": "2026-11-11T17:42:55+00:00",
+  "updatedAt": "2026-11-11T18:07:20+00:00",
   "generator": "grok:grok-4.7",
   "heroMediaId": "none",
   "phase": {
@@ -21,7 +21,7 @@
   },
   "dek": "Kansas City is 6-2 and goes to the Atlanta Falcons on Sun Nov 15, 12:00 PM CT on CBS laying 3.5, with a 35-12 win over the Jets still carrying two turnovers onto the trip.",
   "videoHook": "Atlanta is the assignment, the number is 3.5, and the last tape is a 35-12 win that still gave the ball away twice.",
-  "theEdge": "ESPN FPI puts Kansas City at 76.3 percent to win in Atlanta, and DraftKings lists the Chiefs minus 3.5 on a 45.5 total — a road favorite whose 23-of-31, 117.9 line still came with two sacks, eight quarterback hits, and two turnovers.",
+  "theEdge": "ESPN FPI puts Kansas City at 78.1 percent to win in Atlanta, and DraftKings lists the Chiefs minus 3.5 on a 45.5 total — a road favorite whose 23-of-31, 117.9 line still came with two sacks, eight quarterback hits, and two turnovers.",
   "editorNotes": [
     "NYJ made FGs of 23, 48, 49, 54, all before halftime. KC made no field goal. Misses: Sanders 53 wide left, Butker 51 wide right.",
     "Allen fumble: forced by Bolton, recovered by Gilman. Do not credit Bolton as the recoverer.",
@@ -53,7 +53,7 @@
     }
   ],
   "storyline": {
-    "lede": "The next kickoff is in Atlanta, Sun Nov 15, 12:00 PM CT on CBS, with Kansas City laying 3.5 on a 45.5 total and ESPN FPI giving the Chiefs a 76.3 percent chance. That price is the story. The 35-12 win over the Jets is the supporting tape: 391 yards, five touchdowns, and two turnovers that a road favorite cannot treat as scenery.",
+    "lede": "The next kickoff is in Atlanta, Sun Nov 15, 12:00 PM CT on CBS, with Kansas City laying 3.5 on a 45.5 total and ESPN FPI giving the Chiefs a 78.1 percent chance. That price is the story. The 35-12 win over the Jets is the supporting tape: 391 yards, five touchdowns, and two turnovers that a road favorite cannot treat as scenery.",
     "body": [
       "Andy Reid, Eric Bieniemy, and Steve Spagnuolo got the get-well version of the offense and the rush they have been waiting to see travel. Patrick Mahomes finished 23-of-31 for 242 yards and two touchdown passes, rating 117.9, with two sacks. The team ran for 163 on 32 attempts and threw for 228 net. Arrowhead Pride’s film look had the running backs at 27 carries for 155 yards and two touchdowns. That is a real identity. It is also a home identity until it shows up on the road.",
       "The Jets still held the ball for 31:06 to Kansas City’s 28:54, posted 106 rushing yards, and kicked their way to 12 points before the half. Kansas City’s two turnovers — Justin Fields’ fumble, recovered by Davis, and a Mahomes fumble forced by Bailey and recovered by McDonald — are the stains on a 27-first-down afternoon. Arrowhead Addict called it the defense Spagnuolo had been waiting to see, and also warned that harder tests are next.",
@@ -86,18 +86,13 @@
         "body": "Kansas City rushed for 163 yards on 32 attempts. Walker’s 102 yards on 18 carries are the lead line inside that total, not a substitute for it. Pride’s backfield split of 27 carries for 155 yards is the same idea from the film desk."
       },
       {
-        "title": "Third down, not the clock, decided it",
-        "body": "The Jets held the ball for 31:06 and still finished 2-of-12 on third down with 229 total yards. Kansas City was 6-of-11 and scored on five of its touchdown drives after trailing 6–0."
-      },
-      {
         "title": "Two giveaways sit on an otherwise clean count",
         "body": "The box lists two Kansas City turnovers and one for New York. Davis recovered the Fields fumble. McDonald recovered the Mahomes fumble Bailey forced. Gilman recovered the Allen fumble Bolton forced."
       }
     ],
     "whatWorked": [
       "Walker’s 22 touches and a 163-yard team rush that included a 2-yard touchdown up the middle.",
-      "Mahomes at 23-of-31, 242 yards, two touchdown passes, rating 117.9, with Kelce at 4 catches for 72 yards.",
-      "Five Kansas City touchdowns and no need for a made field goal after the score reached 14–12."
+      "Mahomes at 23-of-31, 242 yards, two touchdown passes, rating 117.9, with Kelce at 4 catches for 72 yards."
     ],
     "whatDidnt": [
       "Two turnovers, including a sack-fumble Mahomes lost, on a day he was also hit eight times and sacked twice.",
@@ -125,7 +120,7 @@
     "thinkAbout": [
       {
         "title": "How much of 6-2 is the opponent",
-        "body": "Arrowhead Addict argues the record deserves more respect than the critics allow, and also notes Kansas City is not the only club helped by schedule. FPI’s 76.3 percent in Atlanta is a strong number. It is not a certificate."
+        "body": "Arrowhead Addict argues the record deserves more respect than the critics allow, and also notes Kansas City is not the only club helped by schedule. FPI’s 78.1 percent in Atlanta is a strong number. It is not a certificate."
       },
       {
         "title": "Whether the deadline is a receiver week",
@@ -139,7 +134,7 @@
   },
   "gamePlan": {
     "opponent": "Atlanta Falcons",
-    "lede": "Kansas City is a 3.5-point road favorite on Sun Nov 15, 12:00 PM CT on CBS, in a 45.5 total, with FPI at 76.3 percent. The assignment is to take the Jets’ efficient down-and-distance tape on the road without the two giveaways, and to make Spagnuolo’s rush a weekly habit rather than a home spike.",
+    "lede": "Kansas City is a 3.5-point road favorite on Sun Nov 15, 12:00 PM CT on CBS, in a 45.5 total, with FPI at 78.1 percent. The assignment is to take the Jets’ efficient down-and-distance tape on the road without the two giveaways, and to make Spagnuolo’s rush a weekly habit rather than a home spike.",
     "howTheyMatch": "Spagnuolo can lean on the 7 quarterback hits and Jones’ two sacks as the standard, not as a prediction of another five-sack day.",
     "keys": [
       {
@@ -173,22 +168,22 @@
     "opponent": "Atlanta Falcons",
     "at": "@ Mercedes-Benz Stadium",
     "tv": "CBS",
-    "note": "Road favorite by 3.5 on a 45.5 total, FPI 76.3 percent, with Arizona and Buffalo next on the slate."
+    "note": "Road favorite by 3.5 on a 45.5 total, FPI 78.1 percent, with Arizona and Buffalo next on the slate."
   },
   "markets": {
     "game": {
       "opponent": "Atlanta Falcons",
       "label": "Sun, Nov 15 · 12:00 PM CT",
       "homeAway": "away",
-      "kcWin": 76.3,
+      "kcWin": 78.1,
       "spreadDetail": "KC -3.5",
       "overUnder": 45.5,
       "source": "ESPN FPI win probability; ESPN / DraftKings spread",
       "url": "https://www.espn.com/nfl/game/_/gameId/401873058"
     },
     "model": {
-      "kcWin": 76.3,
-      "oppWin": 23.5,
+      "kcWin": 78.1,
+      "oppWin": 21.7,
       "label": "ESPN FPI game projection",
       "source": "ESPN FPI",
       "url": "https://www.espn.com/nfl/fpi"
@@ -206,13 +201,13 @@
   "spotlight": [
     {
       "tag": "Price",
-      "title": "76.3 percent is still a one-score lean",
-      "body": "DraftKings has Kansas City minus 3.5, not minus 10. FPI’s 76.3 percent is the model’s lean. A 45.5 total says the market does not expect another 35-point Kansas City afternoon by default."
+      "title": "78.1 percent is still a one-score lean",
+      "body": "DraftKings has Kansas City minus 3.5, not minus 10. FPI’s 78.1 percent is the model’s lean. A 45.5 total says the market does not expect another 35-point Kansas City afternoon by default."
     },
     {
       "tag": "Walker",
       "title": "102 yards inside a 163-yard team rush",
-      "body": "Pride’s film review put the backs at 155 yards on 27 carries. That is the Atlanta carry plan."
+      "body": "Walker had 18 carries for 102 yards. Pride’s film review put the backs at 155 yards on 27 carries. That is the Atlanta carry plan."
     },
     {
       "tag": "Jones",
@@ -481,7 +476,7 @@
     "Keep the third-down standard at or better than 6-of-11 so a 31-minute opponent possession cannot steal a 3.5 game."
   ],
   "debates": [
-    "Does a 6-2 record with ESPN still at No. 6 deserve more respect, or is FPI’s 76.3 percent in Atlanta the more honest grade?",
+    "Does a 6-2 record with ESPN still at No. 6 deserve more respect, or is FPI’s 78.1 percent in Atlanta the more honest grade?",
     "Should Veach chase a receiver before the Tuesday cutoff, or is Rice-Worthy-Kelce enough after five, six, and four catches?",
     "Is Walker’s 22-touch game the Atlanta plan, or does Buffalo on Thu Nov 26, 7:20 PM CT force a lighter dose?",
     "How much does Mahomes’ day-to-day tag change a 3.5 road lean if he finished 23-of-31?"
