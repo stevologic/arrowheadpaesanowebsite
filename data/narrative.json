@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-11-10T17:26:36+00:00",
-  "updatedAt": "2026-11-11T18:07:20+00:00",
+  "generatedAt": "2026-11-12T17:54:47+00:00",
+  "updatedAt": "2026-11-12T17:54:48+00:00",
   "generator": "grok:grok-4.7",
   "heroMediaId": "none",
   "phase": {
@@ -12,27 +12,31 @@
   },
   "edition": "2026 Week 10 · Preview",
   "record": "6-2",
-  "headline": "Atlanta is a 3.5 road price after 163 rush yards and two giveaways",
+  "headline": "Atlanta is a three-point road ask, with Downs inbound and two loose balls still on the tape",
   "sectionTitles": {
-    "lastGame": "Five touchdowns after a 0-6 start",
-    "currentState": "A 6-2 club with a deadline and day-to-day tags",
-    "gamePlan": "What the 3.5 number actually asks in Atlanta",
-    "pressConferences": "Monday podium after the Jets win"
+    "lastGame": "A 35-12 separation that still leaked two footballs",
+    "currentState": "Downs, the tackle question, and a kicker Reid will not move",
+    "gamePlan": "How Kansas City should play the three-point Atlanta assignment",
+    "pressConferences": "Week 10 podium coverage, attached separately"
   },
-  "dek": "Kansas City is 6-2 and goes to the Atlanta Falcons on Sun Nov 15, 12:00 PM CT on CBS laying 3.5, with a 35-12 win over the Jets still carrying two turnovers onto the trip.",
-  "videoHook": "Atlanta is the assignment, the number is 3.5, and the last tape is a 35-12 win that still gave the ball away twice.",
-  "theEdge": "ESPN FPI puts Kansas City at 78.1 percent to win in Atlanta, and DraftKings lists the Chiefs minus 3.5 on a 45.5 total — a road favorite whose 23-of-31, 117.9 line still came with two sacks, eight quarterback hits, and two turnovers.",
+  "dek": "Kansas City is 6-2 and visits the Atlanta Falcons on Sun Nov 15, 12:00 PM CT on CBS as a DraftKings minus-3 favorite after a 35-12 win over the Jets that still included two turnovers.",
+  "videoHook": "The number in Atlanta is three, the model is louder than the price, and the Jets tape still has two giveaways on it.",
+  "theEdge": "ESPN FPI lists Kansas City at 78.1 percent to win at Atlanta, and DraftKings has the Chiefs minus 3 on a 46.5 total — a road favorite whose 23-of-31, 117.9 line still shared the film with eight quarterback hits and two turnovers.",
   "editorNotes": [
-    "NYJ made FGs of 23, 48, 49, 54, all before halftime. KC made no field goal. Misses: Sanders 53 wide left, Butker 51 wide right.",
-    "Allen fumble: forced by Bolton, recovered by Gilman. Do not credit Bolton as the recoverer.",
-    "Mahomes sack count is 2. Geno Smith was sacked five times. Jones leader line is 2 sacks. KC QB hits 7; hits on Mahomes 8.",
-    "Briningstool and Canady holdings are not tagged wiped play.",
-    "Eligible list: Nourzad on Q1 5:40; Tonga on Q4 3:35. Do not merge those reports.",
-    "Three day-to-day names are incomplete in the Pride snippet beyond Mahomes. Butker is a Reid concern in the Addict headline, not a listed status.",
-    "No completed trade is in the supplied items. Deadline item dates the cutoff as Tuesday, November 10, 3:00 p.m. Arrowhead time.",
-    "Last-game window is midday. Do not use the word night anywhere."
+    "Chris Jones leader line lists Sacks (2); Geno Smith pass line lists 5 sacks. Published copy cites the award without pairing Jones's leader total as the team sack total.",
+    "Xavier Worthy practiced on the Wednesday report; items used do not add a game designation.",
+    "Jets field-goal kickers are listed unknown. Do not assign a name."
   ],
   "pressConferences": [
+    {
+      "url": "https://www.youtube.com/watch?v=T068bsRpdBo",
+      "videoId": "T068bsRpdBo",
+      "speaker": "Chris Jones",
+      "channel": "Kansas City Chiefs",
+      "title": "Coordinators and Chris Jones Speak to Media | NOVEMBER 12, 2026",
+      "date": "2026-11-12",
+      "dateLabel": "Thu Nov 12, 2026"
+    },
     {
       "url": "https://www.youtube.com/watch?v=xF-fWuzUghM",
       "videoId": "xF-fWuzUghM",
@@ -53,11 +57,12 @@
     }
   ],
   "storyline": {
-    "lede": "The next kickoff is in Atlanta, Sun Nov 15, 12:00 PM CT on CBS, with Kansas City laying 3.5 on a 45.5 total and ESPN FPI giving the Chiefs a 78.1 percent chance. That price is the story. The 35-12 win over the Jets is the supporting tape: 391 yards, five touchdowns, and two turnovers that a road favorite cannot treat as scenery.",
+    "lede": "The next kickoff is the Atlanta Falcons on Sun Nov 15, 12:00 PM CT on CBS, with Kansas City laying 3 on a 46.5 total and ESPN FPI giving the Chiefs a 78.1 percent chance. That is a road favorite's assignment, not a coronation: Andy Reid's team is 6-2, Josh Downs is in the building after a Tuesday trade, and the 35-12 win over the Jets still has to travel with cleaner ball security than two lost fumbles.",
     "body": [
-      "Andy Reid, Eric Bieniemy, and Steve Spagnuolo got the get-well version of the offense and the rush they have been waiting to see travel. Patrick Mahomes finished 23-of-31 for 242 yards and two touchdown passes, rating 117.9, with two sacks. The team ran for 163 on 32 attempts and threw for 228 net. Arrowhead Pride’s film look had the running backs at 27 carries for 155 yards and two touchdowns. That is a real identity. It is also a home identity until it shows up on the road.",
-      "The Jets still held the ball for 31:06 to Kansas City’s 28:54, posted 106 rushing yards, and kicked their way to 12 points before the half. Kansas City’s two turnovers — Justin Fields’ fumble, recovered by Davis, and a Mahomes fumble forced by Bailey and recovered by McDonald — are the stains on a 27-first-down afternoon. Arrowhead Addict called it the defense Spagnuolo had been waiting to see, and also warned that harder tests are next.",
-      "Atlanta is that test on the calendar, then Arizona at Arrowhead on Sun Nov 22, 12:00 PM CT, then Buffalo on Thu Nov 26, 7:20 PM CT. Arrowhead Pride’s Week 10 rankings roundup has ESPN leaving the Chiefs at No. 6. The same outlet’s playoff picture says the 35-12 win kept pace rather than creating separation. Arrowhead Addict notes the Super Bowl 61 price moved the wrong way after the win. A 6-2 record can be both real and unfinished. Brett Veach’s trade-deadline window, with Reid saying Veach keeps his eyes open, is the roster question sitting beside the Atlanta script."
+      "DraftKings is shorter than the model. A 78.1 percent FPI win probability against a three-point number is the whole preview in one comparison. Kansas City can win the game and still fail the price if the operation that posted 391 yards and 27 first downs against New York also posts another pair of giveaways, or if Harrison Butker is asked to finish a one-score trip the way the 51-yard miss finished a drive at Arrowhead.",
+      "The roster story of the week is the pass game, not a finished product. Patrick Mahomes has already said he does not expect a long learning period for Downs, while Arrowhead Addict notes that Cyrus Allen's snaps are the ones most likely to shrink. Eric Bieniemy does not need Downs to be the Week 10 offense. He needs the snaps that already worked — Kenneth Walker III, Travis Kelce, Rashee Rice, Xavier Worthy — to stay the base, with Downs added only where the install is real.",
+      "Steve Spagnuolo's side has a cleaner recent picture than the offense's protection. New York managed 229 yards, 15 first downs, and 2-of-12 on third down, and Chris Jones was named AFC Defensive Player of the Week. The caution is the clock: the Jets held the ball for 31:06 to Kansas City's 28:54. Atlanta does not have to out-yard this offense to make a three-point game sweaty if it owns the possession and forces Reid into long kicks.",
+      "After Atlanta, the slate does not pause for a philosophy seminar. Arizona comes to Arrowhead on Sun Nov 22, 12:00 PM CT on CBS, then Buffalo on Thu Nov 26, 7:20 PM CT on NBC. The Falcons game is the one that has to be played clean before those two are even a plan."
     ]
   },
   "lastGameReview": {
@@ -65,102 +70,103 @@
     "label": "Week 9 · Sun, Nov 8 · 12:00 PM CT",
     "result": "W",
     "score": "KC 35–12",
-    "lede": "At Arrowhead, the Jets led 6–0 on field goals of 23 and 48 yards, the second of them at Q1 4:35, before Kansas City scored five touchdowns and won 35-12. New York’s other scores were a 49-yard field goal and a 54-yard field goal, both before halftime. Kansas City did not make a field goal.",
+    "lede": "Kansas City beat the Jets 35-12 at Arrowhead, scoring five touchdowns after New York opened with field goals and stayed in it until the half. The Chiefs finished with 27 first downs, 163 rushing yards on 32 attempts, 228 net passing yards, 391 total yards, a 6-of-11 third-down rate, 12 drives, and 28:54 of possession. They also turned it over twice.",
     "analysis": [
       {
-        "body": "The comeback was a drive story, not a trick. Net passing was 228. The rush total was 163 on 32 attempts. Possession sat at 28:54, so the Jets’ 31:06 did not come with control of the sticks. Smith finished 18-of-32 with a 70.4 rating and was sacked five times. Breece Hall had 18 touches and Braelon Allen 10, and the Jets still managed 106 rushing yards on 25 attempts. That is a front that bent and then ended drives."
+        "body": "The opening score was a New York field goal at Q1 6:47, 23 yards, and the game sat at KC 0–3. A second Jets field goal at Q1 4:35, 48 yards, made it 0–6. Kansas City's first touchdown came at Q2 14:56, 7 yards, and the score was 7–6. New York answered with a 49-yard field goal at Q2 8:12 to lead 9–7, then a 25-yard Chiefs touchdown at Q2 5:37 made it 14–9, and a 54-yard Jets field goal at Q2 2:16 left the half at 14–12. Credit the kicking team: those four made field goals were New York's. Harrison Butker missed from 51, wide right, at Q2 0:02, and the Jets missed from 53, wide left, at Q2 0:37."
       },
       {
-        "body": "Emmett Johnson’s 6-yard touchdown at Q4 3:35 came with Tonga reported eligible on that snap. Travis Kelce caught four passes for 72 yards. Rashee Rice had five catches, Xavier Worthy six. Those are the touches Bieniemy can actually pack."
+        "body": "The two Kansas City turnovers are specific. At Q1 5:40, H.Nourzad reported in as eligible and Justin Fields was stopped up the middle; the recovery belongs to D.Davis. At Q2 1:41, D.Bailey forced a fumble on a sack of Mahomes, and W.McDonald recovered it. The play-by-play also says Mahomes was injured on that play. He still finished the passer line the box credits him with: 23-of-31, 242 yards, 2 touchdowns, rating 117.9, with 2 sacks on that pass line. A separate Bailey sack-fumble at Q2 2:00 was recovered by J.Moore, so it is not one of the two turnovers. The kickoff fumble forced by Q.Stiggers was recovered by J.Bassa."
       },
       {
-        "body": "The two giveaways are specific. At Q1 5:40, with Nourzad reported eligible, Fields went up the middle and lost the ball, recovered by Davis. At Q2 1:41, Bailey sacked Mahomes for a 10-yard loss and McDonald recovered. An earlier Bailey sack-fumble was recovered by Moore, so it stayed with Kansas City. Bolton forced Allen’s fumble at Q2 6:29 and Gilman recovered it. That is the Jets’ one turnover. Mahomes was also hit eight times and sacked twice. Kansas City recorded 7 quarterback hits. Harrison Butker missed a 51-yard field goal wide right; Sanders missed from 53, wide left. Jake Briningstool was flagged for offensive holding in the first quarter and J. Canady for offensive holding in the third. Those flags are on the sheet. They are not listed as wiped plays."
+        "body": "It is not a license to invent a blitz type the play-by-play does not name. Breece Hall finished with 18 touches and Braelon Allen with 10; the Jets rushed 25 times for 106 yards and threw for 123 net yards. Kansas City recorded 7 quarterback hits; the Jets recorded 8 on Mahomes. Smith also lost a Q4 11:47 snap on downs when George Karlaftis got the sack, then failed on downs again at Q4 2:08."
       },
       {
-        "body": "After halftime the scoreboard belonged to Kansas City: a 1-yard touchdown at Q3 10:20, Walker’s 2-yard score, and Johnson’s 6-yard score. New York’s late drives ended on downs, including Karlaftis’ sack of Smith at Q4 11:47. The tape says the run game and the red-zone finishes traveled from the second quarter into the fourth. It also says the protection and the ball security did not."
+        "body": "The second half is where the scoreboard finally matched the yardage. Walker was the rushing leader at 18 carries, 102 yards, and 1 touchdown, with end runs and interior carries both on the tape, so the 102 is not an interior-only total. Team rushing stays 163, not his line. Kelce led the receivers with 4 catches for 72 yards. K.Tonga is the eligible report listed at Q4 3:35; that is a different snap from the Q1 5:40 Nourzad report."
       }
     ],
     "takeaways": [
       {
-        "title": "The run total is a team number",
-        "body": "Kansas City rushed for 163 yards on 32 attempts. Walker’s 102 yards on 18 carries are the lead line inside that total, not a substitute for it. Pride’s backfield split of 27 carries for 155 yards is the same idea from the film desk."
+        "title": "The run game carried the separation",
+        "body": "Thirty-two attempts, 163 yards, and Walker at 102 on 18 carries gave Bieniemy a downhill answer after the Jets had led 6–0 and 9–7. Johnson's 6 touches and Jaydn Ott's 3 were change-of-pace work, not the identity."
       },
       {
-        "title": "Two giveaways sit on an otherwise clean count",
-        "body": "The box lists two Kansas City turnovers and one for New York. Davis recovered the Fields fumble. McDonald recovered the Mahomes fumble Bailey forced. Gilman recovered the Allen fumble Bolton forced."
+        "title": "Ball security is the stain on 35-12",
+        "body": "Davis recovered the Fields fumble. McDonald recovered the Mahomes fumble Bailey forced. Those are the two turnovers. Gilman's recovery of the Allen fumble is the Jets' one."
+      },
+      {
+        "title": "Protection and the finish were different problems",
+        "body": "Mahomes was 23-of-31 with a 117.9 rating, and he was also hit 8 times with 2 sacks on his pass line. The offense can be efficient and still hand Atlanta a pressure plan."
       }
     ],
     "whatWorked": [
-      "Walker’s 22 touches and a 163-yard team rush that included a 2-yard touchdown up the middle.",
-      "Mahomes at 23-of-31, 242 yards, two touchdown passes, rating 117.9, with Kelce at 4 catches for 72 yards."
+      "Third down at 6-of-11 against a Jets offense that was 2-of-12.",
+      "Walker as the hub: 18 rushes and 4 catches, 22 touches, 102 rushing yards and a touchdown.",
+      "Spagnuolo holding New York to 229 yards and 15 first downs while Jones earned Defensive Player of the Week."
     ],
     "whatDidnt": [
-      "Two turnovers, including a sack-fumble Mahomes lost, on a day he was also hit eight times and sacked twice.",
-      "Butker’s 51-yard miss wide right, and holding flags on Briningstool and Canady.",
-      "Kickoff-return ball security: Stiggers forced a fumble that Bassa recovered, so it did not become a turnover, but it was loose."
+      "Two lost fumbles, one on Fields with Nourzad reported eligible, one on Mahomes with Bailey forcing and McDonald recovering.",
+      "Eight quarterback hits on Mahomes, which matches the tackle concern the deadline did not solve.",
+      "Butker's 51-yard miss, wide right, in a game Reid is still willing to trust him to kick."
     ]
   },
   "currentState": {
-    "lede": "The Chiefs are 6-2, ESPN’s power ranking is unchanged at 6, and the next three kickoffs are Atlanta, Arizona, and Buffalo. The staff’s live questions are ball security, Mahomes’ day-to-day tag, and whether Veach adds a piece before the deadline cutoff Reid’s podium was already discussing.",
+    "lede": "At 6-2, with the bye already spent in Week 5, this is the midpoint Arrowhead Pride is treating as awards season, and the next test is a road favorite's test. The Jets game proved the offense can reach 391 yards and five touchdowns. It did not prove the operation is clean enough for a three-point trip.",
     "record": "6-2",
     "workOn": [
       {
-        "title": "Protect the second sack",
-        "body": "Mahomes was sacked twice and hit eight times. One of those sacks became a fumble McDonald recovered, and the play-by-play notes he was injured on that play. Atlanta will not need a exotic plan if the pocket looks like Q2 1:41."
+        "title": "Protect the second sack and the eighth hit",
+        "body": "Mahomes's pass line lists 2 sacks, and the Jets recorded 8 quarterback hits. Arrowhead Addict's deadline read is that offensive tackle is still the biggest remaining weakness after the Downs trade. Atlanta will not need a mystery plan if that edge rushes free."
       },
       {
-        "title": "Finish the possession that starts minus the ball",
-        "body": "Fields’ fumble, with Nourzad reported eligible, handed New York the ball at the Kansas City 34. A 6-2 road favorite cannot donate a short field and then rely on five touchdowns to erase it."
+        "title": "Turnover drill before the install",
+        "body": "Fields and Mahomes each lost a fumble the box counts. Downs can be a Wednesday talking point and still be the wrong emphasis if the quarterback and the backup-run game put the ball on the ground again."
       },
       {
-        "title": "Decide the Walker dose before Thursday in Buffalo",
-        "body": "Walker already has a 22-touch game on the sheet. Arizona is Sun Nov 22, 12:00 PM CT, and Buffalo is Thu Nov 26, 7:20 PM CT. Bieniemy can feature him in Atlanta without emptying the tank if Johnson (6 touches) and Jaydn Ott (3) stay in the script, the way they did after the game was in hand."
+        "title": "Know the kick before the situation arrives",
+        "body": "Reid is sticking with Butker after the 51-yard miss. That is a staff decision, per Arrowhead Pride. The work is knowing which down-and-distance in Atlanta is a kick, which is a fourth-down call, and which is a walk-away."
       }
     ],
     "thinkAbout": [
       {
-        "title": "How much of 6-2 is the opponent",
-        "body": "Arrowhead Addict argues the record deserves more respect than the critics allow, and also notes Kansas City is not the only club helped by schedule. FPI’s 78.1 percent in Atlanta is a strong number. It is not a certificate."
+        "title": "How much of Downs is real by Sun Nov 15, 12:00 PM CT",
+        "body": "Mahomes does not expect a long learning period, and Downs's own reaction to the trade was immediate. Cyrus Allen had been earning snaps. The staff has to decide whether Atlanta is an intro or a live role."
       },
       {
-        "title": "Whether the deadline is a receiver week",
-        "body": "Arrowhead Pride reports smoke at wide receiver and quotes Reid saying Veach keeps his eyes open, with the cutoff described as Tuesday, November 10, at 3:00 p.m. Arrowhead time. Rice, Worthy, and Kelce just produced the catch counts. A deal would change the Atlanta menu. No deal is listed as completed."
-      },
-      {
-        "title": "What day-to-day means for the starter",
-        "body": "Arrowhead Pride says Reid labeled three players day-to-day and names Mahomes in that group. Arrowhead Addict says Reid also addressed concerns about Mahomes, Butker, and mounting injuries. The quarterback finished the Jets game. The tag still belongs in the Atlanta meeting."
+        "title": "Whether 78.1 percent should change the call sheet",
+        "body": "FPI is confident. The market is minus 3. Playing like a 78 percent team means taking the explosives when they are there and refusing the careless fumble. It does not mean chasing a style the Jets game did not require."
       }
     ]
   },
   "gamePlan": {
     "opponent": "Atlanta Falcons",
-    "lede": "Kansas City is a 3.5-point road favorite on Sun Nov 15, 12:00 PM CT on CBS, in a 45.5 total, with FPI at 78.1 percent. The assignment is to take the Jets’ efficient down-and-distance tape on the road without the two giveaways, and to make Spagnuolo’s rush a weekly habit rather than a home spike.",
-    "howTheyMatch": "Spagnuolo can lean on the 7 quarterback hits and Jones’ two sacks as the standard, not as a prediction of another five-sack day.",
+    "lede": "Kansas City goes to Atlanta on Sun Nov 15, 12:00 PM CT on CBS laying 3, total 46.5, with FPI at 78.1 percent. The assignment is to turn 163 rushing yards and a 117.9 passer rating into a road script that does not donate two fumbles or a long miss.",
+    "howTheyMatch": "This is a Kansas City offense that just rushed 32 times for 163 and threw for 228 net, against a trip where the published worry is tackle play, not skill-position volume. Spagnuolo just faced an 18-of-32, 70.4 passer who was limited to 123 net passing yards and 2-of-12 on third down. Atlanta gets credit as a home opponent that can shrink a three-point game with possession and field position even if it cannot match 391 yards. Kansas City's edge is the run-pass balance and the pass rush identity. The push is special teams, because Butker is the kicker Reid is keeping. The disadvantage to respect is protection: eight quarterback hits traveled with the 35-12 score.",
     "keys": [
       {
-        "title": "Live in inside zone before the shot",
-        "body": "Walker’s up-the-middle carries were the profitable pattern on the Jets tape. In Atlanta, Bieniemy should stay on that downhill look on first down so Mahomes is not asked to create from a muddied pocket."
+        "title": "Run the base before you feature the new receiver",
+        "body": "Walker at 22 touches is the proven hub. Early downs should keep Atlanta in the fit Walker, Johnson, and Ott just showed, so Mahomes is not dropping back into the same hit count on every series."
       },
       {
-        "title": "Give Kelce and Rice the third-down rub",
-        "body": "Kelce’s 72 yards on four catches and Rice’s five receptions are the answers when the rush is closing. Mesh and a sit route beat hero ball on third-and-medium."
+        "title": "Treat third-and-manageable as the Downs audition, not third-and-forever",
+        "body": "Kansas City was 6-of-11 on third down against the Jets. If Downs is active in a live role, the cleanest entry is a defined crosser or sit, not a seven-step shot on a long down."
       },
       {
-        "title": "Rush the sticks, then drop into two-deep",
-        "body": "The Jets managed 15 first downs and 2-of-12 on third down when the rush arrived. Cover-2 after a simulated pressure is the call that keeps a home underdog from stealing a 54-yard field-goal kind of drive."
+        "title": "Rush the throw without freelance labels",
+        "body": "Jones, Karlaftis, and Bolton just disrupted a Jets offense that finished with 11 drives and two failed fourth-down sequences. The call in Atlanta is coverage-first on long downs and a planned simulated pressure on early downs, not a story about last week's fumble."
       },
       {
-        "title": "Treat 22 touches as a plan, not a dare",
-        "body": "Walker can lead the script. Johnson and Ott are already in the touch list. Saving a few early-down carries matters with Arizona and Buffalo on the next two lines."
+        "title": "Win the hidden yardage Reid just signed up for",
+        "body": "Four New York field goals, from 23, 48, 49, and 54, kept a 391-yard game within 14-12 at the half. If Atlanta lives in that band, Butker and the punt team have to be part of the plan, not a surprise."
       }
     ],
     "script": [
-      "Open with under-center inside zone to Walker and a Mahomes keep only if the end crashes, the way his two rushes against the Jets stayed small.",
-      "On the first third-and-medium, throw mesh to Kelce and Rice with Worthy clearing the corner, and keep Noah Gray as the check if the linebacker walls it.",
-      "Boot off the run fake once Atlanta widens to Walker, with Worthy on the perimeter and Kelce in the flat.",
-      "Use a Walker screen when the hit count starts to look like the eight from last game, and let the line lead.",
-      "In the red zone, condense and hand to Walker up the middle before asking Mahomes for a fourth-down throw. The Jets tape finished with short touchdowns, including Johnson from the 6 with Tonga reported eligible.",
-      "Defensively, open in Cover-2 on early downs and call a zone blitz on second-and-long, with Jones occupying and a second-level rusher free. Rally Bolton and the linebackers. Do not spend the takeaway on a blitz story the Jets tape does not need."
+      "Open with Walker on standard downs and a defined check to Kelce, who had 72 receiving yards on 4 catches, before any Downs snap is required.",
+      "On the first third-and-medium, use a rub between Rice and Worthy — Worthy practiced Wednesday — with Noah Gray or Jake Briningstool as the sit, not a hero shot.",
+      "If Atlanta shows a heavy rush, take the Walker screen. He already caught 4 balls in the Jets game, and the 8 hits on Mahomes are the reason the easy offense has to be scripted.",
+      "In the red zone, carry the goal-line look that scored with Johnson at Q4 3:35, and keep Mahomes's scramble as a constraint rather than the plan.",
+      "On defense, start in Cover-2 against any shot-down, then call the zone blitz on a second-and-medium once the tackle picture is on film.",
+      "If the game is inside a field goal in the fourth, Reid has already chosen Butker. The call sheet should include the fourth-down alternative so a 51-yard try is a choice, not a default."
     ]
   },
   "nextGame": {
@@ -168,7 +174,7 @@
     "opponent": "Atlanta Falcons",
     "at": "@ Mercedes-Benz Stadium",
     "tv": "CBS",
-    "note": "Road favorite by 3.5 on a 45.5 total, FPI 78.1 percent, with Arizona and Buffalo next on the slate."
+    "note": "Road favorite at minus 3, total 46.5, with FPI at 78.1 percent."
   },
   "markets": {
     "game": {
@@ -176,8 +182,8 @@
       "label": "Sun, Nov 15 · 12:00 PM CT",
       "homeAway": "away",
       "kcWin": 78.1,
-      "spreadDetail": "KC -3.5",
-      "overUnder": 45.5,
+      "spreadDetail": "KC -3",
+      "overUnder": 46.5,
       "source": "ESPN FPI win probability; ESPN / DraftKings spread",
       "url": "https://www.espn.com/nfl/game/_/gameId/401873058"
     },
@@ -190,145 +196,130 @@
     },
     "vegas": {
       "provider": "DraftKings",
-      "spreadDetail": "KC -3.5",
-      "overUnder": 45.5,
-      "homeMoneyline": 150.0,
-      "awayMoneyline": -180.0,
+      "spreadDetail": "KC -3",
+      "overUnder": 46.5,
+      "homeMoneyline": 154.0,
+      "awayMoneyline": -185.0,
       "source": "ESPN / DraftKings",
       "url": "https://www.espn.com/nfl/lines"
     }
   },
   "spotlight": [
     {
-      "tag": "Price",
-      "title": "78.1 percent is still a one-score lean",
-      "body": "DraftKings has Kansas City minus 3.5, not minus 10. FPI’s 78.1 percent is the model’s lean. A 45.5 total says the market does not expect another 35-point Kansas City afternoon by default."
+      "tag": "Trade",
+      "title": "Downs is in; the learning curve is Mahomes's call",
+      "body": "The Chiefs sent Day 3 picks to Indianapolis for Josh Downs. Mahomes does not expect a long learning period, and Downs reacted to the move like a player who wanted the building. That still does not make him a declared every-down piece on Sun Nov 15, 12:00 PM CT."
     },
     {
-      "tag": "Walker",
-      "title": "102 yards inside a 163-yard team rush",
-      "body": "Walker had 18 carries for 102 yards. Pride’s film review put the backs at 155 yards on 27 carries. That is the Atlanta carry plan."
+      "tag": "Kicker",
+      "title": "Reid is keeping Butker through the 51-yard miss",
+      "body": "Arrowhead Pride reports Andy Reid is sticking with Harrison Butker this week after the 51-yard attempt went wide right. Arrowhead Addict frames it as loyalty. Either way, the three-point price in Atlanta makes that decision live."
     },
     {
-      "tag": "Jones",
-      "title": "Two sacks and a rush that looked like the old standard",
-      "body": "Jones is the sack leader from the Jets game with two. Arrowhead Addict tied the larger day — Smith sacked five times, 7 quarterback hits — to the defense Spagnuolo has wanted, and flagged harder tests ahead. Atlanta is the next one."
-    },
-    {
-      "tag": "Rankings",
-      "title": "ESPN left them at 6",
-      "body": "Arrowhead Pride’s Week 10 roundup says the national board strengthened a top-10 placement and ESPN did not move the Chiefs off 6. Keeping pace, which the same site’s playoff picture also stressed, is the honest frame."
-    },
-    {
-      "tag": "Deadline",
-      "title": "Veach’s eyes are open; the roster is not rewritten yet",
-      "body": "Reid’s Monday answer, via Arrowhead Pride, is that Veach keeps his eyes open, with receiver smoke in the same report. Until a move is announced, Rice, Worthy, Jalen Royals, and Kelce are the pass-game names on the touch list."
+      "tag": "Rush",
+      "title": "Walker was the closer, not a cameo",
+      "body": "Kenneth Walker III had 18 carries for 102 yards and a touchdown, plus 4 catches. Team rushing was 163 on 32 attempts. That is the number Atlanta has to fit, and it is not the same as his individual line."
     }
   ],
   "matchups": [
     {
-      "unit": "Chiefs run game vs. Atlanta’s front",
-      "chiefs": "Walker, Johnson, Ott behind Bieniemy’s zone",
-      "opponent": "Atlanta’s early-down front, unlisted by player in this packet",
+      "unit": "Chiefs run game vs. Falcons front",
+      "chiefs": "Walker, Johnson, Ott behind a 32-carry, 163-yard Jets tape",
+      "opponent": "Atlanta's defensive front, unscoped by a supplied box",
       "edge": "KC",
-      "note": "The Jets tape is 163 rushing yards on 32 attempts and Walker at 102 on 18. That is the edge Kansas City actually owns until Atlanta proves otherwise."
+      "note": "The Chiefs just produced 163 rushing yards and five rushing-involved touchdown drives' worth of scoreboard separation. Without an Atlanta rush-defense line in the packet, the edge is Kansas City's verified identity, not a fake opponent stat."
     },
     {
-      "unit": "Mahomes vs. the rush he just faced",
-      "chiefs": "Mahomes, 23-of-31, rating 117.9",
-      "opponent": "A home pass rush that can copy eight hits",
-      "edge": "PUSH",
-      "note": "The completion line is excellent. Two sacks, eight quarterback hits, and a lost fumble are why the edge is not a clean Kansas City win."
-    },
-    {
-      "unit": "Spagnuolo rush vs. Atlanta’s protection",
-      "chiefs": "Jones, Karlaftis, the second-level rush",
-      "opponent": "Atlanta offensive line",
-      "edge": "KC",
-      "note": "It is not a promise of the same sack total."
-    },
-    {
-      "unit": "Third down",
-      "chiefs": "6-of-11 against the Jets",
-      "opponent": "A Falcons offense that has to stay on schedule at home",
-      "edge": "KC",
-      "note": "New York was 2-of-12 and held a 31:06 possession edge without turning it into points after halftime. Winning third down is how a 3.5 road favorite separates."
-    },
-    {
-      "unit": "Ball security vs. a short field",
-      "chiefs": "Two turnovers, including the Fields fumble Davis recovered",
-      "opponent": "Atlanta’s field-position game if it starts inside the 40",
+      "unit": "Mahomes vs. pressure",
+      "chiefs": "Patrick Mahomes, 23-of-31, 117.9, 8 quarterback hits, 2 sacks on the pass line",
+      "opponent": "Falcons edge rush, with Kansas City tackle play flagged as the remaining weakness",
       "edge": "OPP",
-      "note": "Five touchdowns covered the donations against the Jets. A 45.5 road game is less forgiving if McDonald’s recovery has a sequel."
+      "note": "Efficiency and pressure can share a tape. Arrowhead Addict says the Downs trade left offensive tackle as the biggest remaining weakness, and the Jets recorded 8 hits."
+    },
+    {
+      "unit": "Spagnuolo's rush vs. Atlanta's quarterback",
+      "chiefs": "Chris Jones, George Karlaftis, Nick Bolton; 7 quarterback hits",
+      "opponent": "Falcons protection, no starter named in the supplied facts",
+      "edge": "KC"
+    },
+    {
+      "unit": "Kelce, Rice, Worthy vs. Falcons coverage",
+      "chiefs": "Kelce 4 for 72, Rice 5 catches, Worthy 6 catches and practicing",
+      "opponent": "Atlanta secondary",
+      "edge": "KC",
+      "note": "The volume is already on the roster that played. Downs is an add-on, not the reason these three have to be covered."
+    },
+    {
+      "unit": "Butker vs. the long-kick band",
+      "chiefs": "Harrison Butker, 51-yard miss wide right, still the kicker",
+      "opponent": "Atlanta field position and a home crowd",
+      "edge": "PUSH",
+      "note": "New York made four field goals and kept the half at 14-12. Kansas City's kicker missed from 51. Special teams is a push until Butker changes the recent kick."
     }
   ],
   "xsandos": [
     {
-      "title": "Walker inside zone on first down",
-      "situation": "1st-and-10 at Atlanta, early, before the pocket gets loud",
+      "title": "Walker zone on the first early down",
+      "situation": "1st-and-10 on the opening series in Atlanta, before Downs is needed",
       "concept": "inside_zone",
-      "why": "Walker just posted 102 yards on 18 carries, and the team rush was 163 on 32. His up-the-middle carries against the Jets, including the 2-yard touchdown, are the downhill picture Bieniemy should replay so Mahomes is not living on eight-hit timing.",
-      "coaching": "Zone steps, one cut, Walker presses the point and bends off the first free hat. Johnson spells him. Mahomes is the keeper only if the end crashes inside.",
+      "why": "The Jets game produced 163 team rushing yards and Walker at 102 on 18 carries, with both end runs and interior carries on the tape. Atlanta has to fit that base, not a gadget.",
+      "coaching": "Bieniemy: zone steps, one cut, and let Walker press the fit. Johnson and Ott are the change-up, not the first tell. Do not declare a gap the call sheet has not earned.",
       "labels": {
-        "x": "stalk and clear",
-        "z": "alert slant",
-        "te": "zone combo to the second level"
+        "x": "stalk and pin",
+        "z": "block downfield",
+        "te": "reach and climb"
       },
       "playmakers": [
         {
           "name": "Kenneth Walker III",
-          "role": "inside-zone back"
+          "role": "one-cut runner"
         },
         {
           "name": "Patrick Mahomes",
-          "role": "mesh-point keeper"
-        },
-        {
-          "name": "Travis Kelce",
-          "role": "combo to the linebacker"
+          "role": "mesh point and keep constraint"
         }
       ],
-      "diagram": "images/narrative/2026-11-10-1726/xo-inside_zone.svg",
+      "diagram": "images/narrative/2026-11-12-1754/xo-inside_zone.svg",
       "side": "offense"
     },
     {
-      "title": "Mesh for Kelce and Rice",
-      "situation": "3rd-and-5 to 3rd-and-7 in Atlanta, rush heat showing",
+      "title": "Rice-Kelce mesh on third-and-medium",
+      "situation": "3rd-and-4 to 3rd-and-6, the down Kansas City converted at a 6-of-11 clip against the Jets",
       "concept": "mesh",
-      "why": "Kelce had four catches for 72 yards and Rice five catches in a 6-of-11 third-down game. Rubs give Mahomes a throw before the hit count from the Jets tape repeats.",
-      "coaching": "Kelce and Rice cross at depth, Worthy runs the corner route, Gray sits if the linebacker runs with the crosser. Mahomes throws the rub, not the hero shot, unless the safety bails.",
+      "why": "Rice had 5 catches and Kelce 4 for 72. Worthy, who practiced Wednesday, can clear the corner. A rub is a better Downs entry later than a blind vertical.",
+      "coaching": "Sell the cross, sit the tight end if the linebacker chases, and give Mahomes the checkdown to Walker, who already had 4 catches.",
       "labels": {
-        "x": "corner",
-        "z": "clearout",
-        "te": "shallow cross"
+        "x": "clear corner",
+        "z": "shallow cross",
+        "te": "sit"
       },
       "playmakers": [
         {
-          "name": "Travis Kelce",
-          "role": "shallow cross"
+          "name": "Rashee Rice",
+          "role": "crosser"
         },
         {
-          "name": "Rashee Rice",
-          "role": "opposite cross"
+          "name": "Travis Kelce",
+          "role": "cross or sit"
         },
         {
           "name": "Xavier Worthy",
-          "role": "corner clear"
+          "role": "clear"
         }
       ],
-      "diagram": "images/narrative/2026-11-10-1726/xo-mesh.svg",
+      "diagram": "images/narrative/2026-11-12-1754/xo-mesh.svg",
       "side": "offense"
     },
     {
-      "title": "Walker screen when the hits stack",
-      "situation": "2nd-and-8 after a pressure look, anywhere on the Atlanta side of midfield",
+      "title": "Walker screen against the hit count",
+      "situation": "2nd-and-8 after a heavy rush look, the down that followed too many clean dropbacks into 8 quarterback hits",
       "concept": "spacing_screen",
-      "why": "Mahomes took eight quarterback hits and two sacks, and one sack became a lost fumble. Walker already caught four balls. A screen is the answer that uses his 22-touch role without another dropback into traffic.",
-      "coaching": "Let the line release and lead. Walker catches behind the rush and runs to the numbers. Ott can take the same picture later so Walker is not the screen and the inside zone on every snap.",
+      "why": "The Jets recorded 8 quarterback hits and Mahomes's pass line lists 2 sacks. A screen uses the rush instead of asking the tackle group to win a fresh dropback.",
+      "coaching": "Let the line release and lead. Walker is the catcher. If Atlanta flies up, the keep is Mahomes on the perimeter, which he already showed with 2 rushes.",
       "labels": {
-        "x": "stalk block",
-        "z": "stalk block",
-        "te": "arc release"
+        "x": "block the force",
+        "z": "stalk",
+        "te": "arc to the alley"
       },
       "playmakers": [
         {
@@ -338,53 +329,49 @@
         {
           "name": "Patrick Mahomes",
           "role": "quick thrower"
-        },
-        {
-          "name": "Noah Gray",
-          "role": "arc blocker"
         }
       ],
-      "diagram": "images/narrative/2026-11-10-1726/xo-spacing_screen.svg",
+      "diagram": "images/narrative/2026-11-12-1754/xo-spacing_screen.svg",
       "side": "offense"
     },
     {
-      "title": "Boot off the zone sell",
-      "situation": "1st-and-10 in Atlanta after two inside-zone looks have widened the end",
-      "concept": "play_action_boot",
-      "why": "The run fake is earned by 163 rush yards, not by a Jets throw the play-by-play never labeled as play-action. Moving Mahomes to the perimeter is how Reid and Bieniemy cut the eight-hit problem without abandoning Walker.",
-      "coaching": "Sell inside zone, boot Mahomes to the boundary, Worthy on the out, Kelce leaking flat, Rice on the glance if the safety drives. Throw the easy one. Scramble only if both are covered, the way his two rushes stayed modest against the Jets.",
+      "title": "Four verts once the run fit widens",
+      "situation": "2nd-and-4 or better after a Walker gain, with Worthy available off the Wednesday practice report",
+      "concept": "four_verts",
+      "why": "Atlanta will be tempted to squeeze the 163-yard run look. Worthy and Jalen Royals, who had 2 catches, can stress the deep middle if the corners sit on the run.",
+      "coaching": "Mahomes throws the seam or the outside vertical, not a labeled fake the Jets tape does not need to invent. Kelce bends to the hash. Rice is the alert.",
       "labels": {
-        "x": "out",
-        "z": "glance",
-        "te": "flat leak"
+        "x": "outside vertical",
+        "z": "outside vertical",
+        "te": "seam to the hash"
       },
       "playmakers": [
         {
-          "name": "Patrick Mahomes",
-          "role": "boot quarterback"
-        },
-        {
           "name": "Xavier Worthy",
-          "role": "perimeter out"
+          "role": "outside vertical"
         },
         {
           "name": "Travis Kelce",
-          "role": "flat leak"
+          "role": "seam"
+        },
+        {
+          "name": "Rashee Rice",
+          "role": "alert"
         }
       ],
-      "diagram": "images/narrative/2026-11-10-1726/xo-play_action_boot.svg",
+      "diagram": "images/narrative/2026-11-12-1754/xo-four_verts.svg",
       "side": "offense"
     },
     {
-      "title": "Cover-2 on Atlanta’s early down",
-      "situation": "1st-and-10, Atlanta in plus territory, no need to chase a big play",
+      "title": "Cover-2 on the shot down",
+      "situation": "3rd-and-7 or longer, the down New York could not convert at 2-of-12",
       "concept": "cover_two",
-      "why": "Against the Jets, deep shots to Mitchell were incomplete or wiped by an illegal shift, and the completed explosives did not become a second-half score. Two deep and five under lets Bolton, Tranquill, and Conner rally the way they did on Hall and Allen.",
-      "coaching": "Safeties split the deep halves. Corners sink, then trigger. Jones and Karlaftis rush four. The rally tackle is the play. Do not open the half by vacating the top of the coverage.",
+      "why": "Spagnuolo can take the deep shot away and rally. The Jets netted 123 passing yards. Atlanta's path into a three-point game is an explosive, not a 12-play march the Chiefs just smothered.",
+      "coaching": "Two deep, five under. Bolton and Drue Tranquill rally to the sticks. Jones and Karlaftis rush four and keep the thrower from stepping up. This is a shell, not a takeaway claim.",
       "labels": {
-        "x": "sink and rally",
-        "z": "sink and rally",
-        "te": "hook to the curl"
+        "x": "deep half",
+        "z": "deep half",
+        "te": "hook"
       },
       "playmakers": [
         {
@@ -393,154 +380,159 @@
         },
         {
           "name": "Chris Jones",
-          "role": "interior four-man rush"
+          "role": "interior rush"
+        },
+        {
+          "name": "George Karlaftis",
+          "role": "edge rush"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-12-1754/xo-cover_two.svg",
+      "side": "defense"
+    },
+    {
+      "title": "Zone blitz on second-and-medium",
+      "situation": "2nd-and-5 to 2nd-and-7, after Atlanta has shown its protection, as a called simulated pressure",
+      "concept": "zone_blitz",
+      "why": "Kansas City recorded 7 quarterback hits against the Jets and can show heat without telling Atlanta the rush count. The call is for this week. It is not a description of how Bolton forced the Allen fumble.",
+      "coaching": "Spagnuolo: show the second level, drop a lineman into the hook, and rush a linebacker. No gap name, no blitz family the Jets play-by-play did not give us. Tackle the catch.",
+      "labels": {
+        "x": "curl-flat",
+        "z": "deep half",
+        "te": "hook drop"
+      },
+      "playmakers": [
+        {
+          "name": "Nick Bolton",
+          "role": "second-level rusher or drop"
+        },
+        {
+          "name": "Chris Jones",
+          "role": "show rush, possible drop"
         },
         {
           "name": "George Karlaftis",
           "role": "edge contain"
         }
       ],
-      "diagram": "images/narrative/2026-11-10-1726/xo-cover_two.svg",
-      "side": "defense"
-    },
-    {
-      "title": "Zone blitz on second-and-long",
-      "situation": "2nd-and-8 or longer in Atlanta, after a stuffed first-down run",
-      "concept": "zone_blitz",
-      "why": "Spagnuolo’s signature is the call for this down: show heat, drop a lineman, rush a second-level player.",
-      "coaching": "Jones engages and occupies. A linebacker adds from the second level. The dropped lineman walls the hot throw. Bolton fits the run if Atlanta checks out of the pass. Finish the down; the next call is Cover-2 if it becomes third-and-short.",
-      "labels": {
-        "x": "underneath drop",
-        "z": "deep half",
-        "te": "hook replace"
-      },
-      "playmakers": [
-        {
-          "name": "Chris Jones",
-          "role": "occupied interior"
-        },
-        {
-          "name": "George Karlaftis",
-          "role": "edge rusher"
-        },
-        {
-          "name": "Nick Bolton",
-          "role": "second-level rusher or fitter"
-        }
-      ],
-      "diagram": "images/narrative/2026-11-10-1726/xo-zone_blitz.svg",
+      "diagram": "images/narrative/2026-11-12-1754/xo-zone_blitz.svg",
       "side": "defense"
     }
   ],
   "coaching": [
     {
-      "topic": "Reid and the deadline answer",
-      "detail": "Reid told the Monday podium that Veach keeps his eyes open, with the cutoff described as Tuesday, November 10, at 3:00 p.m. Arrowhead time. The Atlanta plan should be drawn with the current touch list until a move is announced."
+      "topic": "Reid and the kick",
+      "detail": "Andy Reid is standing by Harrison Butker this week after the 51-yard miss. The staff still needs a fourth-down rule so Atlanta cannot turn loyalty into a free three points."
     },
     {
-      "topic": "Bieniemy’s down-and-distance menu",
-      "detail": "The Jets win was 6-of-11 on third down with Walker, Kelce, Rice, and Worthy taking the targets. That is the script to travel, not a request for more dropbacks after eight quarterback hits."
+      "topic": "Bieniemy and the new receiver",
+      "detail": "Eric Bieniemy can install Josh Downs without making him the offense. Mahomes has already shortened the timeline in public; the snap count on Sunday is still a coach's choice."
     },
     {
-      "topic": "Spagnuolo’s standard, not a one-game costume",
-      "detail": "Arrowhead Addict framed the Jets day as the pass rush Spagnuolo envisioned, with harder tests ahead. Cover-2 and the zone blitz are the two calls that make that day a rule for Atlanta."
+      "topic": "Spagnuolo's rush menu",
+      "detail": "Steve Spagnuolo has Jones as Defensive Player of the Week and a Jets passer line of 18-of-32 with 5 sacks. Keep the menu as Cover-2 and a called zone blitz, not a costume for every down."
     }
   ],
   "injuries": [
     {
-      "player": "Patrick Mahomes",
-      "status": "Day-to-day",
-      "note": "Arrowhead Pride reports Reid labeled three Chiefs day-to-day and names the quarterback. The play-by-play says he was injured on the Q2 sack-fumble Bailey forced and McDonald recovered. He still finished 23-of-31.",
+      "player": "Xavier Worthy",
+      "status": "Practiced Wednesday",
+      "note": "Arrowhead Pride's Week 10 Wednesday injury report leads with Worthy practicing ahead of the Falcons game. No further designation is stated here.",
       "source": "Arrowhead Pride"
     }
   ],
   "personnel": [
     {
-      "move": "Trade-deadline watch, no completed deal in the supplied reports",
-      "detail": "Pride’s deadline file and Reid’s comment that Veach keeps his eyes open are the roster story, with receiver smoke noted and the cutoff set for Tuesday, November 10, at 3:00 p.m. Arrowhead time. The Atlanta playmakers stay the players already on the touch list.",
+      "move": "Trade for Josh Downs",
+      "detail": "Kansas City acquired Josh Downs from Indianapolis for a pair of Day 3 picks. Mahomes does not expect a long learning period, and Downs's reaction to the deal was immediate.",
       "players": [
-        "Patrick Mahomes",
-        "Kenneth Walker III",
-        "Rashee Rice",
-        "Xavier Worthy",
-        "Travis Kelce"
+        "Josh Downs",
+        "Patrick Mahomes"
+      ]
+    },
+    {
+      "move": "Cyrus Allen's snap share",
+      "detail": "Arrowhead Addict reports the rookie could lose opportunities now that Downs is in the receiver room, after Allen had begun to earn more snaps.",
+      "players": [
+        "Cyrus Allen",
+        "Josh Downs"
+      ]
+    },
+    {
+      "move": "Tackle remains the open need",
+      "detail": "The same deadline coverage says the Downs trade left offensive tackle as the biggest remaining weakness, which lines up with 8 quarterback hits on Mahomes.",
+      "players": [
+        "Patrick Mahomes"
       ]
     }
   ],
   "strategies": [
-    "Feature Walker on early-down inside zone and cap the 22-touch spike by mixing Johnson and Ott, who already have touches from the Jets game.",
-    "Answer pressure with mesh to Kelce and Rice and a Walker screen before asking for a deep throw to Worthy.",
-    "Boot off a real run fake once Atlanta widens, and throw the flat.",
-    "Open defensively in Cover-2 and use the zone blitz on second-and-long with Jones occupying.",
-    "Keep the third-down standard at or better than 6-of-11 so a 31-minute opponent possession cannot steal a 3.5 game."
+    "Lead with Walker and the 163-yard run identity so Atlanta cannot sit in a pass-only fit.",
+    "Script one screen and one mesh before any four-verts call, because the hit count is the constraint.",
+    "Use Cover-2 on third-and-long and a zone blitz on second-and-medium, with no invented blitz label.",
+    "Decide the Downs snap count in the meeting room, and keep Rice, Kelce, and Worthy as the declared routes.",
+    "Treat any kick beyond the comfortable range as a staff choice, since Reid has already named his kicker."
   ],
   "debates": [
-    "Does a 6-2 record with ESPN still at No. 6 deserve more respect, or is FPI’s 78.1 percent in Atlanta the more honest grade?",
-    "Should Veach chase a receiver before the Tuesday cutoff, or is Rice-Worthy-Kelce enough after five, six, and four catches?",
-    "Is Walker’s 22-touch game the Atlanta plan, or does Buffalo on Thu Nov 26, 7:20 PM CT force a lighter dose?",
-    "How much does Mahomes’ day-to-day tag change a 3.5 road lean if he finished 23-of-31?"
+    "Should Downs play a live role on Sun Nov 15, 12:00 PM CT, or is the install still a practice-field story?",
+    "Is Reid right to keep Butker after a 51-yard miss in a game that was already 14-12 at the half?",
+    "Does a minus-3 price undersell a 78.1 percent FPI side, or does it correctly tax two turnovers and eight quarterback hits?"
   ],
   "sources": [
     {
-      "title": "NFL Power Rankings Week 10 Roundup: Chiefs strengthen Top-10 placement",
+      "title": "Patrick Mahomes doesn’t expect a long learning period for Josh Downs",
       "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-power-rankings/215888/nfl-power-rankings-week-10-roundup-chiefs-strengthen-top-10-placement",
-      "note": "ESPN power ranking unchanged at 6 after the move to 6-2."
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/216147/patrick-mahomes-doesnt-expect-long-learning-period-josh-downs",
+      "note": "Mahomes on the Downs install timeline."
     },
     {
-      "title": "Chiefs Defeat Jets, 35-12, Behind Ken Walker's Three-Touchdown Performance",
+      "title": "Chiefs News: Josh Downs ‘kind of screamed’ when he learned about trade",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/216162/chiefs-news-josh-downs-screamed-learned-trade",
+      "note": "Downs's reaction to the trade."
+    },
+    {
+      "title": "Chiefs rookie Cyrus Allen could lose valuable opportunities after Josh Downs trade",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/chiefs-rookie-cyrus-allen-could-lose-valuable-opportunities-after-josh-downs-trade?utm_source=RSS",
+      "note": "Snap-share tension in the receiver room."
+    },
+    {
+      "title": "Josh Downs trade leaves offensive tackle as Chiefs' biggest remaining weakness",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/josh-downs-trade-leaves-offensive-tackle-as-chiefs-biggest-remaining-weakness?utm_source=RSS",
+      "note": "Deadline leftover at tackle."
+    },
+    {
+      "title": "Chiefs head coach Andy Reid is sticking with Harrison Butker this week",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/216117/chiefs-head-coach-andy-reid-sticking-harrison-butker-this-week",
+      "note": "Reid keeping Butker after the 51-yard miss."
+    },
+    {
+      "title": "Chiefs-Falcons Week 10 Wednesday injury report: Xavier Worthy practices",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-injuries/216131/chiefs-falcons-week-10-wednesday-injury-report-xavier-worthy-practices",
+      "note": "Worthy practiced Wednesday."
+    },
+    {
+      "title": "Chris Jones Earns AFC Defensive Player of the Week Honors",
       "publisher": "Chiefs.com",
-      "url": "https://www.chiefs.com/news/chiefs-defeat-jets-35-12-behind-ken-walker-s-three-touchdown-performance-",
-      "note": "Team site frame of the 35-12 win and the end of a two-game losing streak."
+      "url": "https://www.chiefs.com/news/chris-jones-earns-afc-defensive-player-of-the-week-honors",
+      "note": "Jones honored after the Jets game."
     },
     {
-      "title": "Chiefs defense finally looked like Steve Spagnuolo envisioned against Jets",
+      "title": "Five Things to Know About New Chiefs WR Josh Downs",
+      "publisher": "Chiefs.com",
+      "url": "https://www.chiefs.com/news/five-things-to-know-about-new-chiefs-wr-josh-downs",
+      "note": "Club confirmation of the Tuesday trade."
+    },
+    {
+      "title": "AFC West power rankings after Week 9 truly prove division is two-horse race",
       "publisher": "Arrowhead Addict",
-      "url": "https://arrowheadaddict.com/chiefs-defense-finally-looked-like-steve-spagnuolo-envisioned-against-jets-01m719vg9rrz?utm_source=RSS",
-      "note": "Pass-rush day framed as Spagnuolo’s vision, with harder tests ahead."
-    },
-    {
-      "title": "Chiefs Film Review: Analyzing the run game against the Jets",
-      "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/215843/chiefs-film-review-analyzing-run-game-against-jets",
-      "note": "Running backs at 27 carries for 155 yards and two touchdowns."
-    },
-    {
-      "title": "Chiefs News: 3 Chiefs players labeled as Day-to-Day",
-      "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/215846/chiefs-news-3-chiefs-players-labeled-day-day",
-      "note": "Reid’s day-to-day label, with Mahomes named in the report."
-    },
-    {
-      "title": "Andy Reid on trade deadline: Brett Veach always keeps his eyes open",
-      "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/215779/andy-reid-trade-deadline-brett-veach-always-keeps-eyes-open",
-      "note": "Deadline timing and Reid’s comment on Veach."
-    },
-    {
-      "title": "AFC Playoff Picture: Chiefs keep pace with their Week 9 win",
-      "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-nfl-playoffs/215670/afc-playoff-picture-chiefs-keep-pace-week-9-win",
-      "note": "35-12 win described as keeping pace in the AFC picture."
-    },
-    {
-      "title": "Chiefs' Super Bowl 61 odds drop despite getting back in win column",
-      "publisher": "Arrowhead Addict",
-      "url": "https://arrowheadaddict.com/chiefs-super-bowl-61-odds-drop-despite-getting-back-in-win-column?utm_source=RSS",
-      "note": "Title odds moved down after the win."
-    },
-    {
-      "title": "Chiefs' 6-2 record deserves more respect than critics are giving it",
-      "publisher": "Arrowhead Addict",
-      "url": "https://arrowheadaddict.com/chiefs-6-2-record-deserves-more-respect-than-critics-are-giving-it?utm_source=RSS",
-      "note": "Schedule-strength debate around 6-2."
-    },
-    {
-      "title": "Andy Reid addresses Chiefs concerns about Mahomes, Butker, and mounting injuries",
-      "publisher": "Arrowhead Addict",
-      "url": "https://arrowheadaddict.com/andy-reid-addresses-chiefs-concerns-about-mahomes-butker-mounting-injuries?utm_source=RSS",
-      "note": "Monday injury concerns Reid addressed after the 23-point win."
+      "url": "https://arrowheadaddict.com/afc-west-power-rankings-after-week-9-truly-prove-division-two-horse-race?utm_source=RSS",
+      "note": "6-2 framing after the Jets win."
     }
   ],
-  "slug": "2026-11-10-1726"
+  "slug": "2026-11-12-1754"
 }
