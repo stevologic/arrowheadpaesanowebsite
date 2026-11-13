@@ -3,6 +3,11 @@
 A kill is unittest failures >= 1 and errors == 0, with no subprocess
 traceback in the failing assertion message. 6/6 against a 6x clean
 control run in the same copied tree, unpatched.
+
+Named run_*.py so `unittest discover -s tools/tests` does not collect this
+harness. Discover would otherwise block Gate 1 on ~N mutants × 6 copies ×
+2 subprocess unittests with no output until the whole method returns.
+Run directly: python -m unittest tools.tests.run_frozen7_mutants -v
 """
 from __future__ import annotations
 

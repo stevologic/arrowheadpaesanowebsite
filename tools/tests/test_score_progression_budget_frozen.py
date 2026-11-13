@@ -31,9 +31,9 @@ from tools.chiefs_narrative import (
     providers,
     review_gate,
 )
+import tools.tests.test_archive_replay_qa as _archive_qa
+import tools.tests.test_maintenance as _maintenance
 from tools.tests.frozen_slate import frozen_schedule
-from tools.tests.test_archive_replay_qa import Week9PreviewLeftoverReplay
-from tools.tests.test_maintenance import PublicationPolicy
 from tools.tests.test_narrative import _job_step_script, _run_fail_held_script
 
 WORKFLOWS = Path(__file__).resolve().parents[2] / ".github" / "workflows"
@@ -42,8 +42,8 @@ WORKFLOWS = Path(__file__).resolve().parents[2] / ".github" / "workflows"
 class ScoreProgressionBudgetExhaustion(unittest.TestCase):
     """Every FROZEN-4 row id, in file order."""
 
-    LAST = Week9PreviewLeftoverReplay.LAST
-    RECAP = Week9PreviewLeftoverReplay.RECAP
+    LAST = _archive_qa.Week9PreviewLeftoverReplay.LAST
+    RECAP = _archive_qa.Week9PreviewLeftoverReplay.RECAP
     CLEAN = "The preview stays on the Jets."
     BUDGET_SCORES = (
         "7-3",
@@ -56,7 +56,7 @@ class ScoreProgressionBudgetExhaustion(unittest.TestCase):
         "16-13",
     )
     NINTH = "A 22-17 lead after the Q2\n7:40 touchdown became 24-28."
-    TRUE_PROGRESSION = Week9PreviewLeftoverReplay.TRUE_PROGRESSION
+    TRUE_PROGRESSION = _archive_qa.Week9PreviewLeftoverReplay.TRUE_PROGRESSION
     BANNED_SCORES = frozenset({"14-6", "24-13", "24-28", "18-17"})
 
     def _claim(self, score: str) -> str:
@@ -787,7 +787,7 @@ class ScoreProgressionBudgetExhaustion(unittest.TestCase):
             self.skipTest("Actions update job is bash")
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            env = PublicationPolicy._fake_commands(root)
+            env = _maintenance.PublicationPolicy._fake_commands(root)
             env["DESK_MODE"] = "full"
             metadata = {
                 "holdMerge": True,
@@ -1030,7 +1030,7 @@ class ScoreProgressionBudgetExhaustion(unittest.TestCase):
                     dirty, issues, self.LAST, self.RECAP, slate
                 )
                 self.assertNotIn(subject, facts.edition_text(repaired))
-        mahomes = Week9PreviewLeftoverReplay.MAHOMES_BOX
+        mahomes = _archive_qa.Week9PreviewLeftoverReplay.MAHOMES_BOX
         for name in ("Patrick Mahomes", "KC", "Chiefs"):
             sentence = mahomes.replace("Patrick Mahomes", name, 1)
             with self.subTest(keep=name):

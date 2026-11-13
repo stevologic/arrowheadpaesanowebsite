@@ -36,16 +36,14 @@ from tools.chiefs_narrative import (
     providers,
     review_gate,
 )
+import tools.tests.test_archive_replay_qa as _archive_qa
+import tools.tests.test_maintenance as _maintenance
+import tools.tests.test_score_progression_budget_frozen as _score_budget
 from tools.tests.frozen_slate import frozen_schedule
-from tools.tests.test_maintenance import PublicationPolicy
 from tools.tests.test_narrative import (
     _job_step_script,
     _run_fail_held_script,
 )
-from tools.tests.test_score_progression_budget_frozen import (
-    ScoreProgressionBudgetExhaustion,
-)
-from tools.tests.test_archive_replay_qa import Week9PreviewLeftoverReplay
 
 # N2: #346's six dropped lines from PR #346 body (run 43272341853).
 REAL_346_DROPS = [
@@ -306,7 +304,7 @@ def _run_file_dropped_lines_step(workspace: Path) -> subprocess.CompletedProcess
     script = _job_step_script(
         parsed, "update", name="File dropped-lines tracking issue"
     )
-    env = PublicationPolicy._fake_commands(workspace)
+    env = _maintenance.PublicationPolicy._fake_commands(workspace)
     runner_temp = Path(env["RUNNER_TEMP"])
     gate_base = runner_temp / "gate-base"
     if not gate_base.exists():
@@ -659,11 +657,11 @@ class Frozen7HoldCauses(unittest.TestCase):
 
 
 class Frozen7Cases(unittest.TestCase):
-    LAST = Week9PreviewLeftoverReplay.LAST
-    RECAP = Week9PreviewLeftoverReplay.RECAP
+    LAST = _archive_qa.Week9PreviewLeftoverReplay.LAST
+    RECAP = _archive_qa.Week9PreviewLeftoverReplay.RECAP
 
-    def _helpers(self) -> ScoreProgressionBudgetExhaustion:
-        return ScoreProgressionBudgetExhaustion("test_p1_seven_invalid_claims_drop_clean")
+    def _helpers(self) -> _score_budget.ScoreProgressionBudgetExhaustion:
+        return _score_budget.ScoreProgressionBudgetExhaustion("test_p1_seven_invalid_claims_drop_clean")
 
     def test_n1_clean_remainder_no_drops(self):
         edition = _exact_words(_thin_preview(), 3900)
@@ -1529,8 +1527,8 @@ class Frozen7Cases(unittest.TestCase):
 
 
 class Frozen7Addenda(unittest.TestCase):
-    def _helpers(self) -> ScoreProgressionBudgetExhaustion:
-        return ScoreProgressionBudgetExhaustion("test_p1_seven_invalid_claims_drop_clean")
+    def _helpers(self) -> _score_budget.ScoreProgressionBudgetExhaustion:
+        return _score_budget.ScoreProgressionBudgetExhaustion("test_p1_seven_invalid_claims_drop_clean")
 
     def test_r1_body_correction_ships_and_logs(self):
         edition = _exact_words(_thin_preview(), 3900)
@@ -1583,7 +1581,7 @@ class Frozen7Addenda(unittest.TestCase):
             self.assertFalse(published.get("holdMerge"), published)
             held = _run_fail_held_on_root(root)
             self.assertEqual(held.returncode, 0, held.stderr)
-            env = PublicationPolicy._fake_commands(root)
+            env = _maintenance.PublicationPolicy._fake_commands(root)
             env["DESK_MODE"] = "full"
             env["PYTHONPATH"] = str(REPO) + os.pathsep + env.get("PYTHONPATH", "")
             publish = _job_step_script(
@@ -1644,7 +1642,7 @@ class Frozen7Addenda(unittest.TestCase):
             self.assertFalse(published_he.get("holdMerge"), published_he)
             held_he = _run_fail_held_on_root(root)
             self.assertEqual(held_he.returncode, 0, held_he.stderr)
-            env_he = PublicationPolicy._fake_commands(root)
+            env_he = _maintenance.PublicationPolicy._fake_commands(root)
             env_he["DESK_MODE"] = "full"
             env_he["PYTHONPATH"] = str(REPO) + os.pathsep + env_he.get(
                 "PYTHONPATH", ""
@@ -1815,7 +1813,7 @@ class Frozen7Addenda(unittest.TestCase):
             self.assertTrue(published.get("holdMerge"), published)
             held = _run_fail_held_on_root(root / "desk")
             self.assertEqual(held.returncode, 1, held.stderr)
-            env = PublicationPolicy._fake_commands(root / "desk")
+            env = _maintenance.PublicationPolicy._fake_commands(root / "desk")
             env["DESK_MODE"] = "full"
             env["PYTHONPATH"] = str(REPO) + os.pathsep + env.get("PYTHONPATH", "")
             publish = _job_step_script(
@@ -1899,7 +1897,7 @@ class Frozen7Addenda(unittest.TestCase):
         self.assertTrue(_hold(edition, drops=[headline], before=edition))
 
     def _retry_known_error_build(self, tmp: Path, *, where: str):
-        helper = ScoreProgressionBudgetExhaustion(
+        helper = _score_budget.ScoreProgressionBudgetExhaustion(
             "test_p1_seven_invalid_claims_drop_clean"
         )
         pinned = _pinned()
@@ -2129,11 +2127,10 @@ class Frozen7Callers(unittest.TestCase):
         self.assertIn("--add-label hold", publish)
         self.assertIn("GATE_BASE", issue_step)
         self.assertIn("python -P -m tools.chiefs_narrative.drop_issues", issue_step)
-        from tools.tests.test_maintenance import PublicationPolicy
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            env = PublicationPolicy._fake_commands(root)
+            env = _maintenance.PublicationPolicy._fake_commands(root)
             env["DESK_MODE"] = "full"
             env["PYTHONPATH"] = str(REPO) + os.pathsep + env.get("PYTHONPATH", "")
             (root / ".narrative-publish.json").write_text(
@@ -2196,7 +2193,7 @@ class Frozen7Callers(unittest.TestCase):
             self.assertFalse(labels)
             held_root = Path(tmp) / "held"
             held_root.mkdir()
-            env_held = PublicationPolicy._fake_commands(held_root)
+            env_held = _maintenance.PublicationPolicy._fake_commands(held_root)
             env_held["DESK_MODE"] = "full"
             env_held["PYTHONPATH"] = str(REPO) + os.pathsep + env_held.get(
                 "PYTHONPATH", ""
@@ -2317,7 +2314,7 @@ class Frozen7Callers(unittest.TestCase):
 
     def test_n12_unmocked_salvage_path_through_generate_build(self):
         """One fixture end to end through generate.py salvage. N2 shape."""
-        helper = ScoreProgressionBudgetExhaustion(
+        helper = _score_budget.ScoreProgressionBudgetExhaustion(
             "test_p1_seven_invalid_claims_drop_clean"
         )
         claims = " ".join(helper._claims(3))
@@ -2352,7 +2349,7 @@ class Frozen7Callers(unittest.TestCase):
 
     def test_generate_main_preview_sentinel_and_lede_hold(self):
         """XC2: generate.main writes holdAutomerge from its own kwargs."""
-        helper = ScoreProgressionBudgetExhaustion(
+        helper = _score_budget.ScoreProgressionBudgetExhaustion(
             "test_p1_seven_invalid_claims_drop_clean"
         )
         raw = helper._fat_nonlede(helper.CLEAN)
