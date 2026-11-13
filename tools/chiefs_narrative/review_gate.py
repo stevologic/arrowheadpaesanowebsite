@@ -723,12 +723,105 @@ def requires_human_merge(paths, *, root: Path | None = None) -> bool:
     return False
 
 
+# Automerge refusal log: PR paths are untrusted. Cap listed paths so a
+# huge diff cannot flood the Actions log; extras collapse to "(+N more)".
+AUTOMERGE_REFUSAL_PATH_CAP = 16
+_SIGNOFF_REFUSAL = (
+    "Review edition requires Karen's ed25519 sign-off "
+    f"({SIGNOFF_DIR}/<slug>.json + <slug>.sig)"
+)
+_ALLOWLIST_REFUSAL = "this PR is off the automerge allowlist"
+
+
+def automerge_block_reasons(paths, *, root: Path | None = None) -> tuple[str, ...]:
+    """Why automerge is blocked. Empty iff historical ``automerge_blocked`` is False.
+
+    Short-circuits in the same order as the original bool body so a
+    ``load_payload`` / ``extra_publish_surface`` exception still happens
+    on the same inputs.
+    """
+    if requires_human_merge(paths, root=root):
+        return ("allowlist",)
+    base = Path(root) if root is not None else config.REPO_ROOT
+    if extra_publish_surface(base):
+        return ("extra_publish",)
+    for raw in paths or []:
+        if extra_publish_path(raw):
+            return ("extra_publish_path",)
+        rel = _posix_rel(raw)
+        if rel == "data/narrative.json" or _editions_json_path(rel):
+            payload = load_payload(base / rel)
+            if payload_is_review(payload):
+                return ("review",)
+    return ()
+
+
 def automerge_blocked(paths, *, root: Path | None = None) -> bool:
     """True when the PR is off the allowlist or a Review edition changed.
 
     Signed Reviews still need a human merge. Only Preview edition JSON
-    may automerge.
+    may automerge. Bool wrapper around ``automerge_block_reasons``.
     """
+    return bool(automerge_block_reasons(paths, root=root))
+
+
+def extra_publish_surface_paths(root: Path) -> list[str]:
+    """Repo-relative paths that make ``extra_publish_surface`` true."""
+    base = Path(root)
+    found: list[str] = []
+    seen: set[str] = set()
+
+    def _add(rel: str) -> None:
+        text = _posix_rel(rel)
+        if text in seen:
+            return
+        seen.add(text)
+        found.append(text)
+
+    if not base.is_dir():
+        return found
+    for name in _BLOCKED_HUGO_CONFIGS:
+        if (base / name).is_file():
+            _add(name)
+    for child in base.iterdir():
+        if not child.is_file():
+            continue
+        lower = child.name.lower()
+        if lower.startswith("hugo.") and lower != "hugo.yaml":
+            _add(child.name)
+    config_dir = base / "config"
+    if config_dir.is_dir():
+        for path in config_dir.rglob("*"):
+            if path.is_file():
+                try:
+                    rel = path.resolve().relative_to(base.resolve()).as_posix()
+                except ValueError:
+                    rel = _posix_rel(path)
+                _add(rel)
+    data = base / "data"
+    if not data.is_dir():
+        return found
+    for path in data.rglob("*"):
+        if path.is_file() and not path.name.endswith(".json"):
+            try:
+                rel = path.resolve().relative_to(base.resolve()).as_posix()
+            except ValueError:
+                rel = _posix_rel(path)
+            _add(rel)
+    return found
+
+
+def _automerge_unsigned_review(paths, *, root: Path | None = None) -> bool:
+    """True when a changed Review payload has a missing or invalid signature."""
+    base = Path(root) if root is not None else config.REPO_ROOT
+    for rel, payload in changed_review_payloads(paths, root=base):
+        if should_block_review(payload, root=base, edition_file=base / rel):
+            return True
+    return False
+
+
+def _automerge_allowlist_or_extra(paths, *, root: Path | None = None) -> bool:
+    """True when allowlist or extra-publish checks fire (print path)."""
     if requires_human_merge(paths, root=root):
         return True
     base = Path(root) if root is not None else config.REPO_ROOT
@@ -737,12 +830,56 @@ def automerge_blocked(paths, *, root: Path | None = None) -> bool:
     for raw in paths or []:
         if extra_publish_path(raw):
             return True
-        rel = _posix_rel(raw)
-        if rel == "data/narrative.json" or _editions_json_path(rel):
-            payload = load_payload(base / rel)
-            if payload_is_review(payload):
-                return True
     return False
+
+
+def _escape_automerge_log_path(path: str) -> str:
+    """JSON-quote a PR path so it cannot become a workflow command or fake line."""
+    return json.dumps(_posix_rel(path), ensure_ascii=True)
+
+
+def automerge_offending_paths(paths, *, root: Path | None = None) -> list[str]:
+    """PR (and extra-publish surface) paths that tripped allowlist checks."""
+    found: list[str] = []
+    seen: set[str] = set()
+
+    def _add(raw: str | Path) -> None:
+        rel = _posix_rel(raw)
+        if rel in seen:
+            return
+        seen.add(rel)
+        found.append(rel)
+
+    for raw in paths or []:
+        if not automerge_allowlisted(raw) or extra_publish_path(raw):
+            _add(raw)
+    base = Path(root) if root is not None else config.REPO_ROOT
+    if extra_publish_surface(base):
+        for rel in extra_publish_surface_paths(base):
+            _add(rel)
+    return found
+
+
+def _automerge_path_refusal_lines(paths, *, root: Path | None = None) -> list[str]:
+    offending = automerge_offending_paths(paths, root=root)
+    cap = AUTOMERGE_REFUSAL_PATH_CAP
+    shown = offending[:cap]
+    lines = [_escape_automerge_log_path(rel) for rel in shown]
+    extra = len(offending) - cap
+    if extra > 0:
+        lines.append(f"(+{extra} more)")
+    return lines
+
+
+def automerge_refusal_lines(paths, *, root: Path | None = None) -> list[str]:
+    """Stderr lines for a blocked automerge. Empty when only a signed Review blocks."""
+    lines: list[str] = []
+    if _automerge_unsigned_review(paths, root=root):
+        lines.append(_SIGNOFF_REFUSAL)
+    if _automerge_allowlist_or_extra(paths, root=root):
+        lines.append(_ALLOWLIST_REFUSAL)
+        lines.extend(_automerge_path_refusal_lines(paths, root=root))
+    return lines
 
 
 def _published_edition_files(root: Path) -> list[Path]:
@@ -1103,12 +1240,8 @@ def main(argv: list[str] | None = None) -> int:
             if not paths:
                 paths = _git_changed(args.base or "origin/main", root)
             if automerge_blocked(paths, root=root):
-                print(
-                    "Review edition requires Karen's ed25519 sign-off "
-                    f"({SIGNOFF_DIR}/<slug>.json + <slug>.sig), "
-                    "or this PR is off the automerge allowlist",
-                    file=sys.stderr,
-                )
+                for line in automerge_refusal_lines(paths, root=root):
+                    print(line, file=sys.stderr)
                 return 1
             return 0
         if args.pages:

@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/review_gate.py	2026-11-13 22:26:28.059226514 +0000
++++ b/tools/chiefs_narrative/review_gate.py	2026-11-13 22:26:28.059226514 +0000
+@@ -762,7 +762,7 @@
+     Signed Reviews still need a human merge. Only Preview edition JSON
+     may automerge. Bool wrapper around ``automerge_block_reasons``.
+     """
+-    return bool(automerge_block_reasons(paths, root=root))
++    return not bool(automerge_block_reasons(paths, root=root))
+ 
+ 
+ def extra_publish_surface_paths(root: Path) -> list[str]:

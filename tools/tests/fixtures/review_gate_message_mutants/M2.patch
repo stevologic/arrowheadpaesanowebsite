@@ -1,0 +1,10 @@
+--- a/tools/chiefs_narrative/review_gate.py	2026-11-13 22:26:28.055226450 +0000
++++ b/tools/chiefs_narrative/review_gate.py	2026-11-13 22:26:28.055226450 +0000
+@@ -878,7 +878,6 @@
+         lines.append(_SIGNOFF_REFUSAL)
+     if _automerge_allowlist_or_extra(paths, root=root):
+         lines.append(_ALLOWLIST_REFUSAL)
+-        lines.extend(_automerge_path_refusal_lines(paths, root=root))
+     return lines
+ 
+ 
