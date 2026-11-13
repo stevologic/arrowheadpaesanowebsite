@@ -356,6 +356,8 @@ class Frozen7A14Lede(unittest.TestCase):
         Takeaways title+body ``Butker`` / ``Two misses from 58`` fail
         check_review(changed=True) as a join, so stage 3 drops that p1 and
         only L1413 records it. Live recap is empty so stage 1 does not.
+        Under MS-A10w-s3 holdAutomerge stays True; only
+        headlineOrLedeTouched flips.
         """
         retry = self._stored_edition()
         retry["headline"] = "Week 9 Preview: the Jets after Denver"
@@ -385,16 +387,29 @@ class Frozen7A14Lede(unittest.TestCase):
         generate.main with one fact-check retry. No _salvage_until_clean
         or check_review patch. Stage 2 noisy-reverts without touching
         headline/lede; L1360 restore brings the retry-draft dek p1; stage 3
-        drops that paragraph. Under MS-A10w-s3 this path ships.
-        Not a copy of test_a14_3.
+        drops that paragraph. Under MS-A10w-s3 holdAutomerge stays True
+        (SALVAGE_NOISY + hard leftovers); only headlineOrLedeTouched
+        flips True→False. Not a copy of test_a14_3.
 
-        Budget leftover variant is not producible: generate.py L1099-1100
-        shares score_budget_ledger/score_exhausted across L1230, L1327 and
-        L1407. facts.py L9559-9567 returns the surviving claim unchanged
-        when remaining<=0; L10827-10839 freezes that root against
-        _drop_value. generate.py L873 then stops further passes. A lede
-        leftover caused by budget exhaustion in stage 2 therefore cannot
-        be dropped or corrected in stage 3.
+        Budget leftover variant is not producible. Shared ledger:
+        generate.py L1099-1100 creates score_budget_ledger/score_exhausted
+        once and passes the same objects to L1230, L1327 and L1407.
+        Stage 3's first `_salvage` (L856) always runs; L873 only gates
+        passes 2+. That first pass starts with apply_fact_corrections
+        (generate L795, facts L10731-10789), which is not exhausted-root-
+        gated. Accept depends on joined_edition_hard_issues (L10780-10786)
+        and can differ after L1360. A score-progression leftover
+        ("score progression " / "score progression became " at facts
+        L4931/L4944) still cannot be rewritten: `_reword_misattributed_box`
+        only handles opponent-was-box (L10302-10324); `_correct_sentence`
+        matches turnover credit, STAT_DISAGREE, illegal-use, and FG
+        yardage, then returns None at L10602, so the accept test is never
+        reached. repair_offending_copy then: remaining<=0 at L9558-9567
+        returns the surviving claim unchanged; L10851 skips inverted-play
+        on an exhausted root; L10853-10861 restore frozen_exhausted after
+        prune. generate.py L873 then stops further passes. A
+        lastGameReview.lede leftover caused by budget exhaustion in
+        stage 2 therefore cannot be dropped or corrected in stage 3.
         """
         first, retry = self._s3_stored_retry_drafts()
         llm = Mock(side_effect=[(first, "grok")] + [(retry, "grok")] * 8)

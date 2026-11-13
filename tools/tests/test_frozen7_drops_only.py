@@ -7,6 +7,7 @@ where the row is a workflow permission or step name.
 """
 from __future__ import annotations
 
+import copy
 import io
 import json
 import os
@@ -57,6 +58,11 @@ REAL_346_DROPS = [
 
 WORKFLOWS = Path(__file__).resolve().parents[2] / ".github" / "workflows"
 REPO = Path(__file__).resolve().parents[2]
+# Same dek pad as test_frozen7_a14_lede.PAD (join-tail restore bait).
+_S3_PAD = (
+    "Dek Kansas City is 5-2 and turns to the Jets after Denver. "
+    "The tape is early downs, the kick file, and the next snap. "
+) * 80
 
 
 def _workflow(name: str) -> dict:
@@ -1252,6 +1258,52 @@ class Frozen7Cases(unittest.TestCase):
             repair = json.loads(repair_json.read_text(encoding="utf-8"))
         return result, repair
 
+    def _n8_s3_stored_retry_drafts(self) -> tuple[dict, dict]:
+        """Same stored-edition retry pair as test_b2_build_stage3."""
+        path = REPO / "tools" / "tests" / "fixtures" / "edition_2026-09-25-1552.json"
+        retry = json.loads(path.read_text(encoding="utf-8"))
+        retry["headline"] = "Week 9 Preview: the Jets after Denver"
+        retry["dek"] = (
+            "Kansas City turns to the Jets after Denver.\n\n"
+            "Butker from 99. " + _S3_PAD
+        )
+        retry["theEdge"] = _S3_PAD
+        review = dict(retry.get("lastGameReview") or {})
+        review["opponent"] = "Seattle Seahawks"
+        review["score"] = "KC 24–28"
+        review["result"] = "L"
+        review["lede"] = "The preview stays on the Jets.\n\n" + _S3_PAD[:200]
+        review["takeaways"] = [
+            {"title": "Butker", "body": "Two misses from 58"}
+        ] + list(review.get("takeaways") or [])
+        retry["lastGameReview"] = review
+        first = copy.deepcopy(retry)
+        first["dek"] = "Two misses from 58.\n\n" + _S3_PAD
+        first["storyline"] = "Kansas City won 99-0 in a fictional box. " + _S3_PAD
+        return first, retry
+
+    def _n8_s3_through(self):
+        """Stored 2026-09-25-1552 through generate.main with one retry.
+
+        No `_salvage_until_clean` / `check_review` / `restore_required_copy`
+        patch. Stage 2 noisy-reverts; L1360 restores the join-tail dek;
+        stage 3 drops that paragraph. Live recap is empty so stage 1 only
+        drops prediction-market copy.
+        """
+        helper = self._helpers()
+        first, retry = self._n8_s3_stored_retry_drafts()
+        llm = Mock(side_effect=[(first, "grok")] + [(retry, "grok")] * 8)
+        extras = list(self._empty_live_recap())
+        with tempfile.TemporaryDirectory() as tmp:
+            result, repair_json = helper._through_build(
+                Path(tmp),
+                first,
+                llm=llm,
+                patches=tuple(extras),
+            )
+            repair = json.loads(repair_json.read_text(encoding="utf-8"))
+        return result, repair
+
     def _assert_n8_stage_outcome(self, result, repair, *, hold: bool):
         drops = result.get("droppedSentences") or []
         sentinels = result.get("holdOnlySentinels") or []
@@ -1310,11 +1362,38 @@ class Frozen7Cases(unittest.TestCase):
         self.assertTrue(any("Butker from 95." in row for row in ten_drops), ten_drops)
         self._assert_n8_stage_outcome(ten, ten_repair, hold=True)
 
+    def test_n8_archive_replay_drops_count_toward_ceiling(self):
+        """A8/N8: archive-replay (stage 3) drops count in the L1502 sum.
+
+        Real generate.main, no salvage patches. 4+4 leftover-empty across
+        stages 1 and 2 ships at the ceiling. Stored 2026-09-25-1552 with
+        one fact-check retry: stage 2 noisy-reverts, L1360 restores the
+        join-tail dek p1 ``Two misses from 58``, stage 3 drops 14 including
+        that paragraph. Pre-replay total is 5 (≤8); aggregate with stage 3
+        is 19 (>8) and L1502 notes SALVAGE_NOISY. MG9c (stage-3 drops
+        excluded from L1502) ships the noisy sentinel and dies here.
+        """
+        eight, eight_repair = self._n8_through(4, 4)
+        eight_drops = eight.get("droppedSentences") or []
+        self.assertEqual(len(eight_drops), 8, eight_drops)
+        self.assertEqual(eight.get("leftoverIssues") or [], [])
+        self._assert_n8_stage_outcome(eight, eight_repair, hold=False)
+        result, repair = self._n8_s3_through()
+        drops = result.get("droppedSentences") or []
+        self.assertGreater(len(drops), facts.HOLD_REPAIR_DROPS, drops)
+        self.assertTrue(any("Polymarket" in row for row in drops), drops)
+        self.assertTrue(
+            any(row == "Two misses from 58." for row in drops),
+            drops,
+        )
+        self._assert_n8_stage_outcome(result, repair, hold=True)
+
     def test_n8_real_drops_across_stages(self):
         """A8/N8: real salvage drops in ≥2 stages, leftover empty.
 
         5 market drops in stage 1 + 5 field-goal drops in stage 2 = 10.
-        Aggregate ceiling holds. No `_salvage_until_clean` wrap.
+        Aggregate ceiling holds. No `_salvage_until_clean` wrap. Archive
+        replay is covered by test_n8_archive_replay_drops_count_toward_ceiling.
         """
         result, repair = self._n8_through(5, 5)
         drops = result.get("droppedSentences") or []

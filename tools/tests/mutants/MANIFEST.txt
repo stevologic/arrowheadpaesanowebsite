@@ -37,6 +37,9 @@ MG9-hold-repair-drops-off-by-one.patch
   killer: test_n8_hold_repair_drops_8_and_9
 MG9b-aggregate-drop-ceiling-removed.patch
   killers: test_n8_aggregate_ceiling_split_across_stages, test_n8_real_drops_across_stages
+MG9c-stage3-drops-excluded-from-L1502-ceiling.patch
+  stage-3 drops excluded from L1502 ceiling
+  killer: test_n8_archive_replay_drops_count_toward_ceiling
 M4-5-drop-budget-merge-signal.patch
   killer: test_c1_build_salvage_repair_leftover_and_hold
 MB1-budget-resets-per-stage.patch
@@ -81,4 +84,5 @@ MS-A10w-s2.patch
 MS-A10w-s3.patch
   stage 3 copy_touches disabled alone (archive replay salvage)
   killer: test_b2_build_stage3 (stored 2026-09-25-1552, retry-draft dek p1
-  join tail restored at L1360, stage 3 drops it; ships under mutant)
+  join tail restored at L1360, stage 3 drops it; holdAutomerge stays
+  True under mutant, only headlineOrLedeTouched flips)
