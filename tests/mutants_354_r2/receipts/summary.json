@@ -10,6 +10,24 @@
       "error": ""
     },
     {
+      "mutant": "MS-A10w-s1",
+      "killer": "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build",
+      "kills": 6,
+      "control_passes": 6,
+      "repeats": 6,
+      "receipt": "FAIL: test_b2_build (tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build); False is not true : {'repair': {'droppedSentences': ['A 7-3 lead after Q2 7:40 touchdown became 24-28.'], 'correctedSentences': [], 'leftoverIssues': [], 'holdOnlySentinels': [], 'headlineOrLedeTouched': False, 'wordShortfall': 0, 'holdAutomerge': False}, 'drops': ['A 7-3 lead after Q2 7:40 touchdown became 24-28.'], 'corrections': []}",
+      "error": ""
+    },
+    {
+      "mutant": "MS-A10w-s2",
+      "killer": "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build_stage2",
+      "kills": 6,
+      "control_passes": 6,
+      "repeats": 6,
+      "receipt": "FAIL: test_b2_build_stage2 (tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build_stage2); False is not true : {'repair': {'droppedSentences': ['Butker from 99.'], 'correctedSentences': [], 'leftoverIssues': [], 'holdOnlySentinels': [], 'headlineOrLedeTouched': False, 'wordShortfall': 0, 'holdAutomerge': False}, 'drops': ['Butker from 99.'], 'corrections': []}",
+      "error": ""
+    },
+    {
       "mutant": "MS-A10k",
       "killer": "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_known_errors",
       "kills": 6,
@@ -44,6 +62,15 @@
       "repeats": 6,
       "receipt": "FAIL: test_a14_3_lastgamereview_lede_drop_holds (tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_a14_3_lastgamereview_lede_drop_holds); False is not true : {'repair': {'droppedSentences': ['A 7-3 lead after Q2 7:40 touchdown became 24-28.'], 'correctedSentences': [], 'leftoverIssues': [], 'holdOnlySentinels': [], 'headlineOrLedeTouched': False, 'wordShortfall': 0, 'holdAutomerge': False}, 'drops': ['A 7-3 lead after Q2 7:40 touchdown became 24-28.'], 'corrections': []}",
       "error": ""
+    },
+    {
+      "mutant": "MS-A10w-s3",
+      "killer": "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build_stage3",
+      "equivalent": true,
+      "survives": 6,
+      "control_passes": 6,
+      "repeats": 6,
+      "error": ""
     }
   ],
   "grouped": {
@@ -53,6 +80,22 @@
       "rounds": 6,
       "killers": [
         "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build"
+      ]
+    },
+    "MS-A10w-s1": {
+      "kills": 6,
+      "control_passes": 6,
+      "rounds": 6,
+      "killers": [
+        "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build"
+      ]
+    },
+    "MS-A10w-s2": {
+      "kills": 6,
+      "control_passes": 6,
+      "rounds": 6,
+      "killers": [
+        "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build_stage2"
       ]
     },
     "MS-A10k": {
@@ -86,6 +129,16 @@
       "killers": [
         "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_a14_3_lastgamereview_lede_drop_holds"
       ]
+    },
+    "MS-A10w-s3": {
+      "kills": 0,
+      "survives": 6,
+      "control_passes": 6,
+      "rounds": 6,
+      "killers": [
+        "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build_stage3"
+      ],
+      "equivalent": true
     }
   }
 }

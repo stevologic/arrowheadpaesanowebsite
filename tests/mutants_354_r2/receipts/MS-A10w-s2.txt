@@ -1,0 +1,6 @@
+mutant: MS-A10w-s2
+killer: tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build_stage2
+kills: 6/6
+control_passes: 6/6
+receipt: FAIL: test_b2_build_stage2 (tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build_stage2); False is not true : {'repair': {'droppedSentences': ['Butker from 99.'], 'correctedSentences': [], 'leftoverIssues': [], 'holdOnlySentinels': [], 'headlineOrLedeTouched': False, 'wordShortfall': 0, 'holdAutomerge': False}, 'drops': ['Butker from 99.'], 'corrections': []}
+

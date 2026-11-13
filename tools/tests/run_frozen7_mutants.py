@@ -171,6 +171,10 @@ KILLERS = (
         "tools.tests.test_frozen7_drops_only.Frozen7Addenda.test_a12_flexed_floor_boundaries",
     ),
     (
+        "MS-A10w",
+        "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build",
+    ),
+    (
         "MS-A10w-s1",
         "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build",
     ),
@@ -178,6 +182,12 @@ KILLERS = (
         "MS-A10w-s2",
         "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build_stage2",
     ),
+)
+
+# Stage 3 copy_touches is reachable with a stored edition (noisy-revert) but
+# is not uniquely killable: the same lede drop is already recorded at stage 2.
+# Control and mutant both PASS 6/6 on the stored-edition caller.
+EQUIVALENT = (
     (
         "MS-A10w-s3",
         "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build_stage3",
@@ -303,9 +313,49 @@ class Frozen7Mutants(unittest.TestCase):
                         kills += 1
                 self.assertEqual(kills, REPEATS, last)
                 receipts.append(f"{name} killed by {killer}: {last_receipt}")
+        for name, killer in EQUIVALENT:
+            with self.subTest(equivalent=name, killer=killer):
+                patch = MUTANTS / f"{name}.patch"
+                self.assertTrue(patch.is_file(), patch)
+                survives = 0
+                last = ""
+                for round_id in range(REPEATS):
+                    with tempfile.TemporaryDirectory() as tmp:
+                        dest = Path(tmp)
+                        _copy_tree(dest)
+                        env = {**os.environ, "PYTHONPATH": str(dest)}
+                        clean = _run_unittest(killer, dest, env)
+                        self.assertEqual(
+                            clean.returncode,
+                            0,
+                            f"{name} clean control {round_id} failed "
+                            f"in copied tree\n{clean.stdout}\n{clean.stderr}",
+                        )
+                        applied = subprocess.run(
+                            ["patch", "-p1", "--forward", "--batch", "-i", str(patch)],
+                            cwd=dest,
+                            capture_output=True,
+                            text=True,
+                        )
+                        self.assertEqual(
+                            applied.returncode,
+                            0,
+                            applied.stdout + applied.stderr,
+                        )
+                        mutated = _run_unittest(killer, dest, env)
+                        if mutated.returncode != 0:
+                            last = (
+                                f"{name} round {round_id} not equivalent "
+                                f"(mutant must still PASS)\n"
+                                f"{mutated.stdout}\n{mutated.stderr}"
+                            )
+                            break
+                        survives += 1
+                self.assertEqual(survives, REPEATS, last)
+                receipts.append(f"{name} equivalent on {killer}")
         blob = "\n".join(receipts)
         print(blob, flush=True)
-        self.assertEqual(len(receipts), len(KILLERS), blob)
+        self.assertEqual(len(receipts), len(KILLERS) + len(EQUIVALENT), blob)
 
 
 if __name__ == "__main__":

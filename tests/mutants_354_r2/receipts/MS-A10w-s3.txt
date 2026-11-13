@@ -1,0 +1,6 @@
+mutant: MS-A10w-s3
+killer: tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build_stage3
+equivalent: yes
+survives: 6/6
+control_passes: 6/6
+

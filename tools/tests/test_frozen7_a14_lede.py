@@ -119,41 +119,10 @@ class Frozen7A14Lede(unittest.TestCase):
             patch.object(collect, "fetch_game_recap", return_value=empty),
         )
 
-    def _leave_gate_for_archive_replay(self):
-        """Keep check_review / archive_replay_issues real; skip only stage-2 salvage.
-
-        Stage 2 and stage 3 call the same checkout-fixture check. Salvaging at
-        stage 2 would drop lastGameReview.lede before archive replay runs.
-        Returning the payload unchanged from the published-edition salvage
-        pass is the input that survives to generate.py ~L1413.
-        """
-        real = generate._salvage_until_clean
-        seen = {"n": 0}
-
-        def wrapped(
-            payload,
-            problems,
-            *args,
-            check_copy_gates=False,
-            check_changed=None,
-            **kwargs,
-        ):
-            if check_changed and not check_copy_gates:
-                seen["n"] += 1
-                if seen["n"] == 1:
-                    return payload, [], [], []
-            return real(
-                payload,
-                problems,
-                *args,
-                check_copy_gates=check_copy_gates,
-                check_changed=check_changed,
-                **kwargs,
-            )
-
-        return patch.object(
-            generate, "_salvage_until_clean", side_effect=wrapped
-        )
+    def _stored_edition(self) -> dict:
+        """Archived Week 3 Preview fixture (edition_2026-09-25-1552.json)."""
+        path = REPO / "tools" / "tests" / "fixtures" / "edition_2026-09-25-1552.json"
+        return json.loads(path.read_text(encoding="utf-8"))
 
     def _fg_lede(self, helper: _score_budget.ScoreProgressionBudgetExhaustion) -> dict:
         raw = self._base(helper)
@@ -379,18 +348,22 @@ class Frozen7A14Lede(unittest.TestCase):
     def test_b2_build_stage3(self):
         """B2-build stage 3: archive replay salvage (generate.py ~L1413).
 
-        FROZEN-7 A14 / B2. Same live-empty / fixture-dirty lastGameReview.lede
-        leftover as stage 2. Published-edition salvage is skipped so the
-        leftover is archive_replay_issues' real hard input. check_review
-        and archive_replay_issues are not mocked. Under MS-A10w-s3 this
-        same generate.main path ships. Not a copy of test_a14_3.
+        FROZEN-7 A14 / B2. Writer payload is the stored archived edition
+        2026-09-25-1552 with lastGameReview.lede carrying Butker from 99.
+        Live recap is empty so stage 1 does not drop the kick. The stored
+        edition's other ESPN leftovers make published-edition salvage
+        noisy-revert (generate.py L1341-1352), so archive_replay_issues
+        still sees the dirty lede and stage 3 salvage runs. check_review
+        and archive_replay_issues are not mocked. _salvage_until_clean is
+        not patched. MS-A10w-s3 alone still holds because stage 2 already
+        recorded the same lede drop; MS-A10w (all three stages) ships.
+        Not a copy of test_a14_3.
         """
-        helper = self._helper()
-        result, repair = self._through(
-            self._fg_lede(helper),
-            extra=self._empty_live_recap()
-            + (self._leave_gate_for_archive_replay(),),
-        )
+        raw = self._stored_edition()
+        review = dict(raw.get("lastGameReview") or {})
+        review["lede"] = self._para("Butker from 99.", lead=True)
+        raw["lastGameReview"] = review
+        result, repair = self._through(raw, extra=self._empty_live_recap())
         self._assert_hold(result, repair, "Butker from 99")
 
     def test_b2_known_errors(self):

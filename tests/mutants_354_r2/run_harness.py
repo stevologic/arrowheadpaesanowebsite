@@ -19,13 +19,18 @@ PYTHON = sys.executable
 A14 = "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede"
 
 KILLERS = (
+    ("MS-A10w", f"{A14}.test_b2_build"),
     ("MS-A10w-s1", f"{A14}.test_b2_build"),
     ("MS-A10w-s2", f"{A14}.test_b2_build_stage2"),
-    ("MS-A10w-s3", f"{A14}.test_b2_build_stage3"),
     ("MS-A10k", f"{A14}.test_b2_known_errors"),
     ("resolver-reverted-lastGameReview-lede", f"{A14}.test_a14_1_dek_drop_holds"),
     ("dek-ignored", f"{A14}.test_a14_1_dek_drop_holds"),
     ("union-dropped", f"{A14}.test_a14_3_lastgamereview_lede_drop_holds"),
+)
+
+# See tools/tests/run_frozen7_mutants.py EQUIVALENT.
+EQUIVALENT = (
+    ("MS-A10w-s3", f"{A14}.test_b2_build_stage3"),
 )
 
 _CRASH_IN_MESSAGE = (
@@ -189,6 +194,96 @@ def main() -> int:
         print(f"{status} {name} {killer} {kills}/{REPEATS} control {controls}/{REPEATS}")
         if last and status != "KILLED":
             print(last[:2000])
+    for name, killer in EQUIVALENT:
+        patch = MUTANTS / f"{name}.patch"
+        if not patch.is_file():
+            print(f"MISSING {patch}", file=sys.stderr)
+            failed += 1
+            continue
+        survives = 0
+        controls = 0
+        last = ""
+        for round_id in range(REPEATS):
+            with tempfile.TemporaryDirectory() as tmp:
+                dest = Path(tmp)
+                _copy_tree(dest)
+                env = {**os.environ, "PYTHONPATH": str(dest)}
+                clean = _run_unittest(killer, dest, env)
+                if clean.returncode == 0:
+                    controls += 1
+                else:
+                    last = (
+                        f"{name} clean control {round_id} failed "
+                        f"in copied tree\n{clean.stdout}\n{clean.stderr}"
+                    )
+                    break
+                applied = subprocess.run(
+                    ["patch", "-p1", "--forward", "--batch", "-i", str(patch)],
+                    cwd=dest,
+                    capture_output=True,
+                    text=True,
+                )
+                if applied.returncode != 0:
+                    last = applied.stdout + applied.stderr
+                    break
+                mutated = _run_unittest(killer, dest, env)
+                if mutated.returncode != 0:
+                    last = (
+                        f"{name} round {round_id} not equivalent "
+                        f"(mutant must still PASS)\n{mutated.stdout}\n{mutated.stderr}"
+                    )
+                    break
+                survives += 1
+        row = {
+            "mutant": name,
+            "killer": killer,
+            "equivalent": True,
+            "survives": survives,
+            "control_passes": controls,
+            "repeats": REPEATS,
+            "error": last,
+        }
+        summary.append(row)
+        acc = grouped.setdefault(
+            name,
+            {
+                "kills": 0,
+                "survives": 0,
+                "control_passes": 0,
+                "rounds": 0,
+                "killers": [],
+                "equivalent": True,
+            },
+        )
+        acc["survives"] += survives
+        acc["control_passes"] += controls
+        acc["rounds"] += REPEATS
+        acc["killers"].append(killer)
+        receipt_path = RECEIPTS / f"{name}.txt"
+        blob = (
+            f"mutant: {name}\n"
+            f"killer: {killer}\n"
+            f"equivalent: yes\n"
+            f"survives: {survives}/{REPEATS}\n"
+            f"control_passes: {controls}/{REPEATS}\n"
+        )
+        if last:
+            blob += f"error:\n{last}\n"
+        existing = receipt_path.read_text(encoding="utf-8") if receipt_path.is_file() else ""
+        receipt_path.write_text(existing + blob + "\n", encoding="utf-8")
+        status = (
+            "EQUIVALENT"
+            if survives == REPEATS and controls == REPEATS
+            else "NOT-EQUIVALENT"
+        )
+        if status != "EQUIVALENT":
+            failed += 1
+        print(
+            f"{status} {name} {killer} survives {survives}/{REPEATS} "
+            f"control {controls}/{REPEATS}"
+        )
+        if last and status != "EQUIVALENT":
+            print(last[:2000])
     (RECEIPTS / "summary.json").write_text(
         json.dumps({"rows": summary, "grouped": grouped}, indent=2) + "\n",
         encoding="utf-8",
@@ -197,11 +292,18 @@ def main() -> int:
         "mutant\tkills\tcontrol\treceipt",
     ]
     for name, acc in grouped.items():
-        table_lines.append(
-            f"{name}\t{acc['kills']}/{acc['rounds']}\t"
-            f"{acc['control_passes']}/{acc['rounds']}\t"
-            f"tests/mutants_354_r2/receipts/{name}.txt"
-        )
+        if acc.get("equivalent"):
+            table_lines.append(
+                f"{name}\tEQUIV {acc.get('survives', 0)}/{acc['rounds']}\t"
+                f"{acc['control_passes']}/{acc['rounds']}\t"
+                f"tests/mutants_354_r2/receipts/{name}.txt"
+            )
+        else:
+            table_lines.append(
+                f"{name}\t{acc['kills']}/{acc['rounds']}\t"
+                f"{acc['control_passes']}/{acc['rounds']}\t"
+                f"tests/mutants_354_r2/receipts/{name}.txt"
+            )
     (RECEIPTS / "table.txt").write_text("\n".join(table_lines) + "\n", encoding="utf-8")
     print("\n".join(table_lines))
     return 1 if failed else 0
