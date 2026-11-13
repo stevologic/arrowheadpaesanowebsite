@@ -16,10 +16,8 @@ MS-A10w-s2.patch
   killer: test_b2_build_stage2 (fixture-only Butker lastGameReview.lede drop holds at head; ships under mutant)
 MS-A10w-s3.patch
   stage 3 copy_touches disabled alone (archive replay salvage)
-  EQUIVALENT on test_b2_build_stage3: stored edition 2026-09-25-1552 with
-  lastGameReview.lede Butker from 99 reaches generate.py L1399-1417 via
-  stage-2 noisy-revert. L1332 already records the lede drop, so L1413
-  alone does not change hold. Production guard stays.
+  killer: test_b2_build_stage3 (stored 2026-09-25-1552, retry-draft dek p1
+  join tail restored at L1360, stage 3 drops it; ships under mutant)
 MS-A10k.patch
   check removed on the first known_errors pass
   killer: test_b2_known_errors (headline Quinton→Quay holds at head; ships under mutant)

@@ -7,6 +7,7 @@ and do not mock both --gate-replay and --check-edition.
 """
 from __future__ import annotations
 
+import copy
 import json
 import tempfile
 import unittest
@@ -345,26 +346,65 @@ class Frozen7A14Lede(unittest.TestCase):
         )
         self._assert_hold(result, repair, "Butker from 99")
 
+    def _s3_stored_retry_drafts(self) -> tuple[dict, dict]:
+        """Stored 2026-09-25-1552 plus a retry dek that only stage 3 records.
+
+        Retry (gate_before): dek p1 is clean, dek p2 is Butker from 99, so
+        stage-2 copy_touches stays false. Body leftovers force noisy-revert
+        (L1341-1352). Restore at L1360 then takes the earlier draft's dek,
+        whose p1 is the isolated-clean join tail ``Two misses from 58``.
+        Takeaways title+body ``Butker`` / ``Two misses from 58`` fail
+        check_review(changed=True) as a join, so stage 3 drops that p1 and
+        only L1413 records it. Live recap is empty so stage 1 does not.
+        """
+        retry = self._stored_edition()
+        retry["headline"] = "Week 9 Preview: the Jets after Denver"
+        retry["dek"] = (
+            "Kansas City turns to the Jets after Denver.\n\n"
+            "Butker from 99. " + PAD
+        )
+        retry["theEdge"] = PAD
+        review = dict(retry.get("lastGameReview") or {})
+        review["opponent"] = "Seattle Seahawks"
+        review["score"] = "KC 24–28"
+        review["result"] = "L"
+        review["lede"] = "The preview stays on the Jets.\n\n" + PAD[:200]
+        review["takeaways"] = [
+            {"title": "Butker", "body": "Two misses from 58"}
+        ] + list(review.get("takeaways") or [])
+        retry["lastGameReview"] = review
+        first = copy.deepcopy(retry)
+        first["dek"] = "Two misses from 58.\n\n" + PAD
+        first["storyline"] = "Kansas City won 99-0 in a fictional box. " + PAD
+        return first, retry
+
     def test_b2_build_stage3(self):
         """B2-build stage 3: archive replay salvage (generate.py ~L1413).
 
-        FROZEN-7 A14 / B2. Writer payload is the stored archived edition
-        2026-09-25-1552 with lastGameReview.lede carrying Butker from 99.
-        Live recap is empty so stage 1 does not drop the kick. The stored
-        edition's other ESPN leftovers make published-edition salvage
-        noisy-revert (generate.py L1341-1352), so archive_replay_issues
-        still sees the dirty lede and stage 3 salvage runs. check_review
-        and archive_replay_issues are not mocked. _salvage_until_clean is
-        not patched. MS-A10w-s3 alone still holds because stage 2 already
-        recorded the same lede drop; MS-A10w (all three stages) ships.
+        FROZEN-7 A14 / B2. Stored edition 2026-09-25-1552 through
+        generate.main with one fact-check retry. No _salvage_until_clean
+        or check_review patch. Stage 2 noisy-reverts without touching
+        headline/lede; L1360 restore brings the retry-draft dek p1; stage 3
+        drops that paragraph. Under MS-A10w-s3 this path ships.
         Not a copy of test_a14_3.
+
+        Budget leftover variant is not producible: generate.py L1099-1100
+        shares score_budget_ledger/score_exhausted across L1230, L1327 and
+        L1407. facts.py L9559-9567 returns the surviving claim unchanged
+        when remaining<=0; L10827-10839 freezes that root against
+        _drop_value. generate.py L873 then stops further passes. A lede
+        leftover caused by budget exhaustion in stage 2 therefore cannot
+        be dropped or corrected in stage 3.
         """
-        raw = self._stored_edition()
-        review = dict(raw.get("lastGameReview") or {})
-        review["lede"] = self._para("Butker from 99.", lead=True)
-        raw["lastGameReview"] = review
-        result, repair = self._through(raw, extra=self._empty_live_recap())
-        self._assert_hold(result, repair, "Butker from 99")
+        first, retry = self._s3_stored_retry_drafts()
+        llm = Mock(side_effect=[(first, "grok")] + [(retry, "grok")] * 8)
+        result, repair = self._through(
+            first,
+            extra=self._empty_live_recap(),
+            llm=llm,
+            retries=None,
+        )
+        self._assert_hold(result, repair, "Two misses from 58")
 
     def test_b2_known_errors(self):
         """B2-known_errors: first known_errors pass, Quinton→Quay in headline holds.

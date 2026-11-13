@@ -182,17 +182,13 @@ KILLERS = (
         "MS-A10w-s2",
         "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build_stage2",
     ),
-)
-
-# Stage 3 copy_touches is reachable with a stored edition (noisy-revert) but
-# is not uniquely killable: the same lede drop is already recorded at stage 2.
-# Control and mutant both PASS 6/6 on the stored-edition caller.
-EQUIVALENT = (
     (
         "MS-A10w-s3",
         "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build_stage3",
     ),
 )
+
+EQUIVALENT = ()
 
 _CRASH_IN_MESSAGE = (
     "Traceback",

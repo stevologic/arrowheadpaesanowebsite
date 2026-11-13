@@ -80,8 +80,5 @@ MS-A10w-s2.patch
   killer: test_b2_build_stage2
 MS-A10w-s3.patch
   stage 3 copy_touches disabled alone (archive replay salvage)
-  EQUIVALENT on test_b2_build_stage3: stored edition 2026-09-25-1552
-  reaches generate.py L1399-1417 via stage-2 noisy-revert (L1341-1352).
-  The same lede drop is already recorded at L1332, so disabling L1413
-  alone does not ship. Production guard stays. Unique kill required
-  skipping stage-2 salvage, which production cannot return.
+  killer: test_b2_build_stage3 (stored 2026-09-25-1552, retry-draft dek p1
+  join tail restored at L1360, stage 3 drops it; ships under mutant)

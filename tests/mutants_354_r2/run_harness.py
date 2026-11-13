@@ -22,16 +22,14 @@ KILLERS = (
     ("MS-A10w", f"{A14}.test_b2_build"),
     ("MS-A10w-s1", f"{A14}.test_b2_build"),
     ("MS-A10w-s2", f"{A14}.test_b2_build_stage2"),
+    ("MS-A10w-s3", f"{A14}.test_b2_build_stage3"),
     ("MS-A10k", f"{A14}.test_b2_known_errors"),
     ("resolver-reverted-lastGameReview-lede", f"{A14}.test_a14_1_dek_drop_holds"),
     ("dek-ignored", f"{A14}.test_a14_1_dek_drop_holds"),
     ("union-dropped", f"{A14}.test_a14_3_lastgamereview_lede_drop_holds"),
 )
 
-# See tools/tests/run_frozen7_mutants.py EQUIVALENT.
-EQUIVALENT = (
-    ("MS-A10w-s3", f"{A14}.test_b2_build_stage3"),
-)
+EQUIVALENT = ()
 
 _CRASH_IN_MESSAGE = (
     "Traceback",

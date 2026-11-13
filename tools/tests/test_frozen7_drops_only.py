@@ -144,6 +144,17 @@ def _body_drops(count: int, start: int = 0) -> list[str]:
     ]
 
 
+# Stage-1 prediction-market sentences (facts.py _PREDICTION_VENUES). Distinct
+# so salvage records one drop each. Used by the real-input N8 split.
+N8_MARKETS = [
+    "Polymarket has the Chiefs at 9.4 percent to win the Super Bowl.",
+    "Kalshi lists Kansas City at 16.5 percent to win the AFC.",
+    "PredictIt still prices Kansas City to win the championship.",
+    "Manifold has the Chiefs at 11 percent to win the Super Bowl.",
+    "Metaculus lists an 8 percent Super Bowl ticket.",
+]
+
+
 def _hold(
     edition,
     drops=None,
@@ -1103,47 +1114,23 @@ class Frozen7Cases(unittest.TestCase):
         fat = _fat_preview()
         self.assertFalse(facts.only_safe_score_lede_content(fat))
         helper = self._helpers()
-        raw = helper._fat_nonlede(helper.CLEAN)
-
-        def empty_salvage(payload, problems, *args, **kwargs):
-            gutted = json.loads(json.dumps(payload))
-            gutted["dek"] = ""
-            gutted["theEdge"] = ""
-            gutted["storyline"] = ""
-            gutted["currentState"] = ""
-            gutted["gamePlan"] = ""
-            gutted["lastGameReview"] = {
-                "opponent": "Denver Broncos",
-                "result": "L",
-                "score": "KC 24–28",
-                "lede": facts.safe_score_lede(None),
+        raw = helper._lede(helper.CLEAN)
+        raw.update(
+            {
+                "headline": "Week 9 Preview: remainder ships after body drops",
+                "dek": "Butker from 99.",
+                "theEdge": "Butker from 98.",
+                "storyline": "Butker from 97.",
+                "currentState": "Butker from 96.",
+                "gamePlan": "Butker from 95.",
+                "edition": "2026 Week 9 · Preview",
+                "slug": "2026-11-07-1200",
+                "phase": {"type": "regular", "mode": "preview", "week": 9},
+                "generatedAt": "2026-11-07T12:00:00Z",
             }
-            gone = ["everything in the body was dropped."]
-            return gutted, gone, [], []
-
+        )
         with tempfile.TemporaryDirectory() as tmp:
-            result, repair_json = helper._through_build(
-                Path(tmp),
-                raw,
-                patches=(
-                    patch.object(
-                        generate, "_salvage_until_clean", side_effect=empty_salvage
-                    ),
-                    patch.object(
-                        facts,
-                        "restore_required_copy",
-                        side_effect=lambda payload, *a, **k: payload,
-                    ),
-                    patch.object(
-                        facts,
-                        "check_review",
-                        return_value=["storyline: leftover bait"],
-                    ),
-                    patch.object(
-                        generate, "replay_fixture_missing", return_value=False
-                    ),
-                ),
-            )
+            result, repair_json = helper._through_build(Path(tmp), raw)
             narrative = result["narrative"]
             self.assertTrue(str(narrative.get("headline") or "").strip())
             self.assertFalse(
@@ -1151,6 +1138,11 @@ class Frozen7Cases(unittest.TestCase):
             )
             repair = json.loads(repair_json.read_text(encoding="utf-8"))
             self.assertTrue(repair.get("holdAutomerge"), repair)
+            self.assertIn("Butker from 99.", result.get("droppedSentences") or [])
+            self.assertTrue(
+                (narrative.get("dek") or "").startswith("Kansas City finished"),
+                narrative.get("dek"),
+            )
             self.assertTrue(
                 facts.only_safe_score_lede_content(narrative)
                 or facts.edition_word_count(narrative) < facts.PUBLISH_WORD_FLOOR,
@@ -1211,52 +1203,54 @@ class Frozen7Cases(unittest.TestCase):
             )
         )
 
-    def _split_stage_build(self, tmp: Path, gone_by_stage: list[list[str]]):
-        helper = self._helpers()
-        bait = helper._claim("7-3")
-        raw = helper._fat_nonlede(helper.CLEAN)
-        raw["storyline"] = bait + " " + (raw.get("storyline") or "")
-        stages = {"n": 0}
-        real_review = facts.check_review
+    def _empty_live_recap(self):
+        """Stage 1 uses the live ESPN payload; empty recap leaves detail checks off.
 
-        def fake_salvage(payload, problems, *args, **kwargs):
-            idx = stages["n"]
-            stages["n"] += 1
-            gone = list(gone_by_stage[idx]) if idx < len(gone_by_stage) else []
-            fat = json.loads(json.dumps(payload))
-            if idx < 2:
-                fat["storyline"] = bait + " " + helper.CLEAN
-            else:
-                fat["storyline"] = helper.CLEAN
-            if facts.edition_word_count(fat) < 3900:
-                fat = _exact_words(fat, 3900)
-            return fat, gone, [], []
-
-        def stage_review(*args, **kwargs):
-            if kwargs.get("changed"):
-                return real_review(*args, **kwargs)
-            return ["storyline: leftover score-progression claim (stage bait)"]
-
-        result, repair_json = helper._through_build(
-            tmp,
-            raw,
-            patches=(
-                patch.object(
-                    generate, "_salvage_until_clean", side_effect=fake_salvage
-                ),
-                patch.object(facts, "check_review", side_effect=stage_review),
-                patch.object(
-                    facts,
-                    "restore_required_copy",
-                    side_effect=lambda payload, *a, **k: payload,
-                ),
-                patch.object(
-                    generate, "replay_fixture_missing", return_value=False
-                ),
+        Stage 2 loads the checkout fixture via `_recap_for_edition`. Prediction-
+        market copy still fails stage 1 (`_check_prediction_markets`).
+        """
+        empty = {}
+        return (
+            patch.object(
+                collect,
+                "collect_all",
+                return_value={
+                    "schedule": frozen_schedule(),
+                    "news": [],
+                    "markets": {},
+                    "lastGameRecap": empty,
+                },
             ),
+            patch.object(collect, "fetch_game_recap", return_value=empty),
         )
-        self.assertGreaterEqual(stages["n"], 3, stages)
-        return result, json.loads(repair_json.read_text(encoding="utf-8"))
+
+    def _n8_split_edition(self, n_market: int, n_fg: int) -> dict:
+        helper = self._helpers()
+        raw = helper._fat_edition(helper.CLEAN)
+        raw["generatedAt"] = "2026-11-07T12:00:00Z"
+        pad = str(raw.get("storyline") or "")
+        raw["storyline"] = " ".join(N8_MARKETS[:n_market]) + " " + pad
+        fgs = " ".join(f"Butker from {90 + i}." for i in range(n_fg))
+        raw["currentState"] = {
+            "lede": fgs + " " + pad,
+            "workOn": [],
+            "thinkAbout": [],
+        }
+        return raw
+
+    def _n8_through(self, n_market: int, n_fg: int):
+        helper = self._helpers()
+        extras = list(self._empty_live_recap()) + [
+            patch.object(generate, "FACT_CHECK_RETRIES", 0),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            result, repair_json = helper._through_build(
+                Path(tmp),
+                self._n8_split_edition(n_market, n_fg),
+                patches=tuple(extras),
+            )
+            repair = json.loads(repair_json.read_text(encoding="utf-8"))
+        return result, repair
 
     def _assert_n8_stage_outcome(self, result, repair, *, hold: bool):
         drops = result.get("droppedSentences") or []
@@ -1296,88 +1290,41 @@ class Frozen7Cases(unittest.TestCase):
             self.assertEqual(ran.returncode, 0, ran.stderr)
 
     def test_n8_aggregate_ceiling_split_across_stages(self):
-        """A8/N8: ceiling is aggregate droppedSentences across every stage."""
-        eight = [_body_drops(3, 0), _body_drops(3, 3), _body_drops(2, 6)]
-        nine_split = [_body_drops(4, 0), _body_drops(3, 4), _body_drops(2, 7)]
-        nine_archive = [_body_drops(5, 0), [], _body_drops(4, 5)]
-        with tempfile.TemporaryDirectory() as tmp:
-            result, repair = self._split_stage_build(Path(tmp), eight)
-            self.assertEqual(len(result.get("droppedSentences") or []), 8)
-            self._assert_n8_stage_outcome(result, repair, hold=False)
-        with tempfile.TemporaryDirectory() as tmp:
-            result, repair = self._split_stage_build(Path(tmp), nine_split)
-            drops = result.get("droppedSentences") or []
-            self.assertEqual(len(drops), 9)
-            self.assertEqual(drops, _body_drops(4) + _body_drops(3, 4) + _body_drops(2, 7))
-            self._assert_n8_stage_outcome(result, repair, hold=True)
-        with tempfile.TemporaryDirectory() as tmp:
-            result, repair = self._split_stage_build(Path(tmp), nine_archive)
-            drops = result.get("droppedSentences") or []
-            self.assertEqual(len(drops), 9)
-            self.assertEqual(drops[-4:], _body_drops(4, 5))
-            self._assert_n8_stage_outcome(result, repair, hold=True)
+        """A8/N8: ceiling is aggregate droppedSentences across every stage.
+
+        Real generate.main. Stage 1 drops four prediction-market sentences
+        (empty live recap). Stage 2 drops Butker-from-9X against the checkout
+        recap. 4+4=8 leftover-empty ships. 4+6=10 leftover-empty holds via
+        the aggregate ceiling (each stage ≤8, so MG9b ships).
+        """
+        eight, eight_repair = self._n8_through(4, 4)
+        eight_drops = eight.get("droppedSentences") or []
+        self.assertEqual(len(eight_drops), 8, eight_drops)
+        self.assertEqual(eight.get("leftoverIssues") or [], [])
+        self._assert_n8_stage_outcome(eight, eight_repair, hold=False)
+        ten, ten_repair = self._n8_through(4, 6)
+        ten_drops = ten.get("droppedSentences") or []
+        self.assertEqual(len(ten_drops), 10, ten_drops)
+        self.assertEqual(ten.get("leftoverIssues") or [], [])
+        self.assertTrue(any("Polymarket" in row for row in ten_drops), ten_drops)
+        self.assertTrue(any("Butker from 95." in row for row in ten_drops), ten_drops)
+        self._assert_n8_stage_outcome(ten, ten_repair, hold=True)
 
     def test_n8_real_drops_across_stages(self):
-        """A8/N8: real salvage drops in ≥2 stages including archive-replay."""
-        helper = self._helpers()
-        real_salvage = generate._salvage_until_clean
-        fg = "Butker from 99."
-        for n_story, expect_hold in ((6, False), (7, True)):
-            gone_by_stage: list[list[str]] = []
-            stages = {"n": 0}
+        """A8/N8: real salvage drops in ≥2 stages, leftover empty.
 
-            def wrapped(payload, problems, *args, **kwargs):
-                repaired, gone, leftover, logs = real_salvage(
-                    payload, problems, *args, **kwargs
-                )
-                stages["n"] += 1
-                gone_by_stage.append(list(gone))
-                fat = json.loads(json.dumps(repaired))
-                if stages["n"] < 3:
-                    fat["storyline"] = fg + " " + (fat.get("storyline") or helper.CLEAN)
-                if facts.edition_word_count(fat) < 3900:
-                    fat = _exact_words(fat, 3900)
-                return fat, gone, leftover, logs
-
-            raw = helper._fat_nonlede(" ".join(helper._claims(n_story)))
-            with self.subTest(hold=expect_hold, n_story=n_story):
-                gone_by_stage.clear()
-                stages["n"] = 0
-                with tempfile.TemporaryDirectory() as tmp:
-                    result, repair_json = helper._through_build(
-                        Path(tmp),
-                        raw,
-                        patches=(
-                            patch.object(
-                                generate,
-                                "_salvage_until_clean",
-                                side_effect=wrapped,
-                            ),
-                            patch.object(
-                                generate,
-                                "replay_fixture_missing",
-                                return_value=False,
-                            ),
-                        ),
-                    )
-                    repair = json.loads(repair_json.read_text(encoding="utf-8"))
-                    drops = result.get("droppedSentences") or []
-                    nonempty = [row for row in gone_by_stage if row]
-                    self.assertGreaterEqual(len(gone_by_stage), 3, gone_by_stage)
-                    self.assertTrue(nonempty, gone_by_stage)
-                    self.assertTrue(
-                        any(row for row in gone_by_stage[1:]),
-                        gone_by_stage,
-                    )
-                    self.assertTrue(
-                        any("Butker" in row or "99" in row for row in drops),
-                        drops,
-                    )
-                    if expect_hold:
-                        self.assertGreater(len(drops), facts.HOLD_REPAIR_DROPS, drops)
-                    else:
-                        self.assertEqual(len(drops), facts.HOLD_REPAIR_DROPS, drops)
-                    self._assert_n8_stage_outcome(result, repair, hold=expect_hold)
+        5 market drops in stage 1 + 5 field-goal drops in stage 2 = 10.
+        Aggregate ceiling holds. No `_salvage_until_clean` wrap.
+        """
+        result, repair = self._n8_through(5, 5)
+        drops = result.get("droppedSentences") or []
+        self.assertEqual(len(drops), 10, drops)
+        self.assertEqual(result.get("leftoverIssues") or [], [])
+        self.assertTrue(any("Polymarket" in row for row in drops), drops)
+        self.assertTrue(any("Metaculus" in row for row in drops), drops)
+        self.assertTrue(any("Butker from 94." in row for row in drops), drops)
+        self.assertGreater(len(drops), facts.HOLD_REPAIR_DROPS, drops)
+        self._assert_n8_stage_outcome(result, repair, hold=True)
 
     def test_n9_issue_dedupe_update_and_safe_quoting(self):
         self.assertEqual(facts.DROPS_ISSUE_LABEL, "narrative-drops")
