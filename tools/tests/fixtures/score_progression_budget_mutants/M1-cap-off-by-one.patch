@@ -1,0 +1,12 @@
+diff --git a/tools/chiefs_narrative/facts.py b/tools/chiefs_narrative/facts.py
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -9494,7 +9494,7 @@
+     if not text or not recap:
+         return text
+     current = text
+-    for _ in range(8):
++    for _ in range(9):
+         if not _check_score_progression(current, recap, last_game):
+             return current
+         progressed = False

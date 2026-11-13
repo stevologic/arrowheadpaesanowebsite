@@ -1,0 +1,24 @@
+diff --git a/tools/chiefs_narrative/generate.py b/tools/chiefs_narrative/generate.py
+--- a/tools/chiefs_narrative/generate.py
++++ b/tools/chiefs_narrative/generate.py
+@@ -1746,19 +1746,7 @@
+     single budget-exhausted leftover. Unrelated leftovers stay.
+     """
+     leftover = list(leftover or [])
+-    budget_left = list(budget_left or [])
+-    if not budget_left:
+-        return leftover
+-    kept = [
+-        item
+-        for item in leftover
+-        if "score progression" not in (item or "")
+-        and not facts.is_score_progression_budget_exhausted(item)
+-    ]
+-    for item in budget_left:
+-        if item not in kept:
+-            kept.append(item)
+-    return kept
++    return leftover
+ 
+ 
+ def leftover_issues_with_score_progression_budget(

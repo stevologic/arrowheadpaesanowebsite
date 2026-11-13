@@ -1,0 +1,12 @@
+diff --git a/tools/chiefs_narrative/facts.py b/tools/chiefs_narrative/facts.py
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -9509,7 +9509,7 @@
+                 progressed = True
+                 break
+             stall_claim = sentence
+-            continue
++            break
+         if not progressed:
+             surviving = stall_claim or _surviving_invalid_score_claim(
+                 current, recap, last_game

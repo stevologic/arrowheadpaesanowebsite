@@ -1,0 +1,12 @@
+diff --git a/tools/chiefs_narrative/facts.py b/tools/chiefs_narrative/facts.py
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -10744,6 +10744,8 @@
+             issue = row.get("issue") or ""
+             if issue and issue not in leftover_sink:
+                 leftover_sink.append(issue)
++        if exhausted:
++            leftover_sink.append("SIGN-OK")
+     exhausted_roots = {
+         str(row.get("root") or "") for row in exhausted if row.get("root")
+     }

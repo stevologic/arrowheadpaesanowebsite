@@ -1,0 +1,12 @@
+diff --git a/tools/chiefs_narrative/facts.py b/tools/chiefs_narrative/facts.py
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -10756,7 +10756,7 @@
+     )
+     if snippets:
+         for key in _EDITION_KEYS:
+-            if key in payload and key not in exhausted_roots:
++            if key in payload:
+                 payload[key] = _drop_value(
+                     payload[key], snippets, last_game, recap, schedule,
+                     generated_at=generated_at,
