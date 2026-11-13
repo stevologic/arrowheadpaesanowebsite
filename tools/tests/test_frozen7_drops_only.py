@@ -30,6 +30,7 @@ from tools.chiefs_narrative import (
     facts,
     generate,
     hero_posts,
+    known_errors,
     phase,
     providers,
     review_gate,
@@ -119,6 +120,18 @@ def _extract_heredoc(script: str) -> str:
             break
         collected.append(line)
     return textwrap.dedent("\n".join(collected))
+
+
+def _pinned() -> dict:
+    path = REPO / "tools" / "tests" / "fixtures" / "edition_run_38582366273.json"
+    return json.loads(path.read_text(encoding="utf-8"))["pinned"]
+
+
+def _body_drops(count: int, start: int = 0) -> list[str]:
+    return [
+        f"The depth chart stayed on early downs through the Jets week {start + i}."
+        for i in range(count)
+    ]
 
 
 def _hold(
@@ -578,10 +591,14 @@ class Frozen7Cases(unittest.TestCase):
         self.assertTrue(9 > facts.HOLD_REPAIR_DROPS)
         source = Path(generate.__file__).read_text(encoding="utf-8")
         self.assertIn("len(gone) > facts.HOLD_REPAIR_DROPS", source)
+        self.assertIn("facts.drop_ceiling_exceeded(dropped)", source)
+        self.assertFalse(facts.drop_ceiling_exceeded(_body_drops(8)))
+        self.assertTrue(facts.drop_ceiling_exceeded(_body_drops(9)))
         edition = _exact_words(_thin_preview(), 3900)
-        eight = [f"The depth chart stayed on early downs {i}." for i in range(8)]
-        nine = eight + ["The depth chart stayed on early downs 8."]
+        eight = _body_drops(8)
+        nine = _body_drops(9)
         self.assertFalse(_hold(edition, drops=eight))
+        self.assertTrue(_hold(edition, drops=nine))
         self.assertTrue(
             _hold(
                 edition,
@@ -591,6 +608,114 @@ class Frozen7Cases(unittest.TestCase):
                 ],
             )
         )
+
+    def _split_stage_build(self, tmp: Path, gone_by_stage: list[list[str]]):
+        helper = self._helpers()
+        raw = helper._fat_nonlede(helper.CLEAN)
+        stages = {"n": 0}
+
+        def fake_salvage(payload, problems, *args, **kwargs):
+            idx = stages["n"]
+            stages["n"] += 1
+            gone = list(gone_by_stage[idx]) if idx < len(gone_by_stage) else []
+            return payload, gone, [], []
+
+        archive_n = {"n": 0}
+
+        def fake_archive(*_args, **_kwargs):
+            archive_n["n"] += 1
+            if archive_n["n"] == 1:
+                return ["score progression 7-3 after Q2 disagrees with ESPN"]
+            return []
+
+        result, repair_json = helper._through_build(
+            tmp,
+            raw,
+            patches=(
+                patch.object(
+                    generate, "_salvage_until_clean", side_effect=fake_salvage
+                ),
+                patch.object(
+                    facts,
+                    "check_review",
+                    return_value=[
+                        "storyline: leftover score-progression claim (stage bait)"
+                    ],
+                ),
+                patch.object(
+                    generate, "archive_replay_issues", side_effect=fake_archive
+                ),
+                patch.object(
+                    generate, "replay_fixture_missing", return_value=False
+                ),
+                patch.object(
+                    facts,
+                    "restore_required_copy",
+                    side_effect=lambda target, *args, **kwargs: target,
+                ),
+            ),
+        )
+        self.assertEqual(stages["n"], 3, stages)
+        return result, json.loads(repair_json.read_text(encoding="utf-8"))
+
+    def _assert_n8_stage_outcome(self, result, repair, *, hold: bool):
+        drops = result.get("droppedSentences") or []
+        sentinels = result.get("holdOnlySentinels") or []
+        noisy = [
+            row
+            for row in sentinels
+            if isinstance(row, dict)
+            and row.get("code") == facts.HOLD_ONLY_SALVAGE_NOISY
+        ]
+        parsed = _workflow("narrative.yml")
+        hold_step = _job_step_script(
+            parsed, "test", name="Fail held editions"
+        )
+        ran = _run_fail_held_script(
+            hold_step, payload={"holdMerge": bool(repair.get("holdAutomerge"))}
+        )
+        if hold:
+            self.assertTrue(noisy, sentinels)
+            self.assertTrue(repair.get("holdAutomerge"), repair)
+            self.assertEqual(ran.returncode, 1, ran.stderr)
+            self.assertTrue(
+                facts.should_hold_automerge(
+                    drops,
+                    result["narrative"],
+                    leftover=result.get("leftoverIssues") or [],
+                    corrections=result.get("correctedSentences") or [],
+                    hold_only_sentinels=sentinels,
+                    headline_or_lede_touched=bool(
+                        result.get("headlineOrLedeTouched")
+                    ),
+                )
+            )
+        else:
+            self.assertFalse(noisy, sentinels)
+            self.assertFalse(repair.get("holdAutomerge"), repair)
+            self.assertEqual(ran.returncode, 0, ran.stderr)
+
+    def test_n8_aggregate_ceiling_split_across_stages(self):
+        """A8/N8: ceiling is aggregate droppedSentences across every stage."""
+        eight = [_body_drops(3, 0), _body_drops(3, 3), _body_drops(2, 6)]
+        nine_split = [_body_drops(4, 0), _body_drops(3, 4), _body_drops(2, 7)]
+        nine_archive = [_body_drops(5, 0), [], _body_drops(4, 5)]
+        with tempfile.TemporaryDirectory() as tmp:
+            result, repair = self._split_stage_build(Path(tmp), eight)
+            self.assertEqual(len(result.get("droppedSentences") or []), 8)
+            self._assert_n8_stage_outcome(result, repair, hold=False)
+        with tempfile.TemporaryDirectory() as tmp:
+            result, repair = self._split_stage_build(Path(tmp), nine_split)
+            drops = result.get("droppedSentences") or []
+            self.assertEqual(len(drops), 9)
+            self.assertEqual(drops, _body_drops(4) + _body_drops(3, 4) + _body_drops(2, 7))
+            self._assert_n8_stage_outcome(result, repair, hold=True)
+        with tempfile.TemporaryDirectory() as tmp:
+            result, repair = self._split_stage_build(Path(tmp), nine_archive)
+            drops = result.get("droppedSentences") or []
+            self.assertEqual(len(drops), 9)
+            self.assertEqual(drops[-4:], _body_drops(4, 5))
+            self._assert_n8_stage_outcome(result, repair, hold=True)
 
     def test_n9_issue_dedupe_update_and_safe_quoting(self):
         self.assertEqual(facts.DROPS_ISSUE_LABEL, "narrative-drops")
@@ -753,6 +878,36 @@ class Frozen7Addenda(unittest.TestCase):
         self.assertFalse(
             _hold(edition, corrections=[f"{nxt} → rewritten"], before=edition)
         )
+        pinned = _pinned()
+        p2 = "The preview stays on the Jets after Denver."
+        para1 = _fat_preview(
+            lastGameReview={
+                "opponent": "Denver Broncos",
+                "result": "L",
+                "score": "KC 24–28",
+                "lede": pinned["quinton"] + "\n\n" + p2,
+            }
+        )
+        fixed_p1, logs_p1 = known_errors.apply_known_errors(para1, None)
+        self.assertTrue(logs_p1, logs_p1)
+        self.assertIn("\n\n", logs_p1[0].split(" → ", 1)[0])
+        self.assertEqual(facts.lede_paragraph(para1), pinned["quinton"])
+        self.assertTrue(facts.copy_touches_headline_or_lede(logs_p1, para1))
+        self.assertTrue(_hold(fixed_p1, corrections=logs_p1, before=para1))
+        para2 = _fat_preview(
+            lastGameReview={
+                "opponent": "Denver Broncos",
+                "result": "L",
+                "score": "KC 24–28",
+                "lede": lede + "\n\n" + pinned["quinton"],
+            }
+        )
+        fixed_p2, logs_p2 = known_errors.apply_known_errors(para2, None)
+        self.assertTrue(logs_p2, logs_p2)
+        self.assertIn("\n\n", logs_p2[0].split(" → ", 1)[0])
+        self.assertEqual(facts.lede_paragraph(para2), lede)
+        self.assertFalse(facts.copy_touches_headline_or_lede(logs_p2, para2))
+        self.assertFalse(_hold(fixed_p2, corrections=logs_p2, before=para2))
 
     def test_r4_dangling_reference_on_correction_holds(self):
         before = _fat_preview(
@@ -806,6 +961,8 @@ class Frozen7Addenda(unittest.TestCase):
         self.assertEqual(facts.HOLD_REPAIR_DROPS, 8)
         self.assertFalse(8 > facts.HOLD_REPAIR_DROPS)
         self.assertTrue(9 > facts.HOLD_REPAIR_DROPS)
+        self.assertFalse(facts.drop_ceiling_exceeded(_body_drops(8)))
+        self.assertTrue(facts.drop_ceiling_exceeded(_body_drops(9)))
 
     def test_a9_computed_repair_blockers_are_holding_leftover(self):
         source = Path(generate.__file__).read_text(encoding="utf-8")
@@ -836,6 +993,91 @@ class Frozen7Addenda(unittest.TestCase):
         self.assertTrue(facts.copy_touches_headline_or_lede([lede], edition))
         self.assertFalse(facts.copy_touches_headline_or_lede([p2s1], edition))
         self.assertFalse(_hold(edition, drops=[p2s1], before=edition))
+        token = "Kansas"
+        self.assertIn(token, lede)
+        self.assertFalse(facts.copy_touches_headline_or_lede([token], edition))
+        self.assertFalse(_hold(edition, drops=[token], before=edition))
+        headline = edition["headline"]
+        self.assertTrue(facts.copy_touches_headline_or_lede([headline], edition))
+        self.assertTrue(_hold(edition, drops=[headline], before=edition))
+
+    def _retry_known_error_build(self, tmp: Path, *, where: str):
+        helper = ScoreProgressionBudgetExhaustion(
+            "test_p1_seven_invalid_claims_drop_clean"
+        )
+        pinned = _pinned()
+        first = helper._fat_nonlede(helper.CLEAN)
+        second = json.loads(json.dumps(first))
+        p2 = "The preview stays on the Jets after Denver."
+        if where == "headline":
+            second["headline"] = pinned["quinton"]
+        elif where == "lede":
+            review = dict(second.get("lastGameReview") or {})
+            review["lede"] = pinned["quinton"] + "\n\n" + p2
+            second["lastGameReview"] = review
+        elif where == "p2s1":
+            review = dict(second.get("lastGameReview") or {})
+            review["lede"] = "Kansas City lost 24-28 in Denver."
+            review["analysis"] = [pinned["quinton"]]
+            second["lastGameReview"] = review
+        else:
+            raise AssertionError(where)
+        reviews = [
+            ["storyline: leftover score-progression claim (retry bait)"],
+        ]
+        llm = Mock(side_effect=[(first, "grok"), (second, "grok")])
+
+        def fake_review(*_args, **_kwargs):
+            if reviews:
+                return reviews.pop(0)
+            return []
+
+        return helper._through_build(
+            tmp,
+            first,
+            llm=llm,
+            patches=(
+                patch.object(facts, "check_review", side_effect=fake_review),
+                patch.object(generate, "archive_replay_issues", return_value=[]),
+                patch.object(
+                    generate, "replay_fixture_missing", return_value=False
+                ),
+                patch.object(
+                    facts,
+                    "restore_required_copy",
+                    side_effect=lambda target, *args, **kwargs: target,
+                ),
+            ),
+        )
+
+    def test_a10_retry_known_error_snapshot(self):
+        """A10/R2/R3: retry apply_known_errors snapshots headline/lede first."""
+        with tempfile.TemporaryDirectory() as tmp:
+            result, repair_json = self._retry_known_error_build(
+                Path(tmp), where="headline"
+            )
+            repair = json.loads(repair_json.read_text(encoding="utf-8"))
+            self.assertTrue(result.get("headlineOrLedeTouched"), result)
+            self.assertTrue(repair.get("holdAutomerge"), repair)
+            self.assertTrue(
+                any("Quinton Walker" in row for row in result.get("correctedSentences") or []),
+                result.get("correctedSentences"),
+            )
+        with tempfile.TemporaryDirectory() as tmp:
+            result, repair_json = self._retry_known_error_build(
+                Path(tmp), where="lede"
+            )
+            repair = json.loads(repair_json.read_text(encoding="utf-8"))
+            self.assertTrue(result.get("headlineOrLedeTouched"), result)
+            self.assertTrue(repair.get("holdAutomerge"), repair)
+        with tempfile.TemporaryDirectory() as tmp:
+            result, repair_json = self._retry_known_error_build(
+                Path(tmp), where="p2s1"
+            )
+            repair = json.loads(repair_json.read_text(encoding="utf-8"))
+            self.assertTrue(result.get("correctedSentences"), result)
+            self.assertFalse(result.get("headlineOrLedeTouched"), result)
+            self.assertFalse(repair.get("holdAutomerge"), repair)
 
     def test_a11_lede_is_first_body_paragraph(self):
         edition = _fat_preview(
@@ -847,6 +1089,14 @@ class Frozen7Addenda(unittest.TestCase):
         lede = facts.lede_paragraph(edition)
         self.assertIn("Paragraph one sentence one.", lede)
         self.assertNotIn("Paragraph two sentence one.", lede)
+        pinned = _pinned()
+        two_para = _fat_preview(
+            lastGameReview={
+                "lede": pinned["quinton"] + "\n\n" + "The preview stays on the Jets after Denver."
+            }
+        )
+        self.assertEqual(facts.lede_paragraph(two_para), pinned["quinton"])
+        self.assertNotIn("Jets after Denver", facts.lede_paragraph(two_para))
 
     def test_a12_flexed_floor_boundaries(self):
         self.assertEqual(facts.DROP_REDUCED_WORD_FLOOR, 3315)

@@ -1,0 +1,24 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -11257,8 +11257,6 @@
+         return True
+     if hold_only_sentinels:
+         return True
+-    if drop_ceiling_exceeded(drops):
+-        return True
+     source = before if before is not None else narrative
+     touched = headline_or_lede_touched
+     if touched is None:
+--- a/tools/chiefs_narrative/generate.py
++++ b/tools/chiefs_narrative/generate.py
+@@ -1491,10 +1491,6 @@
+     leftover_issues = leftover_issues_with_score_progression_budget(
+         leftover_issues
+     )
+-    # A8/N8: HOLD_REPAIR_DROPS is the aggregate ceiling across every salvage
+-    # stage, including archive-replay. Per-stage len(gone) checks stay.
+-    if facts.drop_ceiling_exceeded(dropped):
+-        _note_hold_only(facts.HOLD_ONLY_SALVAGE_NOISY)
+     if not headline_or_lede_touched:
+         headline_or_lede_touched = facts.copy_touches_headline_or_lede(
+             list(dropped) + list(corrections), narrative

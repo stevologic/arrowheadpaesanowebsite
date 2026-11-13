@@ -573,8 +573,15 @@ class ScoreProgressionBudgetExhaustion(unittest.TestCase):
         payload[field] = text
         return payload
 
-    def _through_build(self, tmp: Path, raw: dict) -> tuple[dict, Path]:
-        llm = Mock(return_value=(raw, "grok"))
+    def _through_build(
+        self,
+        tmp: Path,
+        raw: dict,
+        *,
+        llm=None,
+        patches=(),
+    ) -> tuple[dict, Path]:
+        llm = llm if llm is not None else Mock(return_value=(raw, "grok"))
         archive = tmp / "archive.json"
         editions = tmp / "editions"
         editions.mkdir()
@@ -640,21 +647,29 @@ class ScoreProgressionBudgetExhaustion(unittest.TestCase):
             stack.enter_context(patch.object(generate.config, "WIRE_JSON", wire_json))
             stack.enter_context(patch.object(generate.config, "ensure_dirs", lambda: None))
             stack.enter_context(patch.object(hero_posts, "attach_sidecar"))
+            for extra in patches:
+                stack.enter_context(extra)
             result = generate.build("grok", persist_schedule=False)
             leftover = result.get("leftoverIssues") or []
             drops = result.get("droppedSentences") or []
             corrections = result.get("correctedSentences") or []
+            hold_only = result.get("holdOnlySentinels") or []
+            headline_or_lede = bool(result.get("headlineOrLedeTouched"))
             repair_json.write_text(
                 json.dumps(
                     {
                         "droppedSentences": drops,
                         "correctedSentences": corrections,
                         "leftoverIssues": leftover,
+                        "holdOnlySentinels": hold_only,
+                        "headlineOrLedeTouched": headline_or_lede,
                         "holdAutomerge": facts.should_hold_automerge(
                             drops,
                             result["narrative"],
                             leftover=leftover,
                             corrections=corrections,
+                            hold_only_sentinels=hold_only,
+                            headline_or_lede_touched=headline_or_lede,
                         ),
                     },
                     indent=2,

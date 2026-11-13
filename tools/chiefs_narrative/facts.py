@@ -11035,6 +11035,11 @@ def hard_leftover_texts(leftover) -> list[str]:
     return out
 
 
+def drop_ceiling_exceeded(drops) -> bool:
+    """A8/N8: HOLD_REPAIR_DROPS caps aggregate droppedSentences across stages."""
+    return len([row for row in (drops or []) if str(row).strip()]) > HOLD_REPAIR_DROPS
+
+
 def lede_paragraph(narrative: dict | None) -> str:
     """A11: lede = first body paragraph (lastGameReview.lede, else first para)."""
     review = (narrative or {}).get("lastGameReview") or {}
@@ -11046,6 +11051,10 @@ def lede_paragraph(narrative: dict | None) -> str:
         if body:
             return body.split("\n\n", 1)[0].strip()
     return ""
+
+
+def _normalized_copy(text: str) -> str:
+    return re.sub(r"\s+", " ", (text or "").strip())
 
 
 def _sentence_in_field(sentence: str, field: str) -> bool:
@@ -11060,6 +11069,31 @@ def _sentence_in_field(sentence: str, field: str) -> bool:
     return bool(compact_needle) and compact_needle in compact_hay
 
 
+def _region_units(region: str) -> list[str]:
+    """Headline/lede units: the whole region, each paragraph, each sentence.
+
+    Short tokens that merely occur inside a longer sentence are not units.
+    """
+    raw = (region or "").strip()
+    if not raw:
+        return []
+    units = [_normalized_copy(raw)]
+    for para in raw.split("\n\n"):
+        compact = _normalized_copy(para)
+        if compact and compact not in units:
+            units.append(compact)
+    for sent in _split_sentences(raw):
+        compact = _normalized_copy(sent)
+        if compact and compact not in units:
+            units.append(compact)
+    return units
+
+
+def _text_is_region_unit(needle: str, region: str) -> bool:
+    compact = _normalized_copy(needle)
+    return bool(compact) and compact in _region_units(region)
+
+
 def correction_source_sentence(log: str) -> str:
     """Extract the original sentence from an ``old → new`` correction log."""
     raw = str(log or "")
@@ -11068,17 +11102,66 @@ def correction_source_sentence(log: str) -> str:
     return raw.strip()
 
 
+def correction_old_and_new(log: str) -> tuple[str, str | None]:
+    raw = str(log or "")
+    if " → " in raw:
+        old, new = raw.split(" → ", 1)
+        return old.strip(), new.strip()
+    return raw.strip(), None
+
+
+def _changed_field_pieces(old: str, new: str) -> list[str]:
+    """Paragraphs (then sentences) in old that differ from new.
+
+    A10/A11/R3: classify a whole-field ``old → new`` log by where the
+    change is, not by testing the concatenated field as a substring of
+    the first paragraph.
+    """
+    old = old or ""
+    new = new or ""
+    if old == new:
+        return []
+    old_paras = old.split("\n\n")
+    new_paras = new.split("\n\n")
+    changed = []
+    for index, para in enumerate(old_paras):
+        other = new_paras[index] if index < len(new_paras) else ""
+        if _normalized_copy(para) != _normalized_copy(other):
+            changed.append(para)
+    if not changed:
+        new_sents = {_normalized_copy(item) for item in _split_sentences(new)}
+        changed = [
+            item
+            for item in _split_sentences(old)
+            if _normalized_copy(item) not in new_sents
+        ]
+    return changed or [old]
+
+
 def copy_touches_headline_or_lede(
     sentences: list[str] | None,
     narrative: dict | None,
 ) -> bool:
-    """A10/R2/R3: any drop or correction in the headline or lede."""
+    """A10/R2/R3: any drop or correction in the headline or lede.
+
+    Match on headline/lede units (whole field, paragraph, sentence), not
+    substring. A short drop string that occurs inside the headline does
+    not hold; a real headline drop does. A whole-field lede correction
+    log holds only when the changed paragraph is the lede.
+    """
     headline = str((narrative or {}).get("headline") or "")
     lede = lede_paragraph(narrative)
-    for sentence in sentences or []:
-        source = correction_source_sentence(sentence)
-        if _sentence_in_field(source, headline) or _sentence_in_field(source, lede):
-            return True
+    for item in sentences or []:
+        old, new = correction_old_and_new(item)
+        if new is None:
+            if _text_is_region_unit(old, headline) or _text_is_region_unit(old, lede):
+                return True
+            continue
+        for piece in _changed_field_pieces(old, new):
+            if _text_is_region_unit(piece, headline) or _text_is_region_unit(
+                piece, lede
+            ):
+                return True
     return False
 
 
@@ -11173,6 +11256,8 @@ def should_hold_automerge(
     if any(is_hold_only_sentinel(item) for item in leftover or []):
         return True
     if hold_only_sentinels:
+        return True
+    if drop_ceiling_exceeded(drops):
         return True
     source = before if before is not None else narrative
     touched = headline_or_lede_touched

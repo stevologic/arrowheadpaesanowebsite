@@ -34,6 +34,8 @@ MG8-skip-remainder-gates-when-drops.patch
   killer: test_n10_remainder_roster_error_holds
 MG9-hold-repair-drops-off-by-one.patch
   killer: test_n8_hold_repair_drops_8_and_9
+MG9b-aggregate-drop-ceiling-removed.patch
+  killer: test_n8_aggregate_ceiling_split_across_stages
 M4-5-drop-budget-merge-signal.patch
   killer: test_c1_build_salvage_repair_leftover_and_hold
 MR1-headline-correction-not-held.patch
@@ -41,6 +43,10 @@ MR1-headline-correction-not-held.patch
 MR2-lede-correction-not-held.patch
   killer: test_r3_lede_correction_holds_next_sentence_does_not
 MR3-lede-boundary-off-by-one.patch
+  killer: test_r3_lede_correction_holds_next_sentence_does_not
+MR2b-retry-snapshot-removed.patch
+  killer: test_a10_retry_known_error_snapshot
+MR3b-whole-field-substring-compare.patch
   killer: test_r3_lede_correction_holds_next_sentence_does_not
 MR4-orphan-check-skipped.patch
   killer: test_r4_dangling_reference_on_correction_holds

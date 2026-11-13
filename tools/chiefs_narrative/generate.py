@@ -780,6 +780,137 @@ def _write_wire(headlines: list[dict]) -> None:
     )
 
 
+def _salvage(
+    payload,
+    problems,
+    check_last,
+    check_recap,
+    *,
+    check_schedule=None,
+    check_copy_gates=False,
+    check_changed=None,
+    score_budget_ledger=None,
+    score_exhausted=None,
+):
+    corrected, logs = facts.apply_fact_corrections(
+        payload,
+        problems,
+        recap=check_recap,
+        last_game=check_last,
+        schedule=check_schedule,
+    )
+    for line in logs:
+        print(f"  [writer] corrected: {line}")
+    leftover = facts.check_review(
+        corrected,
+        check_last,
+        check_recap,
+        schedule=check_schedule,
+        copy_gates=check_copy_gates,
+        changed=check_changed,
+    )
+    if not leftover:
+        return corrected, leftover, [], logs
+    budget_left: list[str] = []
+    repaired = facts.repair_offending_copy(
+        corrected,
+        leftover,
+        check_last,
+        check_recap,
+        check_schedule,
+        leftover_sink=budget_left,
+        exhausted=score_exhausted,
+        budget_ledger=score_budget_ledger,
+    )
+    gone = facts.dropped_sentences(corrected, repaired)
+    for sentence in gone:
+        print(f"  [writer] dropped sentence: {sentence}")
+    leftover = facts.check_review(
+        repaired,
+        check_last,
+        check_recap,
+        schedule=check_schedule,
+        copy_gates=check_copy_gates,
+        changed=check_changed,
+    )
+    leftover = merge_score_progression_budget_leftover(
+        leftover, budget_left
+    )
+    return repaired, leftover, gone, logs
+
+
+def _salvage_until_clean(
+    payload,
+    problems,
+    check_last,
+    check_recap,
+    *,
+    check_schedule=None,
+    check_copy_gates=False,
+    check_changed=None,
+    before=None,
+    score_budget_ledger=None,
+    score_exhausted=None,
+):
+    repaired, leftover, gone, logs = _salvage(
+        payload,
+        problems,
+        check_last,
+        check_recap,
+        check_schedule=check_schedule,
+        check_copy_gates=check_copy_gates,
+        check_changed=check_changed,
+        score_budget_ledger=score_budget_ledger,
+        score_exhausted=score_exhausted,
+    )
+    gone_all = list(gone)
+    logs_all = list(logs)
+    # A snippet drop can expose a newly bound leftover (run 36741379345
+    # gave Miami's 34:21 to KC) or an orphan opener (run 36751657899).
+    passes = 0
+    while leftover and passes < 6:
+        if salvage_should_stop_for_score_progression_budget(leftover):
+            break
+        passes += 1
+        repaired, leftover, gone, logs = _salvage(
+            repaired,
+            leftover,
+            check_last,
+            check_recap,
+            check_schedule=check_schedule,
+            check_copy_gates=check_copy_gates,
+            check_changed=check_changed,
+            score_budget_ledger=score_budget_ledger,
+            score_exhausted=score_exhausted,
+        )
+        gone_all.extend(gone)
+        logs_all.extend(logs)
+        if not gone:
+            break
+    start = before if before is not None else payload
+    orphans = facts.check_repair_orphans(
+        repaired, gone_all, before=start
+    )
+    # J2/A9: blockers were computed and only printed. Route them into
+    # leftoverIssues (hard). Pass leftover=[] so word-floor and orphan
+    # rows are returned, not the leftover-wrap message.
+    blockers = facts.repair_publish_blockers(
+        [], repaired, orphans, before=start
+    )
+    leftover = list(leftover or [])
+    for item in blockers:
+        if item not in leftover:
+            leftover.append(item)
+    if leftover or blockers:
+        print(
+            "  [writer] unfixable leftover after salvage; "
+            "holding automerge instead of failing the run"
+        )
+        for item in blockers:
+            print(f"  [writer] repair blocker: {item}")
+    return repaired, gone_all, leftover, logs_all
+
+
 def build(provider_name: str | None = None, persist_schedule: bool = True) -> dict:
     print("Arrowhead Paesano — Chiefs Narrative engine")
     print("-" * 52)
@@ -1061,10 +1192,14 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
                 budget,
                 after="fact-check retry",
             )
+        known_before = copy.deepcopy(narrative)
         known_fixed, known_logs = known_errors.apply_known_errors(narrative, recap)
         if known_logs:
             narrative = known_fixed
             corrections.extend(known_logs)
+            headline_or_lede_touched = headline_or_lede_touched or (
+                facts.copy_touches_headline_or_lede(known_logs, known_before)
+            )
             for line in known_logs:
                 print(f"  [writer] corrected: {line}")
         violations = facts.check_review(
@@ -1072,127 +1207,6 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         )
         _remember(narrative, violations)
     dropped: list[str] = []
-
-    def _salvage(
-        payload,
-        problems,
-        check_last,
-        check_recap,
-        *,
-        check_schedule=None,
-        check_copy_gates=False,
-        check_changed=None,
-    ):
-        corrected, logs = facts.apply_fact_corrections(
-            payload,
-            problems,
-            recap=check_recap,
-            last_game=check_last,
-            schedule=check_schedule,
-        )
-        for line in logs:
-            print(f"  [writer] corrected: {line}")
-        leftover = facts.check_review(
-            corrected,
-            check_last,
-            check_recap,
-            schedule=check_schedule,
-            copy_gates=check_copy_gates,
-            changed=check_changed,
-        )
-        if not leftover:
-            return corrected, leftover, [], logs
-        budget_left: list[str] = []
-        repaired = facts.repair_offending_copy(
-            corrected,
-            leftover,
-            check_last,
-            check_recap,
-            check_schedule,
-            leftover_sink=budget_left,
-            exhausted=score_exhausted,
-            budget_ledger=score_budget_ledger,
-        )
-        gone = facts.dropped_sentences(corrected, repaired)
-        for sentence in gone:
-            print(f"  [writer] dropped sentence: {sentence}")
-        leftover = facts.check_review(
-            repaired,
-            check_last,
-            check_recap,
-            schedule=check_schedule,
-            copy_gates=check_copy_gates,
-            changed=check_changed,
-        )
-        leftover = merge_score_progression_budget_leftover(
-            leftover, budget_left
-        )
-        return repaired, leftover, gone, logs
-
-    def _salvage_until_clean(
-        payload,
-        problems,
-        check_last,
-        check_recap,
-        *,
-        check_schedule=None,
-        check_copy_gates=False,
-        check_changed=None,
-        before=None,
-    ):
-        repaired, leftover, gone, logs = _salvage(
-            payload,
-            problems,
-            check_last,
-            check_recap,
-            check_schedule=check_schedule,
-            check_copy_gates=check_copy_gates,
-            check_changed=check_changed,
-        )
-        gone_all = list(gone)
-        logs_all = list(logs)
-        # A snippet drop can expose a newly bound leftover (run 36741379345
-        # gave Miami's 34:21 to KC) or an orphan opener (run 36751657899).
-        passes = 0
-        while leftover and passes < 6:
-            if salvage_should_stop_for_score_progression_budget(leftover):
-                break
-            passes += 1
-            repaired, leftover, gone, logs = _salvage(
-                repaired,
-                leftover,
-                check_last,
-                check_recap,
-                check_schedule=check_schedule,
-                check_copy_gates=check_copy_gates,
-                check_changed=check_changed,
-            )
-            gone_all.extend(gone)
-            logs_all.extend(logs)
-            if not gone:
-                break
-        start = before if before is not None else payload
-        orphans = facts.check_repair_orphans(
-            repaired, gone_all, before=start
-        )
-        # J2/A9: blockers were computed and only printed. Route them into
-        # leftoverIssues (hard). Pass leftover=[] so word-floor and orphan
-        # rows are returned, not the leftover-wrap message.
-        blockers = facts.repair_publish_blockers(
-            [], repaired, orphans, before=start
-        )
-        leftover = list(leftover or [])
-        for item in blockers:
-            if item not in leftover:
-                leftover.append(item)
-        if leftover or blockers:
-            print(
-                "  [writer] unfixable leftover after salvage; "
-                "holding automerge instead of failing the run"
-            )
-            for item in blockers:
-                print(f"  [writer] repair blocker: {item}")
-        return repaired, gone_all, leftover, logs_all
 
     if violations:
         print(
@@ -1207,6 +1221,8 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             recap,
             check_schedule=schedule,
             check_copy_gates=True,
+            score_budget_ledger=score_budget_ledger,
+            score_exhausted=score_exhausted,
         )
         corrections.extend(logs)
         _extend_leftover(leftover)
@@ -1302,6 +1318,8 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             check_schedule=schedule,
             check_changed=True,
             before=narrative,
+            score_budget_ledger=score_budget_ledger,
+            score_exhausted=score_exhausted,
         )
         corrections.extend(logs)
         _extend_leftover(leftover)
@@ -1380,6 +1398,8 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
                 check_schedule=schedule,
                 check_changed=True,
                 before=narrative,
+                score_budget_ledger=score_budget_ledger,
+                score_exhausted=score_exhausted,
             )
             corrections.extend(logs)
             dropped.extend(gone)
@@ -1471,6 +1491,10 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
     leftover_issues = leftover_issues_with_score_progression_budget(
         leftover_issues
     )
+    # A8/N8: HOLD_REPAIR_DROPS is the aggregate ceiling across every salvage
+    # stage, including archive-replay. Per-stage len(gone) checks stay.
+    if facts.drop_ceiling_exceeded(dropped):
+        _note_hold_only(facts.HOLD_ONLY_SALVAGE_NOISY)
     if not headline_or_lede_touched:
         headline_or_lede_touched = facts.copy_touches_headline_or_lede(
             list(dropped) + list(corrections), narrative

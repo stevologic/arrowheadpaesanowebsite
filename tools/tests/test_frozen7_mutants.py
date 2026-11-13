@@ -84,6 +84,10 @@ KILLERS = (
         "tools.tests.test_frozen7_drops_only.Frozen7Cases.test_n8_hold_repair_drops_8_and_9",
     ),
     (
+        "MG9b-aggregate-drop-ceiling-removed",
+        "tools.tests.test_frozen7_drops_only.Frozen7Cases.test_n8_aggregate_ceiling_split_across_stages",
+    ),
+    (
         "M4-5-drop-budget-merge-signal",
         "tools.tests.test_score_progression_budget_frozen.ScoreProgressionBudgetExhaustion.test_c1_build_salvage_repair_leftover_and_hold",
     ),
@@ -97,6 +101,14 @@ KILLERS = (
     ),
     (
         "MR3-lede-boundary-off-by-one",
+        "tools.tests.test_frozen7_drops_only.Frozen7Addenda.test_r3_lede_correction_holds_next_sentence_does_not",
+    ),
+    (
+        "MR2b-retry-snapshot-removed",
+        "tools.tests.test_frozen7_drops_only.Frozen7Addenda.test_a10_retry_known_error_snapshot",
+    ),
+    (
+        "MR3b-whole-field-substring-compare",
         "tools.tests.test_frozen7_drops_only.Frozen7Addenda.test_r3_lede_correction_holds_next_sentence_does_not",
     ),
     (
