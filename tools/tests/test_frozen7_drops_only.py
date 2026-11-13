@@ -1732,16 +1732,24 @@ class Frozen7Addenda(unittest.TestCase):
 
     def test_r4_dangling_reference_on_correction_holds(self):
         helper = self._helpers()
-        hunt = "Hunt scored from the 1."
+        pinned = _pinned()
+        claim = helper._claim("7-3")
         as_noted = "As noted, the next snap is the Jets."
-        drop_log = hunt
-        raw = helper._fat_nonlede(helper.CLEAN + " " + helper._claim("7-3"))
-        raw["theEdge"] = hunt + " " + as_noted + " " + raw["theEdge"]
+        raw = helper._fat_nonlede(pinned["quinton"] + " " + helper.CLEAN)
+        review = json.loads(json.dumps(raw.get("lastGameReview") or {}))
+        review["analysis"] = [claim, as_noted]
+        raw["lastGameReview"] = review
+        _, known_logs = known_errors.apply_known_errors(raw, helper.RECAP)
+        self.assertTrue(any(" → " in str(row) for row in known_logs), known_logs)
+        self.assertTrue(
+            any("Quinton" in str(row) or "Quay" in str(row) for row in known_logs),
+            known_logs,
+        )
         before = json.loads(json.dumps(raw))
         dropped = json.loads(json.dumps(raw))
-        dropped["theEdge"] = as_noted + " " + _fat_preview()["theEdge"]
+        dropped["lastGameReview"]["analysis"] = [as_noted]
         orphans = facts.check_repair_orphans(
-            dropped, [], before=before, corrections=[drop_log]
+            dropped, [claim], before=before, corrections=known_logs
         )
         self.assertTrue(orphans, orphans)
         self.assertTrue(
@@ -1754,32 +1762,16 @@ class Frozen7Addenda(unittest.TestCase):
         self.assertTrue(
             _hold(
                 dropped,
-                corrections=[drop_log],
+                drops=[claim],
+                corrections=known_logs,
                 leftover=blockers,
                 before=before,
             )
         )
 
-        real_known = known_errors.apply_known_errors
-
-        def drop_hunt(narrative, recap=None):
-            payload = json.loads(json.dumps(narrative or {}))
-            field = payload.get("theEdge") or ""
-            if hunt in field:
-                payload["theEdge"] = field.replace(hunt + " ", "").replace(hunt, "")
-                return payload, [hunt]
-            return real_known(narrative, recap)
-
         with tempfile.TemporaryDirectory() as tmp:
-            result, repair_json = helper._through_build(
-                Path(tmp),
-                raw,
-                patches=(
-                    patch.object(
-                        known_errors, "apply_known_errors", side_effect=drop_hunt
-                    ),
-                ),
-            )
+            root = Path(tmp)
+            result, repair_json = helper._through_build(root, raw)
             leftover = result.get("leftoverIssues") or []
             self.assertTrue(
                 any(
@@ -1791,9 +1783,55 @@ class Frozen7Addenda(unittest.TestCase):
             repair = json.loads(repair_json.read_text(encoding="utf-8"))
             self.assertTrue(repair.get("holdAutomerge"), repair)
             self.assertTrue(
-                any(hunt in str(row) for row in result.get("correctedSentences") or []),
+                any(" → " in str(row) for row in result.get("correctedSentences") or []),
                 result.get("correctedSentences"),
             )
+            self.assertTrue(
+                any(
+                    "Quinton" in str(row) or "Quay" in str(row)
+                    for row in result.get("correctedSentences") or []
+                ),
+                result.get("correctedSentences"),
+            )
+            ran_meta = _run_record_publish(
+                root / "desk",
+                repair=repair,
+                narrative=result["narrative"],
+            )
+            self.assertEqual(ran_meta.returncode, 0, ran_meta.stderr + ran_meta.stdout)
+            published = json.loads(
+                (root / "desk" / ".narrative-publish.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertTrue(published.get("holdMerge"), published)
+            held = _run_fail_held_on_root(root / "desk")
+            self.assertEqual(held.returncode, 1, held.stderr)
+            env = PublicationPolicy._fake_commands(root / "desk")
+            env["DESK_MODE"] = "full"
+            env["PYTHONPATH"] = str(REPO) + os.pathsep + env.get("PYTHONPATH", "")
+            publish = _job_step_script(
+                _workflow("narrative.yml"),
+                "update",
+                name="Queue draft pull request for approved PR-event gates",
+            )
+            ran_q = subprocess.run(
+                ["bash", "-c", publish],
+                cwd=root / "desk",
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(ran_q.returncode, 0, ran_q.stderr)
+            add_hold = [
+                json.loads(line)
+                for line in (root / "desk" / "calls.jsonl").read_text().splitlines()
+                if json.loads(line)["command"] == "gh"
+                and json.loads(line)["args"][:2] == ["pr", "edit"]
+                and "--add-label" in json.loads(line)["args"]
+                and "hold" in json.loads(line)["args"]
+            ]
+            self.assertTrue(add_hold, (root / "desk" / "calls.jsonl").read_text())
 
     def test_r5_correction_plus_other_k_cause_holds(self):
         edition = _fat_preview()

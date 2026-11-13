@@ -98,6 +98,10 @@ KILLERS = (
         "tools.tests.test_frozen7_drops_only.Frozen7Cases.test_n8_aggregate_ceiling_split_across_stages",
     ),
     (
+        "MG9b-aggregate-drop-ceiling-removed",
+        "tools.tests.test_frozen7_drops_only.Frozen7Cases.test_n8_real_drops_across_stages",
+    ),
+    (
         "M4-5-drop-budget-merge-signal",
         "tools.tests.test_score_progression_budget_frozen.ScoreProgressionBudgetExhaustion.test_c1_build_salvage_repair_leftover_and_hold",
     ),

@@ -36,7 +36,7 @@ MG8-skip-remainder-gates-when-drops.patch
 MG9-hold-repair-drops-off-by-one.patch
   killer: test_n8_hold_repair_drops_8_and_9
 MG9b-aggregate-drop-ceiling-removed.patch
-  killer: test_n8_aggregate_ceiling_split_across_stages
+  killers: test_n8_aggregate_ceiling_split_across_stages, test_n8_real_drops_across_stages
 M4-5-drop-budget-merge-signal.patch
   killer: test_c1_build_salvage_repair_leftover_and_hold
 MB1-budget-resets-per-stage.patch
