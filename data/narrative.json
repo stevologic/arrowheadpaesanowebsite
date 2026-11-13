@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "generatedAt": "2026-11-13T17:27:58+00:00",
-  "updatedAt": "2026-11-13T17:31:47+00:00",
+  "updatedAt": "2026-11-13T17:50:00+00:00",
   "generator": "grok:grok-4.7",
   "heroMediaId": "none",
   "phase": {
@@ -58,7 +58,7 @@
     "lede": "The next assignment is Atlanta, not a victory lap. Kansas City is 6-2, laying 3 at the Falcons on Sun Nov 15, 12:00 PM CT on CBS, and Arrowhead Pride has already named the problem: Bijan Robinson, an inside-outside runner the club is preparing to face as the NFL's leading rusher.",
     "body": [
       "The Jets result is useful tape, not the lead. Kansas City put up 27 first downs, 163 rushing yards on 32 attempts, 228 net passing yards and 391 total yards, and closed 35-12.",
-      "Patrick Mahomes finished 23-of-31 for 242 yards and a 117.9 rating, with the sack line reading 2 sacks and eight quarterback hits charged to the Jets. Kenneth Walker III carried 18 times for 102 yards and a touchdown and added four catches. That is a run game Andy Reid and Eric Bieniemy can lean on. It is also a ball-security week: Justin Fields lost a fumble recovered by D.Davis, and a Mahomes sack-fumble was recovered by W.McDonald.",
+      "Patrick Mahomes finished 23-of-31 for 242 yards and a 117.9 rating, with the sack line reading 2 sacks and eight quarterback hits charged to the Jets. It is also a ball-security week: Justin Fields lost a fumble recovered by D.Davis, and a Mahomes sack-fumble was recovered by W.McDonald.",
       "Josh Downs is now a Chiefs receiver, which means the Atlanta plan is not just Walker versus a light box. It is how Reid and Bieniemy fit Downs next to Rashee Rice, Travis Kelce and Xavier Worthy without cluttering the protections Jaylon Moore's absence already stresses. Steve Spagnuolo's week is simpler to say and harder to play: keep Robinson from turning a 3-point road lean into a track meet."
     ]
   },
@@ -105,8 +105,7 @@
     "whatDidnt": [
       "Two turnovers, including the Fields fumble recovered by D.Davis and the Mahomes fumble recovered by W.McDonald",
       "Eight quarterback hits on Mahomes",
-      "Butker's 51-yard miss wide right after New York cashed four field goals",
-      "A kick-return fumble on the Q1 6:47 kick, recovered by J.Bassa, plus Jaylon Moore's injury showing up in the free-agent stock report"
+      "Butker's 51-yard miss wide right after New York cashed four field goals"
     ]
   },
   "currentState": {
@@ -148,7 +147,7 @@
       },
       {
         "title": "Steal early downs with Walker",
-        "body": "Inside zone and a occasional screen keep Atlanta's rush honest. Walker just posted 102 yards on 18 carries. Johnson is the closer, not the decoy, after the 6-yard score."
+        "body": "Inside zone and a occasional screen keep Atlanta's rush honest. Johnson is the closer, not the decoy, after the 6-yard score."
       },
       {
         "title": "Define Mahomes' answers",
@@ -156,7 +155,7 @@
       },
       {
         "title": "Special teams is a live unit",
-        "body": "Nikko Remigio is gone to the Texans. Butker is the kicker Reid is keeping. A muffed kick return recovered by J.Bassa cannot be the Atlanta opener."
+        "body": "Nikko Remigio is gone to the Texans. Butker is the kicker Reid is keeping."
       }
     ],
     "script": [
@@ -212,7 +211,7 @@
     {
       "tag": "Backfield",
       "title": "Walker is the offensive spine",
-      "body": "Eighteen carries, 102 yards, one touchdown, plus four catches against the Jets. Pride has built the 6-2 story around him. Atlanta is the next defense asked to prove that wrong."
+      "body": "Pride has built the 6-2 story around him. Atlanta is the next defense asked to prove that wrong."
     },
     {
       "tag": "Trade",
@@ -235,8 +234,7 @@
       "unit": "Chiefs run game vs. Falcons front",
       "chiefs": "Kenneth Walker III behind Bieniemy's zone",
       "opponent": "Atlanta's run defense, unnamed in the wire",
-      "edge": "KC",
-      "note": "Walker just went 18 for 102 with a touchdown, and the team rushed for 163 on 32. That is the best Kansas City leverage until Atlanta shows it can sit on it."
+      "edge": "KC"
     },
     {
       "unit": "Spagnuolo's fit vs. Bijan Robinson",
