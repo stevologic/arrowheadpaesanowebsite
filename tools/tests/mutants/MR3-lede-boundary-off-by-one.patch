@@ -1,0 +1,14 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -11039,6 +11039,11 @@
+     """A11: lede = first body paragraph (lastGameReview.lede, else first para)."""
+     review = (narrative or {}).get("lastGameReview") or {}
+     raw = str(review.get("lede") or "").strip()
++    extra = review.get("analysis") or []
++    if extra:
++        nxt = extra[0].get("body") if isinstance(extra[0], dict) else str(extra[0] or "")
++        if nxt.strip():
++            raw = (raw + " " + nxt.strip()).strip()
+     if raw:
+         return raw.split("\n\n", 1)[0].strip()
+     for key in ("dek", "theEdge", "storyline"):

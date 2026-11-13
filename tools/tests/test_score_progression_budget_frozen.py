@@ -563,8 +563,17 @@ class ScoreProgressionBudgetExhaustion(unittest.TestCase):
     def _workflow(self, name: str) -> dict:
         return yaml.safe_load((WORKFLOWS / name).read_text(encoding="utf-8"))
 
-    def _p3_through_build(self, tmp: Path) -> tuple[dict, Path]:
-        raw = self._fat_edition(self._field(8, ninth=True))
+    def _fat_nonlede(self, text: str, *, field: str = "storyline") -> dict:
+        """A13: budget claims live in a non-lede field so A10 does not hold.
+
+        storyline is not a required-copy key, so restore_required_copy cannot
+        replace the surviving ninth claim with safe_score_lede.
+        """
+        payload = self._fat_edition(self.CLEAN)
+        payload[field] = text
+        return payload
+
+    def _through_build(self, tmp: Path, raw: dict) -> tuple[dict, Path]:
         llm = Mock(return_value=(raw, "grok"))
         archive = tmp / "archive.json"
         editions = tmp / "editions"
@@ -655,19 +664,55 @@ class ScoreProgressionBudgetExhaustion(unittest.TestCase):
             )
         return result, repair_json
 
+    def _p3_through_build(self, tmp: Path) -> tuple[dict, Path]:
+        return self._through_build(
+            tmp, self._fat_edition(self._field(8, ninth=True))
+        )
+
     def test_c1_build_salvage_repair_leftover_and_hold(self):
         """C1: generate.build → `_salvage_until_clean` → `facts.repair_offending_copy`.
 
-        Feed the P3 input through build() with a fake writer; leftoverIssues is
-        non-empty and REPAIR_JSON holdAutomerge=true.
+        A13 HARD GATE: EXACTLY one budget leftover at HOLD_REPAIR_DROPS=8
+        for 9 and 50 claims in a non-lede field. Claim 9 stays
+        byte-present. leftoverIssues is non-empty and holdAutomerge=true.
+        This kills M4-5 (merge dropped at generate.py ~1105-1107).
         """
-        with tempfile.TemporaryDirectory() as tmp:
-            result, repair_json = self._p3_through_build(Path(tmp))
-            leftover = result.get("leftoverIssues") or []
-            self.assertTrue(leftover, leftover)
-            repair = json.loads(repair_json.read_text(encoding="utf-8"))
-            self.assertTrue(repair.get("leftoverIssues"), repair)
-            self.assertTrue(repair.get("holdAutomerge"), repair)
+        self.assertEqual(facts.HOLD_REPAIR_DROPS, 8)
+        ninth = self.NINTH
+        cases = (
+            (9, self._field(8, ninth=True)),
+            (50, self._wrapped_field(50)),
+        )
+        for count, text in cases:
+            with self.subTest(claims=count):
+                with tempfile.TemporaryDirectory() as tmp:
+                    result, repair_json = self._through_build(
+                        Path(tmp), self._fat_nonlede(text)
+                    )
+                    leftover = result.get("leftoverIssues") or []
+                    self.assertTrue(leftover, leftover)
+                    budget = self._budget_rows(leftover)
+                    self.assertEqual(len(budget), 1, leftover)
+                    blob = facts.edition_text(result["narrative"])
+                    if count == 9:
+                        self.assertIn(ninth, blob)
+                        storyline = result["narrative"].get("storyline")
+                        if isinstance(storyline, dict):
+                            storyline_text = " ".join(
+                                str(storyline.get(part) or "")
+                                for part in ("lede", "body")
+                            )
+                        else:
+                            storyline_text = str(storyline or "")
+                        self.assertIn(ninth, storyline_text)
+                    repair = json.loads(repair_json.read_text(encoding="utf-8"))
+                    self.assertTrue(repair.get("leftoverIssues"), repair)
+                    self.assertTrue(repair.get("holdAutomerge"), repair)
+                    self.assertEqual(
+                        len(self._budget_rows(repair.get("leftoverIssues") or [])),
+                        1,
+                        repair,
+                    )
 
     def test_c2_narrative_yml_gate_replay_and_fail_held(self):
         """C2: narrative.yml test job 'Gate generated content'.

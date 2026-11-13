@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/generate.py
++++ b/tools/chiefs_narrative/generate.py
+@@ -1184,7 +1184,7 @@
+         leftover = list(leftover or [])
+         for item in blockers:
+             if item not in leftover:
+-                leftover.append(item)
++                pass
+         if leftover or blockers:
+             print(
+                 "  [writer] unfixable leftover after salvage; "

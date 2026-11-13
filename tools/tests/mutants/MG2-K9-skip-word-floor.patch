@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -11200,7 +11200,7 @@
+         hold_only_sentinels=hold_only_sentinels,
+         headline_or_lede_touched=bool(touched),
+     )
+-    return edition_word_count(narrative) < floor
++    return False
+ 
+ 
+ def repair_publish_blockers(

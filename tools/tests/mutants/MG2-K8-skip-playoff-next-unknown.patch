@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -11191,7 +11191,7 @@
+         return True
+     if _offseason_while_slate_open(narrative, schedule):
+         return True
+-    if _playoff_next_unknown(narrative, schedule):
++    if False and _playoff_next_unknown(narrative, schedule):
+         return True
+     floor = publish_word_floor(
+         drops,

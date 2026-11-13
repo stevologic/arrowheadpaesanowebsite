@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -11174,6 +11174,8 @@
+         return True
+     if hold_only_sentinels:
+         return True
++    if drops:
++        return True
+     source = before if before is not None else narrative
+     touched = headline_or_lede_touched
+     if touched is None:

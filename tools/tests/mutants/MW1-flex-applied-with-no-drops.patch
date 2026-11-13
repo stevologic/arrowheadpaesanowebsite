@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -11096,7 +11096,7 @@
+     reference, no hold-only sentinel, and no headline/lede touch.
+     """
+     if not drops:
+-        return PUBLISH_WORD_FLOOR
++        return DROP_REDUCED_WORD_FLOOR
+     if hard_leftover_texts(leftover):
+         return PUBLISH_WORD_FLOOR
+     if orphans:

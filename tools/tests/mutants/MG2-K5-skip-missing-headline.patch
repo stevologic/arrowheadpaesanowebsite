@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -11183,7 +11183,7 @@
+         )
+     if touched:
+         return True
+-    if missing_headline:
++    if False and missing_headline:
+         return True
+     if not str((narrative or {}).get("headline") or "").strip():
+         return True

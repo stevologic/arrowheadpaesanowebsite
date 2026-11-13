@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -11077,7 +11077,7 @@
+     lede = lede_paragraph(narrative)
+     for sentence in sentences or []:
+         source = correction_source_sentence(sentence)
+-        if _sentence_in_field(source, headline) or _sentence_in_field(source, lede):
++        if _sentence_in_field(source, headline):
+             return True
+     return False
+ 

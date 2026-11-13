@@ -1,0 +1,13 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -11168,6 +11168,10 @@
+     """
+     if review_requires_human(narrative):
+         return True
++    if drops:
++        leftover = None
++        hold_only_sentinels = None
++        orphans = None
+     if hard_leftover_texts(leftover):
+         return True
+     if any(is_hold_only_sentinel(item) for item in leftover or []):

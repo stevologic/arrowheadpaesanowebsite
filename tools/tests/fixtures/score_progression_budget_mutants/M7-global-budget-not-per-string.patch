@@ -1,25 +1,26 @@
 diff --git a/tools/chiefs_narrative/facts.py b/tools/chiefs_narrative/facts.py
 --- a/tools/chiefs_narrative/facts.py
 +++ b/tools/chiefs_narrative/facts.py
-@@ -9494,7 +9494,12 @@
+@@ -9535,7 +9535,12 @@
      if not text or not recap:
          return text
      current = text
--    for _ in range(8):
+-    remaining = _score_progression_remaining(budget_ledger, path)
 +    global _SCORE_PROGRESSION_GLOBAL_LEFT
 +    try:
 +        _SCORE_PROGRESSION_GLOBAL_LEFT
 +    except NameError:
 +        _SCORE_PROGRESSION_GLOBAL_LEFT = 8
-+    for _ in range(_SCORE_PROGRESSION_GLOBAL_LEFT):
-         if not _check_score_progression(current, recap, last_game):
-             return current
-         progressed = False
-@@ -9507,6 +9512,7 @@
++    remaining = _SCORE_PROGRESSION_GLOBAL_LEFT
+     if remaining <= 0:
+         if _check_score_progression(current, recap, last_game):
+             surviving = _surviving_invalid_score_claim(
+@@ -9558,6 +9563,7 @@
              if nxt != current:
                  current = nxt
                  progressed = True
 +                _SCORE_PROGRESSION_GLOBAL_LEFT -= 1
+                 _consume_score_progression_budget(budget_ledger, path)
                  break
              stall_claim = sentence
              continue

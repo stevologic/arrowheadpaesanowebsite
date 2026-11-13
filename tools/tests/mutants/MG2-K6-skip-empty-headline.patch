@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -11185,7 +11185,7 @@
+         return True
+     if missing_headline:
+         return True
+-    if not str((narrative or {}).get("headline") or "").strip():
++    if False and not str((narrative or {}).get("headline") or "").strip():
+         return True
+     if only_safe_score_lede_content(narrative):
+         return True

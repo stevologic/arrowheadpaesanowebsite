@@ -503,7 +503,7 @@ class PublicationPolicy(unittest.TestCase):
         self.assertEqual(self.ci["permissions"], {"contents": "read"})
         jobs = self.narrative["jobs"]
         self.assertNotIn("deploy", jobs)
-        self.assertEqual(jobs["update"]["permissions"], {"contents": "write", "pull-requests": "write"})
+        self.assertEqual(jobs["update"]["permissions"], {"contents": "write", "pull-requests": "write", "issues": "write"})
         self.assertEqual(
             jobs["publish"]["permissions"],
             {"contents": "write", "pull-requests": "write", "actions": "write"},
@@ -587,6 +587,14 @@ if command == 'gh':
         sys.exit(int(os.environ.get('API_EXIT', '0')))
     if sys.argv[1:3] == ['pr', 'create']:
         print('https://github.com/example/site/pull/1')
+    elif sys.argv[1:3] == ['issue', 'list']:
+        print(os.environ.get('ISSUE_LIST', '[]'))
+    elif sys.argv[1:3] == ['issue', 'create']:
+        print(os.environ.get('ISSUE_URL', 'https://github.com/example/site/issues/11'))
+    elif sys.argv[1:3] == ['issue', 'edit']:
+        pass
+    elif sys.argv[1:2] == ['label']:
+        pass
     elif sys.argv[1:3] != ['pr', 'edit']:
         sys.exit(42)
 '''
