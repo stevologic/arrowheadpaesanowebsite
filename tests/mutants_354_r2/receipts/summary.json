@@ -1,0 +1,91 @@
+{
+  "rows": [
+    {
+      "mutant": "MS-A10w",
+      "killer": "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build",
+      "kills": 6,
+      "control_passes": 6,
+      "repeats": 6,
+      "receipt": "FAIL: test_b2_build (tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build); False is not true : {'repair': {'droppedSentences': ['A 7-3 lead after Q2 7:40 touchdown became 24-28.'], 'correctedSentences': [], 'leftoverIssues': [], 'holdOnlySentinels': [], 'headlineOrLedeTouched': False, 'wordShortfall': 0, 'holdAutomerge': False}, 'drops': ['A 7-3 lead after Q2 7:40 touchdown became 24-28.'], 'corrections': []}",
+      "error": ""
+    },
+    {
+      "mutant": "MS-A10k",
+      "killer": "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_known_errors",
+      "kills": 6,
+      "control_passes": 6,
+      "repeats": 6,
+      "receipt": "FAIL: test_b2_known_errors (tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_known_errors); False is not true : {'droppedSentences': [], 'correctedSentences': ['Quinton Walker sets the Week 9 preview after Denver. \u2192 Quay Walker sets the Week 9 preview after Denver.'], 'leftoverIssues': [], 'holdOnlySentinels': [], 'headlineOrLedeTouched': False, 'wordShortfall': 0, 'holdAutomerge': False}",
+      "error": ""
+    },
+    {
+      "mutant": "resolver-reverted-lastGameReview-lede",
+      "killer": "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_a14_1_dek_drop_holds",
+      "kills": 6,
+      "control_passes": 6,
+      "repeats": 6,
+      "receipt": "FAIL: test_a14_1_dek_drop_holds (tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_a14_1_dek_drop_holds); False is not true : {'repair': {'droppedSentences': ['A 7-3 lead after Q2 7:40 touchdown became 24-28.'], 'correctedSentences': [], 'leftoverIssues': [], 'holdOnlySentinels': [], 'headlineOrLedeTouched': False, 'wordShortfall': 0, 'holdAutomerge': False}, 'drops': ['A 7-3 lead after Q2 7:40 touchdown became 24-28.'], 'corrections': []}",
+      "error": ""
+    },
+    {
+      "mutant": "dek-ignored",
+      "killer": "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_a14_1_dek_drop_holds",
+      "kills": 6,
+      "control_passes": 6,
+      "repeats": 6,
+      "receipt": "FAIL: test_a14_1_dek_drop_holds (tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_a14_1_dek_drop_holds); False is not true : {'repair': {'droppedSentences': ['A 7-3 lead after Q2 7:40 touchdown became 24-28.'], 'correctedSentences': [], 'leftoverIssues': [], 'holdOnlySentinels': [], 'headlineOrLedeTouched': False, 'wordShortfall': 0, 'holdAutomerge': False}, 'drops': ['A 7-3 lead after Q2 7:40 touchdown became 24-28.'], 'corrections': []}",
+      "error": ""
+    },
+    {
+      "mutant": "union-dropped",
+      "killer": "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_a14_3_lastgamereview_lede_drop_holds",
+      "kills": 6,
+      "control_passes": 6,
+      "repeats": 6,
+      "receipt": "FAIL: test_a14_3_lastgamereview_lede_drop_holds (tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_a14_3_lastgamereview_lede_drop_holds); False is not true : {'repair': {'droppedSentences': ['A 7-3 lead after Q2 7:40 touchdown became 24-28.'], 'correctedSentences': [], 'leftoverIssues': [], 'holdOnlySentinels': [], 'headlineOrLedeTouched': False, 'wordShortfall': 0, 'holdAutomerge': False}, 'drops': ['A 7-3 lead after Q2 7:40 touchdown became 24-28.'], 'corrections': []}",
+      "error": ""
+    }
+  ],
+  "grouped": {
+    "MS-A10w": {
+      "kills": 6,
+      "control_passes": 6,
+      "rounds": 6,
+      "killers": [
+        "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_build"
+      ]
+    },
+    "MS-A10k": {
+      "kills": 6,
+      "control_passes": 6,
+      "rounds": 6,
+      "killers": [
+        "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_b2_known_errors"
+      ]
+    },
+    "resolver-reverted-lastGameReview-lede": {
+      "kills": 6,
+      "control_passes": 6,
+      "rounds": 6,
+      "killers": [
+        "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_a14_1_dek_drop_holds"
+      ]
+    },
+    "dek-ignored": {
+      "kills": 6,
+      "control_passes": 6,
+      "rounds": 6,
+      "killers": [
+        "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_a14_1_dek_drop_holds"
+      ]
+    },
+    "union-dropped": {
+      "kills": 6,
+      "control_passes": 6,
+      "rounds": 6,
+      "killers": [
+        "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_a14_3_lastgamereview_lede_drop_holds"
+      ]
+    }
+  }
+}

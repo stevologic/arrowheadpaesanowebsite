@@ -1,0 +1,6 @@
+mutant: resolver-reverted-lastGameReview-lede
+killer: tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_a14_1_dek_drop_holds
+kills: 6/6
+control_passes: 6/6
+receipt: FAIL: test_a14_1_dek_drop_holds (tools.tests.test_frozen7_a14_lede.Frozen7A14Lede.test_a14_1_dek_drop_holds); False is not true : {'repair': {'droppedSentences': ['A 7-3 lead after Q2 7:40 touchdown became 24-28.'], 'correctedSentences': [], 'leftoverIssues': [], 'holdOnlySentinels': [], 'headlineOrLedeTouched': False, 'wordShortfall': 0, 'holdAutomerge': False}, 'drops': ['A 7-3 lead after Q2 7:40 touchdown became 24-28.'], 'corrections': []}
+

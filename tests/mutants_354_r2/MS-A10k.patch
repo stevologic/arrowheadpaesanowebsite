@@ -1,0 +1,12 @@
+--- a/tools/chiefs_narrative/generate.py
++++ b/tools/chiefs_narrative/generate.py
+@@ -1117,9 +1117,6 @@
+     if known_logs:
+         narrative = known_fixed
+         corrections.extend(known_logs)
+-        headline_or_lede_touched = headline_or_lede_touched or (
+-            facts.copy_touches_headline_or_lede(known_logs, known_before)
+-        )
+         for line in known_logs:
+             print(f"  [writer] corrected: {line}")
+ 

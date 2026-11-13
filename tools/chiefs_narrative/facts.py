@@ -11058,17 +11058,81 @@ def drop_ceiling_exceeded(drops) -> bool:
     return len([row for row in (drops or []) if str(row).strip()]) > HOLD_REPAIR_DROPS
 
 
-def lede_paragraph(narrative: dict | None) -> str:
-    """A11: lede = first body paragraph (lastGameReview.lede, else first para)."""
-    review = (narrative or {}).get("lastGameReview") or {}
-    raw = str(review.get("lede") or "").strip()
-    if raw:
-        return raw.split("\n\n", 1)[0].strip()
-    for key in ("dek", "theEdge", "storyline"):
-        body = str((narrative or {}).get(key) or "").strip()
-        if body:
-            return body.split("\n\n", 1)[0].strip()
+def _primary_body_text(value) -> str:
+    """Primary rendered paragraph source for a body field."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        return str(value.get("lede") or "").strip()
+    return str(value).strip()
+
+
+def _narrative_phase_mode(narrative: dict | None) -> str:
+    phase = (narrative or {}).get("phase")
+    if isinstance(phase, dict):
+        return str(phase.get("mode") or "").strip().lower()
+    if isinstance(phase, str):
+        return phase.strip().lower()
     return ""
+
+
+def rendered_body_field_texts(narrative: dict | None) -> list[str]:
+    """Body-field texts in narrative-edition.html render order.
+
+    Headline is L47/L49 (not a body field). dek is L51, theEdge is L99.
+    lastGameReview renders at L106 on Review (``phase.mode != preview``)
+    and at L185 on Preview. currentState.lede is L119, gamePlan.lede is
+    L159, storyline.lede is L262. Empty fields are skipped.
+    """
+    payload = narrative or {}
+    dek = _primary_body_text(payload.get("dek"))
+    edge = _primary_body_text(payload.get("theEdge"))
+    review = _primary_body_text(payload.get("lastGameReview"))
+    state = _primary_body_text(payload.get("currentState"))
+    plan = _primary_body_text(payload.get("gamePlan"))
+    story = _primary_body_text(payload.get("storyline"))
+    if _narrative_phase_mode(payload) == "preview":
+        ordered = (dek, edge, state, plan, review, story)
+    else:
+        ordered = (dek, edge, review, state, plan, story)
+    return [text for text in ordered if text]
+
+
+def last_game_review_lede_paragraph(narrative: dict | None) -> str:
+    """First paragraph of lastGameReview.lede. Empty string, never None."""
+    raw = _primary_body_text((narrative or {}).get("lastGameReview"))
+    if not raw:
+        return ""
+    return raw.split("\n\n", 1)[0].strip()
+
+
+def lede_paragraph(narrative: dict | None) -> str:
+    """A14: first paragraph of the first non-empty rendered body field.
+
+    Render order follows layouts/partials/narrative-edition.html
+    (dek L51, else theEdge L99, then the next non-empty body field).
+    Never returns None: empty string if the edition has no body field.
+    """
+    for text in rendered_body_field_texts(narrative):
+        para = text.split("\n\n", 1)[0].strip()
+        if para:
+            return para
+    return ""
+
+
+def protected_lede_text(narrative: dict | None) -> str:
+    """Union of the render-order lede and lastGameReview.lede first paragraph.
+
+    Every lede-scoped check uses this. lastGameReview.lede stays protected
+    even when it is not the first rendered body field.
+    """
+    parts: list[str] = []
+    for para in (lede_paragraph(narrative), last_game_review_lede_paragraph(narrative)):
+        if para and para not in parts:
+            parts.append(para)
+    return "\n\n".join(parts)
 
 
 def _normalized_copy(text: str) -> str:
@@ -11168,7 +11232,7 @@ def copy_touches_headline_or_lede(
     log holds only when the changed paragraph is the lede.
     """
     headline = str((narrative or {}).get("headline") or "")
-    lede = lede_paragraph(narrative)
+    lede = protected_lede_text(narrative)
     for item in sentences or []:
         old, new = correction_old_and_new(item)
         if new is None:
@@ -11289,6 +11353,8 @@ def should_hold_automerge(
     if missing_headline:
         return True
     if not str((narrative or {}).get("headline") or "").strip():
+        return True
+    if not lede_paragraph(source):
         return True
     if only_safe_score_lede_content(narrative):
         return True

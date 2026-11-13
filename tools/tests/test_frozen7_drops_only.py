@@ -1692,7 +1692,13 @@ class Frozen7Addenda(unittest.TestCase):
                 "analysis": [nxt],
             }
         )
-        self.assertEqual(facts.lede_paragraph(edition), lede)
+        self.assertIn(
+            str(edition.get("dek") or "").split("\n\n", 1)[0].strip()[:24],
+            facts.lede_paragraph(edition),
+        )
+        self.assertTrue(
+            facts.copy_touches_headline_or_lede([lede], edition),
+        )
         self.assertTrue(
             _hold(edition, corrections=[f"{lede} → rewritten"], before=edition)
         )
@@ -1712,7 +1718,9 @@ class Frozen7Addenda(unittest.TestCase):
         fixed_p1, logs_p1 = known_errors.apply_known_errors(para1, None)
         self.assertTrue(logs_p1, logs_p1)
         self.assertIn("\n\n", logs_p1[0].split(" → ", 1)[0])
-        self.assertEqual(facts.lede_paragraph(para1), pinned["quinton"])
+        self.assertEqual(
+            facts.last_game_review_lede_paragraph(para1), pinned["quinton"]
+        )
         self.assertTrue(facts.copy_touches_headline_or_lede(logs_p1, para1))
         self.assertTrue(_hold(fixed_p1, corrections=logs_p1, before=para1))
         para2 = _fat_preview(
@@ -1726,7 +1734,7 @@ class Frozen7Addenda(unittest.TestCase):
         fixed_p2, logs_p2 = known_errors.apply_known_errors(para2, None)
         self.assertTrue(logs_p2, logs_p2)
         self.assertIn("\n\n", logs_p2[0].split(" → ", 1)[0])
-        self.assertEqual(facts.lede_paragraph(para2), lede)
+        self.assertEqual(facts.last_game_review_lede_paragraph(para2), lede)
         self.assertFalse(facts.copy_touches_headline_or_lede(logs_p2, para2))
         self.assertFalse(_hold(fixed_p2, corrections=logs_p2, before=para2))
 
@@ -1966,20 +1974,22 @@ class Frozen7Addenda(unittest.TestCase):
             self.assertFalse(repair.get("holdAutomerge"), repair)
 
     def test_a11_lede_is_first_body_paragraph(self):
+        dek_p1 = "Dek paragraph one sentence one. Dek paragraph one sentence two."
+        dek_p2 = "Dek paragraph two sentence one."
         edition = _fat_preview(
+            dek=dek_p1 + "\n\n" + dek_p2,
             lastGameReview={
                 "lede": "Paragraph one sentence one. Paragraph one sentence two.",
                 "analysis": ["Paragraph two sentence one."],
             }
         )
         lede = facts.lede_paragraph(edition)
-        self.assertIn("Paragraph one sentence one.", lede)
+        self.assertEqual(lede, dek_p1)
+        self.assertNotIn("Dek paragraph two sentence one.", lede)
         self.assertNotIn("Paragraph two sentence one.", lede)
         pinned = _pinned()
         two_para = _fat_preview(
-            lastGameReview={
-                "lede": pinned["quinton"] + "\n\n" + "The preview stays on the Jets after Denver."
-            }
+            dek=pinned["quinton"] + "\n\n" + "The preview stays on the Jets after Denver."
         )
         self.assertEqual(facts.lede_paragraph(two_para), pinned["quinton"])
         self.assertNotIn("Jets after Denver", facts.lede_paragraph(two_para))

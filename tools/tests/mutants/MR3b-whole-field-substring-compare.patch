@@ -1,8 +1,8 @@
 --- a/tools/chiefs_narrative/facts.py
 +++ b/tools/chiefs_narrative/facts.py
-@@ -11171,16 +11171,9 @@
+@@ -11234,16 +11234,9 @@
      headline = str((narrative or {}).get("headline") or "")
-     lede = lede_paragraph(narrative)
+     lede = protected_lede_text(narrative)
      for item in sentences or []:
 -        old, new = correction_old_and_new(item)
 -        if new is None:

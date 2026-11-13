@@ -1,0 +1,22 @@
+#354 round 2 mutants. Each file is the exact unified diff.
+A kill is unittest failures >= 1 and errors == 0, with no subprocess
+traceback in the failing assertion. 6/6 vs a 6x clean control in the
+same copied tree. An import error or any other nonzero exit is not a kill.
+Harness: tests/mutants_354_r2/run_harness.py (outside unittest files).
+Receipts: tests/mutants_354_r2/receipts/
+
+MS-A10w.patch
+  lede-touched check disabled in the three build stages
+  killer: test_b2_build (lastGameReview.lede drop holds at head; ships under mutant)
+MS-A10k.patch
+  check removed on the first known_errors pass
+  killer: test_b2_known_errors (headline Quinton→Quay holds at head; ships under mutant)
+resolver-reverted-lastGameReview-lede.patch
+  resolver reverted to lastGameReview.lede
+  killer: test_a14_1_dek_drop_holds
+dek-ignored.patch
+  dek skipped; theEdge only
+  killer: test_a14_1_dek_drop_holds
+union-dropped.patch
+  lastGameReview.lede unprotected
+  killer: test_a14_3_lastgamereview_lede_drop_holds

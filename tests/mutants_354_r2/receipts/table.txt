@@ -1,0 +1,6 @@
+mutant	kills	control	receipt
+MS-A10w	6/6	6/6	tests/mutants_354_r2/receipts/MS-A10w.txt
+MS-A10k	6/6	6/6	tests/mutants_354_r2/receipts/MS-A10k.txt
+resolver-reverted-lastGameReview-lede	6/6	6/6	tests/mutants_354_r2/receipts/resolver-reverted-lastGameReview-lede.txt
+dek-ignored	6/6	6/6	tests/mutants_354_r2/receipts/dek-ignored.txt
+union-dropped	6/6	6/6	tests/mutants_354_r2/receipts/union-dropped.txt
