@@ -9412,16 +9412,84 @@ def _cut_in_field_sentence(text: str, index: int) -> str:
     return cut.strip()
 
 
+SCORE_PROGRESSION_REPAIR_BUDGET = 8
+SCORE_PROGRESSION_BUDGET_EXHAUSTED = (
+    "score-progression repair budget exhausted"
+)
+
+
+def is_score_progression_budget_exhausted(item: str) -> bool:
+    return SCORE_PROGRESSION_BUDGET_EXHAUSTED in (item or "")
+
+
+def score_progression_budget_issue(section: str, claim: str) -> str:
+    """HARD leftover naming the field/section and the surviving claim."""
+    loc = (section or "field").strip() or "field"
+    surviving = claim if claim is not None else ""
+    return f"{SCORE_PROGRESSION_BUDGET_EXHAUSTED} ({loc}: {surviving!r})"
+
+
+def _score_path_join(path: str, key) -> str:
+    if isinstance(key, int):
+        return f"{path}[{key}]" if path else f"[{key}]"
+    key_text = str(key)
+    return f"{path}.{key_text}" if path else key_text
+
+
+def _surviving_invalid_score_claim(
+    text: str,
+    recap: dict | None,
+    last_game: dict | None = None,
+) -> str:
+    for match, _claim in _iter_clocked_score_after(text or ""):
+        sentence = _sentence_at(text, match.start())
+        if _check_score_progression(sentence, recap, last_game):
+            return sentence
+    return (text or "").strip()
+
+
+def _record_score_progression_exhaustion(
+    exhausted,
+    *,
+    path: str,
+    root_key: str,
+    claim: str,
+) -> None:
+    if exhausted is None:
+        return
+    issue = score_progression_budget_issue(path or root_key or "field", claim)
+    for row in exhausted:
+        if row.get("issue") == issue:
+            return
+    exhausted.append(
+        {
+            "issue": issue,
+            "path": path or root_key or "field",
+            "root": root_key or (path.split(".", 1)[0] if path else "field"),
+            "claim": claim,
+        }
+    )
+
+
 def _drop_invalid_score_progression_text(
     text: str,
     recap: dict | None,
     last_game: dict | None = None,
+    *,
+    exhausted=None,
+    path: str = "",
+    root_key: str = "",
 ) -> str:
     """Drop complete in-field sentences whose score-after still fails ESPN.
 
     Salvage that splits on newlines would keep 'A 24-13 lead after the Q3'
     after deleting the wrapped clock line. That orphaned prefix is still
     the same claim and must not publish as clean copy.
+
+    Eight successful cuts is the budget. Exhaustion fails closed: the
+    surviving claim stays fully present and byte-identical, and the
+    caller records one HARD leftover. A stall (progressed=False) on any
+    pass, including pass 1, also fails closed. A cut no-op must not loop.
     """
     if not text or not recap:
         return text
@@ -9430,6 +9498,7 @@ def _drop_invalid_score_progression_text(
         if not _check_score_progression(current, recap, last_game):
             return current
         progressed = False
+        stall_claim = ""
         for match, _claim in _iter_clocked_score_after(current):
             sentence = _sentence_at(current, match.start())
             if not _check_score_progression(sentence, recap, last_game):
@@ -9439,8 +9508,21 @@ def _drop_invalid_score_progression_text(
                 current = nxt
                 progressed = True
                 break
-        if not progressed:
+            stall_claim = sentence
             break
+        if not progressed:
+            surviving = stall_claim or _surviving_invalid_score_claim(
+                current, recap, last_game
+            )
+            _record_score_progression_exhaustion(
+                exhausted, path=path, root_key=root_key, claim=surviving
+            )
+            return current
+    if _check_score_progression(current, recap, last_game):
+        surviving = _surviving_invalid_score_claim(current, recap, last_game)
+        _record_score_progression_exhaustion(
+            exhausted, path=path, root_key=root_key, claim=surviving
+        )
     return current
 
 
@@ -9448,16 +9530,34 @@ def _drop_invalid_score_progression(
     value,
     recap: dict | None,
     last_game: dict | None = None,
+    *,
+    exhausted=None,
+    path: str = "",
+    root_key: str = "",
 ):
     """Walk every section and remove invalid in-field score-after claims."""
     if not recap:
         return value
     if isinstance(value, str):
-        return _drop_invalid_score_progression_text(value, recap, last_game)
+        return _drop_invalid_score_progression_text(
+            value,
+            recap,
+            last_game,
+            exhausted=exhausted,
+            path=path,
+            root_key=root_key,
+        )
     if isinstance(value, list):
         out = []
-        for item in value:
-            kept = _drop_invalid_score_progression(item, recap, last_game)
+        for index, item in enumerate(value):
+            kept = _drop_invalid_score_progression(
+                item,
+                recap,
+                last_game,
+                exhausted=exhausted,
+                path=_score_path_join(path, index),
+                root_key=root_key,
+            )
             if kept in (None, "", [], {}):
                 continue
             out.append(kept)
@@ -9468,7 +9568,15 @@ def _drop_invalid_score_progression(
             if key in _PROTECTED_KEYS:
                 out[key] = item
                 continue
-            kept = _drop_invalid_score_progression(item, recap, last_game)
+            child_root = root_key or key
+            kept = _drop_invalid_score_progression(
+                item,
+                recap,
+                last_game,
+                exhausted=exhausted,
+                path=_score_path_join(path, key),
+                root_key=child_root,
+            )
             if kept not in (None, "", [], {}):
                 out[key] = kept
             elif key in ("lede", "body", "why", "coaching", "note"):
@@ -10612,18 +10720,33 @@ def repair_offending_copy(
     last_game: dict | None = None,
     recap: dict | None = None,
     schedule=None,
+    leftover_sink=None,
 ) -> dict:
     """Drop offending sentences, then leftover fragments in every section."""
     payload = copy.deepcopy(narrative or {})
     generated_at = str(payload.get("generatedAt") or "")
     # In-field wrapped score-afters must drop as one period sentence before
     # newline splitting can keep an orphaned prefix as clean salvage.
+    exhausted = []
     if recap:
         for key in _EDITION_KEYS:
             if key in payload:
                 payload[key] = _drop_invalid_score_progression(
-                    payload[key], recap, last_game
+                    payload[key],
+                    recap,
+                    last_game,
+                    exhausted=exhausted,
+                    path=key,
+                    root_key=key,
                 )
+    if leftover_sink is not None:
+        for row in exhausted:
+            issue = row.get("issue") or ""
+            if issue and issue not in leftover_sink:
+                leftover_sink.append(issue)
+    exhausted_roots = {
+        str(row.get("root") or "") for row in exhausted if row.get("root")
+    }
     snippets = violation_snippets(
         [
             item
@@ -10633,27 +10756,36 @@ def repair_offending_copy(
     )
     if snippets:
         for key in _EDITION_KEYS:
-            if key in payload:
+            if key in payload and key not in exhausted_roots:
                 payload[key] = _drop_value(
                     payload[key], snippets, last_game, recap, schedule,
                     generated_at=generated_at,
                 )
     # A glued play-order quote (nobodyafter) can miss the sentence. Re-check
     # ESPN chronology and drop any leftover inverted after/following claim.
+    # Exhausted score-progression fields stay byte-identical: later
+    # snippet/_drop_value clipping, inverted-play cuts, and prune must
+    # not half-cut the surviving claim.
     if recap:
         for key in _EDITION_KEYS:
-            if key in payload:
+            if key in payload and key not in exhausted_roots:
                 payload[key] = _drop_inverted_play_order(payload[key], recap)
+    frozen_exhausted = {
+        key: payload[key] for key in exhausted_roots if key in payload
+    }
     if dropped_sentences(narrative or {}, payload):
         payload = _prune_salvage_value(narrative or {}, payload)
         review = payload.get("lastGameReview")
-        if isinstance(review, dict):
+        if isinstance(review, dict) and "lastGameReview" not in exhausted_roots:
             payload["lastGameReview"] = _strip_empty_review_cards(review)
+    payload.update(frozen_exhausted)
     review = payload.get("lastGameReview")
     if isinstance(review, dict) and not (review.get("lede") or "").strip():
         review["lede"] = safe_score_lede(last_game)
         payload["lastGameReview"] = review
     for key in _REQUIRED_COPY_KEYS:
+        if key in exhausted_roots:
+            continue
         current = str(payload.get(key) or "").strip()
         if current and not _required_copy_fails(
             current, last_game, recap, generated_at=generated_at

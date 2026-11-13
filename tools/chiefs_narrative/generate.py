@@ -1082,8 +1082,14 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         )
         if not leftover:
             return corrected, leftover, [], logs
+        budget_left: list[str] = []
         repaired = facts.repair_offending_copy(
-            corrected, leftover, check_last, check_recap, check_schedule
+            corrected,
+            leftover,
+            check_last,
+            check_recap,
+            check_schedule,
+            leftover_sink=budget_left,
         )
         gone = facts.dropped_sentences(corrected, repaired)
         for sentence in gone:
@@ -1095,6 +1101,9 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             schedule=check_schedule,
             copy_gates=check_copy_gates,
             changed=check_changed,
+        )
+        leftover = merge_score_progression_budget_leftover(
+            leftover, budget_left
         )
         return repaired, leftover, gone, logs
 
@@ -1124,6 +1133,8 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         # gave Miami's 34:21 to KC) or an orphan opener (run 36751657899).
         passes = 0
         while leftover and passes < 6:
+            if salvage_should_stop_for_score_progression_budget(leftover):
+                break
             passes += 1
             repaired, leftover, gone, logs = _salvage(
                 repaired,
@@ -1431,7 +1442,9 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         "news": signals.get("news") or [],
         "droppedSentences": dropped,
         "correctedSentences": corrections,
-        "leftoverIssues": leftover_issues,
+        "leftoverIssues": leftover_issues_with_score_progression_budget(
+            leftover_issues
+        ),
     }
 
 
@@ -1719,6 +1732,59 @@ def archive_replay_issues(narrative: dict, schedule=None) -> list[str]:
         schedule = collect.load_cached_schedule()
     return facts.check_review(
         narrative, last, recap, schedule=schedule, changed=True
+    )
+
+
+def merge_score_progression_budget_leftover(
+    leftover: list[str] | None,
+    budget_left: list[str] | None,
+) -> list[str]:
+    """Carry budget exhaustion into leftoverIssues as one HARD row.
+
+    The surviving claim stays in the field, so check_review still reports
+    the original score-progression leftover. Replace that class with the
+    single budget-exhausted leftover. Unrelated leftovers stay.
+    """
+    leftover = list(leftover or [])
+    budget_left = list(budget_left or [])
+    if not budget_left:
+        return leftover
+    kept = [
+        item
+        for item in leftover
+        if "score progression" not in (item or "")
+        and not facts.is_score_progression_budget_exhausted(item)
+    ]
+    for item in budget_left:
+        if item not in kept:
+            kept.append(item)
+    return kept
+
+
+def leftover_issues_with_score_progression_budget(
+    leftover_issues: list[str] | None,
+) -> list[str]:
+    """Write leftoverIssues with exactly one HARD budget row when exhausted.
+
+    Archive replay can re-append the original score-progression leftover
+    after salvage. Collapse that class to the budget leftover.
+    """
+    leftover_issues = list(leftover_issues or [])
+    budget = [
+        item
+        for item in leftover_issues
+        if facts.is_score_progression_budget_exhausted(item)
+    ]
+    return merge_score_progression_budget_leftover(leftover_issues, budget)
+
+
+def salvage_should_stop_for_score_progression_budget(
+    leftover: list[str] | None,
+) -> bool:
+    """Fail closed: do not run another salvage pass on an exhausted field."""
+    return any(
+        facts.is_score_progression_budget_exhausted(item)
+        for item in leftover or []
     )
 
 

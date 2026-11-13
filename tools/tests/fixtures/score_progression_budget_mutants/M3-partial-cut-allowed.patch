@@ -1,0 +1,11 @@
+diff --git a/tools/chiefs_narrative/facts.py b/tools/chiefs_narrative/facts.py
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -9523,6 +9523,7 @@
+         _record_score_progression_exhaustion(
+             exhausted, path=path, root_key=root_key, claim=surviving
+         )
++        current = current[: max(1, len(current) // 2)]
+     return current
+ 
+ 
