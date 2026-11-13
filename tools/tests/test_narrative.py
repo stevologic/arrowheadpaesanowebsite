@@ -7540,7 +7540,7 @@ class FactCheck(unittest.TestCase):
         )
         self.assertIn("## Dropped sentences", held)
         self.assertIn("Automerge is held.", held)
-        self.assertIn("- Kelce scored from the 12.", held)
+        self.assertIn("Kelce scored from the 12.", held)
         quiet = drop_body.drop_body(
             {
                 "holdAutomerge": False,
@@ -7592,7 +7592,7 @@ class FactCheck(unittest.TestCase):
             with redirect_stdout(buf):
                 rc = drop_body.main([str(path)])
             self.assertEqual(rc, 0)
-            self.assertIn("- One leftover.", buf.getvalue())
+            self.assertIn("One leftover.", buf.getvalue())
 
     def test_workflow_yaml_gate_parses_every_actions_file(self):
         loaded = check_workflows.load_workflows()

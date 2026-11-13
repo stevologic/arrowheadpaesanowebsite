@@ -1,6 +1,7 @@
-FROZEN-7 mutants. Each file is the exact unified diff. A kill is a
-behavioural AssertionError, 6/6 vs a 6x clean control. Import/syntax/crash
-is not a kill.
+FROZEN-7 mutants. Each file is the exact unified diff. A kill is
+unittest failures >= 1 and errors == 0, with no subprocess traceback
+in the failing assertion. 6/6 vs a 6x clean control in the same
+copied tree.
 
 MG1-restore-drops-only-hold.patch
   killer: test_n2_drops_only_ships_and_files_one_issue
@@ -23,7 +24,7 @@ MG2-K9-skip-word-floor.patch
 MG3-K10-delete-force-hold.patch
   killer: test_k10_check_edition_force_hold
 MG4-j2-blockers-print-only.patch
-  killer: test_n5_dangling_reference_holds_via_j2
+  killers: test_n5_dangling_reference_holds_via_j2, test_n7_word_floor_boundaries
 MG5-word-floor-le.patch
   killer: test_n7_word_floor_boundaries
 MG6-sentinel-string-match-swap.patch
@@ -38,6 +39,10 @@ MG9b-aggregate-drop-ceiling-removed.patch
   killer: test_n8_aggregate_ceiling_split_across_stages
 M4-5-drop-budget-merge-signal.patch
   killer: test_c1_build_salvage_repair_leftover_and_hold
+MB1-budget-resets-per-stage.patch
+  killer: test_c1_build_salvage_repair_leftover_and_hold
+MC1-main-drops-hold-kwargs.patch
+  killer: test_generate_main_preview_sentinel_and_lede_hold
 MR1-headline-correction-not-held.patch
   killer: test_r2_headline_correction_holds
 MR2-lede-correction-not-held.patch

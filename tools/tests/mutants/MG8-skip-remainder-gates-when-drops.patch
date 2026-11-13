@@ -1,13 +1,14 @@
---- a/tools/chiefs_narrative/facts.py
-+++ b/tools/chiefs_narrative/facts.py
-@@ -11168,6 +11168,10 @@
-     """
-     if review_requires_human(narrative):
-         return True
-+    if drops:
-+        leftover = None
-+        hold_only_sentinels = None
-+        orphans = None
-     if hard_leftover_texts(leftover):
-         return True
-     if any(is_hold_only_sentinel(item) for item in leftover or []):
+--- a/tools/chiefs_narrative/generate.py
++++ b/tools/chiefs_narrative/generate.py
+@@ -1505,7 +1505,10 @@
+     )
+     # N10: remainder gates run on the post-drop edition even when drops
+     # are non-empty. MG8 skips this block.
+-    _extend_leftover(_remainder_gate_issues(narrative, schedule))
++    remainder_issues = _remainder_gate_issues(narrative, schedule)
++    if dropped:
++        remainder_issues = []
++    _extend_leftover(remainder_issues)
+     # A8/N8: HOLD_REPAIR_DROPS is the aggregate ceiling across every salvage
+     # stage, including archive-replay. Per-stage len(gone) checks stay.
+     if facts.drop_ceiling_exceeded(dropped):

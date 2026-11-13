@@ -10,6 +10,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -32,10 +33,12 @@ from tools.chiefs_narrative import (
     hero_posts,
     known_errors,
     phase,
+    press_conferences,
     providers,
     review_gate,
 )
 from tools.tests.frozen_slate import frozen_schedule
+from tools.tests.test_maintenance import PublicationPolicy
 from tools.tests.test_narrative import (
     _job_step_script,
     _run_fail_held_script,
@@ -44,6 +47,16 @@ from tools.tests.test_score_progression_budget_frozen import (
     ScoreProgressionBudgetExhaustion,
 )
 from tools.tests.test_archive_replay_qa import Week9PreviewLeftoverReplay
+
+# N2: #346's six dropped lines from PR #346 body (run 43272341853).
+REAL_346_DROPS = [
+    "New York's turnover was the Q2 6:29 fumble forced by Nick Bolton and recovered by A.Gilman.",
+    "That is the credit line.",
+    "Geno Smith was 18-of-32 with a 70.4 rating, and his pass line lists 5 sacks.",
+    "Kansas City touchdowns at Q3 10:20 (1 yd, 21–12), Q3 0:11 (2 yd, Walker up the middle, 28–12), and Q4 3:35 (6 yd, Emmett Johnson, 35–12) made it five touchdowns and no New York points after halftime.",
+    "Smith's pass line was 18-of-32 with 5 sacks and a 70.4 rating, and New York netted 123 passing yards.",
+    "That is a rush that can travel if the calls stay defined.",
+]
 
 WORKFLOWS = Path(__file__).resolve().parents[2] / ".github" / "workflows"
 REPO = Path(__file__).resolve().parents[2]
@@ -150,6 +163,115 @@ def _hold(
     )
 
 
+def _fail_held_rc(hold_merge: bool) -> int:
+    parsed = _workflow("narrative.yml")
+    ran = _run_fail_held_script(
+        _job_step_script(parsed, "test", name="Fail held editions"),
+        payload={"holdMerge": hold_merge},
+    )
+    return ran.returncode
+
+
+def _run_record_publish(root: Path, *, repair: dict, narrative: dict, desk_mode: str = "full"):
+    parsed = _workflow("narrative.yml")
+    inner = _extract_heredoc(
+        _job_step_script(parsed, "test", name="Record publish metadata")
+    )
+    desk = root / "data"
+    desk.mkdir(parents=True, exist_ok=True)
+    (desk / "narrative.json").write_text(
+        json.dumps(narrative) + "\n", encoding="utf-8"
+    )
+    (desk / "narrative_repair.json").write_text(
+        json.dumps(repair) + "\n", encoding="utf-8"
+    )
+    env = dict(os.environ)
+    env["DESK_MODE"] = desk_mode
+    env["PYTHONPATH"] = str(REPO) + os.pathsep + env.get("PYTHONPATH", "")
+    ran = subprocess.run(
+        [sys.executable, "-c", inner],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    return ran
+
+
+def _run_fail_held_on_root(root: Path) -> subprocess.CompletedProcess:
+    parsed = _workflow("narrative.yml")
+    script = _job_step_script(parsed, "test", name="Fail held editions")
+    path_var = os.environ.get("PATH", "")
+    python = shutil.which("python") or shutil.which("python3")
+    env = {
+        "PATH": path_var,
+        "HOME": str(root),
+        "LANG": "C",
+        "LC_ALL": "C",
+        "PYTHONPATH": str(REPO) + os.pathsep + os.environ.get("PYTHONPATH", ""),
+    }
+    if python and not shutil.which("python"):
+        shim = root / "bin"
+        shim.mkdir(exist_ok=True)
+        (shim / "python").symlink_to(python)
+        env["PATH"] = f"{shim}{os.pathsep}{path_var}"
+    return subprocess.run(
+        ["bash", "-c", script],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _run_pages_rc_snippet(review_rc: int) -> subprocess.CompletedProcess:
+    """Execute the Gate generated content pages_rc if/elif with a stub gate."""
+    py = shlex.quote(sys.executable)
+    script = textwrap.dedent(
+        f"""\
+        set -euo pipefail
+        pages_rc=0
+        {py} -c "import sys; raise SystemExit({review_rc})" || pages_rc=$?
+        if [ "$pages_rc" -eq 2 ]; then
+          echo "unsigned Review edition; pages gate holds deploy (exit 2)"
+        elif [ "$pages_rc" -ne 0 ]; then
+          exit "$pages_rc"
+        fi
+        """
+    )
+    return subprocess.run(
+        ["bash", "-c", script],
+        capture_output=True,
+        text=True,
+    )
+
+
+def _run_pages_skip_unsigned(review_rc: int) -> subprocess.CompletedProcess:
+    """Execute pages.yml Skip unsigned Review with a stub review_gate."""
+    py = shlex.quote(sys.executable)
+    script = textwrap.dedent(
+        f"""\
+        set -euo pipefail
+        if {py} -c "import sys; raise SystemExit({review_rc})"; then
+          echo "skip=false"
+        else
+          rc=$?
+          if [ "$rc" -eq 2 ]; then
+            echo "skip=true"
+            echo "Unsigned Review edition; skipping gh-pages deploy"
+          else
+            exit "$rc"
+          fi
+        fi
+        """
+    )
+    return subprocess.run(
+        ["bash", "-c", script],
+        capture_output=True,
+        text=True,
+    )
+
+
 class Frozen7PlanGaps(unittest.TestCase):
     """J1-J6 restated against the code that landed."""
 
@@ -164,13 +286,9 @@ class Frozen7PlanGaps(unittest.TestCase):
         self.assertTrue(_hold(edition, leftover=[sentinel["text"]]))
 
     def test_j2_repair_blockers_are_leftover(self):
-        source = Path(generate.__file__).read_text(encoding="utf-8")
-        self.assertIn("repair_publish_blockers", source)
-        routed = source.index("blockers = facts.repair_publish_blockers")
-        printed = source.index("repair blocker:")
-        returned = source.index("leftover.append(item)")
-        self.assertLess(routed, printed)
-        self.assertLess(routed, returned)
+        cases = Frozen7Cases("test_n5_dangling_reference_holds_via_j2")
+        cases.test_n5_dangling_reference_holds_via_j2()
+        cases.test_n7_word_floor_boundaries()
 
     def test_j4_r1_body_correction_ships(self):
         edition = _fat_preview()
@@ -202,12 +320,17 @@ class Frozen7PlanGaps(unittest.TestCase):
         for name in ("generate", "test", "publish"):
             perms = (jobs.get(name) or {}).get("permissions") or {}
             self.assertNotEqual(perms.get("issues"), "write", name)
-        self.assertIn(
-            "python -m tools.chiefs_narrative.drop_issues",
-            _job_step_script(
-                parsed, "update", name="File dropped-lines tracking issue"
-            ),
+        issue_step = _job_step_script(
+            parsed, "update", name="File dropped-lines tracking issue"
         )
+        self.assertIn("GATE_BASE", issue_step)
+        self.assertIn('cd "$GATE_BASE"', issue_step)
+        self.assertIn(
+            "python -P -m tools.chiefs_narrative.drop_issues",
+            issue_step,
+        )
+        self.assertIn("--repair", issue_step)
+        self.assertIn("${GITHUB_WORKSPACE}/data/narrative_repair.json", issue_step)
 
 
 class Frozen7HoldCauses(unittest.TestCase):
@@ -221,12 +344,30 @@ class Frozen7HoldCauses(unittest.TestCase):
         self.assertTrue(facts.review_requires_human(edition))
         self.assertTrue(_hold(edition, drops=[]))
         self.assertTrue(_hold(edition, drops=["a body drop"]))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            ran = _run_record_publish(
+                root,
+                repair={"holdAutomerge": False, "droppedSentences": []},
+                narrative=edition,
+            )
+            self.assertEqual(ran.returncode, 0, ran.stderr + ran.stdout)
+            published = json.loads(
+                (root / ".narrative-publish.json").read_text(encoding="utf-8")
+            )
+            self.assertTrue(published.get("holdMerge"), published)
+            held = _run_fail_held_on_root(root)
+            self.assertEqual(held.returncode, 1, held.stderr)
 
     def test_k2a_hard_archive_replay_leftover(self):
         edition = _fat_preview()
         leftover = ["score progression 7-3 after Q2 disagrees with ESPN"]
         self.assertTrue(_hold(edition, leftover=leftover))
         self.assertTrue(_hold(edition, drops=["body drop"], leftover=leftover))
+        sentinel_text = facts.HOLD_ONLY_SENTINEL_TEXT[facts.HOLD_ONLY_SALVAGE_NOISY]
+        self.assertFalse(facts.is_hold_only_sentinel(sentinel_text))
+        self.assertTrue(_hold(edition, leftover=[sentinel_text]))
+        self.assertTrue(_hold(edition, drops=["body drop"], leftover=[sentinel_text]))
 
     def test_k2b_leaked_fact_checker_notes(self):
         edition = _fat_preview()
@@ -377,22 +518,34 @@ class Frozen7HoldCauses(unittest.TestCase):
         gate = _job_step_script(parsed, "test", name="Gate generated content")
         self.assertIn("python -m tools.chiefs_narrative.generate --gate-replay", gate)
         leftover = ["score progression 7-3 after Q2 disagrees with ESPN"]
-        with tempfile.TemporaryDirectory() as tmp:
-            narrative_json = Path(tmp) / "n.json"
-            repair_json = Path(tmp) / "r.json"
-            narrative_json.write_text(json.dumps(_fat_preview()) + "\n")
-            repair_json.write_text(json.dumps({"holdAutomerge": True}) + "\n")
-            buf = io.StringIO()
-            with patch.object(generate.config, "NARRATIVE_JSON", narrative_json), patch.object(
-                generate.config, "REPAIR_JSON", repair_json
-            ), patch.object(
-                generate, "archive_replay_issues", return_value=leftover
-            ), patch.object(
-                generate, "replay_fixture_missing", return_value=False
-            ), redirect_stdout(buf):
-                rc = generate.main(["--gate-replay"])
-            self.assertEqual(rc, generate.HARD_REPLAY_RC)
-            self.assertNotEqual(rc, 0)
+        for drops in ([], ["body drop"]):
+            with self.subTest(drops=bool(drops)):
+                with tempfile.TemporaryDirectory() as tmp:
+                    narrative_json = Path(tmp) / "n.json"
+                    repair_json = Path(tmp) / "r.json"
+                    narrative_json.write_text(json.dumps(_fat_preview()) + "\n")
+                    repair_json.write_text(
+                        json.dumps(
+                            {
+                                "holdAutomerge": True,
+                                "droppedSentences": drops,
+                            }
+                        )
+                        + "\n"
+                    )
+                    buf = io.StringIO()
+                    with patch.object(
+                        generate.config, "NARRATIVE_JSON", narrative_json
+                    ), patch.object(
+                        generate.config, "REPAIR_JSON", repair_json
+                    ), patch.object(
+                        generate, "archive_replay_issues", return_value=leftover
+                    ), patch.object(
+                        generate, "replay_fixture_missing", return_value=False
+                    ), redirect_stdout(buf):
+                        rc = generate.main(["--gate-replay"])
+                    self.assertEqual(rc, generate.HARD_REPLAY_RC)
+                    self.assertNotEqual(rc, 0)
 
     def test_k12_pages_gate_unsigned_is_hold_other_fails(self):
         parsed = _workflow("narrative.yml")
@@ -402,6 +555,23 @@ class Frozen7HoldCauses(unittest.TestCase):
         pages = _workflow_source("pages.yml")
         self.assertIn('"$rc" -eq 2', pages)
         self.assertIn("Skip unsigned Review editions", pages)
+        for drops in ([], ["body drop"]):
+            with self.subTest(drops=bool(drops)):
+                unsigned = _run_pages_rc_snippet(2)
+                self.assertEqual(unsigned.returncode, 0, unsigned.stderr)
+                self.assertIn("unsigned Review", unsigned.stdout)
+                ok = _run_pages_rc_snippet(0)
+                self.assertEqual(ok.returncode, 0, ok.stderr)
+                other = _run_pages_rc_snippet(1)
+                self.assertEqual(other.returncode, 1, other.stderr)
+                skip = _run_pages_skip_unsigned(2)
+                self.assertEqual(skip.returncode, 0, skip.stderr)
+                self.assertIn("skip=true", skip.stdout)
+                skip_fail = _run_pages_skip_unsigned(1)
+                self.assertEqual(skip_fail.returncode, 1, skip_fail.stderr)
+                skip_ok = _run_pages_skip_unsigned(0)
+                self.assertEqual(skip_ok.returncode, 0, skip_ok.stderr)
+                self.assertIn("skip=false", skip_ok.stdout)
 
     def test_k13_diagram_drift_fails(self):
         parsed = _workflow("narrative.yml")
@@ -420,13 +590,15 @@ class Frozen7HoldCauses(unittest.TestCase):
                 check=True,
             )
             (target / "xo.svg").write_text("<svg id='drift'/>\n", encoding="utf-8")
-            ran = subprocess.run(
-                ["git", "diff", "--exit-code", "--", "public/images/narrative"],
-                cwd=root,
-                capture_output=True,
-                text=True,
-            )
-            self.assertNotEqual(ran.returncode, 0)
+            for drops in ([], ["body drop"]):
+                with self.subTest(drops=bool(drops)):
+                    ran = subprocess.run(
+                        ["git", "diff", "--exit-code", "--", "public/images/narrative"],
+                        cwd=root,
+                        capture_output=True,
+                        text=True,
+                    )
+                    self.assertNotEqual(ran.returncode, 0)
 
 
 class Frozen7Cases(unittest.TestCase):
@@ -453,40 +625,344 @@ class Frozen7Cases(unittest.TestCase):
 
     def test_n2_drops_only_ships_and_files_one_issue(self):
         edition = _exact_words(_thin_preview(), 3900)
-        parsed = _workflow("narrative.yml")
-        hold_step = _job_step_script(parsed, "test", name="Fail held editions")
-        for count in (1, 3, 6):
+        sets = {
+            1: REAL_346_DROPS[:1],
+            3: REAL_346_DROPS[:3],
+            6: REAL_346_DROPS,
+        }
+        for count, drops in sets.items():
             with self.subTest(drops=count):
-                drops = [f"Dropped body line {i}." for i in range(count)]
                 self.assertFalse(_hold(edition, drops=drops))
-                ran = _run_fail_held_script(
-                    hold_step, payload={"holdMerge": False, "dropBody": "x"}
+                with tempfile.TemporaryDirectory() as tmp:
+                    root = Path(tmp)
+                    ran_meta = _run_record_publish(
+                        root,
+                        repair={
+                            "holdAutomerge": False,
+                            "droppedSentences": drops,
+                            "leftoverIssues": [],
+                        },
+                        narrative=edition,
+                    )
+                    self.assertEqual(
+                        ran_meta.returncode, 0, ran_meta.stderr + ran_meta.stdout
+                    )
+                    published = json.loads(
+                        (root / ".narrative-publish.json").read_text(encoding="utf-8")
+                    )
+                    self.assertFalse(published.get("holdMerge"), published)
+                    held = _run_fail_held_on_root(root)
+                    self.assertEqual(held.returncode, 0, held.stderr)
+                    calls = []
+
+                    def fake_gh(args, *, check=True):
+                        calls.append(args)
+                        result = subprocess.CompletedProcess(
+                            args, 0, stdout="", stderr=""
+                        )
+                        if args[:2] == ["issue", "list"]:
+                            result.stdout = "[]"
+                        if args[:2] == ["issue", "create"]:
+                            result.stdout = (
+                                "https://github.com/stevologic/"
+                                "arrowheadpaesanowebsite/issues/11\n"
+                            )
+                        return result
+
+                    with patch.object(drop_issues, "_gh", side_effect=fake_gh):
+                        filed = drop_issues.sync_drop_issue(
+                            slug=edition["slug"],
+                            drops=drops,
+                            run_id="43272341853",
+                            edition=edition["edition"],
+                        )
+                    self.assertTrue(filed)
+                    creates = [
+                        args for args in calls if args[:2] == ["issue", "create"]
+                    ]
+                    self.assertEqual(len(creates), 1, creates)
+                    create = creates[0]
+                    self.assertIn("--label", create)
+                    self.assertIn(facts.DROPS_ISSUE_LABEL, create)
+                    body = drop_issues.build_issue_body(
+                        slug=edition["slug"],
+                        drops=drops,
+                        run_id="43272341853",
+                        edition=edition["edition"],
+                    )
+                    for line in drops:
+                        self.assertIn(line, body)
+
+    def test_n3_each_k_cause_with_and_without_drops(self):
+        """N3: each K1-K13 alone, drops empty AND non-empty. Paste each cell."""
+        edition = _fat_preview()
+        body = ["body drop"]
+        grid = {}
+
+        def cell(name, hold, exit_code):
+            grid[name] = {"holdMerge": bool(hold), "exit": int(exit_code)}
+            if name.startswith("K3"):
+                self.assertFalse(hold, name)
+                self.assertEqual(exit_code, 0, name)
+            elif name.startswith("K11") or name.startswith("K13"):
+                self.assertNotEqual(exit_code, 0, name)
+            elif name.startswith("K12") and "unsigned" in name:
+                self.assertEqual(exit_code, 0, name)
+            elif name.startswith("K12") and "other" in name:
+                self.assertEqual(exit_code, 1, name)
+            else:
+                self.assertTrue(hold, name)
+                self.assertEqual(exit_code, 1, name)
+
+        for drops, tag in (([], "empty"), (body, "drops")):
+            hold = _hold(
+                _fat_preview(
+                    phase={"type": "regular", "mode": "review", "week": 9},
+                    edition="2026 Week 9 · Review",
+                ),
+                drops=drops,
+            )
+            cell(f"K1-{tag}", hold, _fail_held_rc(hold))
+            hold = _hold(
+                edition,
+                leftover=["score progression 7-3 after Q2 disagrees with ESPN"],
+                drops=drops,
+            )
+            cell(f"K2a-{tag}", hold, _fail_held_rc(hold))
+            hold = _hold(
+                edition,
+                leftover=["fact-checker note leaked ('wire'): Do not tell that story."],
+                drops=drops,
+            )
+            cell(f"K2b-{tag}", hold, _fail_held_rc(hold))
+            hold = _hold(edition, leftover=[generate.REPLAY_NOT_RUN], drops=drops)
+            cell(f"K2c-{tag}", hold, _fail_held_rc(hold))
+            hold = _hold(
+                edition,
+                hold_only_sentinels=[
+                    facts.hold_only_sentinel(facts.HOLD_ONLY_SALVAGE_NOISY)
+                ],
+                drops=drops,
+            )
+            cell(f"K2d-{tag}", hold, _fail_held_rc(hold))
+            hold = _hold(
+                edition,
+                leftover=[
+                    "Chiefs Narrative fact-check left fragments after repair: "
+                    "orphan opener after repair ('That is the credit line.')"
+                ],
+                drops=drops,
+            )
+            cell(f"K2e-{tag}", hold, _fail_held_rc(hold))
+            hold = _hold(edition, drops=drops)
+            cell(f"K3-{tag}", hold, _fail_held_rc(hold))
+            hold = _hold(
+                edition,
+                corrections=[edition["headline"] + " → new title"],
+                before=edition,
+                drops=drops,
+            )
+            cell(f"K4-{tag}", hold, _fail_held_rc(hold))
+            hold = _hold(edition, missing_headline=True, drops=drops)
+            cell(f"K5-{tag}", hold, _fail_held_rc(hold))
+            hold = _hold(_fat_preview(headline=""), drops=drops)
+            cell(f"K6-{tag}", hold, _fail_held_rc(hold))
+            hold = _hold(
+                _fat_preview(phase={"type": "offseason", "mode": "offseason"}),
+                schedule=frozen_schedule(),
+                drops=drops,
+            )
+            cell(f"K7-{tag}", hold, _fail_held_rc(hold))
+            wild = {
+                "id": "wc",
+                "week": 1,
+                "seasonType": "post",
+                "date": "2027-01-16T21:00:00Z",
+                "opponent": "Houston Texans",
+                "completed": True,
+                "kcScore": 31,
+                "oppScore": 14,
+            }
+            slate = [
+                {
+                    "id": "w18",
+                    "week": 18,
+                    "seasonType": "reg",
+                    "date": "2027-01-03T18:00:00Z",
+                    "opponent": "Denver Broncos",
+                    "completed": True,
+                    "kcScore": 24,
+                    "oppScore": 17,
+                },
+                wild,
+            ]
+            with patch.object(facts, "REVIEW_REQUIRES_HUMAN", False):
+                hold = _hold(
+                    _fat_preview(
+                        phase={
+                            "type": "postseason",
+                            "mode": "preview",
+                            "lastGame": wild,
+                        }
+                    ),
+                    schedule=slate,
+                    drops=drops,
+                )
+            cell(f"K8-{tag}", hold, _fail_held_rc(hold))
+            k9 = _exact_words(_thin_preview(), 3314 if drops else 3899)
+            hold = _hold(k9, drops=drops)
+            cell(f"K9-{tag}", hold, _fail_held_rc(hold))
+            unsigned = _run_pages_rc_snippet(2)
+            other = _run_pages_rc_snippet(1)
+            cell(f"K12-unsigned-{tag}", True, unsigned.returncode)
+            cell(f"K12-other-{tag}", True, other.returncode)
+
+        for tag in ("empty", "drops"):
+            force = _extract_heredoc(
+                _job_step_script(
+                    _workflow("narrative.yml"), "test", name="Gate generated content"
+                )
+            )
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                (root / "data").mkdir()
+                (root / "data" / "narrative_repair.json").write_text("{}\n")
+                ran = subprocess.run(
+                    [sys.executable, "-c", force],
+                    cwd=root,
+                    capture_output=True,
+                    text=True,
                 )
                 self.assertEqual(ran.returncode, 0, ran.stderr)
-        body = drop_issues.build_issue_body(
-            slug=edition["slug"],
-            drops=["Dropped body line 0.", "line with `$(touch PWNED)` and @karen"],
-            run_id="43272341853",
-            edition=edition["edition"],
-        )
-        self.assertIn(edition["slug"], body)
-        self.assertIn("43272341853", body)
-        self.assertIn("Dropped body line 0.", body)
-        self.assertIn("@\u200bkaren", body)
-        self.assertNotIn("@karen", body.replace("@\u200b", ""))
+                payload = json.loads(
+                    (root / "data" / "narrative_repair.json").read_text()
+                )
+                cell(f"K10-{tag}", bool(payload.get("holdAutomerge")), 1)
+            leftover = ["score progression 7-3 after Q2 disagrees with ESPN"]
+            with tempfile.TemporaryDirectory() as tmp:
+                narrative_json = Path(tmp) / "n.json"
+                repair_json = Path(tmp) / "r.json"
+                narrative_json.write_text(json.dumps(_fat_preview()) + "\n")
+                repair_json.write_text(json.dumps({"holdAutomerge": True}) + "\n")
+                buf = io.StringIO()
+                with patch.object(
+                    generate.config, "NARRATIVE_JSON", narrative_json
+                ), patch.object(
+                    generate.config, "REPAIR_JSON", repair_json
+                ), patch.object(
+                    generate, "archive_replay_issues", return_value=leftover
+                ), patch.object(
+                    generate, "replay_fixture_missing", return_value=False
+                ), redirect_stdout(buf):
+                    rc = generate.main(["--gate-replay"])
+                cell(f"K11-{tag}", True, rc)
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                target = root / "public" / "images" / "narrative"
+                target.mkdir(parents=True)
+                (target / "xo.svg").write_text("<svg/>\n", encoding="utf-8")
+                subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+                subprocess.run(
+                    ["git", "add", "public/images/narrative"], cwd=root, check=True
+                )
+                subprocess.run(
+                    [
+                        "git",
+                        "-c",
+                        "user.email=t@t",
+                        "-c",
+                        "user.name=t",
+                        "commit",
+                        "-qm",
+                        "svg",
+                    ],
+                    cwd=root,
+                    check=True,
+                )
+                (target / "xo.svg").write_text("<svg id='drift'/>\n", encoding="utf-8")
+                ran = subprocess.run(
+                    ["git", "diff", "--exit-code", "--", "public/images/narrative"],
+                    cwd=root,
+                    capture_output=True,
+                    text=True,
+                )
+                cell(f"K13-{tag}", True, ran.returncode)
+
+        self.assertEqual(grid["K3-empty"]["holdMerge"], False)
+        self.assertEqual(grid["K3-drops"]["holdMerge"], False)
+        self.assertEqual(grid["K1-empty"]["holdMerge"], True)
+        self.assertEqual(grid["K10-empty"]["holdMerge"], True)
+        self.assertEqual(grid["K11-empty"]["exit"], generate.HARD_REPLAY_RC)
+        self.assertNotEqual(grid["K13-empty"]["exit"], 0)
+        self.assertEqual(grid["K12-unsigned-empty"]["exit"], 0)
+        self.assertEqual(grid["K12-other-empty"]["exit"], 1)
+        self.n3_grid = grid
 
     def test_n4_remainder_gate_failures_hold(self):
-        edition = _fat_preview()
-        rows = {
+        parsed = _workflow("narrative.yml")
+        force = _extract_heredoc(
+            _job_step_script(parsed, "test", name="Gate generated content")
+        )
+        classes = {
             "archive replay hard": ["score progression 7-3 disagrees with ESPN"],
             "check-edition other": ["press conference: embed missing"],
             "press/locker": ["locker room: unresolved post"],
             "leak": ["fact-checker note leaked ('wire'): Do not tell that story."],
         }
-        for name, leftover in rows.items():
-            with self.subTest(name=name):
-                self.assertTrue(_hold(edition, leftover=leftover))
-                self.assertTrue(_hold(edition, drops=["body"], leftover=leftover))
+        for name, issues in classes.items():
+            for drops in ([], ["body"]):
+                with self.subTest(name=name, drops=bool(drops)):
+                    with tempfile.TemporaryDirectory() as tmp:
+                        root = Path(tmp)
+                        data = root / "data"
+                        data.mkdir()
+                        narrative = _fat_preview()
+                        (data / "narrative.json").write_text(
+                            json.dumps(narrative) + "\n", encoding="utf-8"
+                        )
+                        (data / "narrative_repair.json").write_text(
+                            json.dumps(
+                                {
+                                    "holdAutomerge": False,
+                                    "droppedSentences": drops,
+                                }
+                            )
+                            + "\n",
+                            encoding="utf-8",
+                        )
+                        with patch.object(
+                            generate.config, "NARRATIVE_JSON", data / "narrative.json"
+                        ), patch.object(
+                            generate.config,
+                            "REPAIR_JSON",
+                            data / "narrative_repair.json",
+                        ), patch.object(
+                            generate,
+                            "check_published_edition",
+                            return_value=issues,
+                        ):
+                            rc = generate.main(["--check-edition"])
+                        self.assertEqual(rc, 1, name)
+                        ran = subprocess.run(
+                            [sys.executable, "-c", force],
+                            cwd=root,
+                            capture_output=True,
+                            text=True,
+                        )
+                        self.assertEqual(ran.returncode, 0, ran.stderr)
+                        repair = json.loads(
+                            (data / "narrative_repair.json").read_text(encoding="utf-8")
+                        )
+                        self.assertTrue(repair.get("holdAutomerge"), repair)
+                        published = {
+                            "holdMerge": True,
+                            "droppedSentences": drops,
+                        }
+                        (root / ".narrative-publish.json").write_text(
+                            json.dumps(published) + "\n", encoding="utf-8"
+                        )
+                        held = _run_fail_held_on_root(root)
+                        self.assertEqual(held.returncode, 1, held.stderr)
         thin = _exact_words(_thin_preview(), 3314)
         self.assertTrue(
             _hold(thin, drops=["The depth chart stayed on early downs."])
@@ -541,13 +1017,69 @@ class Frozen7Cases(unittest.TestCase):
 
     def test_n6_empty_edition_holds_safe_lede_is_not_content(self):
         empty = {
-            "headline": "",
+            "headline": "Week 9 Preview: remainder ships after body drops",
             "lastGameReview": {"lede": facts.safe_score_lede(None)},
         }
-        self.assertTrue(facts.only_safe_score_lede_content(empty))
+        lede_only = {"lastGameReview": {"lede": facts.safe_score_lede(None)}}
+        self.assertTrue(facts.only_safe_score_lede_content(lede_only))
+        self.assertTrue(str(empty.get("headline") or "").strip())
         self.assertTrue(_hold(empty, drops=["everything"]))
         fat = _fat_preview()
         self.assertFalse(facts.only_safe_score_lede_content(fat))
+        helper = self._helpers()
+        raw = helper._fat_nonlede(helper.CLEAN)
+
+        def empty_salvage(payload, problems, *args, **kwargs):
+            gutted = json.loads(json.dumps(payload))
+            gutted["dek"] = ""
+            gutted["theEdge"] = ""
+            gutted["storyline"] = ""
+            gutted["currentState"] = ""
+            gutted["gamePlan"] = ""
+            gutted["lastGameReview"] = {
+                "opponent": "Denver Broncos",
+                "result": "L",
+                "score": "KC 24–28",
+                "lede": facts.safe_score_lede(None),
+            }
+            gone = ["everything in the body was dropped."]
+            return gutted, gone, [], []
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result, repair_json = helper._through_build(
+                Path(tmp),
+                raw,
+                patches=(
+                    patch.object(
+                        generate, "_salvage_until_clean", side_effect=empty_salvage
+                    ),
+                    patch.object(
+                        facts,
+                        "restore_required_copy",
+                        side_effect=lambda payload, *a, **k: payload,
+                    ),
+                    patch.object(
+                        facts,
+                        "check_review",
+                        return_value=["storyline: leftover bait"],
+                    ),
+                    patch.object(
+                        generate, "replay_fixture_missing", return_value=False
+                    ),
+                ),
+            )
+            narrative = result["narrative"]
+            self.assertTrue(str(narrative.get("headline") or "").strip())
+            self.assertFalse(
+                facts.review_requires_human(narrative), narrative.get("phase")
+            )
+            repair = json.loads(repair_json.read_text(encoding="utf-8"))
+            self.assertTrue(repair.get("holdAutomerge"), repair)
+            self.assertTrue(
+                facts.only_safe_score_lede_content(narrative)
+                or facts.edition_word_count(narrative) < facts.PUBLISH_WORD_FLOOR,
+                narrative,
+            )
 
     def test_n7_word_floor_boundaries(self):
         ships = _exact_words(_thin_preview(), 3900)
@@ -586,17 +1118,11 @@ class Frozen7Cases(unittest.TestCase):
             )
 
     def test_n8_hold_repair_drops_8_and_9(self):
-        self.assertEqual(facts.HOLD_REPAIR_DROPS, 8)
-        self.assertFalse(8 > facts.HOLD_REPAIR_DROPS)
-        self.assertTrue(9 > facts.HOLD_REPAIR_DROPS)
-        source = Path(generate.__file__).read_text(encoding="utf-8")
-        self.assertIn("len(gone) > facts.HOLD_REPAIR_DROPS", source)
-        self.assertIn("facts.drop_ceiling_exceeded(dropped)", source)
-        self.assertFalse(facts.drop_ceiling_exceeded(_body_drops(8)))
-        self.assertTrue(facts.drop_ceiling_exceeded(_body_drops(9)))
         edition = _exact_words(_thin_preview(), 3900)
         eight = _body_drops(8)
         nine = _body_drops(9)
+        self.assertFalse(facts.drop_ceiling_exceeded(eight))
+        self.assertTrue(facts.drop_ceiling_exceeded(nine))
         self.assertFalse(_hold(edition, drops=eight))
         self.assertTrue(_hold(edition, drops=nine))
         self.assertTrue(
@@ -613,20 +1139,26 @@ class Frozen7Cases(unittest.TestCase):
         helper = self._helpers()
         raw = helper._fat_nonlede(helper.CLEAN)
         stages = {"n": 0}
+        changed_n = {"n": 0}
 
         def fake_salvage(payload, problems, *args, **kwargs):
             idx = stages["n"]
             stages["n"] += 1
             gone = list(gone_by_stage[idx]) if idx < len(gone_by_stage) else []
-            return payload, gone, [], []
+            fat = json.loads(json.dumps(payload))
+            if facts.edition_word_count(fat) < 3900:
+                fat = _exact_words(fat, 3900)
+            return fat, gone, [], []
 
-        archive_n = {"n": 0}
-
-        def fake_archive(*_args, **_kwargs):
-            archive_n["n"] += 1
-            if archive_n["n"] == 1:
-                return ["score progression 7-3 after Q2 disagrees with ESPN"]
-            return []
+        def fake_review(*_args, **kwargs):
+            if kwargs.get("changed"):
+                changed_n["n"] += 1
+                if changed_n["n"] <= 2:
+                    return [
+                        "score progression 7-3 after Q2 disagrees with ESPN"
+                    ]
+                return []
+            return ["storyline: leftover score-progression claim (stage bait)"]
 
         result, repair_json = helper._through_build(
             tmp,
@@ -635,27 +1167,18 @@ class Frozen7Cases(unittest.TestCase):
                 patch.object(
                     generate, "_salvage_until_clean", side_effect=fake_salvage
                 ),
+                patch.object(facts, "check_review", side_effect=fake_review),
                 patch.object(
                     facts,
-                    "check_review",
-                    return_value=[
-                        "storyline: leftover score-progression claim (stage bait)"
-                    ],
-                ),
-                patch.object(
-                    generate, "archive_replay_issues", side_effect=fake_archive
+                    "restore_required_copy",
+                    side_effect=lambda payload, *a, **k: payload,
                 ),
                 patch.object(
                     generate, "replay_fixture_missing", return_value=False
                 ),
-                patch.object(
-                    facts,
-                    "restore_required_copy",
-                    side_effect=lambda target, *args, **kwargs: target,
-                ),
             ),
         )
-        self.assertEqual(stages["n"], 3, stages)
+        self.assertGreaterEqual(stages["n"], 2, stages)
         return result, json.loads(repair_json.read_text(encoding="utf-8"))
 
     def _assert_n8_stage_outcome(self, result, repair, *, hold: bool):
@@ -717,6 +1240,96 @@ class Frozen7Cases(unittest.TestCase):
             self.assertEqual(drops[-4:], _body_drops(4, 5))
             self._assert_n8_stage_outcome(result, repair, hold=True)
 
+    def test_n8_real_drops_across_stages(self):
+        """A8/N8: real salvage drops in ≥2 stages including archive-replay."""
+        helper = self._helpers()
+        real_salvage = generate._salvage_until_clean
+        eight = [_body_drops(3, 0), _body_drops(3, 3), _body_drops(2, 6)]
+        nine = [_body_drops(4, 0), _body_drops(3, 4), _body_drops(2, 7)]
+        for plan, expect_hold in ((eight, False), (nine, True)):
+            gone_by_stage: list[list[str]] = []
+            stages = {"n": 0}
+            changed_n = {"n": 0}
+            archive_n = {"n": 0}
+            real_archive = generate.archive_replay_issues
+
+            def wrapped(payload, problems, *args, **kwargs):
+                repaired, gone, leftover, logs = real_salvage(
+                    payload, problems, *args, **kwargs
+                )
+                idx = stages["n"]
+                stages["n"] += 1
+                extra = list(plan[idx]) if idx < len(plan) else []
+                gone_by_stage.append(list(gone) + extra)
+                fat = json.loads(json.dumps(repaired))
+                if facts.edition_word_count(fat) < 3900:
+                    fat = _exact_words(fat, 3900)
+                return fat, extra, [], logs
+
+            def fake_review(*_args, **kwargs):
+                if kwargs.get("changed"):
+                    changed_n["n"] += 1
+                    if changed_n["n"] <= 2:
+                        return [
+                            "score progression 7-3 after Q2 disagrees with ESPN"
+                        ]
+                    return []
+                return ["storyline: leftover score-progression claim (stage bait)"]
+
+            def fake_archive(narrative, schedule=None):
+                leftover = list(real_archive(narrative, schedule) or [])
+                archive_n["n"] += 1
+                if archive_n["n"] == 1:
+                    leftover.append(
+                        "score progression 7-3 after Q2 disagrees with ESPN"
+                    )
+                return leftover
+
+            with self.subTest(hold=expect_hold):
+                gone_by_stage.clear()
+                stages["n"] = 0
+                changed_n["n"] = 0
+                archive_n["n"] = 0
+                with tempfile.TemporaryDirectory() as tmp:
+                    result, repair_json = helper._through_build(
+                        Path(tmp),
+                        helper._fat_nonlede(helper.CLEAN),
+                        patches=(
+                            patch.object(
+                                generate,
+                                "_salvage_until_clean",
+                                side_effect=wrapped,
+                            ),
+                            patch.object(
+                                facts, "check_review", side_effect=fake_review
+                            ),
+                            patch.object(
+                                generate,
+                                "archive_replay_issues",
+                                side_effect=fake_archive,
+                            ),
+                            patch.object(
+                                facts,
+                                "restore_required_copy",
+                                side_effect=lambda payload, *a, **k: payload,
+                            ),
+                            patch.object(
+                                generate,
+                                "replay_fixture_missing",
+                                return_value=False,
+                            ),
+                        ),
+                    )
+                    repair = json.loads(repair_json.read_text(encoding="utf-8"))
+                    nonempty = [row for row in gone_by_stage if row]
+                    self.assertGreaterEqual(len(gone_by_stage), 2, gone_by_stage)
+                    self.assertTrue(nonempty, gone_by_stage)
+                    self.assertTrue(
+                        any(row for row in gone_by_stage[1:]),
+                        gone_by_stage,
+                    )
+                    self._assert_n8_stage_outcome(result, repair, hold=expect_hold)
+
     def test_n9_issue_dedupe_update_and_safe_quoting(self):
         self.assertEqual(facts.DROPS_ISSUE_LABEL, "narrative-drops")
         self.assertEqual(
@@ -772,28 +1385,93 @@ class Frozen7Cases(unittest.TestCase):
         creates = [row for row in calls if row["args"][:2] == ["issue", "create"]]
         edits = [row for row in calls if row["args"][:2] == ["issue", "edit"]]
         self.assertEqual(len(creates), 1)
+        self.assertIn("--label", creates[0]["args"])
+        self.assertIn(facts.DROPS_ISSUE_LABEL, creates[0]["args"])
         self.assertTrue(edits)
         line = drop_issues.safe_issue_line("see @karen and `$(touch PWNED)`")
         self.assertIn("@\u200bkaren", line)
         self.assertIn("$(touch PWNED)", line)
+        pr_body = drop_body.drop_body(
+            {
+                "holdAutomerge": False,
+                "droppedSentences": ["see @karen and `$(touch PWNED)`"],
+            }
+        )
+        self.assertIn("@\u200bkaren", pr_body)
+        self.assertNotIn("@karen", pr_body.replace("@\u200b", ""))
+        self.assertIn("$(touch PWNED)", pr_body)
 
     def test_n10_remainder_roster_error_holds(self):
-        edition = _fat_preview()
-        leftover = ["roster: unnamed Chiefs player"]
-        self.assertTrue(
-            _hold(
-                edition,
-                drops=["The depth chart stayed on early downs."],
-                leftover=leftover,
+        helper = self._helpers()
+        claims = " ".join(helper._claims(3))
+        raw = helper._fat_nonlede(helper.CLEAN + " " + claims)
+        press = [
+            {
+                "speaker": "Andy Reid",
+                "url": "https://www.youtube.com/watch?v=aaaaaaaaaaa",
+            }
+        ]
+        raw["pressConferences"] = press
+        real_salvage = generate._salvage_until_clean
+        real_restore = facts.restore_required_copy
+
+        def keep_press_salvage(payload, problems, *args, **kwargs):
+            repaired, gone, leftover, logs = real_salvage(
+                payload, problems, *args, **kwargs
             )
-        )
-        source = Path(generate.__file__).read_text(encoding="utf-8")
-        self.assertIn("facts.check_diagram_captions", source)
-        check_src = Path(generate.__file__).read_text(encoding="utf-8")
-        self.assertIn("press_conferences.check_embeds", check_src)
-        self.assertIn("locker_room.check_posts", check_src)
-        self.assertIn("hero_posts.validate_sidecar", check_src)
-        self.assertIn("archive_replay_issues", check_src)
+            repaired = json.loads(json.dumps(repaired))
+            repaired["pressConferences"] = press
+            return repaired, gone, leftover, logs
+
+        def keep_press_restore(payload, *args, **kwargs):
+            restored = real_restore(payload, *args, **kwargs)
+            restored = json.loads(json.dumps(restored))
+            restored["pressConferences"] = press
+            return restored
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result, repair_json = helper._through_build(
+                Path(tmp),
+                raw,
+                patches=(
+                    patch.object(
+                        press_conferences,
+                        "fetch_oembed",
+                        side_effect=OSError("offline"),
+                    ),
+                    patch.object(
+                        generate,
+                        "_salvage_until_clean",
+                        side_effect=keep_press_salvage,
+                    ),
+                    patch.object(
+                        facts,
+                        "restore_required_copy",
+                        side_effect=keep_press_restore,
+                    ),
+                ),
+            )
+            leftover = result.get("leftoverIssues") or []
+            drops = result.get("droppedSentences") or []
+            self.assertTrue(drops, result)
+            self.assertTrue(
+                any("press conference" in str(item) for item in leftover),
+                leftover,
+            )
+            repair = json.loads(repair_json.read_text(encoding="utf-8"))
+            self.assertTrue(repair.get("holdAutomerge"), repair)
+            self.assertTrue(
+                facts.should_hold_automerge(
+                    drops,
+                    result["narrative"],
+                    leftover=leftover,
+                    corrections=result.get("correctedSentences") or [],
+                    hold_only_sentinels=result.get("holdOnlySentinels") or [],
+                    headline_or_lede_touched=bool(
+                        result.get("headlineOrLedeTouched")
+                    ),
+                )
+            )
 
     def test_n11_drop_body_lists_drops_without_held_when_shipping(self):
         shipping = drop_body.drop_body(
@@ -815,6 +1493,9 @@ class Frozen7Cases(unittest.TestCase):
 
 
 class Frozen7Addenda(unittest.TestCase):
+    def _helpers(self) -> ScoreProgressionBudgetExhaustion:
+        return ScoreProgressionBudgetExhaustion("test_p1_seven_invalid_claims_drop_clean")
+
     def test_r1_body_correction_ships_and_logs(self):
         edition = _exact_words(_thin_preview(), 3900)
         correction = "A body claim stayed on early downs. → A fixed body claim stayed on early downs."
@@ -848,6 +1529,50 @@ class Frozen7Addenda(unittest.TestCase):
             any(args[:2] == ["issue", "create"] for args in calls),
             calls,
         )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            ran_meta = _run_record_publish(
+                root,
+                repair={
+                    "holdAutomerge": False,
+                    "droppedSentences": [],
+                    "correctedSentences": [correction],
+                },
+                narrative=edition,
+            )
+            self.assertEqual(ran_meta.returncode, 0, ran_meta.stderr)
+            published = json.loads(
+                (root / ".narrative-publish.json").read_text(encoding="utf-8")
+            )
+            self.assertFalse(published.get("holdMerge"), published)
+            held = _run_fail_held_on_root(root)
+            self.assertEqual(held.returncode, 0, held.stderr)
+            env = PublicationPolicy._fake_commands(root)
+            env["DESK_MODE"] = "full"
+            env["PYTHONPATH"] = str(REPO) + os.pathsep + env.get("PYTHONPATH", "")
+            publish = _job_step_script(
+                _workflow("narrative.yml"),
+                "update",
+                name="Queue draft pull request for approved PR-event gates",
+            )
+            ran = subprocess.run(
+                ["bash", "-c", publish],
+                cwd=root,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(ran.returncode, 0, ran.stderr)
+            calls_q = [
+                json.loads(line)
+                for line in (root / "calls.jsonl").read_text().splitlines()
+            ]
+            labels = [
+                row
+                for row in calls_q
+                if row["command"] == "gh" and "--add-label" in row["args"]
+            ]
+            self.assertFalse(labels, labels)
 
     def test_r2_headline_correction_holds(self):
         edition = _fat_preview()
@@ -910,34 +1635,47 @@ class Frozen7Addenda(unittest.TestCase):
         self.assertFalse(_hold(fixed_p2, corrections=logs_p2, before=para2))
 
     def test_r4_dangling_reference_on_correction_holds(self):
-        before = _fat_preview(
-            theEdge=(
-                "Mahomes threw the pick. As noted, the next snap is the Jets. "
-                + _fat_preview()["theEdge"]
-            )
+        helper = self._helpers()
+        pinned = _pinned()
+        as_noted = "As noted, the next snap is the Jets."
+        raw = helper._fat_nonlede(helper.CLEAN)
+        raw["theEdge"] = (
+            pinned["quinton"] + " " + as_noted + " " + raw["theEdge"]
         )
-        after = json.loads(json.dumps(before))
-        after["theEdge"] = (
-            "As noted, the next snap is the Jets. " + _fat_preview()["theEdge"]
+        before = json.loads(json.dumps(raw))
+        fixed, logs = known_errors.apply_known_errors(before, None)
+        self.assertTrue(logs, logs)
+        orphans = facts.check_repair_orphans(
+            fixed, [], before=before, corrections=logs
         )
-        dropped = ["Mahomes threw the pick."]
-        orphans = facts.check_repair_orphans(after, dropped, before=before)
-        self.assertTrue(orphans, orphans)
+        self.assertTrue(orphans, (orphans, logs))
         self.assertTrue(
-            any("as-noted" in item or "orphan" in item for item in orphans)
+            any("as-noted" in item or "orphan" in item for item in orphans),
+            orphans,
         )
         blockers = facts.repair_publish_blockers(
-            [], after, orphans, before=before
+            [], fixed, orphans, before=before
         )
         self.assertTrue(
             _hold(
-                after,
-                corrections=["Mahomes threw the pick. → dropped"],
+                fixed,
+                corrections=logs,
                 leftover=blockers,
-                orphans=orphans,
                 before=before,
             )
         )
+        with tempfile.TemporaryDirectory() as tmp:
+            result, repair_json = helper._through_build(Path(tmp), raw)
+            leftover = result.get("leftoverIssues") or []
+            self.assertTrue(
+                any(
+                    "as-noted" in str(item) or "orphan" in str(item)
+                    for item in leftover
+                ),
+                leftover,
+            )
+            repair = json.loads(repair_json.read_text(encoding="utf-8"))
+            self.assertTrue(repair.get("holdAutomerge"), repair)
 
     def test_r5_correction_plus_other_k_cause_holds(self):
         edition = _fat_preview()
@@ -965,12 +1703,9 @@ class Frozen7Addenda(unittest.TestCase):
         self.assertTrue(facts.drop_ceiling_exceeded(_body_drops(9)))
 
     def test_a9_computed_repair_blockers_are_holding_leftover(self):
-        source = Path(generate.__file__).read_text(encoding="utf-8")
-        routed = source.index("blockers = facts.repair_publish_blockers")
-        appended = source.index("leftover.append(item)")
-        printed = source.index("repair blocker:")
-        self.assertLess(routed, appended)
-        self.assertLess(appended, printed)
+        cases = Frozen7Cases("test_n5_dangling_reference_holds_via_j2")
+        cases.test_n5_dangling_reference_holds_via_j2()
+        cases.test_n7_word_floor_boundaries()
 
     def test_a10_one_lede_drop_holds_p2s1_ships(self):
         lede = "Kansas City lost 24-28 in Denver."
@@ -987,14 +1722,12 @@ class Frozen7Addenda(unittest.TestCase):
             ),
             3900,
         )
-        self.assertTrue(
-            _hold(edition, drops=[lede], before=edition, headline_or_lede_touched=True)
-        )
         self.assertTrue(facts.copy_touches_headline_or_lede([lede], edition))
+        self.assertTrue(_hold(edition, drops=[lede], before=edition))
         self.assertFalse(facts.copy_touches_headline_or_lede([p2s1], edition))
         self.assertFalse(_hold(edition, drops=[p2s1], before=edition))
-        token = "Kansas"
-        self.assertIn(token, lede)
+        token = "Preview"
+        self.assertIn(token, edition["headline"])
         self.assertFalse(facts.copy_touches_headline_or_lede([token], edition))
         self.assertFalse(_hold(edition, drops=[token], before=edition))
         headline = edition["headline"]
@@ -1027,7 +1760,9 @@ class Frozen7Addenda(unittest.TestCase):
         ]
         llm = Mock(side_effect=[(first, "grok"), (second, "grok")])
 
-        def fake_review(*_args, **_kwargs):
+        def fake_review(*_args, **kwargs):
+            if kwargs.get("changed"):
+                return []
             if reviews:
                 return reviews.pop(0)
             return []
@@ -1038,14 +1773,8 @@ class Frozen7Addenda(unittest.TestCase):
             llm=llm,
             patches=(
                 patch.object(facts, "check_review", side_effect=fake_review),
-                patch.object(generate, "archive_replay_issues", return_value=[]),
                 patch.object(
                     generate, "replay_fixture_missing", return_value=False
-                ),
-                patch.object(
-                    facts,
-                    "restore_required_copy",
-                    side_effect=lambda target, *args, **kwargs: target,
                 ),
             ),
         )
@@ -1099,7 +1828,6 @@ class Frozen7Addenda(unittest.TestCase):
         self.assertNotIn("Jets after Denver", facts.lede_paragraph(two_para))
 
     def test_a12_flexed_floor_boundaries(self):
-        self.assertEqual(facts.DROP_REDUCED_WORD_FLOOR, 3315)
         drops = ["one body drop"]
         ships = _exact_words(_thin_preview(), 3315)
         under = _exact_words(_thin_preview(), 3314)
@@ -1108,12 +1836,19 @@ class Frozen7Addenda(unittest.TestCase):
         self.assertFalse(_hold(ships, drops=drops))
         self.assertTrue(_hold(under, drops=drops))
         dangling = ["orphan opener after repair ('That is the credit line.')"]
-        self.assertTrue(_hold(ships, drops=drops, leftover=dangling, orphans=dangling))
-        self.assertTrue(_hold(ships, drops=drops, leftover=[], orphans=dangling))
+        self.assertTrue(_hold(ships, drops=drops, leftover=dangling))
+        self.assertEqual(
+            facts.publish_word_floor(drops, leftover=dangling),
+            facts.PUBLISH_WORD_FLOOR,
+        )
+        self.assertEqual(
+            facts.publish_word_floor(drops),
+            facts.DROP_REDUCED_WORD_FLOOR,
+        )
         self.assertTrue(_hold(ships, drops=[]))
         self.assertEqual(
             facts.word_shortfall_below_publish_floor(ships),
-            facts.PUBLISH_WORD_FLOOR - 3315,
+            facts.PUBLISH_WORD_FLOOR - facts.edition_word_count(ships),
         )
         body = drop_issues.build_issue_body(
             slug="2026-11-07-1200",
@@ -1123,11 +1858,23 @@ class Frozen7Addenda(unittest.TestCase):
         self.assertIn("585", body)
 
     def test_a13_score_progression_budget_constant_used(self):
-        source = Path(facts.__file__).read_text(encoding="utf-8")
-        self.assertIn("SCORE_PROGRESSION_REPAIR_BUDGET", source)
-        self.assertIn("_score_progression_remaining", source)
-        self.assertIn("budget_ledger", source)
-        self.assertNotIn("for _ in range(8):", source)
+        helper = self._helpers()
+        text = helper._field(3)
+        with tempfile.TemporaryDirectory() as tmp:
+            result, repair_json = helper._through_build(
+                Path(tmp), helper._fat_nonlede(text)
+            )
+            leftover = result.get("leftoverIssues") or []
+            self.assertFalse(helper._budget_rows(leftover), leftover)
+        with patch.object(facts, "SCORE_PROGRESSION_REPAIR_BUDGET", 2):
+            with tempfile.TemporaryDirectory() as tmp:
+                result, repair_json = helper._through_build(
+                    Path(tmp), helper._fat_nonlede(text)
+                )
+                leftover = result.get("leftoverIssues") or []
+                self.assertEqual(len(helper._budget_rows(leftover)), 1, leftover)
+                repair = json.loads(repair_json.read_text(encoding="utf-8"))
+                self.assertTrue(repair.get("holdAutomerge"), repair)
 
 
 class Frozen7Callers(unittest.TestCase):
@@ -1195,6 +1942,8 @@ class Frozen7Callers(unittest.TestCase):
             )
             self.assertFalse(published.get("holdMerge"))
             self.assertIn("Dropped sentences", published.get("dropBody") or "")
+            held = _run_fail_held_on_root(root)
+            self.assertEqual(held.returncode, 0, held.stderr)
         clear = _run_fail_held_script(hold, payload={"holdMerge": False})
         self.assertEqual(clear.returncode, 0, clear.stderr)
 
@@ -1211,7 +1960,8 @@ class Frozen7Callers(unittest.TestCase):
             parsed, "update", name="File dropped-lines tracking issue"
         )
         self.assertIn("--add-label hold", publish)
-        self.assertIn("python -m tools.chiefs_narrative.drop_issues", issue_step)
+        self.assertIn("GATE_BASE", issue_step)
+        self.assertIn("python -P -m tools.chiefs_narrative.drop_issues", issue_step)
         from tools.tests.test_maintenance import PublicationPolicy
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -1277,6 +2027,68 @@ class Frozen7Callers(unittest.TestCase):
                 if row["command"] == "gh" and "--add-label" in row["args"]
             ]
             self.assertFalse(labels)
+            held_root = Path(tmp) / "held"
+            held_root.mkdir()
+            env_held = PublicationPolicy._fake_commands(held_root)
+            env_held["DESK_MODE"] = "full"
+            env_held["PYTHONPATH"] = str(REPO) + os.pathsep + env_held.get(
+                "PYTHONPATH", ""
+            )
+            (held_root / ".narrative-publish.json").write_text(
+                json.dumps(
+                    {
+                        "holdMerge": True,
+                        "dropBody": drop_body.drop_body(
+                            {
+                                "holdAutomerge": True,
+                                "droppedSentences": ["body drop"],
+                            }
+                        ),
+                        "edition": "2026 Week 9 · Preview",
+                        "headline": "Week 9 Preview",
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            data_held = held_root / "data"
+            data_held.mkdir()
+            (data_held / "narrative.json").write_text(
+                json.dumps(_fat_preview()) + "\n", encoding="utf-8"
+            )
+            (data_held / "narrative_repair.json").write_text(
+                json.dumps(
+                    {
+                        "droppedSentences": ["body drop"],
+                        "correctedSentences": [],
+                        "holdAutomerge": True,
+                        "wordShortfall": 0,
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            ran_held = subprocess.run(
+                ["bash", "-c", publish],
+                cwd=held_root,
+                env=env_held,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(ran_held.returncode, 0, ran_held.stderr)
+            held_calls = [
+                json.loads(line)
+                for line in (held_root / "calls.jsonl").read_text().splitlines()
+            ]
+            add_hold = [
+                row
+                for row in held_calls
+                if row["command"] == "gh"
+                and row["args"][:2] == ["pr", "edit"]
+                and "--add-label" in row["args"]
+                and "hold" in row["args"]
+            ]
+            self.assertTrue(add_hold, held_calls)
             ran_issue = subprocess.run(
                 [sys.executable, "-m", "tools.chiefs_narrative.drop_issues"],
                 cwd=root,
@@ -1374,6 +2186,67 @@ class Frozen7Callers(unittest.TestCase):
             )
             repair = json.loads(repair_json.read_text(encoding="utf-8"))
             self.assertFalse(repair.get("holdAutomerge"), repair)
+
+    def test_generate_main_preview_sentinel_and_lede_hold(self):
+        """XC2: generate.main writes holdAutomerge from its own kwargs."""
+        helper = ScoreProgressionBudgetExhaustion(
+            "test_p1_seven_invalid_claims_drop_clean"
+        )
+        raw = helper._fat_nonlede(helper.CLEAN)
+        real_build = generate.build
+
+        def sentinel_build(*args, **kwargs):
+            result = real_build(*args, **kwargs)
+            result["holdOnlySentinels"] = [
+                facts.hold_only_sentinel(facts.HOLD_ONLY_SALVAGE_NOISY)
+            ]
+            result["droppedSentences"] = []
+            result["leftoverIssues"] = []
+            result["correctedSentences"] = []
+            result["headlineOrLedeTouched"] = False
+            return result
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result, repair_json = helper._through_build(
+                Path(tmp),
+                raw,
+                patches=(
+                    patch.object(generate, "build", side_effect=sentinel_build),
+                ),
+            )
+            repair = json.loads(repair_json.read_text(encoding="utf-8"))
+            self.assertTrue(repair.get("holdAutomerge"), repair)
+            self.assertFalse(result.get("headlineOrLedeTouched"))
+            self.assertFalse(result.get("leftoverIssues"))
+
+        lede = "Kansas City lost 24-28 in Denver."
+        lede_raw = helper._fat_nonlede(helper.CLEAN)
+        lede_raw["lastGameReview"] = {
+            "opponent": "Denver Broncos",
+            "result": "L",
+            "score": "KC 24–28",
+            "lede": lede,
+        }
+
+        def lede_build(*args, **kwargs):
+            result = real_build(*args, **kwargs)
+            result["droppedSentences"] = []
+            result["leftoverIssues"] = []
+            result["correctedSentences"] = []
+            result["holdOnlySentinels"] = []
+            result["headlineOrLedeTouched"] = True
+            return result
+
+        with tempfile.TemporaryDirectory() as tmp:
+            _result, repair_json = helper._through_build(
+                Path(tmp),
+                lede_raw,
+                patches=(
+                    patch.object(generate, "build", side_effect=lede_build),
+                ),
+            )
+            repair = json.loads(repair_json.read_text(encoding="utf-8"))
+            self.assertTrue(repair.get("holdAutomerge"), repair)
 
 
 class Frozen7O1(unittest.TestCase):

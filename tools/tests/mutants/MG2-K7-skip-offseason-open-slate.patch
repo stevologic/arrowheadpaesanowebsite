@@ -1,6 +1,6 @@
 --- a/tools/chiefs_narrative/facts.py
 +++ b/tools/chiefs_narrative/facts.py
-@@ -11189,7 +11189,7 @@
+@@ -11293,7 +11293,7 @@
          return True
      if only_safe_score_lede_content(narrative):
          return True

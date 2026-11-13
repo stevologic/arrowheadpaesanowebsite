@@ -1,6 +1,6 @@
 --- a/tools/chiefs_narrative/facts.py
 +++ b/tools/chiefs_narrative/facts.py
-@@ -11096,7 +11096,7 @@
+@@ -11198,7 +11198,7 @@
      reference, no hold-only sentinel, and no headline/lede touch.
      """
      if not drops:

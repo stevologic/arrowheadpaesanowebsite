@@ -1,0 +1,20 @@
+--- a/tools/chiefs_narrative/generate.py
++++ b/tools/chiefs_narrative/generate.py
+@@ -1318,7 +1318,7 @@
+             check_schedule=schedule,
+             check_changed=True,
+             before=narrative,
+-            score_budget_ledger=score_budget_ledger,
++            score_budget_ledger={},
+             score_exhausted=score_exhausted,
+         )
+         corrections.extend(logs)
+@@ -1398,7 +1398,7 @@
+                 check_schedule=schedule,
+                 check_changed=True,
+                 before=narrative,
+-                score_budget_ledger=score_budget_ledger,
++                score_budget_ledger={},
+                 score_exhausted=score_exhausted,
+             )
+             corrections.extend(logs)

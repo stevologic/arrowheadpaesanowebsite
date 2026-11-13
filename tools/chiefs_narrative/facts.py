@@ -8813,12 +8813,31 @@ def _live_heading_sentences(value) -> set[str]:
     return out
 
 
+def _correction_antecedents(corrections: list[str] | None) -> list[str]:
+    """R4: sentences a correction removed or rewrote are drop antecedents."""
+    out: list[str] = []
+    for log in corrections or []:
+        old, new = correction_old_and_new(str(log))
+        if not old:
+            continue
+        old_sents = [sent.strip() for sent in _split_sentences(old) if sent.strip()]
+        if new is None:
+            out.extend(old_sents)
+            continue
+        new_sents = {sent.strip() for sent in _split_sentences(new) if sent.strip()}
+        out.extend(sent for sent in old_sents if sent not in new_sents)
+    return out
+
+
 def check_repair_orphans(
     narrative: dict | None,
     dropped: list[str],
     before: dict | None = None,
+    corrections: list[str] | None = None,
 ) -> list[str]:
-    """Fail leftovers that lost their antecedent in a salvage drop."""
+    """Fail leftovers that lost their antecedent in a salvage drop or correction."""
+    dropped = [str(row) for row in (dropped or []) if str(row).strip()]
+    dropped.extend(_correction_antecedents(corrections))
     if not dropped:
         return []
     dropped_set = {s.strip() for s in dropped if s and s.strip()}

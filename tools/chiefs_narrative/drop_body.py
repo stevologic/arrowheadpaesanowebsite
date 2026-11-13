@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from tools.chiefs_narrative import config
+from tools.chiefs_narrative.drop_issues import safe_issue_line
 
 
 def _leak_rows(repair: dict | None) -> list[str]:
@@ -54,7 +55,7 @@ def drop_body(repair: dict | None) -> str:
                 "",
             ]
         )
-        lines.extend(f"- {row}" for row in leaks)
+        lines.extend(f"- {safe_issue_line(row)}" for row in leaks)
         lines.append("")
     if leftovers:
         lines.extend(
@@ -65,7 +66,7 @@ def drop_body(repair: dict | None) -> str:
                 "",
             ]
         )
-        lines.extend(f"- {row}" for row in leftovers)
+        lines.extend(f"- {safe_issue_line(row)}" for row in leftovers)
         lines.append("")
     if fixes:
         lines.extend(
@@ -76,7 +77,7 @@ def drop_body(repair: dict | None) -> str:
                 "",
             ]
         )
-        lines.extend(f"- {row}" for row in fixes)
+        lines.extend(f"- {safe_issue_line(row)}" for row in fixes)
         lines.append("")
     if rows:
         lines.extend(
@@ -87,7 +88,7 @@ def drop_body(repair: dict | None) -> str:
                 "",
             ]
         )
-        lines.extend(f"- {row}" for row in rows)
+        lines.extend(f"- {safe_issue_line(row)}" for row in rows)
     return "\n".join(lines).rstrip() + "\n"
 
 

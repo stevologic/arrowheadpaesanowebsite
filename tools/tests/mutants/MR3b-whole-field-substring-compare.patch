@@ -1,6 +1,6 @@
 --- a/tools/chiefs_narrative/facts.py
 +++ b/tools/chiefs_narrative/facts.py
-@@ -11152,16 +11152,9 @@
+@@ -11171,16 +11171,9 @@
      headline = str((narrative or {}).get("headline") or "")
      lede = lede_paragraph(narrative)
      for item in sentences or []:

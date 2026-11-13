@@ -1,11 +1,11 @@
 --- a/tools/chiefs_narrative/facts.py
 +++ b/tools/chiefs_narrative/facts.py
-@@ -11169,6 +11169,8 @@
-     if review_requires_human(narrative):
-         return True
-     if hard_leftover_texts(leftover):
-+        if any("score progression" in leftover_item_text(item) for item in leftover or []):
-+            return False
-         return True
-     if any(is_hold_only_sentinel(item) for item in leftover or []):
-         return True
+@@ -11049,6 +11049,8 @@
+         if is_hold_only_sentinel(item):
+             continue
+         text = leftover_item_text(item)
++        if text in HOLD_ONLY_SENTINEL_TEXT.values():
++            continue
+         if text:
+             out.append(text)
+     return out

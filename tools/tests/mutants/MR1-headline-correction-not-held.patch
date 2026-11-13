@@ -1,6 +1,6 @@
 --- a/tools/chiefs_narrative/facts.py
 +++ b/tools/chiefs_narrative/facts.py
-@@ -11154,13 +11154,11 @@
+@@ -11173,13 +11173,11 @@
      for item in sentences or []:
          old, new = correction_old_and_new(item)
          if new is None:

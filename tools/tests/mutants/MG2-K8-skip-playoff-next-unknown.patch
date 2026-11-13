@@ -1,6 +1,6 @@
 --- a/tools/chiefs_narrative/facts.py
 +++ b/tools/chiefs_narrative/facts.py
-@@ -11191,7 +11191,7 @@
+@@ -11295,7 +11295,7 @@
          return True
      if _offseason_while_slate_open(narrative, schedule):
          return True

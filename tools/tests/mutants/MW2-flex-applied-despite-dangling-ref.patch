@@ -1,11 +1,11 @@
 --- a/tools/chiefs_narrative/facts.py
 +++ b/tools/chiefs_narrative/facts.py
-@@ -11099,7 +11099,7 @@
+@@ -11199,7 +11199,7 @@
+     """
+     if not drops:
          return PUBLISH_WORD_FLOOR
-     if hard_leftover_texts(leftover):
+-    if hard_leftover_texts(leftover):
++    if False and hard_leftover_texts(leftover):
          return PUBLISH_WORD_FLOOR
--    if orphans:
-+    if False and orphans:
-         return PUBLISH_WORD_FLOOR
-     if hold_only_sentinels:
+     if orphans:
          return PUBLISH_WORD_FLOOR

@@ -1,6 +1,6 @@
 --- a/tools/chiefs_narrative/facts.py
 +++ b/tools/chiefs_narrative/facts.py
-@@ -11181,7 +11181,7 @@
+@@ -11285,7 +11285,7 @@
              list(drops or []) + list(corrections or []),
              source,
          )

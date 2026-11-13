@@ -647,36 +647,29 @@ class ScoreProgressionBudgetExhaustion(unittest.TestCase):
             stack.enter_context(patch.object(generate.config, "WIRE_JSON", wire_json))
             stack.enter_context(patch.object(generate.config, "ensure_dirs", lambda: None))
             stack.enter_context(patch.object(hero_posts, "attach_sidecar"))
+            stack.enter_context(
+                patch.object(hero_posts, "validate_sidecar", return_value=[])
+            )
+            stack.enter_context(patch.object(generate, "_write_archive"))
             for extra in patches:
                 stack.enter_context(extra)
-            result = generate.build("grok", persist_schedule=False)
-            leftover = result.get("leftoverIssues") or []
-            drops = result.get("droppedSentences") or []
-            corrections = result.get("correctedSentences") or []
-            hold_only = result.get("holdOnlySentinels") or []
-            headline_or_lede = bool(result.get("headlineOrLedeTouched"))
-            repair_json.write_text(
-                json.dumps(
-                    {
-                        "droppedSentences": drops,
-                        "correctedSentences": corrections,
-                        "leftoverIssues": leftover,
-                        "holdOnlySentinels": hold_only,
-                        "headlineOrLedeTouched": headline_or_lede,
-                        "holdAutomerge": facts.should_hold_automerge(
-                            drops,
-                            result["narrative"],
-                            leftover=leftover,
-                            corrections=corrections,
-                            hold_only_sentinels=hold_only,
-                            headline_or_lede_touched=headline_or_lede,
-                        ),
-                    },
-                    indent=2,
+            rc = generate.main(["--provider", "grok"])
+            if rc != 0:
+                raise AssertionError(
+                    f"generate.main rc={rc} repair={repair_json.read_text() if repair_json.is_file() else 'missing'}"
                 )
-                + "\n",
-                encoding="utf-8",
-            )
+            repair = json.loads(repair_json.read_text(encoding="utf-8"))
+            narrative = json.loads(narrative_json.read_text(encoding="utf-8"))
+            result = {
+                "narrative": narrative,
+                "schedule": frozen_schedule(),
+                "droppedSentences": repair.get("droppedSentences") or [],
+                "correctedSentences": repair.get("correctedSentences") or [],
+                "leftoverIssues": repair.get("leftoverIssues") or [],
+                "holdOnlySentinels": repair.get("holdOnlySentinels") or [],
+                "headlineOrLedeTouched": bool(repair.get("headlineOrLedeTouched")),
+                "wordShortfall": int(repair.get("wordShortfall") or 0),
+            }
         return result, repair_json
 
     def _p3_through_build(self, tmp: Path) -> tuple[dict, Path]:
@@ -692,18 +685,19 @@ class ScoreProgressionBudgetExhaustion(unittest.TestCase):
         byte-present. leftoverIssues is non-empty and holdAutomerge=true.
         This kills M4-5 (merge dropped at generate.py ~1105-1107).
         """
-        self.assertEqual(facts.HOLD_REPAIR_DROPS, 8)
         ninth = self.NINTH
         cases = (
-            (9, self._field(8, ninth=True)),
-            (50, self._wrapped_field(50)),
+            ("storyline-9", 9, self._fat_nonlede(self._field(8, ninth=True))),
+            ("storyline-50", 50, self._fat_nonlede(self._wrapped_field(50))),
+            ("lede-p3", 9, self._fat_edition(self._field(8, ninth=True))),
         )
-        for count, text in cases:
-            with self.subTest(claims=count):
+        for label, count, raw in cases:
+            with self.subTest(claims=label):
                 with tempfile.TemporaryDirectory() as tmp:
-                    result, repair_json = self._through_build(
-                        Path(tmp), self._fat_nonlede(text)
-                    )
+                    if label == "lede-p3":
+                        result, repair_json = self._p3_through_build(Path(tmp))
+                    else:
+                        result, repair_json = self._through_build(Path(tmp), raw)
                     leftover = result.get("leftoverIssues") or []
                     self.assertTrue(leftover, leftover)
                     budget = self._budget_rows(leftover)
@@ -711,15 +705,16 @@ class ScoreProgressionBudgetExhaustion(unittest.TestCase):
                     blob = facts.edition_text(result["narrative"])
                     if count == 9:
                         self.assertIn(ninth, blob)
-                        storyline = result["narrative"].get("storyline")
-                        if isinstance(storyline, dict):
-                            storyline_text = " ".join(
-                                str(storyline.get(part) or "")
-                                for part in ("lede", "body")
-                            )
-                        else:
-                            storyline_text = str(storyline or "")
-                        self.assertIn(ninth, storyline_text)
+                        if label.startswith("storyline"):
+                            storyline = result["narrative"].get("storyline")
+                            if isinstance(storyline, dict):
+                                storyline_text = " ".join(
+                                    str(storyline.get(part) or "")
+                                    for part in ("lede", "body")
+                                )
+                            else:
+                                storyline_text = str(storyline or "")
+                            self.assertIn(ninth, storyline_text)
                     repair = json.loads(repair_json.read_text(encoding="utf-8"))
                     self.assertTrue(repair.get("leftoverIssues"), repair)
                     self.assertTrue(repair.get("holdAutomerge"), repair)

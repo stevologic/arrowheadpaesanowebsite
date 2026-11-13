@@ -1,11 +1,11 @@
 --- a/tools/chiefs_narrative/facts.py
 +++ b/tools/chiefs_narrative/facts.py
-@@ -8820,6 +8820,8 @@
+@@ -8837,6 +8837,8 @@
  ) -> list[str]:
-     """Fail leftovers that lost their antecedent in a salvage drop."""
-     if not dropped:
+     """Fail leftovers that lost their antecedent in a salvage drop or correction."""
+     dropped = [str(row) for row in (dropped or []) if str(row).strip()]
++    if corrections:
 +        return []
-+    if True:
+     dropped.extend(_correction_antecedents(corrections))
+     if not dropped:
          return []
-     dropped_set = {s.strip() for s in dropped if s and s.strip()}
-     issues = []

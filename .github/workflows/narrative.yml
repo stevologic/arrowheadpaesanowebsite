@@ -478,7 +478,17 @@ jobs:
       - name: File dropped-lines tracking issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python -m tools.chiefs_narrative.drop_issues
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin develop
+          GATE_BASE="${RUNNER_TEMP}/gate-base"
+          if [ ! -d "$GATE_BASE" ]; then
+            git worktree add --detach "$GATE_BASE" "origin/develop"
+          fi
+          cd "$GATE_BASE"
+          PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.drop_issues \
+            --repair "${GITHUB_WORKSPACE}/data/narrative_repair.json" \
+            --narrative "${GITHUB_WORKSPACE}/data/narrative.json"
 
   publish:
     # Ready narrative/update-* PRs to develop. Refuse hold or open review

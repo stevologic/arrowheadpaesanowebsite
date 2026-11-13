@@ -571,7 +571,7 @@ class PublicationPolicy(unittest.TestCase):
     def _fake_commands(root):
         """Run the actual workflow shell offline and record its git/gh calls."""
         directory = root / "bin"
-        directory.mkdir()
+        directory.mkdir(exist_ok=True)
         program = '''#!/usr/bin/env python3
 import json, os, sys
 from pathlib import Path

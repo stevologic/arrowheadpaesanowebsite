@@ -1,6 +1,6 @@
 --- a/tools/chiefs_narrative/facts.py
 +++ b/tools/chiefs_narrative/facts.py
-@@ -11039,6 +11039,11 @@
+@@ -11063,6 +11063,11 @@
      """A11: lede = first body paragraph (lastGameReview.lede, else first para)."""
      review = (narrative or {}).get("lastGameReview") or {}
      raw = str(review.get("lede") or "").strip()

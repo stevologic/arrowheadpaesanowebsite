@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/generate.py
++++ b/tools/chiefs_narrative/generate.py
+@@ -2129,8 +2129,6 @@
+                     corrections=corrections,
+                     schedule=result.get("schedule"),
+                     missing_headline=missing_headline,
+-                    hold_only_sentinels=hold_only,
+-                    headline_or_lede_touched=headline_or_lede,
+                 ),
+             },
+             indent=2,

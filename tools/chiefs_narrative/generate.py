@@ -889,7 +889,7 @@ def _salvage_until_clean(
             break
     start = before if before is not None else payload
     orphans = facts.check_repair_orphans(
-        repaired, gone_all, before=start
+        repaired, gone_all, before=start, corrections=logs_all
     )
     # J2/A9: blockers were computed and only printed. Route them into
     # leftoverIssues (hard). Pass leftover=[] so word-floor and orphan
@@ -1491,6 +1491,21 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
     leftover_issues = leftover_issues_with_score_progression_budget(
         leftover_issues
     )
+    # R4: known_errors corrections run before salvage, so the salvage-local
+    # orphan check never sees them. Re-run on the final remainder with the
+    # full correction log. Extend the orphan rows directly so J2's salvage
+    # leftover.append remains the only blocker-routing path (MG4).
+    _extend_leftover(
+        facts.check_repair_orphans(
+            narrative,
+            dropped,
+            before=known_before,
+            corrections=corrections,
+        )
+    )
+    # N10: remainder gates run on the post-drop edition even when drops
+    # are non-empty. MG8 skips this block.
+    _extend_leftover(_remainder_gate_issues(narrative, schedule))
     # A8/N8: HOLD_REPAIR_DROPS is the aggregate ceiling across every salvage
     # stage, including archive-replay. Per-stage len(gone) checks stay.
     if facts.drop_ceiling_exceeded(dropped):
@@ -1883,6 +1898,19 @@ def emit_held(items: list[str], *, stream=None) -> None:
                         fh.write(f"- {item}\n")
             except OSError:
                 pass
+
+
+def _remainder_gate_issues(narrative: dict, schedule=None) -> list[str]:
+    """N10: embed/sidecar remainder gates salvage does not run.
+
+    check_review, check_diagram_captions, and archive_replay_issues already
+    ran on this remainder in build. Re-running check_review here would
+    re-append the pre-collapse score-progression leftover after A13 merge.
+    """
+    issues = press_conferences.check_embeds(narrative, schedule=schedule)
+    issues.extend(locker_room.check_posts(narrative, schedule=schedule))
+    issues.extend(hero_posts.validate_sidecar())
+    return issues
 
 
 def check_published_edition() -> list[str]:
