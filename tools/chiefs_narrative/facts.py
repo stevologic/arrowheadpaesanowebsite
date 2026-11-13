@@ -9509,7 +9509,7 @@ def _drop_invalid_score_progression_text(
                 progressed = True
                 break
             stall_claim = sentence
-            break
+            continue
         if not progressed:
             surviving = stall_claim or _surviving_invalid_score_claim(
                 current, recap, last_game

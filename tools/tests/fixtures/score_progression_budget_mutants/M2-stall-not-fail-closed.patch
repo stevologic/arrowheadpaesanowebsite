@@ -3,7 +3,7 @@ diff --git a/tools/chiefs_narrative/facts.py b/tools/chiefs_narrative/facts.py
 +++ b/tools/chiefs_narrative/facts.py
 @@ -9511,12 +9511,6 @@
              stall_claim = sentence
-             break
+             continue
          if not progressed:
 -            surviving = stall_claim or _surviving_invalid_score_claim(
 -                current, recap, last_game

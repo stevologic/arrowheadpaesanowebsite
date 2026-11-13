@@ -16,6 +16,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 MUTANTS = Path(__file__).resolve().parent / "fixtures" / "score_progression_budget_mutants"
+FROZEN = "tools.tests.test_score_progression_budget_frozen.ScoreProgressionBudgetExhaustion"
 KILLERS = (
     (
         "M1-cap-off-by-one",
@@ -34,18 +35,38 @@ KILLERS = (
     ),
     (
         "M4-snippet-clip-exhausted-field",
-        "test_p11_snippet_drop_value_does_not_touch_exhausted_field",
+        "test_o1_no_orphaned_claim_fragment_in_any_output",
         "snippet clipping on an exhausted field",
     ),
     (
         "M5-leftover-not-emitted",
-        "test_p4_exactly_one_hard_budget_leftover",
+        "test_f1_exactly_one_hard_budget_leftover",
         "the leftover not emitted",
     ),
     (
         "M6-holdAutomerge-not-set",
-        "test_p5_hold_automerge_on_exhaustion",
+        "test_f2_hold_automerge_on_exhaustion",
         "holdAutomerge not set",
+    ),
+    (
+        "M7-global-budget-not-per-string",
+        "test_p5_nine_claims_split_5_plus_4_per_string_budget",
+        "per-field vs global budget",
+    ),
+    (
+        "M8-fifty-claim-timeout",
+        "test_p6_fifty_claims_under_five_seconds_fail_closed",
+        "50-claim timeout",
+    ),
+    (
+        "M9-signoff-emitted-on-exhaustion",
+        "test_p13_no_sign_ok_or_signoff_json_on_exhaustion",
+        "sign-off emitted on exhaustion",
+    ),
+    (
+        "M10-stall-skips-remaining-claims",
+        "test_p11_eight_removable_plus_one_stall",
+        "stall no-op skips remaining claims",
     ),
 )
 
@@ -81,10 +102,7 @@ class ScoreProgressionBudgetMutants(unittest.TestCase):
                             sys.executable,
                             "-m",
                             "unittest",
-                            (
-                                "tools.tests.test_archive_replay_qa."
-                                f"ScoreProgressionBudgetExhaustion.{killer}"
-                            ),
+                            f"{FROZEN}.{killer}",
                             "-q",
                         ],
                         cwd=dest,
