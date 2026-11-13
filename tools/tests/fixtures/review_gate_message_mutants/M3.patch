@@ -1,6 +1,6 @@
---- a/tools/chiefs_narrative/review_gate.py	2026-11-13 22:26:28.055226450 +0000
-+++ b/tools/chiefs_narrative/review_gate.py	2026-11-13 22:26:28.055226450 +0000
-@@ -835,7 +835,7 @@
+--- a/tools/chiefs_narrative/review_gate.py	2026-11-13 22:56:53.022091767 +0000
++++ b/tools/chiefs_narrative/review_gate.py	2026-11-13 22:56:53.022091767 +0000
+@@ -804,7 +804,7 @@
  
  def _escape_automerge_log_path(path: str) -> str:
      """JSON-quote a PR path so it cannot become a workflow command or fake line."""

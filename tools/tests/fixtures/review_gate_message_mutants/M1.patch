@@ -1,13 +1,15 @@
---- a/tools/chiefs_narrative/review_gate.py	2026-11-13 22:26:28.047226322 +0000
-+++ b/tools/chiefs_narrative/review_gate.py	2026-11-13 22:26:28.051226386 +0000
-@@ -875,9 +875,9 @@
-     """Stderr lines for a blocked automerge. Empty when only a signed Review blocks."""
+--- a/tools/chiefs_narrative/review_gate.py	2026-11-13 22:56:53.014091861 +0000
++++ b/tools/chiefs_narrative/review_gate.py	2026-11-13 22:56:53.014091861 +0000
+@@ -838,11 +838,11 @@
      lines: list[str] = []
-     if _automerge_unsigned_review(paths, root=root):
+     unsigned, signed = _automerge_review_flags(paths, root=root)
+     if unsigned:
 -        lines.append(_SIGNOFF_REFUSAL)
--    if _automerge_allowlist_or_extra(paths, root=root):
-         lines.append(_ALLOWLIST_REFUSAL)
-+    if _automerge_allowlist_or_extra(paths, root=root):
++        lines.append(_ALLOWLIST_REFUSAL)
+     if signed:
+         lines.append(_SIGNED_REVIEW_REFUSAL)
+     if _automerge_allowlist_or_extra(paths, root=root):
+-        lines.append(_ALLOWLIST_REFUSAL)
 +        lines.append(_SIGNOFF_REFUSAL)
          lines.extend(_automerge_path_refusal_lines(paths, root=root))
      return lines

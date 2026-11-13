@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/review_gate.py	2026-11-13 22:56:53.026091720 +0000
++++ b/tools/chiefs_narrative/review_gate.py	2026-11-13 22:56:53.030091673 +0000
+@@ -839,8 +839,6 @@
+     unsigned, signed = _automerge_review_flags(paths, root=root)
+     if unsigned:
+         lines.append(_SIGNOFF_REFUSAL)
+-    if signed:
+-        lines.append(_SIGNED_REVIEW_REFUSAL)
+     if _automerge_allowlist_or_extra(paths, root=root):
+         lines.append(_ALLOWLIST_REFUSAL)
+         lines.extend(_automerge_path_refusal_lines(paths, root=root))
