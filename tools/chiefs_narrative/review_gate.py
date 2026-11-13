@@ -280,30 +280,57 @@ def resolve_hugo_surface(root: Path) -> dict[str, list[str] | str]:
 
 def extra_publish_surface(root: Path) -> bool:
     """True when the tree has a non-JSON data file or extra Hugo config."""
+    return bool(_extra_publish_surface_rels(root))
+
+
+def _extra_publish_surface_rels(root: Path) -> list[str]:
+    """Repo-relative paths that make ``extra_publish_surface`` true.
+
+    Same walk as the bool. Refusal lines reuse this so an extra-surface
+    block names the files; the public helper stays the historical bool.
+    """
     base = Path(root)
+    found: list[str] = []
+    seen: set[str] = set()
+
+    def _add(rel: str) -> None:
+        text = _posix_rel(rel)
+        if text in seen:
+            return
+        seen.add(text)
+        found.append(text)
+
     if not base.is_dir():
-        return False
+        return found
     for name in _BLOCKED_HUGO_CONFIGS:
         if (base / name).is_file():
-            return True
-    for child in base.iterdir() if base.is_dir() else []:
+            _add(name)
+    for child in base.iterdir():
         if not child.is_file():
             continue
         lower = child.name.lower()
         if lower.startswith("hugo.") and lower != "hugo.yaml":
-            return True
+            _add(child.name)
     config_dir = base / "config"
     if config_dir.is_dir():
         for path in config_dir.rglob("*"):
             if path.is_file():
-                return True
+                try:
+                    rel = path.resolve().relative_to(base.resolve()).as_posix()
+                except ValueError:
+                    rel = _posix_rel(path)
+                _add(rel)
     data = base / "data"
     if not data.is_dir():
-        return False
+        return found
     for path in data.rglob("*"):
         if path.is_file() and not path.name.endswith(".json"):
-            return True
-    return False
+            try:
+                rel = path.resolve().relative_to(base.resolve()).as_posix()
+            except ValueError:
+                rel = _posix_rel(path)
+            _add(rel)
+    return found
 
 
 def public_key_path(root: Path | None = None) -> Path:
@@ -808,17 +835,24 @@ def _escape_automerge_log_path(path: str) -> str:
 
 
 def automerge_offending_paths(paths, *, root: Path | None = None) -> list[str]:
-    """PR paths that tripped allowlist or extra-publish-path checks."""
-    del root
+    """PR paths and extra-publish-surface files that tripped the allowlist."""
     found: list[str] = []
     seen: set[str] = set()
+
+    def _add(raw: str | Path) -> None:
+        rel = _posix_rel(raw)
+        if rel in seen:
+            return
+        seen.add(rel)
+        found.append(rel)
+
     for raw in paths or []:
         if not automerge_allowlisted(raw) or extra_publish_path(raw):
-            rel = _posix_rel(raw)
-            if rel in seen:
-                continue
-            seen.add(rel)
-            found.append(rel)
+            _add(raw)
+    base = Path(root) if root is not None else config.REPO_ROOT
+    if extra_publish_surface(base):
+        for rel in _extra_publish_surface_rels(base):
+            _add(rel)
     return found
 
 

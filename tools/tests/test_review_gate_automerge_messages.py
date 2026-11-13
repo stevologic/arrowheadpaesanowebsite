@@ -7,8 +7,9 @@ narrative.yml.
 """
 from __future__ import annotations
 
-import ast
 import base64
+import builtins
+import contextlib
 import hashlib
 import io
 import json
@@ -65,6 +66,7 @@ FROZEN_IDS = (
     "MW-false",
     "MC",
     "M-R3'",
+    "M-cap",
 )
 RECEIPTS: dict[str, dict] = {}
 
@@ -113,7 +115,7 @@ COMBINED_TEXT = (
     "or this PR is off the automerge allowlist"
 )
 PAGES_TEXT = "skip: unsigned Review edition; not deploying to gh-pages"
-CAP = review_gate.AUTOMERGE_REFUSAL_PATH_CAP
+PINNED_PATH_CAP = 16
 MUTANT_PATCHES = (
     ("M1", "M1.patch"),
     ("M2", "M2.patch"),
@@ -122,7 +124,13 @@ MUTANT_PATCHES = (
     ("MW-false", "MW-false.patch"),
     ("MC", "MC.patch"),
     ("M-R3'", "M-R3.patch"),
+    ("M-cap", "M-cap.patch"),
 )
+_ORIG_BUILTINS_OPEN = builtins.open
+_ORIG_IO_OPEN = io.open
+_ORIG_PATH_OPEN = Path.open
+_ORIG_PATH_READ_TEXT = Path.read_text
+_ORIG_PATH_READ_BYTES = Path.read_bytes
 
 
 def _ed25519_keypair(tmp: Path) -> tuple[Path, Path]:
@@ -320,7 +328,7 @@ def _record(rid: str, proc: subprocess.CompletedProcess[str], cmd: list[str]) ->
     blob = (proc.stderr or "") + (proc.stdout or "")
     RECEIPTS[rid] = {
         "id": rid,
-        "command": subprocess.list2cmdline(cmd),
+        "command": json.dumps(cmd, ensure_ascii=True),
         "exit": proc.returncode,
         "last15": blob.splitlines()[-15:],
     }
@@ -329,10 +337,43 @@ def _record(rid: str, proc: subprocess.CompletedProcess[str], cmd: list[str]) ->
 def _record_table(rid: str, command: str, lines: list[str], exit_code: int = 0) -> None:
     RECEIPTS[rid] = {
         "id": rid,
-        "command": command,
+        "command": json.dumps(command, ensure_ascii=True),
         "exit": exit_code,
         "last15": lines[-15:],
     }
+
+
+def _receipt_json_line(rid: str, row: dict) -> str:
+    """One JSON object. ensure_ascii so ESC/newline cannot reach the runner."""
+    return json.dumps(
+        {
+            "id": rid,
+            "exit": row["exit"],
+            "cmd": row["command"],
+            "last15": list(row["last15"]),
+        },
+        ensure_ascii=True,
+    )
+
+
+def _print_receipt(rid: str, row: dict) -> None:
+    print(_receipt_json_line(rid, row))
+
+
+def _assert_printed_log_safe(test: unittest.TestCase, blob: str) -> None:
+    test.assertNotIn("\x1b", blob)
+    test.assertNotIn("\033", blob)
+    test.assertNotRegex(blob, r"(?m)^::")
+    for line in blob.splitlines():
+        test.assertFalse(line.startswith("::"), line)
+        test.assertNotIn("\x1b", line)
+        if not line.startswith("{"):
+            continue
+        parsed = json.loads(line)
+        dumped = json.dumps(parsed, ensure_ascii=True)
+        test.assertNotIn("\n", dumped)
+        test.assertNotIn("\x1b", dumped)
+        test.assertFalse(dumped.startswith("::"))
 
 
 def _install_develop_gate(dest: Path) -> Path:
@@ -479,6 +520,71 @@ def _assert_r8_row(
                 or review_gate.extra_publish_path(quoted),
                 quoted,
             )
+
+
+def _live_data_root() -> Path:
+    return (REPO / "data").resolve()
+
+
+def _reject_live_data(file) -> None:
+    if file is None:
+        return
+    try:
+        raw = os.fspath(file)
+    except TypeError:
+        return
+    try:
+        path = Path(raw)
+        if not path.is_absolute():
+            path = Path.cwd() / path
+        path = path.resolve()
+    except (OSError, RuntimeError, ValueError):
+        return
+    try:
+        path.relative_to(_live_data_root())
+    except ValueError:
+        return
+    try:
+        path.relative_to(FIXTURE_DIR.resolve())
+        return
+    except ValueError:
+        raise AssertionError(f"opened live data path {path}")
+
+
+def _guarded_open(file, *args, **kwargs):
+    _reject_live_data(file)
+    return _ORIG_BUILTINS_OPEN(file, *args, **kwargs)
+
+
+def _guarded_path_open(self, *args, **kwargs):
+    _reject_live_data(self)
+    return _ORIG_PATH_OPEN(self, *args, **kwargs)
+
+
+def _guarded_read_text(self, *args, **kwargs):
+    _reject_live_data(self)
+    return _ORIG_PATH_READ_TEXT(self, *args, **kwargs)
+
+
+def _guarded_read_bytes(self, *args, **kwargs):
+    _reject_live_data(self)
+    return _ORIG_PATH_READ_BYTES(self, *args, **kwargs)
+
+
+def setUpModule() -> None:
+    builtins.open = _guarded_open
+    io.open = _guarded_open
+    Path.open = _guarded_path_open
+    Path.read_text = _guarded_read_text
+    Path.read_bytes = _guarded_read_bytes
+
+
+def tearDownModule() -> None:
+    builtins.open = _ORIG_BUILTINS_OPEN
+    io.open = _ORIG_IO_OPEN
+    Path.open = _ORIG_PATH_OPEN
+    Path.read_text = _ORIG_PATH_READ_TEXT
+    Path.read_bytes = _ORIG_PATH_READ_BYTES
 
 
 def _write_invalid_sig(root: Path, rel: str, body: str) -> None:
@@ -645,16 +751,17 @@ class ReviewGateAutomergeControl(unittest.TestCase):
                 if line in {ALLOWLIST_TEXT, SIGNOFF_TEXT, SIGNED_TEXT} or line.startswith("(+"):
                     continue
                 self.assertTrue(line.startswith('"'), line)
+        self.assertEqual(review_gate.AUTOMERGE_REFUSAL_PATH_CAP, PINNED_PATH_CAP)
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            n_paths = [f"off/{i:02d}.txt" for i in range(CAP)]
+            n_paths = [f"off/{i:02d}.txt" for i in range(PINNED_PATH_CAP)]
             proc_n = _run_automerge(root, n_paths)
             lines_n = _stderr_lines(proc_n)
             self.assertEqual(proc_n.returncode, 1)
             for rel in n_paths:
                 self.assertIn(json.dumps(rel, ensure_ascii=True), lines_n)
             self.assertNotIn("(+1 more)", "\n".join(lines_n))
-            n1_paths = n_paths + [f"off/{CAP:02d}.txt"]
+            n1_paths = n_paths + [f"off/{PINNED_PATH_CAP:02d}.txt"]
             proc_n1 = _run_automerge(root, n1_paths)
             lines_n1 = _stderr_lines(proc_n1)
             self.assertEqual(proc_n1.returncode, 1)
@@ -662,7 +769,10 @@ class ReviewGateAutomergeControl(unittest.TestCase):
                 self.assertIn(json.dumps(rel, ensure_ascii=True), lines_n1)
             self.assertNotIn(json.dumps(n1_paths[-1], ensure_ascii=True), lines_n1)
             self.assertIn("(+1 more)", lines_n1)
-            self.assertEqual(sum(1 for line in lines_n1 if line.startswith('"')), CAP)
+            self.assertEqual(
+                review_gate.AUTOMERGE_REFUSAL_PATH_CAP, PINNED_PATH_CAP
+            )
+            self.assertEqual(sum(1 for line in lines_n1 if line.startswith('"')), PINNED_PATH_CAP)
 
     def test_r9_archive_only_same_decision_and_text(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -905,6 +1015,18 @@ class ReviewGateAutomergeRows(unittest.TestCase):
             )
             rows.append(("empty diff", None, empty, None, empty_base))
 
+            surface = cases_dir / "surface"
+            _write_files(
+                surface,
+                {
+                    LIVE_JSON: _fixture_file(LIVE_JSON).read_text(encoding="utf-8"),
+                    "data/extra.yaml": "x: 1\n",
+                },
+            )
+            rows.append(
+                ("extra publish surface only", [LIVE_JSON], surface, None, None)
+            )
+
             table = ["case | base_exit | head_exit | refusal"]
             last_proc = None
             for name, paths, root, env, git_base in rows:
@@ -925,18 +1047,22 @@ class ReviewGateAutomergeRows(unittest.TestCase):
             )
             RECEIPTS["R8"]["last15"] = table[-15:]
             RECEIPTS["R8"]["exit"] = 0
-            RECEIPTS["R8"]["command"] = (
-                "python -P -m tools.chiefs_narrative.review_gate --automerge --root <tree> -- <paths>  # R8 table vs origin/develop"
+            RECEIPTS["R8"]["command"] = json.dumps(
+                "python -P -m tools.chiefs_narrative.review_gate --automerge --root <tree> -- <paths>  # R8 table vs origin/develop",
+                ensure_ascii=True,
             )
 
     def test_r10_frozen_fixtures_only(self) -> None:
-        src_path = Path(__file__).resolve()
-        source = src_path.read_text(encoding="utf-8")
         live_data = (REPO / "data").resolve()
         fixture_data = (FIXTURE_DIR / "data").resolve()
         self.assertTrue(FIXTURE_DIR.is_dir(), FIXTURE_DIR)
         self.assertTrue(fixture_data.is_dir(), fixture_data)
         self.assertNotEqual(live_data, fixture_data)
+        self.assertIs(builtins.open, _guarded_open)
+        self.assertIs(io.open, _guarded_open)
+        self.assertIs(Path.open, _guarded_path_open)
+        self.assertIs(Path.read_text, _guarded_read_text)
+        self.assertIs(Path.read_bytes, _guarded_read_bytes)
         for rel in PR363_PATHS:
             path = _fixture_file(rel)
             self.assertTrue(path.is_file(), path)
@@ -945,35 +1071,6 @@ class ReviewGateAutomergeRows(unittest.TestCase):
         edition = json.loads(_fixture_file(EDITION_363).read_text(encoding="utf-8"))
         self.assertEqual((live.get("phase") or {}).get("mode"), "preview")
         self.assertEqual((edition.get("phase") or {}).get("mode"), "preview")
-        self.assertNotRegex(source, r"REPO\s*/\s*(LIVE_JSON|ARCHIVE_JSON|EDITION_363|REPAIR_JSON|rel)\b")
-        self.assertNotRegex(source, r'REPO\s*/\s*["\']data/')
-        self.assertNotRegex(source, r"parents\[2\]\s*/\s*['\"]data['\"]")
-        tree = ast.parse(source)
-        offenders: list[str] = []
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Constant) and isinstance(node.value, str):
-                text = node.value.replace("\\", "/")
-                if text.startswith("data/") or text == "data":
-                    continue
-                resolved = None
-                try:
-                    cand = Path(text)
-                    if cand.is_absolute():
-                        resolved = cand.resolve()
-                except OSError:
-                    resolved = None
-                if resolved is None:
-                    continue
-                try:
-                    resolved.relative_to(live_data)
-                except ValueError:
-                    continue
-                try:
-                    resolved.relative_to(FIXTURE_DIR.resolve())
-                except ValueError:
-                    offenders.append(text)
-        self.assertEqual(offenders, [], f"live data/ paths in tests: {offenders}")
-        self.assertIn("pr363_preview", source)
         _record_table(
             "R10",
             "python -m unittest tools.tests.test_review_gate_automerge_messages.ReviewGateAutomergeRows.test_r10_frozen_fixtures_only",
@@ -981,9 +1078,50 @@ class ReviewGateAutomergeRows(unittest.TestCase):
                 "fixture_dir=" + str(FIXTURE_DIR),
                 "live_mode=" + str((live.get("phase") or {}).get("mode")),
                 "edition_mode=" + str((edition.get("phase") or {}).get("mode")),
-                "offenders=" + str(offenders),
+                "guard=open,io.open,Path.open,Path.read_text,Path.read_bytes",
             ],
         )
+
+    def test_r10_negative_probe_guard_fires(self) -> None:
+        """Runtime join REPO, data dir, live edition name must fail the guard."""
+        target = REPO / "data" / (_LIVE + ".json")
+        with self.assertRaises(AssertionError):
+            target.read_text(encoding="utf-8")
+        with self.assertRaises(AssertionError):
+            target.read_bytes()
+        with self.assertRaises(AssertionError):
+            target.open("r", encoding="utf-8")
+        with self.assertRaises(AssertionError):
+            builtins.open(target, encoding="utf-8")
+        with self.assertRaises(AssertionError):
+            io.open(target, encoding="utf-8")
+
+    def test_n1_module_prints_cannot_be_workflow_commands(self) -> None:
+        evil_cmd = (
+            "python -P -m tools.chiefs_narrative.review_gate --automerge "
+            "--root /tmp -- evil\n::error::x ::error::workflow "
+            "public/\x1b[31mred.svg"
+        )
+        row = {
+            "command": evil_cmd,
+            "exit": 1,
+            "last15": [
+                ALLOWLIST_TEXT,
+                json.dumps("evil\n::error::x", ensure_ascii=True),
+                json.dumps("::error::workflow", ensure_ascii=True),
+                json.dumps("public/\x1b[31mred.svg", ensure_ascii=True),
+                "fixture_dir=" + str(FIXTURE_DIR),
+            ],
+        }
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+            _print_receipt("R6", row)
+        blob = buf.getvalue()
+        _assert_printed_log_safe(self, blob)
+        parsed = json.loads(blob.splitlines()[0])
+        self.assertEqual(parsed["id"], "R6")
+        self.assertIn("\\u001b", blob)
+        self.assertIn("\\n", blob)
 
     def test_caller_ci_yml_automerge_base_root(self) -> None:
         script = (REPO / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
@@ -1141,7 +1279,10 @@ class ReviewGateAutomergeMutants(unittest.TestCase):
         self.assertEqual(control_pass, REPEAT, control_last.stderr if control_last else "")
         RECEIPTS["control"] = {
             "id": "control",
-            "command": f"python -m unittest {CONTROL} -q  # {REPEAT}x live",
+            "command": json.dumps(
+                f"python -m unittest {CONTROL} -q  # {REPEAT}x live",
+                ensure_ascii=True,
+            ),
             "exit": 0,
             "last15": ((control_last.stderr or "") + (control_last.stdout or "")).splitlines()[-15:]
             if control_last
@@ -1194,7 +1335,10 @@ class ReviewGateAutomergeMutants(unittest.TestCase):
             blob = ((last.stderr or "") + (last.stdout or "")) if last else ""
             RECEIPTS[name] = {
                 "id": name,
-                "command": f"patch -p1 -i {filename} && python -m unittest {CONTROL} -q  # {REPEAT}x",
+                "command": json.dumps(
+                    f"patch -p1 -i {filename} && python -m unittest {CONTROL} -q  # {REPEAT}x",
+                    ensure_ascii=True,
+                ),
                 "exit": last.returncode if last else -1,
                 "last15": blob.splitlines()[-15:],
             }
@@ -1206,13 +1350,8 @@ class ReviewGateAutomergeZPreflight(unittest.TestCase):
     def test_z_preflight_frozen_ids(self) -> None:
         missing = [rid for rid in FROZEN_IDS if rid not in RECEIPTS]
         if missing:
-            if os.environ.get("_REVIEW_GATE_PREFLIGHT_NESTED") == "1":
-                self.fail(f"missing frozen receipts after nested run: {missing}")
-            env = os.environ.copy()
-            env["_REVIEW_GATE_PREFLIGHT_NESTED"] = "1"
             loader = unittest.TestLoader()
             suite = unittest.TestSuite()
-            module = sys.modules[__name__]
             for cls in (
                 ReviewGateAutomergeControl,
                 ReviewGateAutomergeRows,
@@ -1221,11 +1360,7 @@ class ReviewGateAutomergeZPreflight(unittest.TestCase):
                 suite.addTests(loader.loadTestsFromTestCase(cls))
             buf = io.StringIO()
             result = unittest.TextTestRunner(stream=buf, verbosity=0).run(suite)
-            self.assertTrue(
-                result.wasSuccessful(),
-                buf.getvalue() or f"nested {cls.__name__ if False else 'suite'} failed",
-            )
-            del env, module
+            self.assertTrue(result.wasSuccessful(), buf.getvalue())
         missing = [rid for rid in FROZEN_IDS if rid not in RECEIPTS]
         self.assertEqual(missing, [], f"missing frozen receipts: {missing}")
         listed = set(FROZEN_IDS)
@@ -1235,15 +1370,17 @@ class ReviewGateAutomergeZPreflight(unittest.TestCase):
             if rid not in listed and rid != "control"
         )
         self.assertEqual(extra, [], f"undeclared receipts: {extra}")
+        printed: list[str] = []
         for rid in FROZEN_IDS:
             row = RECEIPTS[rid]
             self.assertIn("command", row, rid)
             self.assertIn("exit", row, rid)
             self.assertIn("last15", row, rid)
             self.assertTrue(row["command"], rid)
-            print(f"RECEIPT {rid} exit={row['exit']} cmd={row['command']}")
-            for line in row["last15"]:
-                print(f"  {line}")
+            line = _receipt_json_line(rid, row)
+            printed.append(line)
+            print(line)
+        _assert_printed_log_safe(self, "\n".join(printed) + "\n")
 
 
 if __name__ == "__main__":
