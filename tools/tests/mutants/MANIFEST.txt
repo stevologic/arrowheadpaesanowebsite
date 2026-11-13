@@ -22,7 +22,7 @@ MG2-K8-skip-playoff-next-unknown.patch
 MG2-K9-skip-word-floor.patch
   killer: test_k9_word_floor
 MG3-K10-delete-force-hold.patch
-  killer: test_k10_check_edition_force_hold
+  killers: test_k10_check_edition_force_hold, test_n3_each_k_cause_with_and_without_drops
 MG4-j2-blockers-print-only.patch
   killers: test_n5_dangling_reference_holds_via_j2, test_n7_word_floor_boundaries
 MG5-word-floor-le.patch

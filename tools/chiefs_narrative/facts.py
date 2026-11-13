@@ -8814,18 +8814,17 @@ def _live_heading_sentences(value) -> set[str]:
 
 
 def _correction_antecedents(corrections: list[str] | None) -> list[str]:
-    """R4: sentences a correction removed or rewrote are drop antecedents."""
+    """R4: only a DROPPED claim (new is None) orphans dependents.
+
+    A claim fixed in place (`old → new`) keeps its antecedent, so following
+    It/He/As noted copy still ships (R1).
+    """
     out: list[str] = []
     for log in corrections or []:
         old, new = correction_old_and_new(str(log))
-        if not old:
+        if not old or new is not None:
             continue
-        old_sents = [sent.strip() for sent in _split_sentences(old) if sent.strip()]
-        if new is None:
-            out.extend(old_sents)
-            continue
-        new_sents = {sent.strip() for sent in _split_sentences(new) if sent.strip()}
-        out.extend(sent for sent in old_sents if sent not in new_sents)
+        out.extend(sent.strip() for sent in _split_sentences(old) if sent.strip())
     return out
 
 

@@ -11,8 +11,10 @@
      touched = headline_or_lede_touched
 --- a/tools/chiefs_narrative/generate.py
 +++ b/tools/chiefs_narrative/generate.py
-@@ -1512,8 +1512,6 @@
-     _extend_leftover(_remainder_gate_issues(narrative, schedule))
+@@ -1500,10 +1500,8 @@
+     leftover_issues = leftover_issues_with_score_progression_budget(
+         leftover_issues
+     )
      # A8/N8: HOLD_REPAIR_DROPS is the aggregate ceiling across every salvage
      # stage, including archive-replay. Per-stage len(gone) checks stay.
 -    if facts.drop_ceiling_exceeded(dropped):

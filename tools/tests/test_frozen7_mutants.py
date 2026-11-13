@@ -62,6 +62,10 @@ KILLERS = (
         "tools.tests.test_frozen7_drops_only.Frozen7HoldCauses.test_k10_check_edition_force_hold",
     ),
     (
+        "MG3-K10-delete-force-hold",
+        "tools.tests.test_frozen7_drops_only.Frozen7Cases.test_n3_each_k_cause_with_and_without_drops",
+    ),
+    (
         "MG4-j2-blockers-print-only",
         "tools.tests.test_frozen7_drops_only.Frozen7Cases.test_n5_dangling_reference_holds_via_j2",
     ),
@@ -278,7 +282,9 @@ class Frozen7Mutants(unittest.TestCase):
                         kills += 1
                 self.assertEqual(kills, REPEATS, last)
                 receipts.append(f"{name} killed by {killer}: {last_receipt}")
-        self.assertEqual(len(receipts), len(KILLERS), "\n".join(receipts))
+        blob = "\n".join(receipts)
+        print(blob, flush=True)
+        self.assertEqual(len(receipts), len(KILLERS), blob)
 
 
 if __name__ == "__main__":
