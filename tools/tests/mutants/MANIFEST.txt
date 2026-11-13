@@ -1,0 +1,88 @@
+FROZEN-7 mutants. Each file is the exact unified diff. A kill is
+unittest failures >= 1 and errors == 0, with no subprocess traceback
+in the failing assertion. 6/6 vs a 6x clean control in the same
+copied tree.
+
+MG1-restore-drops-only-hold.patch
+  killer: test_n2_drops_only_ships_and_files_one_issue
+MG2-K1-skip-review-requires-human.patch
+  killer: test_k1_review_requires_human
+MG2-K2-skip-hard-leftover.patch
+  killer: test_k2a_hard_archive_replay_leftover
+MG2-K4-skip-headline-lede-touch.patch
+  killer: test_k4_body_correction_ships_headline_holds
+MG2-K5-skip-missing-headline.patch
+  killer: test_k5_missing_headline
+MG2-K6-skip-empty-headline.patch
+  killer: test_k6_empty_headline_after_restore
+MG2-K7-skip-offseason-open-slate.patch
+  killer: test_k7_offseason_while_slate_open
+MG2-K8-skip-playoff-next-unknown.patch
+  killer: test_k8_playoff_next_unknown
+MG2-K9-skip-word-floor.patch
+  killer: test_k9_word_floor
+MG3-K10-delete-force-hold.patch
+  killers: test_k10_check_edition_force_hold, test_n3_k10_observed
+MG4-j2-blockers-print-only.patch
+  killers: test_n5_dangling_reference_holds_via_j2, test_n7_word_floor_boundaries
+MG5-word-floor-le.patch
+  killer: test_n7_word_floor_boundaries
+MG6-sentinel-string-match-swap.patch
+  killer: test_k2a_hard_archive_replay_leftover
+MG7-issue-dedupe-off.patch
+  killer: test_n9_issue_dedupe_update_and_safe_quoting
+MG8-skip-remainder-gates-when-drops.patch
+  killer: test_n10_remainder_roster_error_holds
+MG9-hold-repair-drops-off-by-one.patch
+  killer: test_n8_hold_repair_drops_8_and_9
+MG9b-aggregate-drop-ceiling-removed.patch
+  killers: test_n8_aggregate_ceiling_split_across_stages, test_n8_real_drops_across_stages
+MG9c-stage3-drops-excluded-from-L1502-ceiling.patch
+  stage-3 drops excluded from L1502 ceiling
+  killer: test_n8_archive_replay_drops_count_toward_ceiling
+M4-5-drop-budget-merge-signal.patch
+  killer: test_c1_build_salvage_repair_leftover_and_hold
+MB1-budget-resets-per-stage.patch
+  killer: test_c1_build_salvage_repair_leftover_and_hold
+MC1-main-drops-hold-kwargs.patch
+  killer: test_generate_main_preview_sentinel_and_lede_hold
+MR1-headline-correction-not-held.patch
+  killer: test_r2_headline_correction_holds
+MR2-lede-correction-not-held.patch
+  killer: test_r3_lede_correction_holds_next_sentence_does_not
+MR3-lede-boundary-off-by-one.patch
+  killer: test_r3_lede_correction_holds_next_sentence_does_not
+MR2b-retry-snapshot-removed.patch
+  killer: test_a10_retry_known_error_snapshot
+MR3b-whole-field-substring-compare.patch
+  killer: test_r3_lede_correction_holds_next_sentence_does_not
+MR4-orphan-check-skipped.patch
+  killer: test_r4_dangling_reference_on_correction_holds
+MR5-correction-issue-not-filed.patch
+  killer: test_r1_body_correction_ships_and_logs
+MR6-lede-drop-not-held.patch
+  killer: test_a10_one_lede_drop_holds_p2s1_ships
+MR7-dropped-lines-not-logged.patch
+  killer: test_n2_drops_only_ships_and_files_one_issue
+MW1-flex-applied-with-no-drops.patch
+  killer: test_a12_flexed_floor_boundaries
+MW2-flex-applied-despite-dangling-ref.patch
+  killer: test_a12_flexed_floor_boundaries
+MW3-off-by-one-3315.patch
+  killer: test_a12_flexed_floor_boundaries
+MW4-shortfall-not-logged.patch
+  killer: test_a12_flexed_floor_boundaries
+MS-A10w.patch
+  all three copy_touches sites disabled
+  killer: test_b2_build
+MS-A10w-s1.patch
+  stage 1 copy_touches disabled alone (fact-check salvage)
+  killer: test_b2_build
+MS-A10w-s2.patch
+  stage 2 copy_touches disabled alone (published-edition gate salvage)
+  killer: test_b2_build_stage2
+MS-A10w-s3.patch
+  stage 3 copy_touches disabled alone (archive replay salvage)
+  killer: test_b2_build_stage3 (stored 2026-09-25-1552, retry-draft dek p1
+  join tail restored at L1360, stage 3 drops it; holdAutomerge stays
+  True under mutant, only headlineOrLedeTouched flips)

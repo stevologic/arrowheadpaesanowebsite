@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -11285,7 +11285,7 @@
+             list(drops or []) + list(corrections or []),
+             source,
+         )
+-    if touched:
++    if False and touched:
+         return True
+     if missing_headline:
+         return True

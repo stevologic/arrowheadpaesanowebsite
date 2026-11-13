@@ -1,0 +1,11 @@
+--- a/.github/workflows/narrative.yml
++++ b/.github/workflows/narrative.yml
+@@ -251,7 +251,7 @@
+                   loaded = {}
+               if isinstance(loaded, dict):
+                   payload = loaded
+-          payload["holdAutomerge"] = True
++          payload["holdAutomerge"] = payload.get("holdAutomerge", False)
+           path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+           PY
+           fi

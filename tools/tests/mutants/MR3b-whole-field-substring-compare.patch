@@ -1,0 +1,22 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -11234,16 +11234,9 @@
+     headline = str((narrative or {}).get("headline") or "")
+     lede = protected_lede_text(narrative)
+     for item in sentences or []:
+-        old, new = correction_old_and_new(item)
+-        if new is None:
+-            if _text_is_region_unit(old, headline) or _text_is_region_unit(old, lede):
+-                return True
+-            continue
+-        for piece in _changed_field_pieces(old, new):
+-            if _text_is_region_unit(piece, headline) or _text_is_region_unit(
+-                piece, lede
+-            ):
+-                return True
++        source = correction_source_sentence(item)
++        if _sentence_in_field(source, headline) or _sentence_in_field(source, lede):
++            return True
+     return False
+ 
+ 

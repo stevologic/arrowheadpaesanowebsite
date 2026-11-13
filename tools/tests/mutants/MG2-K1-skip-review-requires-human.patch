@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -11268,7 +11268,7 @@
+     one. K4 body corrections ship. K2d hold-only sentinels still hold (J1
+     flags them). A12 flexes the word floor for drop-reduced clean remainders.
+     """
+-    if review_requires_human(narrative):
++    if False and review_requires_human(narrative):
+         return True
+     if hard_leftover_texts(leftover):
+         return True

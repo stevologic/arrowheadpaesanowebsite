@@ -1,13 +1,13 @@
 diff --git a/tools/chiefs_narrative/facts.py b/tools/chiefs_narrative/facts.py
 --- a/tools/chiefs_narrative/facts.py
 +++ b/tools/chiefs_narrative/facts.py
-@@ -9493,6 +9493,9 @@
-     """
+@@ -9535,6 +9535,9 @@
      if not text or not recap:
          return text
+     current = text
 +    if (text or "").count(" lead after") >= 40:
 +        import time as _sleep_time
 +        _sleep_time.sleep(6)
-     current = text
-     for _ in range(8):
-         if not _check_score_progression(current, recap, last_game):
+     remaining = _score_progression_remaining(budget_ledger, path)
+     if remaining <= 0:
+         if _check_score_progression(current, recap, last_game):

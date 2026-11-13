@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -1008,7 +1008,7 @@
+ # or the edition is shorter than the in-season desk norm.
+ # A8/A10: ceiling 8. Nine drops is the N+1 hold. Body drops at or under
+ # the ceiling ship when the remainder is clean (K3 relaxed).
+-HOLD_REPAIR_DROPS = 8
++HOLD_REPAIR_DROPS = 9
+ PUBLISH_WORD_FLOOR = 3900
+ # A12: 85% of 3900. Applies only to drop-reduced editions whose
+ # dangling-reference check and C1-C4 leftovers are clean.

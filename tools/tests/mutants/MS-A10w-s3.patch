@@ -1,0 +1,15 @@
+--- a/tools/chiefs_narrative/generate.py
++++ b/tools/chiefs_narrative/generate.py
+@@ -1410,11 +1410,7 @@
+             corrections.extend(logs)
+             dropped.extend(gone)
+             _extend_leftover(leftover_replay)
+-            headline_or_lede_touched = headline_or_lede_touched or (
+-                facts.copy_touches_headline_or_lede(
+-                    list(gone) + list(logs), replay_before
+-                )
+-            )
++            headline_or_lede_touched = headline_or_lede_touched or False
+             narrative = facts.restore_required_copy(
+                 narrative,
+                 *reversed([row["narrative"] for row in attempts]),

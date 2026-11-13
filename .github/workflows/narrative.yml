@@ -354,6 +354,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      issues: write
     steps:
       - name: Checkout
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
@@ -473,6 +474,21 @@ jobs:
           echo "Queued $PR_URL for approved PR-event gates and edition auto-merge/promote."
           echo "### Publication queued" >> "$GITHUB_STEP_SUMMARY"
           echo "$PR_URL — draft on develop. Approve any waiting PR workflow in Actions. Auto-merge and promote refuse a hold label or unresolved review findings." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: File dropped-lines tracking issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin develop
+          GATE_BASE="${RUNNER_TEMP}/gate-base"
+          if [ ! -d "$GATE_BASE" ]; then
+            git worktree add --detach "$GATE_BASE" "origin/develop"
+          fi
+          cd "$GATE_BASE"
+          PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.drop_issues \
+            --repair "${GITHUB_WORKSPACE}/data/narrative_repair.json" \
+            --narrative "${GITHUB_WORKSPACE}/data/narrative.json"
 
   publish:
     # Ready narrative/update-* PRs to develop. Refuse hold or open review

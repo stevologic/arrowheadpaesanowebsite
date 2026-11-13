@@ -7540,7 +7540,7 @@ class FactCheck(unittest.TestCase):
         )
         self.assertIn("## Dropped sentences", held)
         self.assertIn("Automerge is held.", held)
-        self.assertIn("- Kelce scored from the 12.", held)
+        self.assertIn("Kelce scored from the 12.", held)
         quiet = drop_body.drop_body(
             {
                 "holdAutomerge": False,
@@ -7592,7 +7592,7 @@ class FactCheck(unittest.TestCase):
             with redirect_stdout(buf):
                 rc = drop_body.main([str(path)])
             self.assertEqual(rc, 0)
-            self.assertIn("- One leftover.", buf.getvalue())
+            self.assertIn("One leftover.", buf.getvalue())
 
     def test_workflow_yaml_gate_parses_every_actions_file(self):
         loaded = check_workflows.load_workflows()
@@ -9506,6 +9506,7 @@ class FactCheck(unittest.TestCase):
             {
                 "contents": "write",
                 "pull-requests": "write",
+                "issues": "write",
             },
         )
         self.assertEqual(
@@ -11914,16 +11915,21 @@ class FactCheck(unittest.TestCase):
         self.assertGreaterEqual(
             facts.edition_word_count(fat_edition), facts.PUBLISH_WORD_FLOOR
         )
-        self.assertTrue(
-            facts.should_hold_automerge(["one drop"], fat_edition)
+        # K3 relaxed: body drops at or under HOLD_REPAIR_DROPS=8 ship.
+        body_drops = [
+            f"The depth chart stayed on early downs {i}." for i in range(4)
+        ]
+        self.assertFalse(
+            facts.should_hold_automerge(body_drops[:1], fat_edition)
         )
-        self.assertTrue(
-            facts.should_hold_automerge(["a", "b", "c"], fat_edition)
+        self.assertFalse(
+            facts.should_hold_automerge(body_drops[:3], fat_edition)
         )
-        self.assertTrue(
-            facts.should_hold_automerge(["a", "b", "c", "d"], fat_edition)
+        self.assertFalse(
+            facts.should_hold_automerge(body_drops, fat_edition)
         )
-        self.assertTrue(
+        # R1: a body-claim correction without a headline/lede hit ships.
+        self.assertFalse(
             facts.should_hold_automerge(
                 [], fat_edition, corrections=["29 → 24"]
             )

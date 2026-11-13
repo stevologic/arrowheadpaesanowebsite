@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -11049,6 +11049,8 @@
+         if is_hold_only_sentinel(item):
+             continue
+         text = leftover_item_text(item)
++        if text in HOLD_ONLY_SENTINEL_TEXT.values():
++            continue
+         if text:
+             out.append(text)
+     return out

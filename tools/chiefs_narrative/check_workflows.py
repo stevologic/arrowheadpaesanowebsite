@@ -22,6 +22,7 @@ _ALLOWED_WRITE_MODULES = frozenset(
     {
         "tools.chiefs_narrative.review_gate",
         "tools.chiefs_narrative.edition_merge",
+        "tools.chiefs_narrative.drop_issues",
     }
 )
 # python, python3, python3.11, python -P -B, and $PY / $PYTHON.

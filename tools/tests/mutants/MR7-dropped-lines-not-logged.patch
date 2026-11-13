@@ -1,0 +1,14 @@
+--- a/tools/chiefs_narrative/drop_issues.py
++++ b/tools/chiefs_narrative/drop_issues.py
+@@ -54,9 +54,8 @@
+         "",
+     ]
+     if drops:
+-        for row in drops:
+-            lines.append(safe_issue_line(row))
+-            lines.append("")
++        lines.append("(drops omitted)")
++        lines.append("")
+     else:
+         lines.append("(none)")
+         lines.append("")

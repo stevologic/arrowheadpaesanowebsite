@@ -1,0 +1,13 @@
+--- a/tools/chiefs_narrative/generate.py
++++ b/tools/chiefs_narrative/generate.py
+@@ -833,9 +833,7 @@
+         copy_gates=check_copy_gates,
+         changed=check_changed,
+     )
+-    leftover = merge_score_progression_budget_leftover(
+-        leftover, budget_left
+-    )
++    leftover = leftover
+     return repaired, leftover, gone, logs
+ 
+ 

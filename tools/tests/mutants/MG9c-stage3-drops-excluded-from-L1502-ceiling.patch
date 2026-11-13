@@ -1,0 +1,19 @@
+--- a/tools/chiefs_narrative/generate.py
++++ b/tools/chiefs_narrative/generate.py
+@@ -1373,6 +1373,7 @@
+         narrative["updatedAt"] = narrative.get("generatedAt") or config.iso_now()
+ 
+     leftover_issues = list(leftover_issues or [])
++    pre_replay_dropped = list(dropped)
+     if replay_fixture_missing(narrative):
+         print(f"  [writer] {REPLAY_NOT_RUN}")
+         if REPLAY_NOT_RUN not in leftover_issues:
+@@ -1499,7 +1500,7 @@
+     )
+     # A8/N8: HOLD_REPAIR_DROPS is the aggregate ceiling across every salvage
+     # stage, including archive-replay. Per-stage len(gone) checks stay.
+-    if facts.drop_ceiling_exceeded(dropped):
++    if facts.drop_ceiling_exceeded(pre_replay_dropped):
+         _note_hold_only(facts.HOLD_ONLY_SALVAGE_NOISY)
+     if not headline_or_lede_touched:
+         headline_or_lede_touched = facts.copy_touches_headline_or_lede(
