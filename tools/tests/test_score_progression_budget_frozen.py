@@ -9,16 +9,34 @@ from __future__ import annotations
 
 import io
 import json
+import os
+import subprocess
 import tempfile
 import time
 import unittest
-from contextlib import redirect_stdout
+from contextlib import ExitStack, redirect_stdout
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
-from tools.chiefs_narrative import facts, generate, known_errors, review_gate
+import yaml
+
+from tools.chiefs_narrative import (
+    collect,
+    drop_body,
+    edition_merge,
+    facts,
+    generate,
+    hero_posts,
+    phase,
+    providers,
+    review_gate,
+)
 from tools.tests.frozen_slate import frozen_schedule
 from tools.tests.test_archive_replay_qa import Week9PreviewLeftoverReplay
+from tools.tests.test_maintenance import PublicationPolicy
+from tools.tests.test_narrative import _job_step_script, _run_fail_held_script
+
+WORKFLOWS = Path(__file__).resolve().parents[2] / ".github" / "workflows"
 
 
 class ScoreProgressionBudgetExhaustion(unittest.TestCase):
@@ -510,227 +528,521 @@ class ScoreProgressionBudgetExhaustion(unittest.TestCase):
             self.assertEqual(gate_rc, 1, buf.getvalue())
             self.assertEqual(check_rc, 1, buf.getvalue())
 
-    def test_c1_drop_invalid_score_progression_text(self):
-        """C1: `_drop_invalid_score_progression_text` records exhaustion."""
-        out, sink = self._drop_text(self._field(8, ninth=True))
-        self.assertIn(self.NINTH, out)
-        self.assertEqual(len(sink), 1)
-        self.assertIn("lastGameReview.lede", sink[0]["issue"])
+    R1_B1 = (
+        ("without-the", "A 7-3 lead after Q2 7:40 touchdown became 24-28"),
+        ("following", "A 7-3 lead following the Q2 7:40 touchdown became 24-28"),
+        ("advantage", "A 7-3 advantage after the Q2 7:40 touchdown became 24-28"),
+        (
+            "linewrap-before-after",
+            "A 7-3 lead\nafter Q2 7:40 touchdown became 24-28",
+        ),
+        ("edge", "A 7-3 edge after the Q2 7:40 touchdown became 24-28"),
+        ("deficit", "A 7-3 deficit following Q2 7:40 touchdown became 24-28"),
+    )
+    R1_B3 = "A 24-13 lead after the Q3\n1:38 touchdown became 17-13"
+    R2_N5_TD = "A 24-13 lead after the Q3 1:38 TD became 24-28"
 
-    def test_c2_drop_invalid_score_progression_walker(self):
-        """C2: `_drop_invalid_score_progression` names nested section."""
-        payload = self._lede(self._field(8, ninth=True))["lastGameReview"]
+    def _week9_phase(self) -> dict:
+        return {
+            "type": "regular",
+            "label": "Week 9",
+            "mode": "preview",
+            "week": 9,
+            "edition": "2026 Week 9 · Preview",
+            "lastGame": self.LAST,
+            "nextGame": {
+                "opponent": "New York Jets",
+                "homeAway": "home",
+                "week": 9,
+            },
+        }
+
+    def _p3_artifact(self) -> tuple[dict, list[str]]:
+        return self._repair(self._fat_edition(self._field(8, ninth=True)))
+
+    def _workflow(self, name: str) -> dict:
+        return yaml.safe_load((WORKFLOWS / name).read_text(encoding="utf-8"))
+
+    def _p3_through_build(self, tmp: Path) -> tuple[dict, Path]:
+        raw = self._fat_edition(self._field(8, ninth=True))
+        llm = Mock(return_value=(raw, "grok"))
+        archive = tmp / "archive.json"
+        editions = tmp / "editions"
+        editions.mkdir()
+        archive.write_text("[]\n", encoding="utf-8")
+        narrative_json = tmp / "out-narrative.json"
+        repair_json = tmp / "out-repair.json"
+        wire_json = tmp / "wire.json"
+        with ExitStack() as stack:
+            stack.enter_context(
+                patch.object(
+                    collect,
+                    "collect_all",
+                    return_value={
+                        "schedule": frozen_schedule(),
+                        "news": [],
+                        "markets": {},
+                        "lastGameRecap": self.RECAP,
+                    },
+                )
+            )
+            stack.enter_context(
+                patch.object(collect, "fetch_game_recap", return_value=self.RECAP)
+            )
+            stack.enter_context(
+                patch.object(collect, "prior_completed_game", return_value=None)
+            )
+            stack.enter_context(
+                patch.object(phase, "detect", return_value=self._week9_phase())
+            )
+            stack.enter_context(
+                patch.object(
+                    phase,
+                    "next_games",
+                    return_value=[self._week9_phase()["nextGame"]],
+                )
+            )
+            stack.enter_context(patch.object(phase, "current_record", return_value="5-2"))
+            stack.enter_context(patch.object(phase, "any_live", return_value=False))
+            stack.enter_context(patch.object(providers, "generate_via_llm", llm))
+            stack.enter_context(patch.object(generate, "_render_diagrams"))
+            stack.enter_context(patch.object(generate, "_write_schedule"))
+            stack.enter_context(patch.object(generate, "_write_wire"))
+            stack.enter_context(
+                patch.object(generate, "_load_recent_editions", return_value=[])
+            )
+            stack.enter_context(
+                patch.object(generate, "_should_advance_to_preview", return_value=False)
+            )
+            stack.enter_context(
+                patch.object(
+                    generate, "_signed_review_already_published", return_value=False
+                )
+            )
+            stack.enter_context(
+                patch.object(facts, "check_diagram_captions", return_value=[])
+            )
+            stack.enter_context(
+                patch.object(generate.config, "NARRATIVE_JSON", narrative_json)
+            )
+            stack.enter_context(patch.object(generate.config, "REPAIR_JSON", repair_json))
+            stack.enter_context(patch.object(generate.config, "ARCHIVE_JSON", archive))
+            stack.enter_context(patch.object(generate.config, "EDITIONS_DIR", editions))
+            stack.enter_context(patch.object(generate.config, "WIRE_JSON", wire_json))
+            stack.enter_context(patch.object(generate.config, "ensure_dirs", lambda: None))
+            stack.enter_context(patch.object(hero_posts, "attach_sidecar"))
+            result = generate.build("grok", persist_schedule=False)
+            leftover = result.get("leftoverIssues") or []
+            drops = result.get("droppedSentences") or []
+            corrections = result.get("correctedSentences") or []
+            repair_json.write_text(
+                json.dumps(
+                    {
+                        "droppedSentences": drops,
+                        "correctedSentences": corrections,
+                        "leftoverIssues": leftover,
+                        "holdAutomerge": facts.should_hold_automerge(
+                            drops,
+                            result["narrative"],
+                            leftover=leftover,
+                            corrections=corrections,
+                        ),
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+        return result, repair_json
+
+    def test_c1_build_salvage_repair_leftover_and_hold(self):
+        """C1: generate.build → `_salvage_until_clean` → `facts.repair_offending_copy`.
+
+        Feed the P3 input through build() with a fake writer; leftoverIssues is
+        non-empty and REPAIR_JSON holdAutomerge=true.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            result, repair_json = self._p3_through_build(Path(tmp))
+            leftover = result.get("leftoverIssues") or []
+            self.assertTrue(leftover, leftover)
+            repair = json.loads(repair_json.read_text(encoding="utf-8"))
+            self.assertTrue(repair.get("leftoverIssues"), repair)
+            self.assertTrue(repair.get("holdAutomerge"), repair)
+
+    def test_c2_narrative_yml_gate_replay_and_fail_held(self):
+        """C2: narrative.yml test job 'Gate generated content'.
+
+        `--gate-replay` exits non-zero on the P3 artifact, and 'Fail held
+        editions' exits 1. Run those exact commands from the workflow.
+        """
+        parsed = self._workflow("narrative.yml")
+        gate = _job_step_script(parsed, "test", name="Gate generated content")
+        self.assertIn("python -m tools.chiefs_narrative.generate --gate-replay", gate)
+        hold = _job_step_script(parsed, "test", name="Fail held editions")
+        self.assertTrue(hold.strip())
+        repaired, leftover = self._p3_artifact()
+        with tempfile.TemporaryDirectory() as tmp:
+            narrative_json = Path(tmp) / "out-narrative.json"
+            repair_json = Path(tmp) / "out-repair.json"
+            narrative_json.write_text(json.dumps(repaired) + "\n", encoding="utf-8")
+            repair_json.write_text(
+                json.dumps({"holdAutomerge": True, "leftoverIssues": leftover})
+                + "\n",
+                encoding="utf-8",
+            )
+            buf = io.StringIO()
+            with patch.object(generate.config, "NARRATIVE_JSON", narrative_json), patch.object(
+                generate.config, "REPAIR_JSON", repair_json
+            ), patch.object(
+                generate, "archive_replay_issues", return_value=leftover
+            ), patch.object(
+                generate, "replay_fixture_missing", return_value=False
+            ), redirect_stdout(buf):
+                gate_rc = generate.main(["--gate-replay"])
+            self.assertNotEqual(gate_rc, 0, buf.getvalue())
+        held = _run_fail_held_script(hold, payload={"holdMerge": True})
+        self.assertEqual(held.returncode, 1, held.stderr)
+
+    def test_c3_narrative_yml_update_draft_hold_dropbody(self):
+        """C3: narrative.yml update job.
+
+        The PR opens as a draft with the `hold` label, and dropBody lists the
+        hard leftover under 'Archive replay leftovers'.
+        """
+        _repaired, leftover = self._p3_artifact()
+        listed = drop_body.drop_body(
+            {"holdAutomerge": True, "leftoverIssues": leftover}
+        )
+        self.assertIn("## Archive replay leftovers", listed)
+        self.assertTrue(
+            any(facts.is_score_progression_budget_exhausted(item) for item in leftover),
+            leftover,
+        )
+        self.assertIn("score-progression repair budget exhausted", listed)
+        parsed = self._workflow("narrative.yml")
+        script = _job_step_script(
+            parsed,
+            "update",
+            name="Queue draft pull request for approved PR-event gates",
+        ) or _job_step_script(parsed, "update", step_id="publish")
+        self.assertIn("gh pr create --draft", script)
+        self.assertIn("--add-label hold", script)
+        if os.name == "nt":
+            self.skipTest("Actions update job is bash")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            env = PublicationPolicy._fake_commands(root)
+            env["DESK_MODE"] = "full"
+            metadata = {
+                "holdMerge": True,
+                "dropBody": listed,
+                "edition": "2026 Week 9 · Preview",
+                "headline": "Week 9 Preview: score-progression budget hold",
+            }
+            (root / ".narrative-publish.json").write_text(
+                json.dumps(metadata) + "\n", encoding="utf-8"
+            )
+            data_dir = root / "data"
+            data_dir.mkdir()
+            (data_dir / "narrative.json").write_text(
+                json.dumps(metadata) + "\n", encoding="utf-8"
+            )
+            ran = subprocess.run(
+                ["bash", "-c", script],
+                cwd=root,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(ran.returncode, 0, ran.stderr)
+            calls = [
+                json.loads(line)
+                for line in (root / "calls.jsonl").read_text().splitlines()
+            ]
+            create = next(
+                row
+                for row in calls
+                if row["command"] == "gh" and row["args"][:2] == ["pr", "create"]
+            )
+            self.assertIn("--draft", create["args"])
+            labels = [
+                row
+                for row in calls
+                if row["command"] == "gh" and "--add-label" in row["args"]
+            ]
+            self.assertTrue(labels)
+            self.assertIn("hold", labels[0]["args"])
+            self.assertIn("## Archive replay leftovers", create["body"])
+            self.assertIn("score-progression repair budget exhausted", create["body"])
+
+    def test_c4_publish_job_refuse_hold_label(self):
+        """C4: publish job → `edition_merge` refuse_reason 'hold label'.
+
+        No squash-merge, no promote, no pages dispatch. Unit-test refuse_reason
+        with the labels the update job sets.
+        """
+        self.assertEqual(
+            edition_merge.refuse_reason(labels=[{"name": "hold"}]),
+            "hold label",
+        )
+        self.assertTrue(edition_merge.merge_refused(labels=[{"name": "hold"}]))
+        parsed = self._workflow("narrative.yml")
+        publish = (parsed.get("jobs") or {}).get("publish") or {}
+        steps = publish.get("steps") or []
+        refuse = next(
+            step
+            for step in steps
+            if isinstance(step, dict)
+            and step.get("name") == "Refuse hold or unresolved review findings"
+        )
+        squash = next(
+            step
+            for step in steps
+            if isinstance(step, dict)
+            and step.get("name") == "Squash-merge the edition pull request"
+        )
+        promote = next(
+            step
+            for step in steps
+            if isinstance(step, dict) and step.get("name") == "Promote develop to main"
+        )
+        self.assertEqual(refuse.get("id"), "refuse")
+        self.assertEqual(squash.get("if"), "steps.refuse.outputs.refused != 'true'")
+        self.assertEqual(promote.get("if"), "steps.refuse.outputs.refused != 'true'")
+        promote_run = str(promote.get("run") or "")
+        self.assertIn("gh workflow run", promote_run)
+        self.assertIn("Deploy Hugo site to GitHub Pages", promote_run)
+        self.assertLess(
+            promote_run.index("edition_merge"),
+            promote_run.index("gh pr merge"),
+        )
+        self.assertLess(
+            promote_run.index("edition_merge"),
+            promote_run.index("gh workflow run"),
+        )
+
+    def test_c5_ci_yml_gates_job_p3_fixture_goes_red(self):
+        """C5: the ci.yml `gates` job (PR to develop).
+
+        The same --gate-replay/--check-edition commands go red on a P3
+        edition fixture.
+        """
+        parsed = self._workflow("ci.yml")
+        gates = (parsed.get("jobs") or {}).get("gates") or {}
+        blob = "\n".join(
+            str(step.get("run") or "")
+            for step in gates.get("steps") or []
+            if isinstance(step, dict)
+        )
+        self.assertIn(
+            "python -m tools.chiefs_narrative.generate --check-edition", blob
+        )
+        narrative = self._workflow("narrative.yml")
+        gate = _job_step_script(narrative, "test", name="Gate generated content")
+        self.assertIn("python -m tools.chiefs_narrative.generate --gate-replay", gate)
+        self.assertIn("python -m tools.chiefs_narrative.generate --check-edition", gate)
+        repaired, leftover = self._p3_artifact()
+        with tempfile.TemporaryDirectory() as tmp:
+            narrative_json = Path(tmp) / "out-narrative.json"
+            repair_json = Path(tmp) / "out-repair.json"
+            narrative_json.write_text(json.dumps(repaired) + "\n", encoding="utf-8")
+            repair_json.write_text(
+                json.dumps({"holdAutomerge": True, "leftoverIssues": leftover})
+                + "\n",
+                encoding="utf-8",
+            )
+            buf = io.StringIO()
+            with patch.object(generate.config, "NARRATIVE_JSON", narrative_json), patch.object(
+                generate.config, "REPAIR_JSON", repair_json
+            ), patch.object(
+                generate, "archive_replay_issues", return_value=leftover
+            ), patch.object(
+                generate, "replay_fixture_missing", return_value=False
+            ), patch.object(
+                generate, "check_published_edition", return_value=leftover
+            ), redirect_stdout(buf):
+                gate_rc = generate.main(["--gate-replay"])
+                check_rc = generate.main(["--check-edition"])
+            self.assertNotEqual(gate_rc, 0, buf.getvalue())
+            self.assertNotEqual(check_rc, 0, buf.getvalue())
+
+    def test_c6_walker_cards_body_and_protected_keys(self):
+        """C6: the `_drop_invalid_score_progression` dict/list walkers.
+
+        Put an exhausted value inside `lastGameReview.cards[i].body` and
+        inside a `_PROTECTED_KEYS` sibling. Protected keys are untouched,
+        and exhaustion is still reported.
+        """
+        protected_claim = self._claim("7-3")
+        payload = {
+            "lastGameReview": {
+                "opponent": "Denver Broncos",
+                "result": "L",
+                "score": protected_claim,
+                "cards": [
+                    {
+                        "title": protected_claim,
+                        "body": self._field(8, ninth=True),
+                    }
+                ],
+            }
+        }
+        self.assertIn("score", facts._PROTECTED_KEYS)
+        self.assertIn("title", facts._PROTECTED_KEYS)
+        self.assertIn("result", facts._PROTECTED_KEYS)
         sink: list[dict] = []
         out = facts._drop_invalid_score_progression(
             payload,
             self.RECAP,
             self.LAST,
             exhausted=sink,
-            path="lastGameReview",
-            root_key="lastGameReview",
+            path="",
+            root_key="",
         )
-        self.assertIn(self.NINTH, out["lede"])
+        review = out["lastGameReview"]
+        self.assertEqual(review["score"], protected_claim)
+        self.assertEqual(review["result"], "L")
+        self.assertEqual(review["cards"][0]["title"], protected_claim)
+        self.assertIn(self.NINTH, review["cards"][0]["body"])
         self.assertEqual(len(sink), 1)
-        self.assertEqual(sink[0]["root"], "lastGameReview")
-        self.assertIn("lastGameReview.lede", sink[0]["path"])
+        self.assertIn("score-progression repair budget exhausted", sink[0]["issue"])
+        self.assertIn("cards", sink[0]["path"])
+        self.assertIn("body", sink[0]["path"])
 
-    def test_c3_repair_offending_copy(self):
-        """C3: `repair_offending_copy` leftover_sink + skip `_drop_value`."""
-        narrative = self._lede(self._field(8, ninth=True))
-        sink: list[str] = []
-        repaired = facts.repair_offending_copy(
-            narrative,
-            facts.check_review(narrative, self.LAST, self.RECAP),
-            self.LAST,
-            self.RECAP,
-            leftover_sink=sink,
-        )
-        self.assertEqual(len(sink), 1)
-        self.assertIn(self.NINTH, repaired["lastGameReview"]["lede"])
-        self.assertIn("score-progression repair budget exhausted", sink[0])
-
-    def test_c4_generate_merge_leftover_issues(self):
-        """C4: generate.py merge carries the HARD leftover into leftoverIssues."""
-        score_leftover = (
-            "score progression 22-17 after Q2 7:40 is not an ESPN "
-            "score-after ('A 22-17 lead after the Q2\\n7:40 touchdown became 24-28')"
-        )
-        budget = facts.score_progression_budget_issue(
-            "lastGameReview.lede",
-            "A 22-17 lead after the Q2\n7:40 touchdown became 24-28",
-        )
-        merged = generate.merge_score_progression_budget_leftover(
-            [score_leftover, "unrelated leftover"],
-            [budget],
-        )
-        self.assertEqual(merged, ["unrelated leftover", budget])
-        self.assertIn(budget, self._hard(merged))
-
-    def test_c5_salvage_stops_on_budget_exhaustion(self):
-        """C5: generate stops a second salvage pass so the ninth survives."""
-        first, leftover = self._repair(self._lede(self._field(8, ninth=True)))
-        self.assertIn(self.NINTH, first["lastGameReview"]["lede"])
-        self.assertTrue(
-            generate.salvage_should_stop_for_score_progression_budget(leftover)
-        )
-        second = facts.repair_offending_copy(
-            first,
-            leftover,
-            self.LAST,
-            self.RECAP,
-            leftover_sink=[],
-        )
-        self.assertNotIn(
-            self.NINTH,
-            (second.get("lastGameReview") or {}).get("lede") or "",
-            "control: a second salvage pass would drop the ninth",
-        )
-
-    def test_c6_hold_automerge_from_leftover_issues(self):
-        """C6: leftoverIssues write-path holdAutomerge follows the HARD leftover."""
-        _repaired, leftover = self._repair(
-            self._fat_edition(self._field(8, ninth=True))
-        )
-        published = generate.leftover_issues_with_score_progression_budget(leftover)
-        self.assertEqual(len(self._budget_rows(published)), 1)
-        edition = self._fat_edition(self.NINTH)
-        self.assertTrue(
-            facts.should_hold_automerge([], edition, leftover=published)
-        )
-
-    def test_r1_false_clocked_score_still_drops(self):
-        """R1: R1-B1 under-budget false 7-3 after/following still drops."""
-        sentence = "A 7-3 lead following the Q2 7:40 touchdown became 24-28."
-        out, sink = self._drop_text(sentence)
-        self.assertEqual(sink, [])
-        self.assertNotIn("7-3", out)
-
-    def test_r2_incidental_player_does_not_verify_unknown_club(self):
-        """R2: R1-B2 `_unknown_was_opponent` still rejects Seattle without Walker."""
-        sentence = (
-            "Seattle without Walker was 18 first downs, 88 rush, "
-            "246 net pass, 25:39."
-        )
-        self.assertTrue(
-            facts._unknown_was_opponent(
-                sentence, self.LAST, self.RECAP, frozen_schedule()
-            )
-        )
-
-    def test_r3_true_progression_still_clean(self):
-        """R3: true 24-13 after Q3 1:38 → 24-28 stays clean."""
-        out, sink = self._drop_text(self.TRUE_PROGRESSION)
-        self.assertEqual(sink, [])
-        self.assertIn("24-13", out)
+    def test_r1_four_mandated_r1_b1_inputs_drop_6_of_6(self):
+        """R1: all four mandated R1-B1 exact inputs (without-the, following,
+        advantage, linewrap-before-after) reject and drop 6/6, and
+        24-13→24-28 true progression stays clean.
+        """
+        self.assertEqual(len(self.R1_B1), 6)
+        dropped = 0
+        for name, sentence in self.R1_B1:
+            with self.subTest(name=name):
+                dirty = self._lede(sentence)
+                issues = facts.check_review(dirty, self.LAST, self.RECAP)
+                self.assertTrue(
+                    any("score progression" in item for item in issues),
+                    (name, issues),
+                )
+                out, sink = self._drop_text(sentence)
+                self.assertEqual(sink, [], name)
+                self.assertNotIn("7-3", out, name)
+                repaired, leftover = self._repair(dirty)
+                blob = facts.edition_text(repaired)
+                self.assertNotIn("7-3", blob, name)
+                self.assertFalse(self._budget_rows(leftover), leftover)
+                dropped += 1
+        self.assertEqual(dropped, 6)
+        true_out, true_sink = self._drop_text(self.TRUE_PROGRESSION)
+        self.assertEqual(true_sink, [])
+        self.assertIn("24-13", true_out)
         self.assertEqual(
-            facts.check_review(self._lede(self.TRUE_PROGRESSION), self.LAST, self.RECAP),
+            facts.check_review(
+                self._lede(self.TRUE_PROGRESSION), self.LAST, self.RECAP
+            ),
             [],
         )
 
-    def test_r4_fifty_claim_repair_fail_closed(self):
-        """R4: 50-claim field through repair_offending_copy fails closed, timed."""
-        scores = self._fake_scores(50)
-        text = " ".join([self.CLEAN] + [self._claim(score) for score in scores])
-        started = time.perf_counter()
-        repaired, leftover = self._repair(self._lede(text))
-        elapsed = time.perf_counter() - started
-        self.assertLess(elapsed, 5.0, elapsed)
-        lede = repaired["lastGameReview"]["lede"]
-        self.assertEqual(len(self._budget_rows(leftover)), 1)
-        self.assertIn(self._claim(scores[8]), lede)
-        self.assertNotIn(self._claim(scores[0]), lede)
-
-    def test_r5_clocked_score_after_class_unchanged(self):
-        """R5: `_clocked_score_after_claim` still classifies following/advantage."""
-        following = "A 7-3 lead following the Q2 7:40 touchdown became 24-28."
-        advantage = "A 7-3 advantage after the Q2 7:40 touchdown became 24-28."
-        for sentence in (following, advantage):
-            hits = list(facts._iter_clocked_score_after(sentence))
-            self.assertTrue(hits, sentence)
-        self.assertIsNotNone(
-            facts._clocked_score_after_claim(
-                "A 7-3 lead ",
-                "the Q2 7:40 touchdown became 24-28.",
-            )
+    def test_r2_seattle_tails_reject_mahomes_kc_chiefs_present(self):
+        """R2: Seattle without Walker, with Rice, not Mahomes, and
+        Seattle–Mahomes reject. Patrick Mahomes, KC and the Chiefs stay present.
+        """
+        box = "was 18 first downs, 88 rush, 246 net pass, 25:39."
+        rejects = (
+            "Seattle without Walker",
+            "Seattle with Rice",
+            "Seattle not Mahomes",
+            "Seattle-Mahomes",
         )
+        slate = frozen_schedule()
+        for subject in rejects:
+            sentence = f"{subject} {box}"
+            with self.subTest(subject=subject):
+                unknown = facts._unknown_was_opponent(
+                    sentence, self.LAST, self.RECAP, slate
+                )
+                self.assertTrue(unknown, sentence)
+                dirty = self._lede(sentence)
+                issues = facts.check_review(
+                    dirty, self.LAST, self.RECAP, schedule=slate
+                )
+                self.assertTrue(
+                    any("unverifiable" in item for item in issues),
+                    issues,
+                )
+                repaired = facts.repair_offending_copy(
+                    dirty, issues, self.LAST, self.RECAP, slate
+                )
+                self.assertNotIn(subject, facts.edition_text(repaired))
+        mahomes = Week9PreviewLeftoverReplay.MAHOMES_BOX
+        for name in ("Patrick Mahomes", "KC", "Chiefs"):
+            sentence = mahomes.replace("Patrick Mahomes", name, 1)
+            with self.subTest(keep=name):
+                self.assertEqual(
+                    facts._unknown_was_opponent(
+                        sentence, self.LAST, self.RECAP, slate
+                    ),
+                    "",
+                    name,
+                )
+                issues = facts.check_review(
+                    self._lede(sentence),
+                    self.LAST,
+                    self.RECAP,
+                    schedule=slate,
+                )
+                self.assertFalse(
+                    any("unverifiable" in item and "opponent" in item for item in issues),
+                    (name, issues),
+                )
+                self.assertIn(sentence, facts.edition_text(self._lede(sentence)))
 
-    def test_f1_exactly_one_hard_budget_leftover(self):
-        """F1: exactly one HARD leftoverIssues row names field and surviving claim."""
-        repaired, leftover = self._repair(self._lede(self._field(8, ninth=True)))
-        budget = self._budget_rows(leftover)
-        self.assertEqual(len(budget), 1, leftover)
-        issue = budget[0]
-        self.assertIn("score-progression repair budget exhausted", issue)
-        self.assertIn("lastGameReview.lede", issue)
-        self.assertIn("A 22-17 lead after the Q2", issue)
-        self.assertIn("7:40 touchdown became 24-28", issue)
-        self.assertEqual(self._budget_rows(self._hard(leftover)), budget)
-        self.assertFalse(known_errors.is_hold_only_issue(issue))
-        self.assertIn(self.NINTH, repaired["lastGameReview"]["lede"])
-
-    def test_f2_hold_automerge_on_exhaustion(self):
-        """F2: exhaustion sets holdAutomerge even when no sentences were dropped."""
-        claim = self._claim("7-3")
-        sink: list[dict] = []
-
-        def _noop(text, index):
-            return text
-
-        with patch.object(facts, "_cut_in_field_sentence", side_effect=_noop):
-            out = facts._drop_invalid_score_progression_text(
-                claim,
-                self.RECAP,
-                self.LAST,
-                exhausted=sink,
-                path="lede",
-                root_key="lede",
-            )
-        self.assertEqual(out, claim)
-        leftover = [row["issue"] for row in sink]
-        edition = self._fat_edition(out)
-        self.assertGreaterEqual(
-            facts.edition_word_count(edition), facts.PUBLISH_WORD_FLOOR
-        )
-        merged = generate.merge_score_progression_budget_leftover([], leftover)
-        self.assertEqual(self._budget_rows(merged), leftover)
-        self.assertTrue(
-            facts.should_hold_automerge([], edition, leftover=merged)
-        )
-        self.assertFalse(
-            facts.should_hold_automerge([], edition, leftover=[]),
-            "hold must come from the budget leftover, not the fixture",
-        )
-
-    def test_f3_leftover_names_field_and_surviving_claim(self):
-        """F3: HARD leftover names the field/section and surviving claim text."""
-        _out, sink = self._drop_text(self._field(8, ninth=True))
-        self.assertEqual(len(sink), 1)
-        issue = sink[0]["issue"]
-        self.assertEqual(sink[0]["path"], "lastGameReview.lede")
-        self.assertIn(self.NINTH.rstrip("."), sink[0]["claim"])
-        self.assertIn("lastGameReview.lede", issue)
-        self.assertIn("A 22-17 lead after the Q2", issue)
-        self.assertIn("7:40 touchdown became 24-28", issue)
-
-    def test_o1_no_orphaned_claim_fragment_in_any_output(self):
-        """O1: no orphaned claim fragment appears in any output."""
-        text = self._field(8, ninth=True)
-        repaired, leftover = self._repair(self._lede(text))
+    def test_r3_r1_b3_linewrap_clock_drops_fully_not_held(self):
+        """R3: the exact R1-B3 single-claim linewrap-clock repro drops fully
+        and is not held.
+        """
+        dirty = self._lede(self.R1_B3)
+        issues = facts.check_review(dirty, self.LAST, self.RECAP)
+        self.assertTrue(any("score progression" in item for item in issues), issues)
+        out, sink = self._drop_text(self.R1_B3)
+        self.assertEqual(sink, [])
+        self.assertNotIn("A 24-13 lead after the Q3", out)
+        self.assertNotIn("24-13", out)
+        repaired, leftover = self._repair(dirty)
         blob = facts.edition_text(repaired)
-        self.assertIn(self.NINTH, blob)
-        self.assertEqual(self._orphan_hits(blob, ["22-17"]), [])
         self.assertNotIn("A 24-13 lead after the Q3", blob)
-        for item in leftover:
-            self.assertNotIn("A 24-13 lead after the Q3", item)
-        snippets = facts.violation_snippets(
-            facts.check_review(self._lede(text), self.LAST, self.RECAP)
+        self.assertNotIn("24-13", blob)
+        self.assertEqual(self._budget_rows(leftover), [])
+        self.assertFalse(
+            any("score progression" in item for item in leftover), leftover
         )
-        clipped = facts._drop_value(
-            text, snippets, self.LAST, self.RECAP, generated_at=""
+
+    def test_r5_r2_n5_td_abbreviation_overdrop_unfixed(self):
+        """R5: R2-N5 (TD abbreviation over-drop) is unchanged and unfixed here,
+        because it's #347's scope. Paste the probe so it's visibly not
+        regressed further.
+        """
+        true = self.TRUE_PROGRESSION
+        td = self.R2_N5_TD
+        true_issues = facts.check_review(self._lede(true), self.LAST, self.RECAP)
+        self.assertEqual(true_issues, [])
+        td_issues = facts.check_review(self._lede(td), self.LAST, self.RECAP)
+        self.assertTrue(
+            any("score progression" in item for item in td_issues),
+            td_issues,
         )
-        self.assertNotIn(self.NINTH, clipped)
-        lede = repaired["lastGameReview"]["lede"]
-        self.assertIn(self.NINTH, lede)
+        true_out, true_sink = self._drop_text(true)
+        self.assertEqual(true_sink, [])
+        self.assertIn("24-13", true_out)
+        td_out, td_sink = self._drop_text(td)
+        self.assertEqual(td_sink, [])
+        self.assertNotIn("24-13", td_out)
+        claim = facts._clocked_score_after_claim(
+            "A 24-13 lead ",
+            "the Q3 1:38 TD became 24-28.",
+        )
+        self.assertIsNotNone(claim)
+        self.assertNotEqual(claim[-1], "td", claim)
 
 
 if __name__ == "__main__":

@@ -35,17 +35,17 @@ KILLERS = (
     ),
     (
         "M4-snippet-clip-exhausted-field",
-        "test_o1_no_orphaned_claim_fragment_in_any_output",
+        "test_p12_grep_written_files_for_fragments",
         "snippet clipping on an exhausted field",
     ),
     (
         "M5-leftover-not-emitted",
-        "test_f1_exactly_one_hard_budget_leftover",
+        "test_p4_twelve_claims_one_field_zero_orphan_prefixes",
         "the leftover not emitted",
     ),
     (
         "M6-holdAutomerge-not-set",
-        "test_f2_hold_automerge_on_exhaustion",
+        "test_p4_twelve_claims_one_field_zero_orphan_prefixes",
         "holdAutomerge not set",
     ),
     (
