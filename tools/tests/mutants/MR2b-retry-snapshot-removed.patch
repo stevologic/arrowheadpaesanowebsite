@@ -1,0 +1,17 @@
+--- a/tools/chiefs_narrative/generate.py
++++ b/tools/chiefs_narrative/generate.py
+@@ -1192,14 +1192,10 @@
+                 budget,
+                 after="fact-check retry",
+             )
+-        known_before = copy.deepcopy(narrative)
+         known_fixed, known_logs = known_errors.apply_known_errors(narrative, recap)
+         if known_logs:
+             narrative = known_fixed
+             corrections.extend(known_logs)
+-            headline_or_lede_touched = headline_or_lede_touched or (
+-                facts.copy_touches_headline_or_lede(known_logs, known_before)
+-            )
+             for line in known_logs:
+                 print(f"  [writer] corrected: {line}")
+         violations = facts.check_review(

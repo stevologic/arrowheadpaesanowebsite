@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -1012,7 +1012,7 @@
+ PUBLISH_WORD_FLOOR = 3900
+ # A12: 85% of 3900. Applies only to drop-reduced editions whose
+ # dangling-reference check and C1-C4 leftovers are clean.
+-DROP_REDUCED_WORD_FLOOR = 3315
++DROP_REDUCED_WORD_FLOOR = 3316
+ DROPS_ISSUE_LABEL = "narrative-drops"
+ DROPS_ISSUE_TITLE_PREFIX = "Chiefs Narrative dropped lines:"
+ # J1: hold-only sentinels are flagged by code, not by matching their text.

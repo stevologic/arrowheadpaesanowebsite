@@ -1,0 +1,15 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -11128,11 +11128,7 @@
+     Every lede-scoped check uses this. lastGameReview.lede stays protected
+     even when it is not the first rendered body field.
+     """
+-    parts: list[str] = []
+-    for para in (lede_paragraph(narrative), last_game_review_lede_paragraph(narrative)):
+-        if para and para not in parts:
+-            parts.append(para)
+-    return "\n\n".join(parts)
++    return lede_paragraph(narrative)
+ 
+ 
+ def _normalized_copy(text: str) -> str:

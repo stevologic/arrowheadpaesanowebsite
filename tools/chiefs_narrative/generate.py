@@ -780,6 +780,141 @@ def _write_wire(headlines: list[dict]) -> None:
     )
 
 
+def _salvage(
+    payload,
+    problems,
+    check_last,
+    check_recap,
+    *,
+    check_schedule=None,
+    check_copy_gates=False,
+    check_changed=None,
+    score_budget_ledger=None,
+    score_exhausted=None,
+):
+    corrected, logs = facts.apply_fact_corrections(
+        payload,
+        problems,
+        recap=check_recap,
+        last_game=check_last,
+        schedule=check_schedule,
+    )
+    for line in logs:
+        print(f"  [writer] corrected: {line}")
+    leftover = facts.check_review(
+        corrected,
+        check_last,
+        check_recap,
+        schedule=check_schedule,
+        copy_gates=check_copy_gates,
+        changed=check_changed,
+    )
+    if not leftover:
+        return corrected, leftover, [], logs
+    budget_left: list[str] = []
+    repaired = facts.repair_offending_copy(
+        corrected,
+        leftover,
+        check_last,
+        check_recap,
+        check_schedule,
+        leftover_sink=budget_left,
+        exhausted=score_exhausted,
+        budget_ledger=score_budget_ledger,
+    )
+    gone = facts.dropped_sentences(corrected, repaired)
+    for sentence in gone:
+        print(f"  [writer] dropped sentence: {sentence}")
+    leftover = facts.check_review(
+        repaired,
+        check_last,
+        check_recap,
+        schedule=check_schedule,
+        copy_gates=check_copy_gates,
+        changed=check_changed,
+    )
+    leftover = merge_score_progression_budget_leftover(
+        leftover, budget_left
+    )
+    return repaired, leftover, gone, logs
+
+
+def _salvage_until_clean(
+    payload,
+    problems,
+    check_last,
+    check_recap,
+    *,
+    check_schedule=None,
+    check_copy_gates=False,
+    check_changed=None,
+    before=None,
+    extra_corrections=None,
+    score_budget_ledger=None,
+    score_exhausted=None,
+):
+    repaired, leftover, gone, logs = _salvage(
+        payload,
+        problems,
+        check_last,
+        check_recap,
+        check_schedule=check_schedule,
+        check_copy_gates=check_copy_gates,
+        check_changed=check_changed,
+        score_budget_ledger=score_budget_ledger,
+        score_exhausted=score_exhausted,
+    )
+    gone_all = list(gone)
+    logs_all = list(logs)
+    # A snippet drop can expose a newly bound leftover (run 36741379345
+    # gave Miami's 34:21 to KC) or an orphan opener (run 36751657899).
+    passes = 0
+    while leftover and passes < 6:
+        if salvage_should_stop_for_score_progression_budget(leftover):
+            break
+        passes += 1
+        repaired, leftover, gone, logs = _salvage(
+            repaired,
+            leftover,
+            check_last,
+            check_recap,
+            check_schedule=check_schedule,
+            check_copy_gates=check_copy_gates,
+            check_changed=check_changed,
+            score_budget_ledger=score_budget_ledger,
+            score_exhausted=score_exhausted,
+        )
+        gone_all.extend(gone)
+        logs_all.extend(logs)
+        if not gone:
+            break
+    start = before if before is not None else payload
+    orphans = facts.check_repair_orphans(
+        repaired,
+        gone_all,
+        before=start,
+        corrections=list(extra_corrections or []) + list(logs_all),
+    )
+    # J2/A9: blockers were computed and only printed. Route them into
+    # leftoverIssues (hard). Pass leftover=[] so word-floor and orphan
+    # rows are returned, not the leftover-wrap message.
+    blockers = facts.repair_publish_blockers(
+        [], repaired, orphans, before=start
+    )
+    leftover = list(leftover or [])
+    for item in blockers:
+        if item not in leftover:
+            leftover.append(item)
+    if leftover or blockers:
+        print(
+            "  [writer] unfixable leftover after salvage; "
+            "holding automerge instead of failing the run"
+        )
+        for item in blockers:
+            print(f"  [writer] repair blocker: {item}")
+    return repaired, gone_all, leftover, logs_all
+
+
 def build(provider_name: str | None = None, persist_schedule: bool = True) -> dict:
     print("Arrowhead Paesano — Chiefs Narrative engine")
     print("-" * 52)
@@ -960,11 +1095,31 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
 
     leftover_issues: list[str] = []
     corrections: list[str] = []
+    hold_only_sentinels: list[dict] = []
+    score_budget_ledger: dict[str, int] = {}
+    score_exhausted: list[dict] = []
+    headline_or_lede_touched = False
     uniqueness_rewrites = 0
+
+    def _extend_leftover(items) -> None:
+        for item in items or []:
+            if item not in leftover_issues:
+                leftover_issues.append(item)
+
+    def _note_hold_only(code: str) -> None:
+        sentinel = facts.hold_only_sentinel(code)
+        if any(row.get("code") == code for row in hold_only_sentinels):
+            return
+        hold_only_sentinels.append(sentinel)
+
+    known_before = copy.deepcopy(narrative)
     known_fixed, known_logs = known_errors.apply_known_errors(narrative, recap)
     if known_logs:
         narrative = known_fixed
         corrections.extend(known_logs)
+        headline_or_lede_touched = headline_or_lede_touched or (
+            facts.copy_touches_headline_or_lede(known_logs, known_before)
+        )
         for line in known_logs:
             print(f"  [writer] corrected: {line}")
 
@@ -1041,10 +1196,14 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
                 budget,
                 after="fact-check retry",
             )
+        known_before = copy.deepcopy(narrative)
         known_fixed, known_logs = known_errors.apply_known_errors(narrative, recap)
         if known_logs:
             narrative = known_fixed
             corrections.extend(known_logs)
+            headline_or_lede_touched = headline_or_lede_touched or (
+                facts.copy_touches_headline_or_lede(known_logs, known_before)
+            )
             for line in known_logs:
                 print(f"  [writer] corrected: {line}")
         violations = facts.check_review(
@@ -1053,142 +1212,34 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
         _remember(narrative, violations)
     dropped: list[str] = []
 
-    def _salvage(
-        payload,
-        problems,
-        check_last,
-        check_recap,
-        *,
-        check_schedule=None,
-        check_copy_gates=False,
-        check_changed=None,
-    ):
-        corrected, logs = facts.apply_fact_corrections(
-            payload,
-            problems,
-            recap=check_recap,
-            last_game=check_last,
-            schedule=check_schedule,
-        )
-        for line in logs:
-            print(f"  [writer] corrected: {line}")
-        leftover = facts.check_review(
-            corrected,
-            check_last,
-            check_recap,
-            schedule=check_schedule,
-            copy_gates=check_copy_gates,
-            changed=check_changed,
-        )
-        if not leftover:
-            return corrected, leftover, [], logs
-        budget_left: list[str] = []
-        repaired = facts.repair_offending_copy(
-            corrected,
-            leftover,
-            check_last,
-            check_recap,
-            check_schedule,
-            leftover_sink=budget_left,
-        )
-        gone = facts.dropped_sentences(corrected, repaired)
-        for sentence in gone:
-            print(f"  [writer] dropped sentence: {sentence}")
-        leftover = facts.check_review(
-            repaired,
-            check_last,
-            check_recap,
-            schedule=check_schedule,
-            copy_gates=check_copy_gates,
-            changed=check_changed,
-        )
-        leftover = merge_score_progression_budget_leftover(
-            leftover, budget_left
-        )
-        return repaired, leftover, gone, logs
-
-    def _salvage_until_clean(
-        payload,
-        problems,
-        check_last,
-        check_recap,
-        *,
-        check_schedule=None,
-        check_copy_gates=False,
-        check_changed=None,
-        before=None,
-    ):
-        repaired, leftover, gone, logs = _salvage(
-            payload,
-            problems,
-            check_last,
-            check_recap,
-            check_schedule=check_schedule,
-            check_copy_gates=check_copy_gates,
-            check_changed=check_changed,
-        )
-        gone_all = list(gone)
-        logs_all = list(logs)
-        # A snippet drop can expose a newly bound leftover (run 36741379345
-        # gave Miami's 34:21 to KC) or an orphan opener (run 36751657899).
-        passes = 0
-        while leftover and passes < 6:
-            if salvage_should_stop_for_score_progression_budget(leftover):
-                break
-            passes += 1
-            repaired, leftover, gone, logs = _salvage(
-                repaired,
-                leftover,
-                check_last,
-                check_recap,
-                check_schedule=check_schedule,
-                check_copy_gates=check_copy_gates,
-                check_changed=check_changed,
-            )
-            gone_all.extend(gone)
-            logs_all.extend(logs)
-            if not gone:
-                break
-        start = before if before is not None else payload
-        orphans = facts.check_repair_orphans(
-            repaired, gone_all, before=start
-        )
-        blockers = facts.repair_publish_blockers(
-            leftover, repaired, orphans, before=start
-        )
-        if leftover or blockers:
-            print(
-                "  [writer] unfixable leftover after salvage; "
-                "holding automerge instead of failing the run"
-            )
-        return repaired, gone_all, leftover, logs_all
-
     if violations:
         print(
             "  [writer] fact-check still failing after retries; "
             "correcting ESPN disagreements, then dropping what cannot be fixed"
         )
-        before_salvage = narrative
-        narrative, gone, leftover_issues, logs = _salvage_until_clean(
+        before_salvage = copy.deepcopy(narrative)
+        narrative, gone, leftover, logs = _salvage_until_clean(
             narrative,
             violations,
             last,
             recap,
             check_schedule=schedule,
             check_copy_gates=True,
+            before=known_before,
+            extra_corrections=list(corrections),
+            score_budget_ledger=score_budget_ledger,
+            score_exhausted=score_exhausted,
         )
         corrections.extend(logs)
-        started_ok = (
-            facts.edition_word_count(before_salvage) >= facts.PUBLISH_WORD_FLOOR
+        _extend_leftover(leftover)
+        headline_or_lede_touched = headline_or_lede_touched or (
+            facts.copy_touches_headline_or_lede(
+                list(gone) + list(logs), before_salvage
+            )
         )
         too_noisy = (
             len(gone) > facts.HOLD_REPAIR_DROPS
             or facts.missing_required_copy(narrative)
-            or (
-                started_ok
-                and facts.edition_word_count(narrative)
-                < facts.PUBLISH_WORD_FLOOR
-            )
         )
         if too_noisy:
             salvaged_espn = facts.check_review(
@@ -1196,9 +1247,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             )
             best = None
             if not salvaged_espn:
-                leftover_issues = leftover_issues or [
-                    "salvage dropped enough to hold automerge"
-                ]
+                _note_hold_only(facts.HOLD_ONLY_SALVAGE_NOISY)
                 print(
                     "  [writer] salvage noisy but ESPN-clean; keeping "
                     "corrections and drops"
@@ -1217,11 +1266,13 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
                     recap=recap,
                     schedule=schedule,
                 )
-                leftover_issues = facts.check_review(
+                restored_left = facts.check_review(
                     narrative, last, recap, schedule=schedule, copy_gates=True
-                ) or [
-                    "salvage would have dropped too much; holding for human QA"
-                ]
+                )
+                if restored_left:
+                    _extend_leftover(restored_left)
+                else:
+                    _note_hold_only(facts.HOLD_ONLY_SALVAGE_WOULD_DROP)
                 gone = []
             elif salvaged_espn:
                 offline_raw = offline.write(signals, ph, upcoming)
@@ -1236,9 +1287,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
                     recap=recap,
                     schedule=schedule,
                 )
-                leftover_issues = leftover_issues or [
-                    "salvage emptied required copy; holding for human QA"
-                ]
+                _note_hold_only(facts.HOLD_ONLY_SALVAGE_EMPTIED)
         dropped.extend(gone)
         narrative = facts.restore_required_copy(
             narrative,
@@ -1266,8 +1315,8 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             "  [writer] published-edition gate still failing; "
             "correcting or dropping so generate matches --check-edition"
         )
-        gate_before = narrative
-        narrative, gone, leftover_issues, logs = _salvage_until_clean(
+        gate_before = copy.deepcopy(narrative)
+        narrative, gone, leftover, logs = _salvage_until_clean(
             narrative,
             gate_issues,
             gate_last,
@@ -1275,15 +1324,19 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             check_schedule=schedule,
             check_changed=True,
             before=narrative,
+            score_budget_ledger=score_budget_ledger,
+            score_exhausted=score_exhausted,
         )
         corrections.extend(logs)
+        _extend_leftover(leftover)
+        headline_or_lede_touched = headline_or_lede_touched or (
+            facts.copy_touches_headline_or_lede(
+                list(gone) + list(logs), gate_before
+            )
+        )
         gate_noisy = (
             len(gone) > facts.HOLD_REPAIR_DROPS
             or facts.missing_required_copy(narrative)
-            or (
-                facts.edition_word_count(gate_before) >= facts.PUBLISH_WORD_FLOOR
-                and facts.edition_word_count(narrative) < facts.PUBLISH_WORD_FLOOR
-            )
         )
         if gate_noisy:
             if facts.check_review(
@@ -1294,14 +1347,11 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
                 changed=True,
             ):
                 narrative = copy.deepcopy(gate_before)
-                leftover_issues = leftover_issues or [
-                    "salvage would have dropped too much; holding for human QA"
-                ]
+                if not leftover_issues:
+                    _note_hold_only(facts.HOLD_ONLY_SALVAGE_WOULD_DROP)
                 gone = []
             else:
-                leftover_issues = leftover_issues or [
-                    "salvage dropped enough to hold automerge"
-                ]
+                _note_hold_only(facts.HOLD_ONLY_SALVAGE_NOISY)
                 print(
                     "  [writer] published-edition salvage noisy but "
                     "ESPN-clean; keeping corrections and drops"
@@ -1345,6 +1395,7 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             )
             replay_last = _last_game_from_edition(narrative)
             replay_recap = _recap_for_edition(narrative)
+            replay_before = copy.deepcopy(narrative)
             narrative, gone, leftover_replay, logs = _salvage_until_clean(
                 narrative,
                 hard,
@@ -1353,10 +1404,17 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
                 check_schedule=schedule,
                 check_changed=True,
                 before=narrative,
+                score_budget_ledger=score_budget_ledger,
+                score_exhausted=score_exhausted,
             )
             corrections.extend(logs)
             dropped.extend(gone)
-            leftover_issues.extend(leftover_replay or [])
+            _extend_leftover(leftover_replay)
+            headline_or_lede_touched = headline_or_lede_touched or (
+                facts.copy_touches_headline_or_lede(
+                    list(gone) + list(logs), replay_before
+                )
+            )
             narrative = facts.restore_required_copy(
                 narrative,
                 *reversed([row["narrative"] for row in attempts]),
@@ -1436,15 +1494,27 @@ def build(provider_name: str | None = None, persist_schedule: bool = True) -> di
             + "; ".join(caption_issues)
         )
 
+    leftover_issues = leftover_issues_with_score_progression_budget(
+        leftover_issues
+    )
+    # A8/N8: HOLD_REPAIR_DROPS is the aggregate ceiling across every salvage
+    # stage, including archive-replay. Per-stage len(gone) checks stay.
+    if facts.drop_ceiling_exceeded(dropped):
+        _note_hold_only(facts.HOLD_ONLY_SALVAGE_NOISY)
+    if not headline_or_lede_touched:
+        headline_or_lede_touched = facts.copy_touches_headline_or_lede(
+            list(dropped) + list(corrections), narrative
+        )
     return {
         "narrative": narrative,
         "schedule": schedule,
         "news": signals.get("news") or [],
         "droppedSentences": dropped,
         "correctedSentences": corrections,
-        "leftoverIssues": leftover_issues_with_score_progression_budget(
-            leftover_issues
-        ),
+        "leftoverIssues": leftover_issues,
+        "holdOnlySentinels": hold_only_sentinels,
+        "headlineOrLedeTouched": headline_or_lede_touched,
+        "wordShortfall": facts.word_shortfall_below_publish_floor(narrative),
     }
 
 
@@ -1752,7 +1822,7 @@ def merge_score_progression_budget_leftover(
     kept = [
         item
         for item in leftover
-        if "score progression" not in (item or "")
+        if "score progression" not in facts.leftover_item_text(item)
         and not facts.is_score_progression_budget_exhausted(item)
     ]
     for item in budget_left:
@@ -2014,12 +2084,18 @@ def main(argv=None) -> int:
     drops = result.get("droppedSentences") or []
     leftover = result.get("leftoverIssues") or []
     corrections = result.get("correctedSentences") or []
+    hold_only = result.get("holdOnlySentinels") or []
+    headline_or_lede = bool(result.get("headlineOrLedeTouched"))
+    word_shortfall = int(result.get("wordShortfall") or 0)
     config.REPAIR_JSON.write_text(
         json.dumps(
             {
                 "droppedSentences": drops,
                 "correctedSentences": corrections,
                 "leftoverIssues": leftover,
+                "holdOnlySentinels": hold_only,
+                "headlineOrLedeTouched": headline_or_lede,
+                "wordShortfall": word_shortfall,
                 "holdAutomerge": facts.should_hold_automerge(
                     drops,
                     narrative,
@@ -2027,6 +2103,8 @@ def main(argv=None) -> int:
                     corrections=corrections,
                     schedule=result.get("schedule"),
                     missing_headline=missing_headline,
+                    hold_only_sentinels=hold_only,
+                    headline_or_lede_touched=headline_or_lede,
                 ),
             },
             indent=2,

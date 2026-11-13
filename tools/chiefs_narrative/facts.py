@@ -1006,8 +1006,28 @@ MAX_REPAIR_DROPS = 2
 _MAX_REPAIR_DROPS = MAX_REPAIR_DROPS
 # Hold automerge (label, no merge, no deploy) when salvage is this noisy
 # or the edition is shorter than the in-season desk norm.
-HOLD_REPAIR_DROPS = 3
+# A8/A10: ceiling 8. Nine drops is the N+1 hold. Body drops at or under
+# the ceiling ship when the remainder is clean (K3 relaxed).
+HOLD_REPAIR_DROPS = 8
 PUBLISH_WORD_FLOOR = 3900
+# A12: 85% of 3900. Applies only to drop-reduced editions whose
+# dangling-reference check and C1-C4 leftovers are clean.
+DROP_REDUCED_WORD_FLOOR = 3315
+DROPS_ISSUE_LABEL = "narrative-drops"
+DROPS_ISSUE_TITLE_PREFIX = "Chiefs Narrative dropped lines:"
+# J1: hold-only sentinels are flagged by code, not by matching their text.
+HOLD_ONLY_SALVAGE_NOISY = "SALVAGE_NOISY"
+HOLD_ONLY_SALVAGE_WOULD_DROP = "SALVAGE_WOULD_DROP"
+HOLD_ONLY_SALVAGE_EMPTIED = "SALVAGE_EMPTIED"
+HOLD_ONLY_SENTINEL_TEXT = {
+    HOLD_ONLY_SALVAGE_NOISY: "salvage dropped enough to hold automerge",
+    HOLD_ONLY_SALVAGE_WOULD_DROP: (
+        "salvage would have dropped too much; holding for human QA"
+    ),
+    HOLD_ONLY_SALVAGE_EMPTIED: (
+        "salvage emptied required copy; holding for human QA"
+    ),
+}
 # Safety net: a Review edition never automerges. Flip to False after a
 # human has cleared Monday post-game QA and the checker is trusted again.
 REVIEW_REQUIRES_HUMAN = True
@@ -8762,6 +8782,8 @@ def _orphan_issue(sentence: str) -> str | None:
         return None
     if re.search(r"\bcomplementary football\b", sentence, re.I):
         return None
+    if re.search(r"\bas noted\b", sentence, re.I):
+        return f"dangling as-noted after repair ({sentence!r})"
     if _ORPHAN_OPENER.match(sentence):
         return f"orphan opener after repair ({sentence!r})"
     if _DANGLING_NAME.match(sentence):
@@ -8791,12 +8813,30 @@ def _live_heading_sentences(value) -> set[str]:
     return out
 
 
+def _correction_antecedents(corrections: list[str] | None) -> list[str]:
+    """R4: only a DROPPED claim (new is None) orphans dependents.
+
+    A claim fixed in place (`old → new`) keeps its antecedent, so following
+    It/He/As noted copy still ships (R1).
+    """
+    out: list[str] = []
+    for log in corrections or []:
+        old, new = correction_old_and_new(str(log))
+        if not old or new is not None:
+            continue
+        out.extend(sent.strip() for sent in _split_sentences(old) if sent.strip())
+    return out
+
+
 def check_repair_orphans(
     narrative: dict | None,
     dropped: list[str],
     before: dict | None = None,
+    corrections: list[str] | None = None,
 ) -> list[str]:
-    """Fail leftovers that lost their antecedent in a salvage drop."""
+    """Fail leftovers that lost their antecedent in a salvage drop or correction."""
+    dropped = [str(row) for row in (dropped or []) if str(row).strip()]
+    dropped.extend(_correction_antecedents(corrections))
     if not dropped:
         return []
     dropped_set = {s.strip() for s in dropped if s and s.strip()}
@@ -9418,7 +9458,25 @@ SCORE_PROGRESSION_BUDGET_EXHAUSTED = (
 )
 
 
-def is_score_progression_budget_exhausted(item: str) -> bool:
+def _score_progression_remaining(budget_ledger, path: str) -> int:
+    """A13: leftover cuts for this path. None ledger = a fresh per-call budget."""
+    if budget_ledger is None:
+        return SCORE_PROGRESSION_REPAIR_BUDGET
+    if path not in budget_ledger:
+        budget_ledger[path] = SCORE_PROGRESSION_REPAIR_BUDGET
+    return int(budget_ledger[path])
+
+
+def _consume_score_progression_budget(budget_ledger, path: str) -> None:
+    if budget_ledger is None:
+        return
+    left = budget_ledger.get(path, SCORE_PROGRESSION_REPAIR_BUDGET)
+    budget_ledger[path] = max(0, int(left) - 1)
+
+
+def is_score_progression_budget_exhausted(item) -> bool:
+    if isinstance(item, dict):
+        item = item.get("issue") or item.get("text") or ""
     return SCORE_PROGRESSION_BUDGET_EXHAUSTED in (item or "")
 
 
@@ -9479,6 +9537,7 @@ def _drop_invalid_score_progression_text(
     exhausted=None,
     path: str = "",
     root_key: str = "",
+    budget_ledger=None,
 ) -> str:
     """Drop complete in-field sentences whose score-after still fails ESPN.
 
@@ -9486,15 +9545,27 @@ def _drop_invalid_score_progression_text(
     after deleting the wrapped clock line. That orphaned prefix is still
     the same claim and must not publish as clean copy.
 
-    Eight successful cuts is the budget. Exhaustion fails closed: the
-    surviving claim stays fully present and byte-identical, and the
-    caller records one HARD leftover. A stall (progressed=False) on any
-    pass, including pass 1, also fails closed. A cut no-op must not loop.
+    SCORE_PROGRESSION_REPAIR_BUDGET successful cuts is the budget.
+    Exhaustion fails closed: the surviving claim stays fully present and
+    byte-identical, and the caller records one HARD leftover. A stall
+    (progressed=False) on any pass, including pass 1, also fails closed.
+    A cut no-op must not loop. A13: a shared budget_ledger carries the
+    remaining cuts across salvage stages so the budget does not reset.
     """
     if not text or not recap:
         return text
     current = text
-    for _ in range(8):
+    remaining = _score_progression_remaining(budget_ledger, path)
+    if remaining <= 0:
+        if _check_score_progression(current, recap, last_game):
+            surviving = _surviving_invalid_score_claim(
+                current, recap, last_game
+            )
+            _record_score_progression_exhaustion(
+                exhausted, path=path, root_key=root_key, claim=surviving
+            )
+        return current
+    for _ in range(remaining):
         if not _check_score_progression(current, recap, last_game):
             return current
         progressed = False
@@ -9507,6 +9578,7 @@ def _drop_invalid_score_progression_text(
             if nxt != current:
                 current = nxt
                 progressed = True
+                _consume_score_progression_budget(budget_ledger, path)
                 break
             stall_claim = sentence
             continue
@@ -9534,6 +9606,7 @@ def _drop_invalid_score_progression(
     exhausted=None,
     path: str = "",
     root_key: str = "",
+    budget_ledger=None,
 ):
     """Walk every section and remove invalid in-field score-after claims."""
     if not recap:
@@ -9546,6 +9619,7 @@ def _drop_invalid_score_progression(
             exhausted=exhausted,
             path=path,
             root_key=root_key,
+            budget_ledger=budget_ledger,
         )
     if isinstance(value, list):
         out = []
@@ -9557,6 +9631,7 @@ def _drop_invalid_score_progression(
                 exhausted=exhausted,
                 path=_score_path_join(path, index),
                 root_key=root_key,
+                budget_ledger=budget_ledger,
             )
             if kept in (None, "", [], {}):
                 continue
@@ -9576,6 +9651,7 @@ def _drop_invalid_score_progression(
                 exhausted=exhausted,
                 path=_score_path_join(path, key),
                 root_key=child_root,
+                budget_ledger=budget_ledger,
             )
             if kept not in (None, "", [], {}):
                 out[key] = kept
@@ -10721,13 +10797,16 @@ def repair_offending_copy(
     recap: dict | None = None,
     schedule=None,
     leftover_sink=None,
+    exhausted=None,
+    budget_ledger=None,
 ) -> dict:
     """Drop offending sentences, then leftover fragments in every section."""
     payload = copy.deepcopy(narrative or {})
     generated_at = str(payload.get("generatedAt") or "")
     # In-field wrapped score-afters must drop as one period sentence before
     # newline splitting can keep an orphaned prefix as clean salvage.
-    exhausted = []
+    if exhausted is None:
+        exhausted = []
     if recap:
         for key in _EDITION_KEYS:
             if key in payload:
@@ -10738,6 +10817,7 @@ def repair_offending_copy(
                     exhausted=exhausted,
                     path=key,
                     root_key=key,
+                    budget_ledger=budget_ledger,
                 )
     if leftover_sink is not None:
         for row in exhausted:
@@ -10937,6 +11017,300 @@ def review_requires_human(narrative: dict | None) -> bool:
     return bool(REVIEW_REQUIRES_HUMAN) and is_review_edition(narrative)
 
 
+def hold_only_sentinel(code: str) -> dict:
+    """J1: a hold-only sentinel tagged by code/flag, not by string matching."""
+    if code not in HOLD_ONLY_SENTINEL_TEXT:
+        raise KeyError(code)
+    return {
+        "code": code,
+        "text": HOLD_ONLY_SENTINEL_TEXT[code],
+        "holdOnly": True,
+    }
+
+
+def is_hold_only_sentinel(item) -> bool:
+    """True only when the leftover carries the holdOnly flag and a code."""
+    return isinstance(item, dict) and bool(item.get("holdOnly")) and bool(
+        item.get("code")
+    )
+
+
+def leftover_item_text(item) -> str:
+    if isinstance(item, dict):
+        return str(item.get("text") or item.get("issue") or "")
+    return str(item or "")
+
+
+def hard_leftover_texts(leftover) -> list[str]:
+    """Hard leftovers only. Hold-only sentinels are a separate flag."""
+    out: list[str] = []
+    for item in leftover or []:
+        if is_hold_only_sentinel(item):
+            continue
+        text = leftover_item_text(item)
+        if text:
+            out.append(text)
+    return out
+
+
+def drop_ceiling_exceeded(drops) -> bool:
+    """A8/N8: HOLD_REPAIR_DROPS caps aggregate droppedSentences across stages."""
+    return len([row for row in (drops or []) if str(row).strip()]) > HOLD_REPAIR_DROPS
+
+
+def _primary_body_text(value) -> str:
+    """Primary rendered paragraph source for a body field."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        return str(value.get("lede") or "").strip()
+    return str(value).strip()
+
+
+def _narrative_phase_mode(narrative: dict | None) -> str:
+    phase = (narrative or {}).get("phase")
+    if isinstance(phase, dict):
+        return str(phase.get("mode") or "").strip().lower()
+    if isinstance(phase, str):
+        return phase.strip().lower()
+    return ""
+
+
+def rendered_body_field_texts(narrative: dict | None) -> list[str]:
+    """Body-field texts in narrative-edition.html render order.
+
+    Headline is L47/L49 (not a body field). dek is L51, theEdge is L99.
+    lastGameReview renders at L106 on Review (``phase.mode != preview``)
+    and at L185 on Preview. currentState.lede is L119, gamePlan.lede is
+    L159, storyline.lede is L262. Empty fields are skipped.
+    """
+    payload = narrative or {}
+    dek = _primary_body_text(payload.get("dek"))
+    edge = _primary_body_text(payload.get("theEdge"))
+    review = _primary_body_text(payload.get("lastGameReview"))
+    state = _primary_body_text(payload.get("currentState"))
+    plan = _primary_body_text(payload.get("gamePlan"))
+    story = _primary_body_text(payload.get("storyline"))
+    if _narrative_phase_mode(payload) == "preview":
+        ordered = (dek, edge, state, plan, review, story)
+    else:
+        ordered = (dek, edge, review, state, plan, story)
+    return [text for text in ordered if text]
+
+
+def last_game_review_lede_paragraph(narrative: dict | None) -> str:
+    """First paragraph of lastGameReview.lede. Empty string, never None."""
+    raw = _primary_body_text((narrative or {}).get("lastGameReview"))
+    if not raw:
+        return ""
+    return raw.split("\n\n", 1)[0].strip()
+
+
+def lede_paragraph(narrative: dict | None) -> str:
+    """A14: first paragraph of the first non-empty rendered body field.
+
+    Render order follows layouts/partials/narrative-edition.html
+    (dek L51, else theEdge L99, then the next non-empty body field).
+    Never returns None: empty string if the edition has no body field.
+    """
+    for text in rendered_body_field_texts(narrative):
+        para = text.split("\n\n", 1)[0].strip()
+        if para:
+            return para
+    return ""
+
+
+def protected_lede_text(narrative: dict | None) -> str:
+    """Union of the render-order lede and lastGameReview.lede first paragraph.
+
+    Every lede-scoped check uses this. lastGameReview.lede stays protected
+    even when it is not the first rendered body field.
+    """
+    parts: list[str] = []
+    for para in (lede_paragraph(narrative), last_game_review_lede_paragraph(narrative)):
+        if para and para not in parts:
+            parts.append(para)
+    return "\n\n".join(parts)
+
+
+def _normalized_copy(text: str) -> str:
+    return re.sub(r"\s+", " ", (text or "").strip())
+
+
+def _sentence_in_field(sentence: str, field: str) -> bool:
+    needle = (sentence or "").strip()
+    hay = field or ""
+    if not needle or not hay:
+        return False
+    if needle in hay:
+        return True
+    compact_needle = re.sub(r"\s+", " ", needle)
+    compact_hay = re.sub(r"\s+", " ", hay)
+    return bool(compact_needle) and compact_needle in compact_hay
+
+
+def _region_units(region: str) -> list[str]:
+    """Headline/lede units: the whole region, each paragraph, each sentence.
+
+    Short tokens that merely occur inside a longer sentence are not units.
+    """
+    raw = (region or "").strip()
+    if not raw:
+        return []
+    units = [_normalized_copy(raw)]
+    for para in raw.split("\n\n"):
+        compact = _normalized_copy(para)
+        if compact and compact not in units:
+            units.append(compact)
+    for sent in _split_sentences(raw):
+        compact = _normalized_copy(sent)
+        if compact and compact not in units:
+            units.append(compact)
+    return units
+
+
+def _text_is_region_unit(needle: str, region: str) -> bool:
+    compact = _normalized_copy(needle)
+    return bool(compact) and compact in _region_units(region)
+
+
+def correction_source_sentence(log: str) -> str:
+    """Extract the original sentence from an ``old → new`` correction log."""
+    raw = str(log or "")
+    if " → " in raw:
+        return raw.split(" → ", 1)[0].strip()
+    return raw.strip()
+
+
+def correction_old_and_new(log: str) -> tuple[str, str | None]:
+    raw = str(log or "")
+    if " → " in raw:
+        old, new = raw.split(" → ", 1)
+        return old.strip(), new.strip()
+    return raw.strip(), None
+
+
+def _changed_field_pieces(old: str, new: str) -> list[str]:
+    """Paragraphs (then sentences) in old that differ from new.
+
+    A10/A11/R3: classify a whole-field ``old → new`` log by where the
+    change is, not by testing the concatenated field as a substring of
+    the first paragraph.
+    """
+    old = old or ""
+    new = new or ""
+    if old == new:
+        return []
+    old_paras = old.split("\n\n")
+    new_paras = new.split("\n\n")
+    changed = []
+    for index, para in enumerate(old_paras):
+        other = new_paras[index] if index < len(new_paras) else ""
+        if _normalized_copy(para) != _normalized_copy(other):
+            changed.append(para)
+    if not changed:
+        new_sents = {_normalized_copy(item) for item in _split_sentences(new)}
+        changed = [
+            item
+            for item in _split_sentences(old)
+            if _normalized_copy(item) not in new_sents
+        ]
+    return changed or [old]
+
+
+def copy_touches_headline_or_lede(
+    sentences: list[str] | None,
+    narrative: dict | None,
+) -> bool:
+    """A10/R2/R3: any drop or correction in the headline or lede.
+
+    Match on headline/lede units (whole field, paragraph, sentence), not
+    substring. A short drop string that occurs inside the headline does
+    not hold; a real headline drop does. A whole-field lede correction
+    log holds only when the changed paragraph is the lede.
+    """
+    headline = str((narrative or {}).get("headline") or "")
+    lede = protected_lede_text(narrative)
+    for item in sentences or []:
+        old, new = correction_old_and_new(item)
+        if new is None:
+            if _text_is_region_unit(old, headline) or _text_is_region_unit(old, lede):
+                return True
+            continue
+        for piece in _changed_field_pieces(old, new):
+            if _text_is_region_unit(piece, headline) or _text_is_region_unit(
+                piece, lede
+            ):
+                return True
+    return False
+
+
+def publish_word_floor(
+    drops: list[str] | None,
+    leftover=None,
+    *,
+    orphans: list[str] | None = None,
+    hold_only_sentinels=None,
+    headline_or_lede_touched: bool = False,
+) -> int:
+    """A12: 3,315 only for drop-reduced editions with a clean remainder.
+
+    C1-C4 clean means no hard leftover (budget row included), no dangling
+    reference, no hold-only sentinel, and no headline/lede touch.
+    """
+    if not drops:
+        return PUBLISH_WORD_FLOOR
+    if hard_leftover_texts(leftover):
+        return PUBLISH_WORD_FLOOR
+    if orphans:
+        return PUBLISH_WORD_FLOOR
+    if hold_only_sentinels:
+        return PUBLISH_WORD_FLOOR
+    if headline_or_lede_touched:
+        return PUBLISH_WORD_FLOOR
+    return DROP_REDUCED_WORD_FLOOR
+
+
+def word_shortfall_below_publish_floor(narrative: dict | None) -> int:
+    """Words short of PUBLISH_WORD_FLOOR. Logged on the tracking issue (A12)."""
+    count = edition_word_count(narrative)
+    if count >= PUBLISH_WORD_FLOOR:
+        return 0
+    return PUBLISH_WORD_FLOOR - count
+
+
+def only_safe_score_lede_content(narrative: dict | None) -> bool:
+    """N6: safe_score_lede stand-in must not count as publishable content."""
+    sentences = [
+        item.strip()
+        for item in _split_sentences(edition_text(narrative) or "")
+        if item and item.strip()
+    ]
+    if not sentences:
+        return True
+    review = (narrative or {}).get("lastGameReview") or {}
+    stand_ins = {
+        safe_score_lede(None).strip(),
+        "Kansas City played the opponent.",
+        safe_score_lede(
+            {
+                "opponent": review.get("opponent") or "the opponent",
+                "kcScore": review.get("kcScore"),
+                "oppScore": review.get("oppScore"),
+            }
+        ).strip(),
+    }
+    return all(
+        any(
+            _sentence_in_field(sent, stand) or sent.rstrip(".") == stand.rstrip(".")
+            for stand in stand_ins
+        )
+        for sent in sentences
+    )
+
+
 def should_hold_automerge(
     drops: list[str],
     narrative: dict | None,
@@ -10944,30 +11318,58 @@ def should_hold_automerge(
     corrections: list[str] | None = None,
     schedule=None,
     missing_headline: bool = False,
+    *,
+    hold_only_sentinels=None,
+    headline_or_lede_touched: bool | None = None,
+    orphans: list[str] | None = None,
+    before: dict | None = None,
 ) -> bool:
-    """Hold whenever salvage rewrote or dropped copy, leftover, or thin.
+    """Hold leftover, noisy salvage, headline/lede drops, or a thin remainder.
 
-    A missing headline with no recorded drop must hold. Never automerge
-    the edition label as the published title. Review editions hold while
-    REVIEW_REQUIRES_HUMAN is on, even with a clean checker.
+    K3 (drops-only) is relaxed: a clean remainder ships after body drops.
+    A10/J4: any drop or correction touching the headline or lede holds, even
+    one. K4 body corrections ship. K2d hold-only sentinels still hold (J1
+    flags them). A12 flexes the word floor for drop-reduced clean remainders.
     """
     if review_requires_human(narrative):
         return True
-    if leftover:
+    if hard_leftover_texts(leftover):
         return True
-    if drops:
+    if any(is_hold_only_sentinel(item) for item in leftover or []):
         return True
-    if corrections:
+    if hold_only_sentinels:
+        return True
+    if drop_ceiling_exceeded(drops):
+        return True
+    source = before if before is not None else narrative
+    touched = headline_or_lede_touched
+    if touched is None:
+        touched = copy_touches_headline_or_lede(
+            list(drops or []) + list(corrections or []),
+            source,
+        )
+    if touched:
         return True
     if missing_headline:
         return True
     if not str((narrative or {}).get("headline") or "").strip():
         return True
+    if not lede_paragraph(source):
+        return True
+    if only_safe_score_lede_content(narrative):
+        return True
     if _offseason_while_slate_open(narrative, schedule):
         return True
     if _playoff_next_unknown(narrative, schedule):
         return True
-    return edition_word_count(narrative) < PUBLISH_WORD_FLOOR
+    floor = publish_word_floor(
+        drops,
+        leftover,
+        orphans=orphans,
+        hold_only_sentinels=hold_only_sentinels,
+        headline_or_lede_touched=bool(touched),
+    )
+    return edition_word_count(narrative) < floor
 
 
 def repair_publish_blockers(

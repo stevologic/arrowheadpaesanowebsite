@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -11087,7 +11087,7 @@
+     L159, storyline.lede is L262. Empty fields are skipped.
+     """
+     payload = narrative or {}
+-    dek = _primary_body_text(payload.get("dek"))
++    dek = ""
+     edge = _primary_body_text(payload.get("theEdge"))
+     review = _primary_body_text(payload.get("lastGameReview"))
+     state = _primary_body_text(payload.get("currentState"))

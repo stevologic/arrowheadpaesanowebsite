@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -11093,6 +11093,8 @@
+     state = _primary_body_text(payload.get("currentState"))
+     plan = _primary_body_text(payload.get("gamePlan"))
+     story = _primary_body_text(payload.get("storyline"))
++    if review:
++        return [review]
+     if _narrative_phase_mode(payload) == "preview":
+         ordered = (dek, edge, state, plan, review, story)
+     else:

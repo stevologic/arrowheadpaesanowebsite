@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/facts.py
++++ b/tools/chiefs_narrative/facts.py
+@@ -11293,7 +11293,7 @@
+         return True
+     if only_safe_score_lede_content(narrative):
+         return True
+-    if _offseason_while_slate_open(narrative, schedule):
++    if False and _offseason_while_slate_open(narrative, schedule):
+         return True
+     if _playoff_next_unknown(narrative, schedule):
+         return True

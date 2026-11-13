@@ -1,0 +1,26 @@
+--- a/tools/chiefs_narrative/generate.py
++++ b/tools/chiefs_narrative/generate.py
+@@ -1907,9 +1907,20 @@
+         changed = "data/narrative.json" in posix or (
+             bool(slug) and f"data/narrative_editions/{slug}.json" in posix
+         )
+-    issues = facts.check_review(
+-        narrative, last, recap, schedule=schedule, changed=changed
+-    )
++    dropped = []
++    if config.REPAIR_JSON.is_file():
++        try:
++            repair = json.loads(config.REPAIR_JSON.read_text(encoding="utf-8"))
++        except json.JSONDecodeError:
++            repair = {}
++        if isinstance(repair, dict):
++            dropped = repair.get("droppedSentences") or []
++    if dropped:
++        issues = []
++    else:
++        issues = facts.check_review(
++            narrative, last, recap, schedule=schedule, changed=changed
++        )
+     issues.extend(facts.check_diagram_captions(narrative))
+     issues.extend(press_conferences.check_embeds(narrative, schedule=schedule))
+     issues.extend(locker_room.check_posts(narrative, schedule=schedule))

@@ -31,9 +31,9 @@ from tools.chiefs_narrative import (
     providers,
     review_gate,
 )
+import tools.tests.test_archive_replay_qa as _archive_qa
+import tools.tests.test_maintenance as _maintenance
 from tools.tests.frozen_slate import frozen_schedule
-from tools.tests.test_archive_replay_qa import Week9PreviewLeftoverReplay
-from tools.tests.test_maintenance import PublicationPolicy
 from tools.tests.test_narrative import _job_step_script, _run_fail_held_script
 
 WORKFLOWS = Path(__file__).resolve().parents[2] / ".github" / "workflows"
@@ -42,8 +42,8 @@ WORKFLOWS = Path(__file__).resolve().parents[2] / ".github" / "workflows"
 class ScoreProgressionBudgetExhaustion(unittest.TestCase):
     """Every FROZEN-4 row id, in file order."""
 
-    LAST = Week9PreviewLeftoverReplay.LAST
-    RECAP = Week9PreviewLeftoverReplay.RECAP
+    LAST = _archive_qa.Week9PreviewLeftoverReplay.LAST
+    RECAP = _archive_qa.Week9PreviewLeftoverReplay.RECAP
     CLEAN = "The preview stays on the Jets."
     BUDGET_SCORES = (
         "7-3",
@@ -56,7 +56,7 @@ class ScoreProgressionBudgetExhaustion(unittest.TestCase):
         "16-13",
     )
     NINTH = "A 22-17 lead after the Q2\n7:40 touchdown became 24-28."
-    TRUE_PROGRESSION = Week9PreviewLeftoverReplay.TRUE_PROGRESSION
+    TRUE_PROGRESSION = _archive_qa.Week9PreviewLeftoverReplay.TRUE_PROGRESSION
     BANNED_SCORES = frozenset({"14-6", "24-13", "24-28", "18-17"})
 
     def _claim(self, score: str) -> str:
@@ -563,9 +563,25 @@ class ScoreProgressionBudgetExhaustion(unittest.TestCase):
     def _workflow(self, name: str) -> dict:
         return yaml.safe_load((WORKFLOWS / name).read_text(encoding="utf-8"))
 
-    def _p3_through_build(self, tmp: Path) -> tuple[dict, Path]:
-        raw = self._fat_edition(self._field(8, ninth=True))
-        llm = Mock(return_value=(raw, "grok"))
+    def _fat_nonlede(self, text: str, *, field: str = "storyline") -> dict:
+        """A13: budget claims live in a non-lede field so A10 does not hold.
+
+        storyline is not a required-copy key, so restore_required_copy cannot
+        replace the surviving ninth claim with safe_score_lede.
+        """
+        payload = self._fat_edition(self.CLEAN)
+        payload[field] = text
+        return payload
+
+    def _through_build(
+        self,
+        tmp: Path,
+        raw: dict,
+        *,
+        llm=None,
+        patches=(),
+    ) -> tuple[dict, Path]:
+        llm = llm if llm is not None else Mock(return_value=(raw, "grok"))
         archive = tmp / "archive.json"
         editions = tmp / "editions"
         editions.mkdir()
@@ -631,43 +647,83 @@ class ScoreProgressionBudgetExhaustion(unittest.TestCase):
             stack.enter_context(patch.object(generate.config, "WIRE_JSON", wire_json))
             stack.enter_context(patch.object(generate.config, "ensure_dirs", lambda: None))
             stack.enter_context(patch.object(hero_posts, "attach_sidecar"))
-            result = generate.build("grok", persist_schedule=False)
-            leftover = result.get("leftoverIssues") or []
-            drops = result.get("droppedSentences") or []
-            corrections = result.get("correctedSentences") or []
-            repair_json.write_text(
-                json.dumps(
-                    {
-                        "droppedSentences": drops,
-                        "correctedSentences": corrections,
-                        "leftoverIssues": leftover,
-                        "holdAutomerge": facts.should_hold_automerge(
-                            drops,
-                            result["narrative"],
-                            leftover=leftover,
-                            corrections=corrections,
-                        ),
-                    },
-                    indent=2,
-                )
-                + "\n",
-                encoding="utf-8",
+            stack.enter_context(
+                patch.object(hero_posts, "validate_sidecar", return_value=[])
             )
+            stack.enter_context(patch.object(generate, "_write_archive"))
+            for extra in patches:
+                stack.enter_context(extra)
+            stack.enter_context(redirect_stdout(io.StringIO()))
+            rc = generate.main(["--provider", "grok"])
+            if rc != 0:
+                raise AssertionError(
+                    f"generate.main rc={rc} repair={repair_json.read_text() if repair_json.is_file() else 'missing'}"
+                )
+            repair = json.loads(repair_json.read_text(encoding="utf-8"))
+            narrative = json.loads(narrative_json.read_text(encoding="utf-8"))
+            result = {
+                "narrative": narrative,
+                "schedule": frozen_schedule(),
+                "droppedSentences": repair.get("droppedSentences") or [],
+                "correctedSentences": repair.get("correctedSentences") or [],
+                "leftoverIssues": repair.get("leftoverIssues") or [],
+                "holdOnlySentinels": repair.get("holdOnlySentinels") or [],
+                "headlineOrLedeTouched": bool(repair.get("headlineOrLedeTouched")),
+                "wordShortfall": int(repair.get("wordShortfall") or 0),
+            }
         return result, repair_json
+
+    def _p3_through_build(self, tmp: Path) -> tuple[dict, Path]:
+        return self._through_build(
+            tmp, self._fat_edition(self._field(8, ninth=True))
+        )
 
     def test_c1_build_salvage_repair_leftover_and_hold(self):
         """C1: generate.build → `_salvage_until_clean` → `facts.repair_offending_copy`.
 
-        Feed the P3 input through build() with a fake writer; leftoverIssues is
-        non-empty and REPAIR_JSON holdAutomerge=true.
+        A13 HARD GATE: EXACTLY one budget leftover at HOLD_REPAIR_DROPS=8
+        for 9 and 50 claims in a non-lede field. Claim 9 stays
+        byte-present. leftoverIssues is non-empty and holdAutomerge=true.
+        This kills M4-5 (merge dropped at generate.py ~1105-1107).
         """
-        with tempfile.TemporaryDirectory() as tmp:
-            result, repair_json = self._p3_through_build(Path(tmp))
-            leftover = result.get("leftoverIssues") or []
-            self.assertTrue(leftover, leftover)
-            repair = json.loads(repair_json.read_text(encoding="utf-8"))
-            self.assertTrue(repair.get("leftoverIssues"), repair)
-            self.assertTrue(repair.get("holdAutomerge"), repair)
+        ninth = self.NINTH
+        cases = (
+            ("storyline-9", 9, self._fat_nonlede(self._field(8, ninth=True))),
+            ("storyline-50", 50, self._fat_nonlede(self._wrapped_field(50))),
+            ("lede-p3", 9, self._fat_edition(self._field(8, ninth=True))),
+        )
+        for label, count, raw in cases:
+            with self.subTest(claims=label):
+                with tempfile.TemporaryDirectory() as tmp:
+                    if label == "lede-p3":
+                        result, repair_json = self._p3_through_build(Path(tmp))
+                    else:
+                        result, repair_json = self._through_build(Path(tmp), raw)
+                    leftover = result.get("leftoverIssues") or []
+                    self.assertTrue(leftover, leftover)
+                    budget = self._budget_rows(leftover)
+                    self.assertEqual(len(budget), 1, leftover)
+                    blob = facts.edition_text(result["narrative"])
+                    if count == 9:
+                        self.assertIn(ninth, blob)
+                        if label.startswith("storyline"):
+                            storyline = result["narrative"].get("storyline")
+                            if isinstance(storyline, dict):
+                                storyline_text = " ".join(
+                                    str(storyline.get(part) or "")
+                                    for part in ("lede", "body")
+                                )
+                            else:
+                                storyline_text = str(storyline or "")
+                            self.assertIn(ninth, storyline_text)
+                    repair = json.loads(repair_json.read_text(encoding="utf-8"))
+                    self.assertTrue(repair.get("leftoverIssues"), repair)
+                    self.assertTrue(repair.get("holdAutomerge"), repair)
+                    self.assertEqual(
+                        len(self._budget_rows(repair.get("leftoverIssues") or [])),
+                        1,
+                        repair,
+                    )
 
     def test_c2_narrative_yml_gate_replay_and_fail_held(self):
         """C2: narrative.yml test job 'Gate generated content'.
@@ -731,7 +787,7 @@ class ScoreProgressionBudgetExhaustion(unittest.TestCase):
             self.skipTest("Actions update job is bash")
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            env = PublicationPolicy._fake_commands(root)
+            env = _maintenance.PublicationPolicy._fake_commands(root)
             env["DESK_MODE"] = "full"
             metadata = {
                 "holdMerge": True,
@@ -974,7 +1030,7 @@ class ScoreProgressionBudgetExhaustion(unittest.TestCase):
                     dirty, issues, self.LAST, self.RECAP, slate
                 )
                 self.assertNotIn(subject, facts.edition_text(repaired))
-        mahomes = Week9PreviewLeftoverReplay.MAHOMES_BOX
+        mahomes = _archive_qa.Week9PreviewLeftoverReplay.MAHOMES_BOX
         for name in ("Patrick Mahomes", "KC", "Chiefs"):
             sentence = mahomes.replace("Patrick Mahomes", name, 1)
             with self.subTest(keep=name):
