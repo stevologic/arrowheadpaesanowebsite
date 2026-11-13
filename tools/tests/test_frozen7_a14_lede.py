@@ -14,7 +14,8 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import tools.tests.test_score_progression_budget_frozen as _score_budget
-from tools.chiefs_narrative import facts, generate, phase
+from tools.chiefs_narrative import collect, facts, generate, phase
+from tools.tests.frozen_slate import frozen_schedule
 
 REPO = Path(__file__).resolve().parents[2]
 TEMPLATE = REPO / "layouts" / "partials" / "narrative-edition.html"
@@ -96,6 +97,70 @@ class Frozen7A14Lede(unittest.TestCase):
             return [key for key in real(narrative) if key not in ("dek", "theEdge")]
 
         return patch.object(facts, "missing_required_copy", side_effect=wrapped)
+
+    def _empty_live_recap(self):
+        """Stage 1 uses the live ESPN payload; empty recap leaves detail checks off.
+
+        Stage 2/3 load the checkout fixture via `_recap_for_edition`, which is
+        the published-edition / archive-replay caller input.
+        """
+        empty = {}
+        return (
+            patch.object(
+                collect,
+                "collect_all",
+                return_value={
+                    "schedule": frozen_schedule(),
+                    "news": [],
+                    "markets": {},
+                    "lastGameRecap": empty,
+                },
+            ),
+            patch.object(collect, "fetch_game_recap", return_value=empty),
+        )
+
+    def _leave_gate_for_archive_replay(self):
+        """Keep check_review / archive_replay_issues real; skip only stage-2 salvage.
+
+        Stage 2 and stage 3 call the same checkout-fixture check. Salvaging at
+        stage 2 would drop lastGameReview.lede before archive replay runs.
+        Returning the payload unchanged from the published-edition salvage
+        pass is the input that survives to generate.py ~L1413.
+        """
+        real = generate._salvage_until_clean
+        seen = {"n": 0}
+
+        def wrapped(
+            payload,
+            problems,
+            *args,
+            check_copy_gates=False,
+            check_changed=None,
+            **kwargs,
+        ):
+            if check_changed and not check_copy_gates:
+                seen["n"] += 1
+                if seen["n"] == 1:
+                    return payload, [], [], []
+            return real(
+                payload,
+                problems,
+                *args,
+                check_copy_gates=check_copy_gates,
+                check_changed=check_changed,
+                **kwargs,
+            )
+
+        return patch.object(
+            generate, "_salvage_until_clean", side_effect=wrapped
+        )
+
+    def _fg_lede(self, helper: _score_budget.ScoreProgressionBudgetExhaustion) -> dict:
+        raw = self._base(helper)
+        review = dict(raw.get("lastGameReview") or {})
+        review["lede"] = self._para("Butker from 99.", lead=True)
+        raw["lastGameReview"] = review
+        return raw
 
     def _through(
         self,
@@ -296,6 +361,37 @@ class Frozen7A14Lede(unittest.TestCase):
         raw["lastGameReview"] = review
         result, repair = self._through(raw)
         self._assert_hold(result, repair, "7-3")
+
+    def test_b2_build_stage2(self):
+        """B2-build stage 2: published-edition gate salvage (generate.py ~L1332).
+
+        FROZEN-7 A14 / B2. Live recap is empty so stage 1 does not drop.
+        Checkout fixture recap flags Butker from 99 in lastGameReview.lede
+        and stage 2 copy_touches holds. Under MS-A10w-s2 this same
+        generate.main path ships. Not a copy of test_a14_3.
+        """
+        helper = self._helper()
+        result, repair = self._through(
+            self._fg_lede(helper), extra=self._empty_live_recap()
+        )
+        self._assert_hold(result, repair, "Butker from 99")
+
+    def test_b2_build_stage3(self):
+        """B2-build stage 3: archive replay salvage (generate.py ~L1413).
+
+        FROZEN-7 A14 / B2. Same live-empty / fixture-dirty lastGameReview.lede
+        leftover as stage 2. Published-edition salvage is skipped so the
+        leftover is archive_replay_issues' real hard input. check_review
+        and archive_replay_issues are not mocked. Under MS-A10w-s3 this
+        same generate.main path ships. Not a copy of test_a14_3.
+        """
+        helper = self._helper()
+        result, repair = self._through(
+            self._fg_lede(helper),
+            extra=self._empty_live_recap()
+            + (self._leave_gate_for_archive_replay(),),
+        )
+        self._assert_hold(result, repair, "Butker from 99")
 
     def test_b2_known_errors(self):
         """B2-known_errors: first known_errors pass, Quinton→Quay in headline holds.

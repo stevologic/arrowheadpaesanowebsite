@@ -69,3 +69,12 @@ MW3-off-by-one-3315.patch
   killer: test_a12_flexed_floor_boundaries
 MW4-shortfall-not-logged.patch
   killer: test_a12_flexed_floor_boundaries
+MS-A10w-s1.patch
+  stage 1 copy_touches disabled alone (fact-check salvage)
+  killer: test_b2_build
+MS-A10w-s2.patch
+  stage 2 copy_touches disabled alone (published-edition gate salvage)
+  killer: test_b2_build_stage2
+MS-A10w-s3.patch
+  stage 3 copy_touches disabled alone (archive replay salvage)
+  killer: test_b2_build_stage3

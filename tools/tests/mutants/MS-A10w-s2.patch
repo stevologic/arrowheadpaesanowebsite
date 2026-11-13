@@ -1,0 +1,15 @@
+--- a/tools/chiefs_narrative/generate.py
++++ b/tools/chiefs_narrative/generate.py
+@@ -1329,11 +1329,7 @@
+         )
+         corrections.extend(logs)
+         _extend_leftover(leftover)
+-        headline_or_lede_touched = headline_or_lede_touched or (
+-            facts.copy_touches_headline_or_lede(
+-                list(gone) + list(logs), gate_before
+-            )
+-        )
++        headline_or_lede_touched = headline_or_lede_touched or False
+         gate_noisy = (
+             len(gone) > facts.HOLD_REPAIR_DROPS
+             or facts.missing_required_copy(narrative)

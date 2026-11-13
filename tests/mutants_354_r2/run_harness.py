@@ -19,7 +19,9 @@ PYTHON = sys.executable
 A14 = "tools.tests.test_frozen7_a14_lede.Frozen7A14Lede"
 
 KILLERS = (
-    ("MS-A10w", f"{A14}.test_b2_build"),
+    ("MS-A10w-s1", f"{A14}.test_b2_build"),
+    ("MS-A10w-s2", f"{A14}.test_b2_build_stage2"),
+    ("MS-A10w-s3", f"{A14}.test_b2_build_stage3"),
     ("MS-A10k", f"{A14}.test_b2_known_errors"),
     ("resolver-reverted-lastGameReview-lede", f"{A14}.test_a14_1_dek_drop_holds"),
     ("dek-ignored", f"{A14}.test_a14_1_dek_drop_holds"),
