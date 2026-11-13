@@ -653,6 +653,7 @@ class ScoreProgressionBudgetExhaustion(unittest.TestCase):
             stack.enter_context(patch.object(generate, "_write_archive"))
             for extra in patches:
                 stack.enter_context(extra)
+            stack.enter_context(redirect_stdout(io.StringIO()))
             rc = generate.main(["--provider", "grok"])
             if rc != 0:
                 raise AssertionError(

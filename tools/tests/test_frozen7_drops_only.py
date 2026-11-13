@@ -967,6 +967,14 @@ class Frozen7Cases(unittest.TestCase):
         self.assertEqual(grid["K12-other-empty"]["exit"], 1)
         self.n3_grid = grid
 
+    def test_n3_k10_observed(self):
+        """N3-K10: observed Record publish → Fail held, drops empty and non-empty."""
+        for drops, tag in (([], "empty"), (["body drop"], "drops")):
+            with self.subTest(tag=tag):
+                hold_merge, exit_code = _observe_k10(drops)
+                self.assertTrue(hold_merge, tag)
+                self.assertEqual(exit_code, 1, tag)
+
     def test_n4_remainder_gate_failures_hold(self):
         parsed = _workflow("narrative.yml")
         force = _extract_heredoc(

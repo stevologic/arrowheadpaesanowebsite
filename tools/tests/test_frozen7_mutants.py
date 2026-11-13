@@ -63,7 +63,7 @@ KILLERS = (
     ),
     (
         "MG3-K10-delete-force-hold",
-        "tools.tests.test_frozen7_drops_only.Frozen7Cases.test_n3_each_k_cause_with_and_without_drops",
+        "tools.tests.test_frozen7_drops_only.Frozen7Cases.test_n3_k10_observed",
     ),
     (
         "MG4-j2-blockers-print-only",
