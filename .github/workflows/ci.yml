@@ -188,6 +188,7 @@ jobs:
           echo "narrative.yml: $(cat "$narr_out")"
           grep -qx "skip=false" "$pages_out"
           grep -qx "skip=false" "$narr_out"
+          python -m tools.chiefs_narrative.review_gate --hold-repair
 
   automerge:
     needs: gates
