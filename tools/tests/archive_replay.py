@@ -21,7 +21,6 @@ _EVENT_BY_OPP = {
     "miami dolphins": "401872952",
     "las vegas raiders": "401872976",
     "new york jets": "401873045",
-    "atlanta falcons": "401873058",
 }
 # Regular-season rematches that share an opponent with an earlier fixture.
 _EXTRA_EVENTS_BY_OPP = {
@@ -29,7 +28,6 @@ _EXTRA_EVENTS_BY_OPP = {
     "denver broncos": ("401873033",),
 }
 _PRIOR = {
-    "401873058": "401873045",
     "401873045": "401873033",
     "401873033": "401873022",
     "401873022": "401873006",
@@ -46,7 +44,6 @@ _FIXTURE_OPPONENT = {
     "401873006": ("Los Angeles Chargers", "LAC"),
     "401873033": ("Denver Broncos", "DEN"),
     "401873045": ("New York Jets", "NYJ"),
-    "401873058": ("Atlanta Falcons", "ATL"),
 }
 _SCORE = re.compile(r"(\d+)\s*[–-]\s*(\d+)")
 
