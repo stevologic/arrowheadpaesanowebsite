@@ -1572,9 +1572,11 @@ _RECAP_FIXTURES = (
     (("denver", "broncos"), "espn_401873033_recap.json"),
     (("denver", "broncos"), "espn_401872931_recap.json"),
     (("new york jets", "jets"), "espn_401873045_recap.json"),
+    (("atlanta", "falcons"), "espn_401873058_recap.json"),
 )
 # Same chain archive_replay uses: last-game fixture + prior-game fixture.
 _PRIOR_RECAP_FIXTURE = {
+    "espn_401873058_recap.json": "espn_401873045_recap.json",
     "espn_401873045_recap.json": "espn_401873033_recap.json",
     "espn_401873033_recap.json": "espn_401873022_recap.json",
     "espn_401873022_recap.json": "espn_401873006_recap.json",
@@ -1585,6 +1587,7 @@ _PRIOR_RECAP_FIXTURE = {
 # Full names, not just abbr. A Seattle Preview that cites "Chargers" and
 # "a 22-6 win" (ESPN 401873006) cannot bind from LAC/la on the frozen slate.
 _FIXTURE_OPPONENT = {
+    "espn_401873058_recap.json": ("Atlanta Falcons", "ATL"),
     "espn_401873045_recap.json": ("New York Jets", "NYJ"),
     "espn_401873033_recap.json": ("Denver Broncos", "DEN"),
     "espn_401873022_recap.json": ("Seattle Seahawks", "SEA"),
@@ -1778,9 +1781,9 @@ def recap_is_usable(recap: dict | None) -> bool:
 def replay_fixture_missing(narrative: dict | None) -> bool:
     """True when a Review names an opponent we have no ESPN replay fixture for.
 
-    Miami, Las Vegas, Seattle, Denver, and Jets recaps are wired into
-    ``_RECAP_FIXTURES``. A Chargers review must hold automerge instead of
-    passing silently.
+    Miami, Las Vegas, Seattle, Denver, Jets, and Atlanta recaps are wired
+    into ``_RECAP_FIXTURES``. A Chargers review must hold automerge instead
+    of passing silently.
     """
     payload = narrative or {}
     review = payload.get("lastGameReview") or {}
