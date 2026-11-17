@@ -131,11 +131,11 @@
   "gamePlan": {
     "opponent": "Arizona Cardinals",
     "lede": "The assignment is the Arizona Cardinals at GEHA Field at Arrowhead Stadium on Sun Nov 22, 12:00 PM CT on CBS. Kansas City is a 16.5-point favorite on a 40.5 total, with ESPN FPI at 88.6 percent. The number is large. The total is not a 461-yard invitation. Play the favorite's game: own early downs, keep Mahomes off the eight-hit track, and make Arizona drive the length of the field.",
-    "howTheyMatch": "Kansas City brings a quarterback who just threw for 348 yards and 5 TD and a back who just handled 28 touches. Arizona is a double-digit home underdog on a low total, which usually means a slower script and a defense that will sit on explosives if the Chiefs become third-and-long. Spagnuolo can play coverage-first and still rush Karlaftis, who Arrowhead Pride has on a tear since the bye. No Arizona skill names are in the supplied facts, so the plan is unit football: run the inside zone, stress man with mesh, take the deep middle when the shell softens, and screen the rush that showed up eight times in Atlanta.",
+    "howTheyMatch": "Kansas City brings a quarterback who just threw for 348 yards and 5 TD and a back who just handled 28 touches. Spagnuolo can play coverage-first and still rush Karlaftis, who Arrowhead Pride has on a tear since the bye. No Arizona skill names are in the supplied facts, so the plan is unit football: run the inside zone, stress man with mesh, take the deep middle when the shell softens, and screen the rush that showed up eight times in Atlanta.",
     "keys": [
       {
         "title": "Johnson on first down, not a 4-of-13 rerun",
-        "body": "Twenty-two carries for 101 yards is the early-down answer. Stay on schedule so Mahomes is not living in third-and-long against a rush that already posted eight hits."
+        "body": "Twenty-two carries for 101 yards is the early-down answer."
       },
       {
         "title": "Throw to the Atlanta completions, not a new mythology",
@@ -196,7 +196,7 @@
     {
       "tag": "QB",
       "title": "Mahomes, 348 and 5 TD, seventh time",
-      "body": "Chiefs.com and Arrowhead Pride both have the Atlanta line at 348 yards and five touchdown passes, the seventh five-touchdown passing game of his career. The rating is 135.5 on 22-of-35 with one sack. That is the quarterback Arizona has to defend at home."
+      "body": "Chiefs.com and Arrowhead Pride both have the Atlanta line at 348 yards and five touchdown passes, the seventh five-touchdown passing game of his career. The rating is 135.5 on 22-of-35 with one sack."
     },
     {
       "tag": "RB",
