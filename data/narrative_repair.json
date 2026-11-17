@@ -21,7 +21,8 @@
     "How much should this staff save for Buffalo on Thu Nov 26, 7:20 PM CT if Arizona is on the ropes?",
     "Arizona is a double-digit home underdog on a low total, which usually means a slower script and a defense that will sit on explosives if the Chiefs become third-and-long.",
     "Stay on schedule so Mahomes is not living in third-and-long against a rush that already posted eight hits.",
-    "That is the quarterback Arizona has to defend at home."
+    "That is the quarterback Arizona has to defend at home.",
+    "RB"
   ],
   "correctedSentences": [],
   "leftoverIssues": [],
@@ -33,6 +34,6 @@
     }
   ],
   "headlineOrLedeTouched": false,
-  "wordShortfall": 821,
+  "wordShortfall": 822,
   "holdAutomerge": true
 }
