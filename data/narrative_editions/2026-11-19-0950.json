@@ -1,0 +1,572 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-19T09:50:02+00:00",
+  "updatedAt": "2026-11-19T09:50:04+00:00",
+  "generator": "grok:grok-4.7",
+  "heroMediaId": "none",
+  "phase": {
+    "type": "regular",
+    "label": "Week 11",
+    "week": 11,
+    "mode": "preview"
+  },
+  "edition": "2026 Week 11 · Preview",
+  "record": "7-2",
+  "headline": "2026 Week 11 · Preview",
+  "sectionTitles": {
+    "lastGame": "Atlanta tape behind a 35-13 road win",
+    "currentState": "Walker, Kelce, and a thin Wednesday",
+    "gamePlan": "Cardinals at Arrowhead on a 15.5 number",
+    "pressConferences": "Wednesday podium before Sun Nov 22"
+  },
+  "dek": "Kansas City is 7-2 and hosts the Arizona Cardinals on Sun Nov 22, 12:00 PM CT on CBS laying 15.5 after Patrick Mahomes threw five touchdowns in a 35-13 win at Atlanta.",
+  "theEdge": "ESPN FPI lists Kansas City at 88.3 percent to beat Arizona at home, and DraftKings has the Chiefs minus 15.5 on a 40.5 total — a heavy home favorite whose Atlanta line was 22-of-35 for 348 yards, one sack taken, eight quarterback hits, and 4-of-13 on third down.",
+  "pressConferences": [
+    {
+      "url": "https://www.youtube.com/watch?v=Vwvr9-D97As",
+      "videoId": "Vwvr9-D97As",
+      "speaker": "Andy Reid, Patrick Mahomes, and Drue Tranquill",
+      "channel": "Kansas City Chiefs",
+      "title": "Andy Reid, Patrick Mahomes, Emmett Johnson, and Drue Tranquill Speak to Media | NOVEMBER 18, 2026",
+      "date": "2026-11-18",
+      "dateLabel": "Wed Nov 18, 2026"
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=8OXdSMA0Wyk",
+      "videoId": "8OXdSMA0Wyk",
+      "speaker": "Andy Reid",
+      "channel": "Kansas City Chiefs",
+      "title": "Andy Reid Speaks to the Media | NOVEMBER 16, 2026",
+      "date": "2026-11-16",
+      "dateLabel": "Mon Nov 16, 2026"
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=zz4o0O0i9ko",
+      "videoId": "zz4o0O0i9ko",
+      "speaker": "Andy Reid, Patrick Mahomes, and Chris Jones",
+      "channel": "Kansas City Chiefs",
+      "title": "Andy Reid, Patrick Mahomes, & Chris Jones Postgame Press Conferences - NFL Week 10",
+      "date": "2026-11-15",
+      "dateLabel": "Sun Nov 15, 2026"
+    }
+  ],
+  "storyline": {
+    "lede": "The Arizona Cardinals walk into GEHA Field at Arrowhead Stadium on Sun Nov 22, 12:00 PM CT on CBS as a 15.5-point underdog on a 40.5 total, with ESPN FPI giving Kansas City an 88.3 percent chance. That price is the story.",
+    "body": [
+      "Andy Reid already framed the health choice. Kenneth Walker, out at Atlanta with a groin injury, will not work Wednesday, and Arrowhead Pride reported the staff will be cautious. Emmett Johnson just carried 22 times for 101 yards and finished with 28 touches.",
+      "Patrick Mahomes's Atlanta line was 22-of-35 for 348 yards, five touchdown passes, a 135.5 rating, and one sack, with eight quarterback hits. Josh Downs, acquired from Indianapolis for a fourth and a fifth, caught four balls, including the 18-yard score. Rashee Rice had five catches for 82 yards, including a 50-yarder. The passing picture is ahead of the down-and-distance picture: 4-of-13 on third down, 21 first downs, and 28:36 of possession against an Atlanta team that held the ball for 31:24.",
+      "Travis Kelce's high-ankle sprain has been tweaked in each of the last two games, and he finished Atlanta with two catches after returning in the second quarter. Nick Bolton was limited Wednesday. Peter Woods returned. Three Chiefs starters missed that practice. The Cardinals date is where Reid can be patient.",
+      "Arrowhead Addict noted Super Bowl 61 odds moved up after the Atlanta win. Arrowhead Pride has Kansas City among five AFC teams with two or fewer losses and in the No. 1-seed conversation. None of that is settled on a 40.5 total at home. Finish drives, protect the quarterback, and do not spend Walker or Kelce for a number the market already prices as comfortable."
+    ]
+  },
+  "lastGameReview": {
+    "opponent": "Atlanta Falcons",
+    "label": "Week 10 · Sun, Nov 15 · 12:00 PM CT",
+    "result": "W",
+    "score": "KC 35–13",
+    "lede": "Kansas City beat Atlanta 35-13 at Mercedes-Benz Stadium, scoring 6:07 into the game on a 12-yard touchdown for a 7-0 lead. Mahomes threw five touchdowns on a 22-of-35, 348-yard, 135.5 day. The Chiefs had 461 yards, zero turnovers, and went 4-of-13 on third down while Atlanta held a 31:24 to 28:36 possession edge.",
+    "analysis": [
+      {
+        "body": "Emmett Johnson was the run game with Walker inactive: 22 carries, 101 yards, six catches, 28 touches, inside a team line of 27 attempts for 122 yards. Nate Carter had two carries. Mahomes scrambled twice and Justin Fields took one direct snap up the middle for no gain. Net passing was 339. Rice's 50-yard catch and the Downs, Allen, and Armstrong scores were the explosives. Kelce had two catches. Harrison Nourzad reported as eligible on the six listed snaps, including Johnson's 5-yard carry up the middle at Q4 6:38."
+      },
+      {
+        "body": "Steve Spagnuolo's group recorded five quarterback hits. Bijan Robinson had 20 touches, and Atlanta rushed 20 times for 100 yards inside 370 total yards, 17 first downs, and 5-of-16 on third down. A fourth-quarter Johnson fumble forced by A.J. Terrell went out of bounds and did not add to Kansas City's zero turnovers."
+      },
+      {
+        "body": "The lag is down-and-distance and protection, not explosives. Mahomes took one sack and eight quarterback hits on 35 attempts. Third down was 4-of-13. Atlanta still created explosives: Drake London for 38, Jahan Dotson for 37, Kyle Pitts for 28. Creed Humphrey's tripping penalty wiped a Mahomes scramble, and Conner's defensive pass interference extended an Atlanta drive. That is the film to carry forward, not a box-score victory lap."
+      }
+    ],
+    "takeaways": [
+      {
+        "title": "The deep ball traveled",
+        "body": "Mahomes was 22-of-35 for 348 yards and five touchdowns. Downs, Allen, and Armstrong each caught a scoring throw of 18, 39, and 43 yards, and Rice added a 50-yard catch. Arrowhead Pride's deep-ball note matches the tape."
+      },
+      {
+        "title": "Johnson held the run game",
+        "body": "With Walker out, Johnson took 22 of 27 team rushes and 101 of 122 rushing yards, plus six catches. The staff has a real carrier if Walker cannot work this week."
+      },
+      {
+        "title": "Third down and hits still sit on the sheet",
+        "body": "Kansas City was 4-of-13 on third down, possessed the ball for 28:36, and allowed eight quarterback hits with one sack. Atlanta's 31:24 and 370 yards are the reminder that 35 points did not mean a clean complementary day."
+      }
+    ],
+    "whatWorked": [
+      "Five touchdown passes and a 135.5 rating on 22-of-35",
+      "Zero turnovers and 461 yards, with Johnson at 101 rushing yards"
+    ],
+    "whatDidnt": [
+      "4-of-13 on third down and 21 first downs against 31:24 of Atlanta possession",
+      "Eight quarterback hits on Mahomes with one sack taken",
+      "Explosives allowed to London, Dotson, and Pitts, plus a late Atlanta touchdown and field goal"
+    ]
+  },
+  "currentState": {
+    "lede": "Kansas City is 7-2, tied atop the AFC West with Denver, and listed by Arrowhead Pride among five AFC teams with two or fewer losses.",
+    "record": "7-2",
+    "workOn": [
+      {
+        "title": "Third down after 4-of-13",
+        "body": "Atlanta was a 35-point afternoon built on explosives, not on staying ahead of the sticks. Arizona on a 40.5 total will not gift five scoring throws if early downs stall again."
+      },
+      {
+        "title": "Protection against eight hits",
+        "body": "Mahomes took one sack and eight quarterback hits. Screens and defined checkdowns have to be calls, not hopes, while the line sorts Humphrey's penalty tape and the hits."
+      },
+      {
+        "title": "Kelce's snap count",
+        "body": "Arrowhead Addict reported the high-ankle sprain has been tweaked in each of the last two games. Two catches in Atlanta is a usable floor."
+      }
+    ],
+    "thinkAbout": [
+      {
+        "title": "How patient to be with Walker",
+        "body": "Reid said Walker will not work Wednesday after missing Atlanta. Arrowhead Addict argued the club can afford patience before a harder stretch. Johnson's 28 touches make that patience real, not theoretical."
+      },
+      {
+        "title": "What Downs is in the rotation",
+        "body": "The fourth-and-fifth trade is already on the field: four catches, including an 18-yard touchdown and a 21-yard gain. Kelce's public endorsement, per Arrowhead Addict, is a locker-room signal. The staff still has to decide his every-down share if Kelce's snaps drop."
+      },
+      {
+        "title": "Whether the No. 1 seed talk changes Sunday",
+        "body": "Arrowhead Pride posed the No. 1-seed question with Kansas City in that group. A 15.5 home price does not add a win by itself. A sloppy third-down day at home would."
+      }
+    ]
+  },
+  "gamePlan": {
+    "opponent": "Arizona Cardinals",
+    "lede": "Host Arizona on Sun Nov 22, 12:00 PM CT on CBS as a 15.5-point favorite on a 40.5 total. ESPN FPI has Kansas City at 88.3 percent.",
+    "howTheyMatch": "Kansas City's leverage is Mahomes at 135.5 with Downs, Rice, Allen, and Armstrong all producing explosives in Atlanta, plus Johnson as a 28-touch back if Walker sits. Arizona's leverage is the total: 40.5 says the market does not expect another 35-point track meet, and a club that just went 4-of-13 on third down can make a large spread sweaty if drives stall. Spagnuolo gets a defense that posted five quarterback hits and faced 100 rushing yards from a 20-touch back. Bolton's Wednesday limitation is the personnel wrinkle on that side.",
+    "keys": [
+      {
+        "title": "Early downs to Johnson, not to hope",
+        "body": "If Walker cannot go, feed the back who just had 22 carries and 101 yards. Inside zone and a screen keep Mahomes off eight-hit volume and give third down a chance to climb off 4-of-13."
+      },
+      {
+        "title": "Defined throws for Downs and Rice",
+        "body": "Downs already has the 18-yard score and the 21-yard catch. Rice has the 50-yarder and 82 yards on five grabs. Mesh and verticals are the answers if Arizona sits in man or two-high. Do not wait on Kelce to be the chain-mover."
+      },
+      {
+        "title": "Cap explosives, then rush on your terms",
+        "body": "Atlanta still hit throws of 38, 37, and 28. Cover-2 is the shell. The zone blitz is a third-down call if Bolton cannot play every snap, with Karlaftis as the rush anchor from a 1.5-sack game."
+      },
+      {
+        "title": "Win, then stop",
+        "body": "A 15.5 price on a 40.5 total is not a mandate to play Walker or to stack Kelce snaps in a blowout script. Reid's caution on the groin is the correct tie-breaker."
+      }
+    ],
+    "script": [
+      "Open with under-center inside zone to Johnson and a Carter change-of-pace carry before any trick snap.",
+      "On second-and-medium, mesh Rice and Downs with Noah Gray or Jake Briningstool as the sit if Kelce is on a pitch count.",
+      "Steal one four-verticals shot to Allen or Armstrong once the safeties squeeze the seams. Rice is the middle alert off the 50-yard catch.",
+      "Call a Johnson screen after any sequence that looks like the eight-hit Atlanta rush picture.",
+      "Defense: Cover-2 on early downs, zone blitz on third-and-medium, with a dropped lineman replacing a second-level rusher if Bolton is limited.",
+      "If the lead reaches two scores, Nourzad can report eligible in the run game the way he did on six Atlanta snaps. Do not chase a fifth touchdown throw with Kelce."
+    ]
+  },
+  "nextGame": {
+    "label": "Week 11 · Sun, Nov 22 · 12:00 PM CT",
+    "opponent": "Arizona Cardinals",
+    "at": "Arrowhead Stadium",
+    "tv": "CBS"
+  },
+  "markets": {
+    "game": {
+      "opponent": "Arizona Cardinals",
+      "label": "Sun, Nov 22 · 12:00 PM CT",
+      "homeAway": "home",
+      "kcWin": 88.3,
+      "spreadDetail": "KC -15.5",
+      "overUnder": 40.5,
+      "source": "ESPN FPI win probability; ESPN / DraftKings spread",
+      "url": "https://www.espn.com/nfl/game/_/gameId/401873067"
+    },
+    "model": {
+      "kcWin": 88.3,
+      "oppWin": 11.6,
+      "label": "ESPN FPI game projection",
+      "source": "ESPN FPI",
+      "url": "https://www.espn.com/nfl/fpi"
+    },
+    "vegas": {
+      "provider": "DraftKings",
+      "spreadDetail": "KC -15.5",
+      "overUnder": 40.5,
+      "source": "ESPN / DraftKings",
+      "url": "https://www.espn.com/nfl/lines"
+    }
+  },
+  "spotlight": [
+    {
+      "tag": "Price",
+      "title": "15.5 at home, 40.5 total",
+      "body": "DraftKings has Kansas City minus 15.5 with a 40.5 total. ESPN FPI is at 88.3 percent. The spread says comfortable. The total says do not script another 35-point afternoon."
+    },
+    {
+      "tag": "Backfield",
+      "title": "Johnson's 28 touches bought Walker time",
+      "body": "Walker missed Atlanta and will not work Wednesday. Johnson ran 22 times for 101 yards and caught six passes. Patience is a roster fact, not a slogan."
+    },
+    {
+      "tag": "Receiver",
+      "title": "Downs is already in the scoring column",
+      "body": "The fourth-and-fifth deal produced four catches in Atlanta, including an 18-yard touchdown. Kelce's endorsement, reported by Arrowhead Addict, matches the usage."
+    },
+    {
+      "tag": "Tight end",
+      "title": "Kelce's ankle is a December problem now",
+      "body": "Arrowhead Addict says the high-ankle sprain was tweaked in each of the last two games. Two catches and a second-quarter return is the Atlanta sample. Manage the snaps."
+    },
+    {
+      "tag": "Seed",
+      "title": "Five AFC clubs with two losses or fewer",
+      "body": "Arrowhead Pride put Kansas City in the No. 1-seed argument and noted the tie atop the AFC West with Denver. Arizona is a box to check, not a coronation."
+    }
+  ],
+  "matchups": [
+    {
+      "unit": "Mahomes and the explosives vs. Arizona's need to keep it close",
+      "chiefs": "Patrick Mahomes, Josh Downs, Rashee Rice, Cyrus Allen, Andrew Armstrong",
+      "opponent": "Arizona Cardinals pass defense",
+      "edge": "KC",
+      "note": "Mahomes was 22-of-35 for 348 yards and five touchdowns at 135.5. Downs, Allen, and Armstrong scored from 18, 39, and 43. Rice added 82 yards and a 50-yard catch. On a 40.5 total, two of those explosives can be the game."
+    },
+    {
+      "unit": "Chiefs run game vs. a possible Walker absence",
+      "chiefs": "Emmett Johnson, Nate Carter, Kenneth Walker",
+      "opponent": "Arizona Cardinals front",
+      "edge": "KC",
+      "note": "Team rushing was 122 yards on 27 attempts. Johnson had 101 on 22 carries. Walker is the caution. Carter's two carries are the breather, not the plan."
+    },
+    {
+      "unit": "Protection vs. the hit count that traveled",
+      "chiefs": "Patrick Mahomes, Creed Humphrey",
+      "opponent": "Arizona Cardinals pass rush",
+      "edge": "PUSH",
+      "note": "One sack taken and eight quarterback hits is the Atlanta protection line. Humphrey's tripping penalty wiped a scramble. A 15.5 favorite can still lose the pocket math."
+    },
+    {
+      "unit": "Spagnuolo's rush vs. a game Arizona must steal",
+      "chiefs": "George Karlaftis, Steve Spagnuolo",
+      "opponent": "Arizona Cardinals offense",
+      "edge": "KC",
+      "note": "Karlaftis had 1.5 sacks and the defense recorded five quarterback hits."
+    }
+  ],
+  "xsandos": [
+    {
+      "title": "Johnson inside zone on first down",
+      "situation": "1st-and-10 at home if Walker is inactive or on a pitch count against Arizona",
+      "concept": "inside_zone",
+      "why": "Johnson just took 22 carries for 101 yards inside a 122-yard team rushing day, with Walker held out and held from Wednesday work. Early-down zone is how a 4-of-13 third-down offense stops asking Mahomes to throw on third-and-long in a 40.5 game.",
+      "coaching": "Under center, zone steps, one cut. Johnson presses the playside hip and bends. Carter spells him. Do not tag a direct snap to Fields unless the box is light; his Atlanta snap up the middle gained nothing.",
+      "labels": {
+        "x": "stalk and block",
+        "z": "crack replace",
+        "te": "zone reach"
+      },
+      "playmakers": [
+        {
+          "name": "Emmett Johnson",
+          "role": "one-cut back"
+        },
+        {
+          "name": "Nate Carter",
+          "role": "change-of-pace carry"
+        },
+        {
+          "name": "Harrison Nourzad",
+          "role": "eligible extra gap when reported"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-19-0950/xo-inside_zone.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Mesh for Downs and Rice",
+      "situation": "2nd-and-5 to 2nd-and-7, Kelce on a reduced snap count",
+      "concept": "mesh",
+      "why": "Downs has four Atlanta catches and an 18-yard touchdown. Rice has five for 82, including 50. Kelce has a tweaked high ankle and two catches. Crossers let the new receiver and Rice move the chains without asking the tight end to win a collision.",
+      "coaching": "Rice and Downs cross at four to five yards with a clear release. Gray or Briningstool sits in the void. Mahomes throws the first open window; the checkdown is Johnson, who had six catches.",
+      "labels": {
+        "x": "shallow cross",
+        "z": "sit or corner",
+        "te": "spot sit"
+      },
+      "playmakers": [
+        {
+          "name": "Josh Downs",
+          "role": "shallow crosser"
+        },
+        {
+          "name": "Rashee Rice",
+          "role": "opposite cross"
+        },
+        {
+          "name": "Noah Gray",
+          "role": "sit option if Kelce is out"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-19-0950/xo-mesh.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Four verts once the safeties squeeze",
+      "situation": "1st-and-10 after a Johnson gain, Arizona forced to honor the run in a 15.5 game",
+      "concept": "four_verts",
+      "why": "Mahomes just found Downs for 21 and 18, Allen for 39 and a score, Armstrong for 43 and a score, and Rice for 50. That is the vertical menu. Use it once, not as a habit that invites eight more hits.",
+      "coaching": "Allen and Armstrong outside, past the corners. Rice bends the seam to the hash. Kelce, if he is in, runs the other seam on a limited route tree. Mahomes takes the middle void or throws it away. No scramble hero ball.",
+      "labels": {
+        "x": "go",
+        "z": "go",
+        "te": "seam"
+      },
+      "playmakers": [
+        {
+          "name": "Patrick Mahomes",
+          "role": "deep middle read"
+        },
+        {
+          "name": "Cyrus Allen",
+          "role": "outside vertical"
+        },
+        {
+          "name": "Andrew Armstrong",
+          "role": "opposite vertical"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-19-0950/xo-four_verts.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Johnson screen against the hit volume",
+      "situation": "After a heavy rush look, or 2nd-and-8 following a stuffed zone run",
+      "concept": "spacing_screen",
+      "why": "Mahomes took eight quarterback hits and one sack on 35 attempts. A screen to the back who caught six passes is the answer to that rush picture, and it keeps third down from living at 4-of-13.",
+      "coaching": "Let the line release. Johnson catches on the move and follows the playside tackle. Downs can stalk the corner. Throw it on time so the hit count does not become the story of a 15.5 favorite.",
+      "labels": {
+        "x": "stalk",
+        "z": "clearout",
+        "te": "arc release"
+      },
+      "playmakers": [
+        {
+          "name": "Emmett Johnson",
+          "role": "screen back"
+        },
+        {
+          "name": "Patrick Mahomes",
+          "role": "quick throw"
+        },
+        {
+          "name": "Josh Downs",
+          "role": "perimeter stalk"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-19-0950/xo-spacing_screen.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Cover-2 to take the deep shot away",
+      "situation": "1st-and-10 and 2nd-and-medium, Arizona needing explosives to stay inside 15.5",
+      "concept": "cover_two",
+      "why": "Atlanta still completed explosives of 38 to London, 37 to Dotson, and 28 to Pitts while possessing the ball for 31:24. Two deep and five under is how Spagnuolo keeps a 40.5 game from flipping on one throw.",
+      "coaching": "Safeties stay on top of the numbers. Corners sink, then rally. Bolton, if active, is the hook fitter; if he is limited, Conner has to trigger without abandoning the flat. Do not bail into man after one chunk run.",
+      "labels": {
+        "x": "deep half",
+        "z": "deep half",
+        "te": "hook curl"
+      },
+      "playmakers": [
+        {
+          "name": "Steve Spagnuolo",
+          "role": "shell call"
+        },
+        {
+          "name": "Nick Bolton",
+          "role": "hook rally if active"
+        },
+        {
+          "name": "Chamarri Conner",
+          "role": "alley fit"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-19-0950/xo-cover_two.svg",
+      "side": "defense"
+    },
+    {
+      "title": "Zone blitz on third-and-medium",
+      "situation": "3rd-and-4 to 3rd-and-7 if Bolton cannot rush or fit every snap",
+      "concept": "zone_blitz",
+      "why": "Call the simulated pressure so a dropped lineman can replace a limited linebacker. The drop is the disguise for this Sunday, separate from how the takeaways arrived.",
+      "coaching": "Show five, rush four. Karlaftis is the declared edge. The tackle or end who drops owns the hook Bolton would have had. Mahomes's offense does not need a strip here. It needs a throwaway or a checkdown tackle.",
+      "labels": {
+        "x": "hot throw read",
+        "z": "flat drop",
+        "te": "hook replace"
+      },
+      "playmakers": [
+        {
+          "name": "George Karlaftis",
+          "role": "edge rusher"
+        },
+        {
+          "name": "Steve Spagnuolo",
+          "role": "pressure call"
+        },
+        {
+          "name": "Nick Bolton",
+          "role": "coverage replacement if limited"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-19-0950/xo-zone_blitz.svg",
+      "side": "defense"
+    }
+  ],
+  "coaching": [
+    {
+      "topic": "Reid's Walker clock",
+      "detail": "Reid said Walker will not work Wednesday and the staff will be cautious after the groin injury that cost him Atlanta. Johnson's 28 touches let that caution be the plan against Arizona."
+    },
+    {
+      "topic": "Bieniemy's down-and-distance problem",
+      "detail": "Eric Bieniemy just coordinated 461 yards and five touchdown passes on 4-of-13 third downs. The install for Arizona is early-down runs and defined crossers, not another explosives-only script."
+    },
+    {
+      "topic": "Spagnuolo with a limited mike",
+      "detail": "Bolton was limited Wednesday after a full Atlanta role that included the forced fumble. Cover-2 and a zone blitz are the calls that survive a lighter linebacker snap count."
+    }
+  ],
+  "injuries": [
+    {
+      "player": "Kenneth Walker",
+      "status": "Cautious / did not practice Wednesday",
+      "note": "Groin injury cost him the Atlanta game. Reid said he will not work Wednesday and the staff will be cautious.",
+      "source": "Arrowhead Pride"
+    },
+    {
+      "player": "Travis Kelce",
+      "status": "High-ankle sprain, managed",
+      "note": "Sprain has been tweaked in each of the last two games. He returned in the second quarter at Atlanta and finished with two catches.",
+      "source": "Arrowhead Addict"
+    },
+    {
+      "player": "Nick Bolton",
+      "status": "Limited Wednesday",
+      "note": "Limited as the club opened Cardinals week practice. He forced the Atlanta fumble that Conner recovered.",
+      "source": "Arrowhead Addict"
+    },
+    {
+      "player": "Peter Woods",
+      "status": "Returned to practice",
+      "note": "Back on the field Wednesday ahead of the Cardinals game.",
+      "source": "Arrowhead Addict"
+    },
+    {
+      "player": "Three unnamed Chiefs starters",
+      "status": "Missed Wednesday practice",
+      "note": "Arrowhead Pride reported three starters missed the first practice of Cardinals week.",
+      "source": "Arrowhead Pride"
+    }
+  ],
+  "personnel": [
+    {
+      "move": "Josh Downs trade",
+      "detail": "Brett Veach sent a fourth-round pick and a fifth-round pick to Indianapolis for Downs. He caught four passes at Atlanta, including an 18-yard touchdown, and Kelce endorsed the addition.",
+      "players": [
+        "Josh Downs",
+        "Travis Kelce"
+      ]
+    },
+    {
+      "move": "Backfield if Walker sits",
+      "detail": "Johnson is the carrier off 22 rushes, 101 yards, and six catches. Carter had two rushes. Fields had one direct-snap carry.",
+      "players": [
+        "Emmett Johnson",
+        "Nate Carter",
+        "Justin Fields",
+        "Kenneth Walker"
+      ]
+    },
+    {
+      "move": "Cap room into the stretch",
+      "detail": "Arrowhead Pride listed about $3.1 million in cap space as of 5:00 p.m. Wednesday, November 18, after known signings and releases."
+    }
+  ],
+  "strategies": [
+    "Lean on Johnson early if Walker cannot go, and keep Carter as the breather rather than a committee that stalls drives.",
+    "Cut Kelce's route tree to high-value snaps and let Downs, Rice, Gray, and Briningstool handle the chain work.",
+    "Call one vertical shot off run action in the concept, not as a labeled play-fake from the Atlanta tape, then live in mesh and screens.",
+    "Play Cover-2 on early downs so Arizona cannot steal the 15.5 with one deep throw.",
+    "Use the zone blitz on third-and-medium, with Karlaftis rushing and a lineman dropping if Bolton is limited.",
+    "Once the lead is comfortable, report Nourzad eligible and run. Do not hunt extra throws into eight-hit volume."
+  ],
+  "debates": [
+    "Should Walker sit the entire Arizona game if he cannot practice Wednesday, given Johnson's 28 touches?",
+    "Is Downs now a every-down answer, or still a package player behind Rice?",
+    "Does a 40.5 total mean Bieniemy should script a shorter game even as a 15.5 favorite?",
+    "If Bolton is limited, is Cover-2 enough, or does the zone blitz have to be the base third-down call?"
+  ],
+  "sources": [
+    {
+      "title": "Chiefs-Cardinals Week 11 Wednesday injury report: 3 Chiefs starters miss practice",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-injuries/216872/chiefs-cardinals-week-11-wednesday-injury-report-3-chiefs-starters-miss-practice",
+      "note": "Wednesday report: three starters missed practice ahead of Arizona."
+    },
+    {
+      "title": "Chiefs injury report: Peter Woods returns, Nick Bolton is limited on Wednesday",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/chiefs-injury-report-peter-woods-returns-nick-bolton-is-limited-wednesday?utm_source=RSS",
+      "note": "Woods back, Bolton limited."
+    },
+    {
+      "title": "Andy Reid and Chiefs will be cautious with Kenneth Walker this week",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/216853/andy-reid-chiefs-cautious-kenneth-walker-this-week",
+      "note": "Walker will not work Wednesday; groin kept him out at Atlanta."
+    },
+    {
+      "title": "Managing Travis Kelce's workload is crucial to the Chiefs' postseason hopes",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/managing-travis-kelce-workload-is-crucial-chiefs-postseason-hopes?utm_source=RSS",
+      "note": "High-ankle sprain tweaked in each of the last two games."
+    },
+    {
+      "title": "Chiefs newcomer Josh Downs gets notable endorsement from Travis Kelce",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/chiefs-newcomer-josh-downs-gets-notable-endorsement-from-travis-kelce?utm_source=RSS",
+      "note": "Fourth and fifth sent to Indianapolis for Downs."
+    },
+    {
+      "title": "Patrick Mahomes found his deep ball again in Chiefs’ latest win",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/216702/patrick-mahomes-found-deep-ball-again-chiefs-latest-win",
+      "note": "35-13 win, 7-2, tied atop the AFC West with Denver, deep ball back."
+    },
+    {
+      "title": "‘Which?’ Wednesday: Who is getting the No. 1 seed in the AFC?",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-discussions/216863/which-wednesday-getting-no-1-seed-afc",
+      "note": "Chiefs among five AFC teams with two or fewer losses."
+    },
+    {
+      "title": "Chiefs' Super Bowl 61 odds increase after another blowout win",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/chiefs-super-bowl-61-odds-increase-after-another-blowout-win?utm_source=RSS",
+      "note": "Odds moved up after the Atlanta win; no figure used."
+    },
+    {
+      "title": "Kansas City Chiefs roster",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/2020/4/7/21212402/kansas-city-chiefs-roster",
+      "note": "Cap space about $3.1 million as of Wednesday, November 18."
+    },
+    {
+      "title": "Chiefs Defeat Falcons, 35-13, as Patrick Mahomes Throws Five Touchdowns",
+      "publisher": "Chiefs.com",
+      "url": "https://www.chiefs.com/news/chiefs-defeat-falcons-35-13-as-patrick-mahomes-throws-five-touchdowns",
+      "note": "Five touchdown passes, seventh such game of his career."
+    }
+  ],
+  "slug": "2026-11-19-0950"
+}
