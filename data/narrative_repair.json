@@ -10,12 +10,9 @@
     "A 6-yard touchdown at Q4 9:55 made it 28-3."
   ],
   "correctedSentences": [],
-  "leftoverIssues": [
-    "KC touchdown count 5 disagrees with ESPN 2 ('Five Kansas City touchdowns')",
-    "Chiefs Narrative fact-check left fragments after repair: fragment after repair ('Linebacker availability vs.'); fragment after repair ('Linebacker availability vs.')"
-  ],
+  "leftoverIssues": [],
   "holdOnlySentinels": [],
-  "headlineOrLedeTouched": false,
-  "wordShortfall": 412,
+  "headlineOrLedeTouched": true,
+  "wordShortfall": 695,
   "holdAutomerge": true
 }
