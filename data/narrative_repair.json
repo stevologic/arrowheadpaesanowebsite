@@ -1,39 +1,21 @@
 {
   "droppedSentences": [
     "Michael Penix Jr.",
-    "was 23-of-43 with three sacks and a 64.7 rating.",
-    "George Karlaftis is credited with 1.5 sacks on the leader line.",
-    "Three sacks on Penix, five Kansas City quarterback hits, and two Atlanta turnovers against 20 Falcons touches for Robinson",
-    "Karlaftis 1.5 sacks; three sacks and five hits on Penix as the latest rush tape",
-    "Karlaftis already has 1.5 sacks on the Atlanta leader line, and the defense put three sacks and five quarterback hits on Penix.",
-    "Penix took three sacks in this game.",
-    "That is the pass-rush fact to carry into the Cardinals plan.",
-    "Josh Downs caught an 18-yard touchdown from Mahomes at Q2 0:18, and Harrison Butker's extra point made it 14-3.",
-    "Cyrus Allen's 39-yard touchdown at Q3 5:02 made it 21-3.",
-    "A 6-yard Kansas City touchdown at Q4 9:55 made it 28-3.",
-    "Atlanta's 3-yard touchdown at Q4 8:12 made it 28-10, a 38-yard Atlanta field goal at Q4 6:45 made it 28-13, and Andrew Armstrong's 43-yard touchdown at Q4 4:18 closed it at 35-13.",
-    "The calendar does not pause for the number.",
-    "After Arizona, the next kickoff is at Buffalo on Thu Nov 26, 7:20 PM CT on NBC, then at the Los Angeles Rams on Thu Dec 3, 7:15 PM CT.",
-    "Early downs with Johnson, and a defined checkdown, have to turn that rate before Buffalo on Thu Nov 26, 7:20 PM CT.",
-    "Lay 16.5 on a 40.5 total, then turn to Buffalo on Thu Nov 26, 7:20 PM CT.",
-    "Win the home game without emptying the tank before Thu Nov 26, 7:20 PM CT at Buffalo.",
-    "Price",
-    "How much should this staff save for Buffalo on Thu Nov 26, 7:20 PM CT if Arizona is on the ropes?",
-    "Arizona is a double-digit home underdog on a low total, which usually means a slower script and a defense that will sit on explosives if the Chiefs become third-and-long.",
-    "Stay on schedule so Mahomes is not living in third-and-long against a rush that already posted eight hits.",
-    "That is the quarterback Arizona has to defend at home.",
-    "RB"
+    "finished 23-of-43 with a 64.7 rating and three sacks taken; George Karlaftis was credited with 1.5 sacks.",
+    "Atlanta lost a fumble forced by Nick Bolton and recovered by Chamarri Conner, and later threw an interception on a deep middle ball intended for Chris Blair.",
+    "Five quarterback hits, Karlaftis at 1.5 sacks, and Penix at 23-of-43 for a 64.7 rating",
+    "Penix was sacked three times and posted a 64.7 rating.",
+    "That is the rush standard, not a promise about Arizona's quarterback.",
+    "Karlaftis's 1.5 sacks and five quarterback hits are the rush picture from Atlanta.",
+    "A 6-yard touchdown at Q4 9:55 made it 28-3."
   ],
   "correctedSentences": [],
-  "leftoverIssues": [],
-  "holdOnlySentinels": [
-    {
-      "code": "SALVAGE_NOISY",
-      "text": "salvage dropped enough to hold automerge",
-      "holdOnly": true
-    }
+  "leftoverIssues": [
+    "KC touchdown count 5 disagrees with ESPN 2 ('Five Kansas City touchdowns')",
+    "Chiefs Narrative fact-check left fragments after repair: fragment after repair ('Linebacker availability vs.'); fragment after repair ('Linebacker availability vs.')"
   ],
+  "holdOnlySentinels": [],
   "headlineOrLedeTouched": false,
-  "wordShortfall": 822,
+  "wordShortfall": 412,
   "holdAutomerge": true
 }
