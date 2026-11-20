@@ -1,18 +1,29 @@
 {
   "droppedSentences": [
-    "Michael Penix Jr.",
-    "finished 23-of-43 with a 64.7 rating and three sacks taken; George Karlaftis was credited with 1.5 sacks.",
-    "Atlanta lost a fumble forced by Nick Bolton and recovered by Chamarri Conner, and later threw an interception on a deep middle ball intended for Chris Blair.",
-    "Five quarterback hits, Karlaftis at 1.5 sacks, and Penix at 23-of-43 for a 64.7 rating",
-    "Penix was sacked three times and posted a 64.7 rating.",
-    "That is the rush standard, not a promise about Arizona's quarterback.",
-    "Karlaftis's 1.5 sacks and five quarterback hits are the rush picture from Atlanta.",
-    "A 6-yard touchdown at Q4 9:55 made it 28-3."
+    "The stall was sequencing: 21 first downs, 13 drives, and a 28:36 possession clock against an Atlanta team that held the ball for 31:24.",
+    "was 23-of-43 with three sacks and a 64.7 rating, and the Falcons turned it over twice \u2014 but the explosives were real.",
+    "The first score was a 12-yard touchdown at Q1 8:53 that made it 7-0.",
+    "Penix at 64.7 with three sacks, a Bolton-forced fumble recovered by Conner, and a Williams interception is a winning defensive day.",
+    "Karlaftis at 1.5 sacks, five Kansas City quarterback hits, three sacks of Penix, plus the Bolton forced fumble and Williams interception",
+    "Kansas City is 7-2, two games removed from a 24-28 loss at Denver and a week removed from a 35-12 win over the Jets that was a different box: 163 rushing yards, 228 net passing yards, 391 total yards, 6-of-11 on third down, two turnovers, and a 28:54 possession.",
+    "If Walker remains limited, Bieniemy cannot wait for a 50-yard Rice catch to bail out second-and-9.",
+    "Karlaftis' 1.5 sacks and five team quarterback hits are the heat.",
+    "Atlanta answered with a 28-yard field goal at Q2 7:12 to make it 7-3, and Josh Downs' 18-yard touchdown at Q2 0:18 made it 14-3.",
+    "Cyrus Allen's 39-yard touchdown at Q3 5:02 made it 21-3.",
+    "A 6-yard touchdown at Q4 9:55 made it 28-3 before Atlanta's 3-yard touchdown at Q4 8:12 made it 28-10 and a 38-yard field goal at Q4 6:45 made it 28-13."
   ],
-  "correctedSentences": [],
+  "correctedSentences": [
+    "unverifiable opponent stall; holding"
+  ],
   "leftoverIssues": [],
-  "holdOnlySentinels": [],
+  "holdOnlySentinels": [
+    {
+      "code": "SALVAGE_NOISY",
+      "text": "salvage dropped enough to hold automerge",
+      "holdOnly": true
+    }
+  ],
   "headlineOrLedeTouched": true,
-  "wordShortfall": 695,
+  "wordShortfall": 0,
   "holdAutomerge": true
 }
