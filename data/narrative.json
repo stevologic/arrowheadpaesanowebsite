@@ -57,7 +57,7 @@
   "storyline": {
     "lede": "The assignment is Arizona at GEHA Field at Arrowhead Stadium on Sun Nov 22, 12:00 PM CT on CBS, with DraftKings laying Kansas City 16.5 on a 40.5 total and ESPN FPI giving the Chiefs an 88.0 percent chance. That is a heavy home price for a 7-2 team coming off a 35-13 win at Atlanta, and it is also a price that can flatter a third-down offense that went 4-of-13 while Patrick Mahomes absorbed eight quarterback hits and one sack.",
     "body": [
-      "Andy Reid and Eric Bieniemy do not need a new identity to beat a home underdog. They need the Atlanta explosives to travel and the early-down math to get cleaner. Mahomes was 22-of-35 for 348 yards and five touchdowns, Kansas City finished with 461 yards and zero turnovers, and Emmett Johnson carried 22 times for 101 yards with six catches on a 28-touch day.",
+      "Mahomes was 22-of-35 for 348 yards and five touchdowns, Kansas City finished with 461 yards and zero turnovers, and Emmett Johnson carried 22 times for 101 yards with six catches on a 28-touch day.",
       "Steve Spagnuolo's group got the result it wanted — Atlanta scored one touchdown and two field goals, Michael Penix Jr. Drake London's 38-yard catch, Jahan Dotson's 37-yarder, and Kyle Pitts' 28-yarder all came after Kansas City had control. Nick Bolton forced the Pitts fumble that Chamarri Conner recovered, and N. Williams intercepted Penix on a deep middle throw intended for Chris Blair. Those are finishes, not a reason to play Arizona loose.",
       "Availability is the other half of the home plan. Arrowhead Pride's Thursday injury report has Ken Walker missing practice again, while Travis Kelce is expected to play through the ankle that has followed him since Week 6, on a Sunday that Pride notes is his 100th regular-season game at Arrowhead. Josh Downs, in his debut, is the new punt returner in Dave Toub's words and a four-catch piece of the passing game, including the 18-yard touchdown. Xavier Worthy led the snap count in Atlanta and did not show up on the touch list; Reid has already defended the quiet day. That is a usage question for Arizona, not a eulogy.",
       "After this one the slate tightens: Thu Nov 26, 7:20 PM CT at Buffalo on NBC, then Thu Dec 3, 7:15 PM CT at the Rams on Prime Video. Arrowhead Addict framed the Cardinals game as the tilt before that gauntlet. A 16.5 number is not a bye. It is a chance to bank a win while installing the third-down answers Buffalo will not gift."
@@ -77,7 +77,7 @@
         "body": "Johnson was the sustainable piece: 22 carries, 101 rushing yards, six catches, 28 touches, and Pepsi Rookie of the Week honors. The listed rushes include a 12-yard gain up the middle on the opening drive and an 11-yard gain off right end in the second quarter. He also had a fumble forced by A. Terrell on an 18-yard left-tackle run, with the ball going out of bounds at the Kansas City 48, so it did not become a turnover. Nate Carter had two rushes. Justin Fields' direct snap up the middle gained nothing. Mahomes scrambled twice that counted, including nine yards up the middle and six yards off left end before Allen's score."
       },
       {
-        "body": "The five touchdown passes are on the scoring table; the play-by-play names three of the receivers. Downs caught a 21-yarder and the 18-yard score. Allen scored from 39. Armstrong scored from 43 on his one touch. Rashee Rice's line was five catches for 82 yards, including a 50-yarder to the Atlanta 25 in the fourth quarter. Travis Kelce had two catches and returned in the second quarter. Noah Gray and Jake Briningstool each had one catch. Worthy is on three incompletion lines in the play-by-play and is absent from the touch list. Reid's public defense of that production is the personnel note, not a made-up target total."
+        "body": "Downs caught a 21-yarder and the 18-yard score. Allen scored from 39. Armstrong scored from 43 on his one touch. Rashee Rice's line was five catches for 82 yards, including a 50-yarder to the Atlanta 25 in the fourth quarter. Travis Kelce had two catches and returned in the second quarter. Noah Gray and Jake Briningstool each had one catch. Worthy is on three incompletion lines in the play-by-play and is absent from the touch list. Reid's public defense of that production is the personnel note, not a made-up target total."
       },
       {
         "body": "Atlanta's skill players earned the credit the score hides. Bijan Robinson had 20 touches, 16 rushes and four catches, including a 17-yard run up the middle. London had six catches, Pitts four, Dotson three. Penix aborted a fumble and recovered it himself in the second quarter, so that was not a takeaway. The takeaways that count are Bolton forcing the Pitts fumble that Conner recovered at the Atlanta 44, and Williams intercepting the deep middle throw for Blair and returning it 20 yards. Atlanta also failed on downs on an incomplete to Pitts. Kansas City failed on downs on an incomplete to Allen. Flags were a shared mess: holding on J. Hicks, a false start on Armstrong, tripping on Creed Humphrey, and a Chamarri Conner defensive pass interference that wiped a play. Hunter Nourzad was the eligible report on the six listed snaps, including the fourth-quarter rush where Johnson gained five up the middle."
@@ -99,8 +99,7 @@
     ],
     "whatWorked": [
       "Mahomes at 22-of-35, 348 yards, five touchdowns, 135.5, and zero Kansas City turnovers",
-      "Johnson's 22-carry, 101-yard, six-catch day inside a 122-yard team rushing total",
-      "Downs, Allen, Armstrong, and Rice producing the listed chunk plays and three named touchdowns"
+      "Johnson's 22-carry, 101-yard, six-catch day inside a 122-yard team rushing total"
     ],
     "whatDidnt": [
       "4-of-13 on third down across 13 drives and a 28:36 possession",
@@ -115,7 +114,7 @@
     "workOn": [
       {
         "title": "Third-and-manageable before third-and-long",
-        "body": "Atlanta was 4-of-13 after 27 rushes for 122 yards. Johnson at 22 carries for 101 is the early-down answer."
+        "body": "Johnson at 22 carries for 101 is the early-down answer."
       },
       {
         "title": "Hit protection for a five-touchdown quarterback",
@@ -143,8 +142,8 @@
   },
   "gamePlan": {
     "opponent": "Arizona Cardinals",
-    "lede": "Host Arizona on Sun Nov 22, 12:00 PM CT at Arrowhead, CBS, as a 16.5-point favorite on a 40.5 total. The stake is a seventh win in nine, a clean home possession script, and a defense that does not donate the chunk plays Atlanta found after the game was already 21-3. FPI's 11.9 percent on Arizona is the upset path: turn a loud favorite into a third-down stall and a hit-filled pocket.",
-    "howTheyMatch": "Kansas City brings the more proven quarterback, a rookie back who just posted 28 touches, and a receiver group that just added Downs next to Rice, Kelce, Allen, and Worthy. Arizona is the home underdog, so the leverage is patience: make Kansas City drive, tackle Johnson on early downs, and hope eight quarterback hits become a stalled red zone. Spagnuolo's leverage is the opposite of hero ball. Two deep, rally to the ball, and call a zone blitz on obvious passing downs so Arizona cannot live on the London- and Dotson-style explosives that still landed in Atlanta. Special teams matter because Downs is Toub's punt returner in the same week he becomes a four-catch offensive piece.",
+    "lede": "Host Arizona on Sun Nov 22, 12:00 PM CT at Arrowhead, CBS, as a 16.5-point favorite on a 40.5 total. FPI's 11.9 percent on Arizona is the upset path: turn a loud favorite into a third-down stall and a hit-filled pocket.",
+    "howTheyMatch": "Kansas City brings the more proven quarterback, a rookie back who just posted 28 touches, and a receiver group that just added Downs next to Rice, Kelce, Allen, and Worthy. Spagnuolo's leverage is the opposite of hero ball. Two deep, rally to the ball, and call a zone blitz on obvious passing downs so Arizona cannot live on the London- and Dotson-style explosives that still landed in Atlanta. Special teams matter because Downs is Toub's punt returner in the same week he becomes a four-catch offensive piece.",
     "keys": [
       {
         "title": "Win first and second down with Johnson",
