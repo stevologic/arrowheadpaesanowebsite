@@ -1,29 +1,20 @@
 {
   "droppedSentences": [
-    "The stall was sequencing: 21 first downs, 13 drives, and a 28:36 possession clock against an Atlanta team that held the ball for 31:24.",
-    "was 23-of-43 with three sacks and a 64.7 rating, and the Falcons turned it over twice \u2014 but the explosives were real.",
-    "The first score was a 12-yard touchdown at Q1 8:53 that made it 7-0.",
-    "Penix at 64.7 with three sacks, a Bolton-forced fumble recovered by Conner, and a Williams interception is a winning defensive day.",
-    "Karlaftis at 1.5 sacks, five Kansas City quarterback hits, three sacks of Penix, plus the Bolton forced fumble and Williams interception",
-    "Kansas City is 7-2, two games removed from a 24-28 loss at Denver and a week removed from a 35-12 win over the Jets that was a different box: 163 rushing yards, 228 net passing yards, 391 total yards, 6-of-11 on third down, two turnovers, and a 28:54 possession.",
-    "If Walker remains limited, Bieniemy cannot wait for a 50-yard Rice catch to bail out second-and-9.",
-    "Karlaftis' 1.5 sacks and five team quarterback hits are the heat.",
-    "Atlanta answered with a 28-yard field goal at Q2 7:12 to make it 7-3, and Josh Downs' 18-yard touchdown at Q2 0:18 made it 14-3.",
-    "Cyrus Allen's 39-yard touchdown at Q3 5:02 made it 21-3.",
-    "A 6-yard touchdown at Q4 9:55 made it 28-3 before Atlanta's 3-yard touchdown at Q4 8:12 made it 28-10 and a 38-yard field goal at Q4 6:45 made it 28-13."
+    "George Karlaftis's 1.5 sacks and three sacks on Michael Penix Jr.",
+    "After the opening touchdown it was 7-3 at the Atlanta field goal (28 yards, Q2 7:12), 14-3 on Josh Downs's 18-yard touchdown at Q2 0:18, and 21-3 on Cyrus Allen's 39-yard touchdown at Q3 5:02.",
+    "N. Williams intercepted Penix.",
+    "Karlaftis's 1.5 sacks sit inside Penix's three sacks taken.",
+    "The five quarterback hits are the rush count; they are not five sacks.",
+    "Takeaways credited to N. Bolton (forced), C. Conner (recovered), and N. Williams (intercepted), with Karlaftis at 1.5 sacks.",
+    "Karlaftis at 1.5 sacks is the named rush piece.",
+    "A 6-yard touchdown at Q4 9:55 made it 28-3."
   ],
   "correctedSentences": [
-    "unverifiable opponent stall; holding"
+    "Johnson on inside zone and Mahomes's easy answers \u2014 screens and mesh \u2014 should turn 1st-and-10 into 2nd-and-short. The Atlanta miss was finishing drives without a 18-, 39-, or 43-yard throw. Arizona should not be allowed to live on Kansas City's 4-of-13 habit. \u2192 Johnson on inside zone and Mahomes's easy answers \u2014 screens and mesh \u2014 should turn 1st-and-10 into 2nd-and-short. The Atlanta miss was finishing drives without an 18-, 39-, or 43-yard throw. Arizona should not be allowed to live on Kansas City's 4-of-13 habit."
   ],
   "leftoverIssues": [],
-  "holdOnlySentinels": [
-    {
-      "code": "SALVAGE_NOISY",
-      "text": "salvage dropped enough to hold automerge",
-      "holdOnly": true
-    }
-  ],
-  "headlineOrLedeTouched": true,
-  "wordShortfall": 0,
+  "holdOnlySentinels": [],
+  "headlineOrLedeTouched": false,
+  "wordShortfall": 733,
   "holdAutomerge": true
 }
