@@ -20,7 +20,6 @@
     "pressConferences": "Sun Nov 22 podium coverage, attached separately"
   },
   "dek": "Kansas City is 7-2 and hosts Arizona on Sun Nov 22, 12:00 PM CT on CBS as a DraftKings 15.5-point favorite on a 40.5 total, with Kenneth Walker III out, Nate Carter and Pete Nygra elevated, and the Atlanta third-down line still 4-of-13.",
-  "videoHook": "Arizona is 3-7, Carson Beck is questionable, and Arrowhead is laying 15.5 — the job is still converting third downs.",
   "theEdge": "ESPN FPI lists Kansas City at 88.5 percent to win this home game, with DraftKings at minus 15.5 on a 40.5 total, while the Atlanta line that has to travel is 22-of-35 for 348 yards and five touchdowns, one sack taken, eight quarterback hits, and 4-of-13 on third down.",
   "editorNotes": [
     "Desk market is DraftKings KC -15.5, total 40.5, FPI 88.5 / 11.4. Wire item 8 prints 16.5; do not blend those numbers on the site.",
@@ -68,7 +67,7 @@
     }
   ],
   "storyline": {
-    "lede": "Arizona arrives at GEHA Field at Arrowhead Stadium on Sun Nov 22, 12:00 PM CT on CBS as a 3-7 club whose quarterback picture is the matchup, not a formality. Carson Beck is questionable with back spasms, and the Cardinals have been preparing Josh Johnson, a 40-year-old journeyman, if Beck cannot start — a fourth quarterback in four weeks. Kansas City is a DraftKings 15.5-point favorite on a 40.5 total, with ESPN FPI at 88.5 percent, and that price still has to be played, not assumed.",
+    "lede": "Arizona arrives at GEHA Field at Arrowhead Stadium on Sun Nov 22, 12:00 PM CT on CBS as a 3-7 club whose quarterback picture is the matchup, not a formality. Kansas City is a DraftKings 15.5-point favorite on a 40.5 total, with ESPN FPI at 88.5 percent, and that price still has to be played, not assumed.",
     "body": [
       "Andy Reid and Eric Bieniemy do not get Kenneth Walker III. The run plan sits with Emmett Johnson, who carried 22 times for 101 yards in Atlanta and added six catches. Nate Carter, elevated with center Pete Nygra from the practice squad, had two rushes and two touches in that game — depth, not the featured load.",
       "The Atlanta residue that matters on Sunday is efficiency, not the 35-13 final. Patrick Mahomes was 22-of-35 for 348 yards and five touchdowns with a 135.5 rating, one sack taken, and eight quarterback hits. Kansas City was 4-of-13 on third down, posted 461 yards on 13 drives, and held the ball 28:36.",
@@ -86,13 +85,13 @@
         "body": "Mahomes finished 22-of-35 for 348 yards and five touchdowns, one sack, rating 135.5. Johnson had 22 carries for 101 yards and six catches. Rashee Rice had five catches for 82 yards. Atlanta held the ball 31:24 on 15 drives, with 100 rushing yards, 270 net passing yards, 370 total yards, and a 5-of-16 third-down line."
       },
       {
-        "body": "Bijan Robinson had 16 rushes and four catches. N. Williams intercepted him on a deep middle throw intended for Chris Blair. N. Bolton forced a fumble on a Kyle Pitts catch that C. Conner recovered. A Johnson fumble forced by A. Terrell went out of bounds and was not a turnover. Kansas City recorded five quarterback hits; Atlanta recorded eight on Mahomes."
+        "body": "Bijan Robinson had 16 rushes and four catches. N. Bolton forced a fumble on a Kyle Pitts catch that C. Conner recovered. A Johnson fumble forced by A. Terrell went out of bounds and was not a turnover. Kansas City recorded five quarterback hits; Atlanta recorded eight on Mahomes."
       }
     ],
     "takeaways": [
       {
         "title": "Explosives covered a stalled down chart",
-        "body": "Downs, Allen, and Armstrong scored from 18, 39, and 43. The third-down line was still 4-of-13. Arizona will live in that down-and-distance if Bieniemy does not fix it."
+        "body": "The third-down line was still 4-of-13. Arizona will live in that down-and-distance if Bieniemy does not fix it."
       },
       {
         "title": "The rush won without a clean pocket",
@@ -125,7 +124,7 @@
     "thinkAbout": [
       {
         "title": "Who actually starts for Arizona",
-        "body": "Beck is questionable with back spasms. Josh Johnson is the journeyman the Cardinals have been preparing. Reid should script both, because the 15.5 number moves with that answer and the inactive list is not final here."
+        "body": "Josh Johnson is the journeyman the Cardinals have been preparing."
       },
       {
         "title": "How thin the skill and line groups are",
@@ -135,7 +134,6 @@
   },
   "gamePlan": {
     "opponent": "Arizona Cardinals",
-    "lede": "Finish a 15.5 home favorite on Sun Nov 22, 12:00 PM CT on CBS without Walker, against a 3-7 team that may start Beck or Josh Johnson, then get out healthy enough for Buffalo.",
     "howTheyMatch": "Kansas City's offense just produced 461 yards and five touchdowns while failing third down and taking eight quarterback hits. Arizona is injury-depleted, has moved on from Marvin Harrison Jr., and is sorting a fourth quarterback in four weeks. Spagnuolo should play two-deep and rally tackles if Johnson is in, and still rush the pocket if Beck plays through back spasms. Bieniemy should feed Johnson early and use Carter as a spare back, not a 28-touch replacement — Carter's Atlanta line was two rushes and two touches.",
     "keys": [
       {
@@ -201,11 +199,6 @@
   },
   "spotlight": [
     {
-      "tag": "QB",
-      "title": "Beck questionable, Josh Johnson waiting",
-      "body": "Arrowhead Pride reports Beck is questionable with back spasms and that Arizona is preparing a fourth starting quarterback in four weeks. Arrowhead Addict identifies that option as 40-year-old Josh Johnson. Script both."
-    },
-    {
       "tag": "RB",
       "title": "Johnson's carries, Carter's elevation",
       "body": "Walker is out again. Johnson had 22 carries, 101 yards, and six catches in Atlanta. Carter is elevated after two rushes and two touches, a spare back behind that load."
@@ -246,7 +239,7 @@
       "chiefs": "Steve Spagnuolo, Karlaftis, N. Bolton",
       "opponent": "Carson Beck or Josh Johnson",
       "edge": "KC",
-      "note": "Beck is questionable with back spasms. Johnson is the 40-year-old alternative. Cover 2 plus a zone blitz is the call menu; Atlanta takeaways stay credited to N. Williams, Bolton, and Conner."
+      "note": "Cover 2 plus a zone blitz is the call menu; Atlanta takeaways stay credited to N. Williams, Bolton, and Conner."
     },
     {
       "unit": "Third down",
@@ -260,7 +253,7 @@
       "chiefs": "Rice, Downs, Allen, Armstrong, Kelce",
       "opponent": "Cardinals secondary after moving on from Marvin Harrison Jr.",
       "edge": "KC",
-      "note": "Rice had five catches for 82 yards. Downs, Allen, and Armstrong scored from 18, 39, and 43. Use them on schedule, not as a substitute for third down."
+      "note": "Rice had five catches for 82 yards."
     }
   ],
   "xsandos": [
@@ -378,7 +371,6 @@
     },
     {
       "title": "Cover 2 against a quarterback in flux",
-      "situation": "1st-and-10, Beck questionable or Josh Johnson in his first start of this stretch",
       "concept": "cover_two",
       "why": "Atlanta still hit explosives — London for 38, Dotson for 37, Pitts for 28 — while Kansas City won. Two deep and five under takes the shot and lets Bolton rally.",
       "coaching": "Spagnuolo: corners sink, safeties stay deep, linebackers fit the checkdown. Do not turn a journeyman or a sore-backed starter into a downfield shot.",
@@ -453,12 +445,6 @@
       "status": "Out",
       "note": "Will be without Walker again as offensive-line injuries mount; he is not in the Arizona plan.",
       "source": "Arrowhead Addict"
-    },
-    {
-      "player": "Carson Beck",
-      "status": "Questionable",
-      "note": "Back spasms; Arizona preparing Josh Johnson if Beck cannot start.",
-      "source": "Arrowhead Pride"
     }
   ],
   "personnel": [
