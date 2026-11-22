@@ -12,7 +12,6 @@
   },
   "edition": "2026 Week 11 · Preview",
   "record": "7-2",
-  "headline": "Beck's back, Walker's absence, and a 15.5 Arrowhead lay",
   "sectionTitles": {
     "lastGame": "The 35-13 Mercedes-Benz residue",
     "currentState": "Walker out, Carter elevated, third downs still stuck",
@@ -118,7 +117,7 @@
       },
       {
         "title": "Hits without inventing a pass-rush total",
-        "body": "Eight hits and one sack on Mahomes are the protection note. Spagnuolo can still heat Beck or Josh Johnson; Karlaftis's 1.5-sack lead and five Kansas City quarterback hits are the rush facts to build from."
+        "body": "Eight hits and one sack on Mahomes are the protection note."
       }
     ],
     "thinkAbout": [
@@ -134,7 +133,7 @@
   },
   "gamePlan": {
     "opponent": "Arizona Cardinals",
-    "howTheyMatch": "Kansas City's offense just produced 461 yards and five touchdowns while failing third down and taking eight quarterback hits. Arizona is injury-depleted, has moved on from Marvin Harrison Jr., and is sorting a fourth quarterback in four weeks. Spagnuolo should play two-deep and rally tackles if Johnson is in, and still rush the pocket if Beck plays through back spasms. Bieniemy should feed Johnson early and use Carter as a spare back, not a 28-touch replacement — Carter's Atlanta line was two rushes and two touches.",
+    "howTheyMatch": "Kansas City's offense just produced 461 yards and five touchdowns while failing third down and taking eight quarterback hits. Arizona is injury-depleted, has moved on from Marvin Harrison Jr., and is sorting a fourth quarterback in four weeks. Bieniemy should feed Johnson early and use Carter as a spare back, not a 28-touch replacement — Carter's Atlanta line was two rushes and two touches.",
     "keys": [
       {
         "title": "Own early downs with Johnson",
@@ -146,7 +145,7 @@
       },
       {
         "title": "Two-deep, then simulated heat",
-        "body": "Cover 2 takes the deep middle that Penix found with Drake London and Jahan Dotson. A zone blitz is a call to stress Beck's back or Johnson's timing."
+        "body": "Cover 2 takes the deep middle that Penix found with Drake London and Jahan Dotson."
       },
       {
         "title": "Special teams and the red zone stay ordinary",
@@ -233,13 +232,6 @@
       "opponent": "Arizona pass rush, unnamed in the wire",
       "edge": "PUSH",
       "note": "22-of-35, 348 yards, five touchdowns, and a 135.5 rating came with one sack and eight quarterback hits. Screens and early-down runs are the protection plan."
-    },
-    {
-      "unit": "Spagnuolo vs. Beck or Josh Johnson",
-      "chiefs": "Steve Spagnuolo, Karlaftis, N. Bolton",
-      "opponent": "Carson Beck or Josh Johnson",
-      "edge": "KC",
-      "note": "Cover 2 plus a zone blitz is the call menu; Atlanta takeaways stay credited to N. Williams, Bolton, and Conner."
     },
     {
       "unit": "Third down",
@@ -343,7 +335,6 @@
     },
     {
       "title": "Four verts if the box sells out on Johnson",
-      "situation": "2nd-and-long after Arizona loads the run, Beck or Josh Johnson needing a stop",
       "concept": "four_verts",
       "why": "Downs (18-yard touchdown, 21-yard catch), Allen (39-yard touchdown), and Rice (50-yard catch on the Atlanta tape) stress a secondary that has already lost Marvin Harrison Jr. on the other sideline's roster math.",
       "coaching": "Seams bend to the hash. Allen and Downs own the verticals; Rice can bend off the hash. Worthy is the outside vertical from the Atlanta incompletions, not a guaranteed target.",
@@ -373,7 +364,7 @@
       "title": "Cover 2 against a quarterback in flux",
       "concept": "cover_two",
       "why": "Atlanta still hit explosives — London for 38, Dotson for 37, Pitts for 28 — while Kansas City won. Two deep and five under takes the shot and lets Bolton rally.",
-      "coaching": "Spagnuolo: corners sink, safeties stay deep, linebackers fit the checkdown. Do not turn a journeyman or a sore-backed starter into a downfield shot.",
+      "coaching": "Spagnuolo: corners sink, safeties stay deep, linebackers fit the checkdown.",
       "labels": {
         "x": "deep half",
         "z": "deep half",
@@ -398,7 +389,6 @@
     },
     {
       "title": "Zone blitz as a call, not a trophy",
-      "situation": "3rd-and-7, Arizona trying to steal a down with Beck or Josh Johnson",
       "concept": "zone_blitz",
       "why": "Show heat, drop a lineman, rush the second level. Karlaftis is the rusher to feature after a 1.5-sack lead. The call does not rewrite the Williams interception or the Bolton-forced fumble.",
       "coaching": "Spagnuolo: simulated pressure, eyes on the hot throw. Bolton can be the second-level rusher or the dropper depending on the picture. Finish the tackle if Johnson checks it down.",
@@ -470,12 +460,10 @@
     "Feed Johnson on early downs and keep Carter's snap count light.",
     "Use spacing screens to cut eight-hit dropback volume.",
     "Call mesh on third-and-medium before another shot to Worthy.",
-    "Play Cover 2 against Beck or Josh Johnson and rally to the checkdown.",
     "Zone-blitz on third-and-long with Karlaftis featured; do not treat it as the Atlanta takeaway.",
     "Bank the 15.5 by finishing drives, then turn to Buffalo on Thu Nov 26, 7:20 PM CT."
   ],
   "debates": [
-    "If Beck is active, do you still game-plan Josh Johnson as the starter?",
     "Should Johnson stay near 22 carries with a Buffalo trip four days later?",
     "Is 4-of-13 the real Week 11 problem, or will explosives cover it again at home?",
     "Does a 15.5 lay on a 40.5 total change how aggressive Reid should be in the red zone?",
@@ -503,8 +491,7 @@
     {
       "title": "Chiefs News: Cardinals preparing to start 4th QB in 4 weeks",
       "publisher": "Arrowhead Pride",
-      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/217016/chiefs-news-cardinals-preparing-start-4th-qb-4-weeks",
-      "note": "Beck questionable, back spasms; Josh Johnson next."
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/217016/chiefs-news-cardinals-preparing-start-4th-qb-4-weeks"
     },
     {
       "title": "Cardinals turn to 40-year-old journeyman QB for daunting matchup with Chiefs",
