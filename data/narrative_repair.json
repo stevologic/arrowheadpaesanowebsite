@@ -1,20 +1,22 @@
 {
   "droppedSentences": [
-    "George Karlaftis's 1.5 sacks and three sacks on Michael Penix Jr.",
-    "After the opening touchdown it was 7-3 at the Atlanta field goal (28 yards, Q2 7:12), 14-3 on Josh Downs's 18-yard touchdown at Q2 0:18, and 21-3 on Cyrus Allen's 39-yard touchdown at Q3 5:02.",
-    "N. Williams intercepted Penix.",
-    "Karlaftis's 1.5 sacks sit inside Penix's three sacks taken.",
-    "The five quarterback hits are the rush count; they are not five sacks.",
-    "Takeaways credited to N. Bolton (forced), C. Conner (recovered), and N. Williams (intercepted), with Karlaftis at 1.5 sacks.",
-    "Karlaftis at 1.5 sacks is the named rush piece.",
-    "A 6-yard touchdown at Q4 9:55 made it 28-3."
+    "Steve Spagnuolo's group put five quarterback hits on Michael Penix Jr., who was sacked three times, and Karlaftis led Kansas City with 1.5 sacks.",
+    "That is the rush standard to carry into a Beck-or-Johnson week, not a finished product.",
+    "Team totals were 339 net passing yards, 122 rushing yards on 27 attempts, 461 total yards, 21 first downs, 4-of-13 on third down, zero turnovers, 13 drives, and 28:36 possession.",
+    "Penix was 23-of-43 with three sacks and a 64.7 rating.",
+    "Karlaftis led with 1.5 sacks, Penix took three sacks, and Kansas City had five quarterback hits.",
+    "N. Williams interception and Conner's recovery off Bolton's forced fumble.",
+    "The Reacts poll praised Karlaftis, and he led Kansas City with 1.5 sacks against Atlanta.",
+    "Cyrus Allen's 39-yard touchdown made it 21-3, a 6-yard touchdown made it 28-3, and Atlanta's 3-yard touchdown plus a 38-yard field goal cut it to 28-13 before Andrew Armstrong's 43-yard touchdown closed it at 35-13."
   ],
   "correctedSentences": [
-    "Johnson on inside zone and Mahomes's easy answers \u2014 screens and mesh \u2014 should turn 1st-and-10 into 2nd-and-short. The Atlanta miss was finishing drives without a 18-, 39-, or 43-yard throw. Arizona should not be allowed to live on Kansas City's 4-of-13 habit. \u2192 Johnson on inside zone and Mahomes's easy answers \u2014 screens and mesh \u2014 should turn 1st-and-10 into 2nd-and-short. The Atlanta miss was finishing drives without an 18-, 39-, or 43-yard throw. Arizona should not be allowed to live on Kansas City's 4-of-13 habit."
+    "N. Williams's interception and Conner's recovery off Bolton's forced fumble. \u2192 N. Williams interception and Conner's recovery off Bolton's forced fumble.",
+    "The call does not rewrite the Atlanta interception or the Bolton-forced fumble. \u2192 The call does not rewrite the Williams interception or the Bolton-forced fumble.",
+    "unverifiable opponent Team totals; holding"
   ],
   "leftoverIssues": [],
   "holdOnlySentinels": [],
-  "headlineOrLedeTouched": false,
-  "wordShortfall": 733,
+  "headlineOrLedeTouched": true,
+  "wordShortfall": 1279,
   "holdAutomerge": true
 }

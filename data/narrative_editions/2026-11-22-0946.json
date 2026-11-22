@@ -1,0 +1,523 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-22T09:46:19+00:00",
+  "updatedAt": "2026-11-22T09:46:21+00:00",
+  "generator": "grok:grok-4.7",
+  "heroMediaId": "none",
+  "phase": {
+    "type": "regular",
+    "label": "Week 11",
+    "week": 11,
+    "mode": "preview"
+  },
+  "edition": "2026 Week 11 · Preview",
+  "record": "7-2",
+  "headline": "2026 Week 11 · Preview",
+  "sectionTitles": {
+    "lastGame": "The 35-13 Mercedes-Benz residue",
+    "currentState": "Walker out, Carter elevated, third downs still stuck",
+    "gamePlan": "Arizona's quarterback question at Arrowhead",
+    "pressConferences": "Sun Nov 22 podium coverage, attached separately"
+  },
+  "dek": "Kansas City is 7-2 and hosts Arizona on Sun Nov 22, 12:00 PM CT on CBS as a DraftKings 15.5-point favorite on a 40.5 total, with Kenneth Walker III out, Nate Carter and Pete Nygra elevated, and the Atlanta third-down line still 4-of-13.",
+  "theEdge": "ESPN FPI lists Kansas City at 88.5 percent to win this home game, with DraftKings at minus 15.5 on a 40.5 total, while the Atlanta line that has to travel is 22-of-35 for 348 yards and five touchdowns, one sack taken, eight quarterback hits, and 4-of-13 on third down.",
+  "editorNotes": [
+    "Desk market is DraftKings KC -15.5, total 40.5, FPI 88.5 / 11.4. Wire item 8 prints 16.5; do not blend those numbers on the site.",
+    "Three KC starters ruled out in the final report; the packet names Kenneth Walker III out and does not name the other two. Do not invent them.",
+    "Scoring-play players are unknown except PBP: Downs 18, Allen 39, Armstrong 43.",
+    "Interceptor is N. Williams. Fumble force N. Bolton, recovery C. Conner. Nate Carter is 2 touches, not 28. Do not write a 5-sack team total; Karlaftis leader is 1.5, Mahomes took 1 sack, KC QB hits are 5, Penix took 3 sacks.",
+    "Last-game TOP KC 28:36, ATL 31:24. Prior Jets TOP stays off this tape."
+  ],
+  "pressConferences": [
+    {
+      "url": "https://www.youtube.com/watch?v=DO0CEDSnXT8",
+      "videoId": "DO0CEDSnXT8",
+      "speaker": "Andy Reid",
+      "channel": "Kansas City Chiefs",
+      "title": "Andy Reid, Andrew Armstrong, Ashton Gillotte, and Nohl Williams Speak to Media | NOVEMBER 20, 2026",
+      "date": "2026-11-20",
+      "dateLabel": "Fri Nov 20, 2026"
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=rIlh2oNe1Vs",
+      "videoId": "rIlh2oNe1Vs",
+      "speaker": "Steve Spagnuolo, Eric Bieniemy, Dave Toub, and Chris Jones",
+      "channel": "Kansas City Chiefs",
+      "title": "Dave Toub, Steve Spagnuolo, Eric Bieniemy and Chris Jones Speak to Media | NOVEMBER 19, 2026",
+      "date": "2026-11-19",
+      "dateLabel": "Thu Nov 19, 2026"
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=Vwvr9-D97As",
+      "videoId": "Vwvr9-D97As",
+      "speaker": "Andy Reid, Patrick Mahomes, and Drue Tranquill",
+      "channel": "Kansas City Chiefs",
+      "title": "Andy Reid, Patrick Mahomes, Emmett Johnson, and Drue Tranquill Speak to Media | NOVEMBER 18, 2026",
+      "date": "2026-11-18",
+      "dateLabel": "Wed Nov 18, 2026"
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=8OXdSMA0Wyk",
+      "videoId": "8OXdSMA0Wyk",
+      "speaker": "Andy Reid",
+      "channel": "Kansas City Chiefs",
+      "title": "Andy Reid Speaks to the Media | NOVEMBER 16, 2026",
+      "date": "2026-11-16",
+      "dateLabel": "Mon Nov 16, 2026"
+    }
+  ],
+  "storyline": {
+    "lede": "Arizona arrives at GEHA Field at Arrowhead Stadium on Sun Nov 22, 12:00 PM CT on CBS as a 3-7 club whose quarterback picture is the matchup, not a formality. Kansas City is a DraftKings 15.5-point favorite on a 40.5 total, with ESPN FPI at 88.5 percent, and that price still has to be played, not assumed.",
+    "body": [
+      "Andy Reid and Eric Bieniemy do not get Kenneth Walker III. The run plan sits with Emmett Johnson, who carried 22 times for 101 yards in Atlanta and added six catches. Nate Carter, elevated with center Pete Nygra from the practice squad, had two rushes and two touches in that game — depth, not the featured load.",
+      "The Atlanta residue that matters on Sunday is efficiency, not the 35-13 final. Patrick Mahomes was 22-of-35 for 348 yards and five touchdowns with a 135.5 rating, one sack taken, and eight quarterback hits. Kansas City was 4-of-13 on third down, posted 461 yards on 13 drives, and held the ball 28:36.",
+      "Kingdom Keys has Kansas City 7-2 and tied with Denver atop the AFC West, one game behind Buffalo for the AFC's No. 1 seed. Thu Nov 26, 7:20 PM CT at Buffalo is the next trip after this. Arizona has lost consecutive games and has moved on from Marvin Harrison Jr. A heavy favorite that stalls on third down and absorbs eight quarterback hits can still make the next week harder than the number says."
+    ]
+  },
+  "lastGameReview": {
+    "opponent": "Atlanta Falcons",
+    "label": "Week 10 · Sun, Nov 15 · 12:00 PM CT",
+    "result": "W",
+    "score": "KC 35–13",
+    "lede": "Kansas City beat Atlanta 35-13 at Mercedes-Benz Stadium. The opening score was a 12-yard touchdown at Q1 8:53. Atlanta answered with a 28-yard field goal, then Josh Downs scored on an 18-yard touchdown at Q2 0:18.",
+    "analysis": [
+      {
+        "body": "Mahomes finished 22-of-35 for 348 yards and five touchdowns, one sack, rating 135.5. Johnson had 22 carries for 101 yards and six catches. Rashee Rice had five catches for 82 yards. Atlanta held the ball 31:24 on 15 drives, with 100 rushing yards, 270 net passing yards, 370 total yards, and a 5-of-16 third-down line."
+      },
+      {
+        "body": "Bijan Robinson had 16 rushes and four catches. N. Bolton forced a fumble on a Kyle Pitts catch that C. Conner recovered. A Johnson fumble forced by A. Terrell went out of bounds and was not a turnover. Kansas City recorded five quarterback hits; Atlanta recorded eight on Mahomes."
+      }
+    ],
+    "takeaways": [
+      {
+        "title": "Explosives covered a stalled down chart",
+        "body": "The third-down line was still 4-of-13. Arizona will live in that down-and-distance if Bieniemy does not fix it."
+      },
+      {
+        "title": "The rush won without a clean pocket",
+        "body": "Mahomes still absorbed eight hits and one sack. Protection is the carryover item."
+      }
+    ],
+    "whatWorked": [
+      "Zero turnovers and five touchdowns on 461 yards.",
+      "Johnson's 22-carry, 101-yard, six-catch day with Walker unavailable."
+    ],
+    "whatDidnt": [
+      "4-of-13 on third down across 13 drives.",
+      "Eight quarterback hits and one sack on Mahomes.",
+      "Atlanta still owned 31:24 and 15 drives."
+    ]
+  },
+  "currentState": {
+    "lede": "Kansas City is 7-2, tied with Denver in the AFC West and one game behind Buffalo in the race for the No. 1 seed, with a home lay against a 3-7 Cardinals team and a short turn to Buffalo after it.",
+    "record": "7-2",
+    "workOn": [
+      {
+        "title": "Third-and-manageable answers",
+        "body": "4-of-13 in Atlanta cannot be the Arrowhead script against a club that will try to shrink the game. Mesh, screens, and Johnson on early downs are the fixes, not more hero shots."
+      },
+      {
+        "title": "Hits without inventing a pass-rush total",
+        "body": "Eight hits and one sack on Mahomes are the protection note."
+      }
+    ],
+    "thinkAbout": [
+      {
+        "title": "Who actually starts for Arizona",
+        "body": "Josh Johnson is the journeyman the Cardinals have been preparing."
+      },
+      {
+        "title": "How thin the skill and line groups are",
+        "body": "Walker is out. Carter and Nygra are elevations who revert to the practice squad after the game. Three starters are ruled out; the wire does not name the other two, so the plan should not pretend those names are known."
+      }
+    ]
+  },
+  "gamePlan": {
+    "opponent": "Arizona Cardinals",
+    "howTheyMatch": "Kansas City's offense just produced 461 yards and five touchdowns while failing third down and taking eight quarterback hits. Arizona is injury-depleted, has moved on from Marvin Harrison Jr., and is sorting a fourth quarterback in four weeks. Bieniemy should feed Johnson early and use Carter as a spare back, not a 28-touch replacement — Carter's Atlanta line was two rushes and two touches.",
+    "keys": [
+      {
+        "title": "Own early downs with Johnson",
+        "body": "Inside zone and a screen keep Mahomes off pure dropback volume after eight hits and one sack. Rice, Travis Kelce, and Downs are the chain-movers when the box loads Johnson."
+      },
+      {
+        "title": "Do not chase the number",
+        "body": "FPI at 88.5 percent and a 40.5 total say points may be scarce if Arizona shortens the game. Third-down conversions matter more than another 43-yard strike."
+      },
+      {
+        "title": "Two-deep, then simulated heat",
+        "body": "Cover 2 takes the deep middle that Penix found with Drake London and Jahan Dotson."
+      },
+      {
+        "title": "Special teams and the red zone stay ordinary",
+        "body": "Harrison Butker made the extra points on the named Atlanta touchdowns. Do not turn a heavy favorite into a field-position scramble."
+      }
+    ],
+    "script": [
+      "Open with Johnson inside zone and a Mahomes keep only if the look is already on tape from his two Atlanta rushes.",
+      "Second-and-medium: spacing screen to Johnson, with Carter as the changeup on a light snap count.",
+      "Third-and-4 to 6: mesh with Rice and Kelce, Downs sitting, rather than another deep left to Xavier Worthy.",
+      "If Arizona loads the box, four verticals with Downs and Allen bending the seams.",
+      "Spagnuolo: Cover 2 on early downs, zone blitz on third-and-6-plus, Karlaftis as the featured rusher.",
+      "Nygra is an elevation at center, not a declared starter. H. Nourzad's eligible reports stay on the snaps that listed him, not a permanent jumbo."
+    ]
+  },
+  "nextGame": {
+    "label": "Week 11 · Sun, Nov 22 · 12:00 PM CT",
+    "opponent": "Arizona Cardinals",
+    "at": "Arrowhead Stadium",
+    "tv": "CBS",
+    "note": "DraftKings KC -15.5, total 40.5; FPI 88.5 percent. Buffalo follows on Thu Nov 26, 7:20 PM CT."
+  },
+  "markets": {
+    "game": {
+      "opponent": "Arizona Cardinals",
+      "label": "Sun, Nov 22 · 12:00 PM CT",
+      "homeAway": "home",
+      "kcWin": 88.5,
+      "spreadDetail": "KC -15.5",
+      "overUnder": 40.5,
+      "source": "ESPN FPI win probability; ESPN / DraftKings spread",
+      "url": "https://www.espn.com/nfl/game/_/gameId/401873067"
+    },
+    "model": {
+      "kcWin": 88.5,
+      "oppWin": 11.4,
+      "label": "ESPN FPI game projection",
+      "source": "ESPN FPI",
+      "url": "https://www.espn.com/nfl/fpi"
+    },
+    "vegas": {
+      "provider": "DraftKings",
+      "spreadDetail": "KC -15.5",
+      "overUnder": 40.5,
+      "homeMoneyline": -1320.0,
+      "awayMoneyline": 800.0,
+      "source": "ESPN / DraftKings",
+      "url": "https://www.espn.com/nfl/lines"
+    }
+  },
+  "spotlight": [
+    {
+      "tag": "RB",
+      "title": "Johnson's carries, Carter's elevation",
+      "body": "Walker is out again. Johnson had 22 carries, 101 yards, and six catches in Atlanta. Carter is elevated after two rushes and two touches, a spare back behind that load."
+    },
+    {
+      "tag": "Rush",
+      "title": "Karlaftis is the fan and film answer",
+      "body": "Five quarterback hits and three sacks on Penix are the group facts around him."
+    },
+    {
+      "tag": "Seed",
+      "title": "Tied with Denver, Buffalo in the window",
+      "body": "Kingdom Keys places the Chiefs 7-2, tied with Denver in the AFC West and one game behind Buffalo for the No. 1 seed. This home game is the cleaner week before that trip."
+    },
+    {
+      "tag": "Price",
+      "title": "Massive, not the largest Week 11 number",
+      "body": "Arrowhead Addict has Kansas City as a 15.5-point favorite and notes it is not the biggest Week 11 favorite. Play the game in front of you, not the board."
+    }
+  ],
+  "matchups": [
+    {
+      "unit": "Chiefs run game vs. Arizona's front",
+      "chiefs": "Emmett Johnson, Nate Carter",
+      "opponent": "Injury-depleted Cardinals",
+      "edge": "KC",
+      "note": "Walker is out. Johnson just had 101 of Kansas City's 122 rushing yards. Carter is the elevated changeup at two touches, not the featured back."
+    },
+    {
+      "unit": "Mahomes vs. the rush he actually felt",
+      "chiefs": "Patrick Mahomes",
+      "opponent": "Arizona pass rush, unnamed in the wire",
+      "edge": "PUSH",
+      "note": "22-of-35, 348 yards, five touchdowns, and a 135.5 rating came with one sack and eight quarterback hits. Screens and early-down runs are the protection plan."
+    },
+    {
+      "unit": "Third down",
+      "chiefs": "Bieniemy's down chart",
+      "opponent": "A 3-7 club trying to shorten the game",
+      "edge": "OPP",
+      "note": "Kansas City was 4-of-13 on third down in a 35-13 win. That is the leverage Arizona can actually own if the script stays vertical."
+    },
+    {
+      "unit": "Skill-position explosives",
+      "chiefs": "Rice, Downs, Allen, Armstrong, Kelce",
+      "opponent": "Cardinals secondary after moving on from Marvin Harrison Jr.",
+      "edge": "KC",
+      "note": "Rice had five catches for 82 yards."
+    }
+  ],
+  "xsandos": [
+    {
+      "title": "Johnson inside zone, Walker on the sideline",
+      "situation": "1st-and-10 at Arrowhead, Walker out, Arizona likely to spin the quarterback picture",
+      "concept": "inside_zone",
+      "why": "Johnson had 22 carries for 101 of 122 team rushing yards in Atlanta. Carter's two touches are the spare look, not the identity.",
+      "coaching": "Bieniemy: zone steps, one cut, Johnson presses the play side and gets vertical. Do not wait for a Walker package that is not active.",
+      "labels": {
+        "x": "stalk and release",
+        "z": "clear-out",
+        "te": "arc to the linebacker"
+      },
+      "playmakers": [
+        {
+          "name": "Emmett Johnson",
+          "role": "inside-zone back"
+        },
+        {
+          "name": "Patrick Mahomes",
+          "role": "under-center quarterback"
+        },
+        {
+          "name": "Nate Carter",
+          "role": "changeup back on a later snap"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-22-0946/xo-inside_zone.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Spacing screen after the hit count",
+      "situation": "2nd-and-6, Mahomes coming off eight quarterback hits and one sack",
+      "concept": "spacing_screen",
+      "why": "Easy offense answers the Atlanta pocket without asking for another 35-throw script against a team that wants to shrink possessions.",
+      "coaching": "Let the line climb. Johnson catches on the move; Rice and Downs hold the perimeter. Carter can take the same screen on a light snap, not a featured series.",
+      "labels": {
+        "x": "tunnel block",
+        "z": "flat block",
+        "te": "slide to the alley"
+      },
+      "playmakers": [
+        {
+          "name": "Emmett Johnson",
+          "role": "screen back"
+        },
+        {
+          "name": "Patrick Mahomes",
+          "role": "quick thrower"
+        },
+        {
+          "name": "Rashee Rice",
+          "role": "perimeter blocker"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-22-0946/xo-spacing_screen.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Mesh on the third-down stall",
+      "situation": "3rd-and-5, the down Kansas City converted 4 times in 13 tries at Atlanta",
+      "concept": "mesh",
+      "why": "Rub crossers give Rice, Kelce, and Downs a defined answer so the 15.5 price is not chased with another incomplete deep left to Worthy.",
+      "coaching": "Bieniemy: Rice and Kelce cross, Downs sits, Johnson checks down. Mahomes throws the rub, not the hero shot, unless the sit is covered.",
+      "labels": {
+        "x": "sit",
+        "z": "cross",
+        "te": "shallow cross"
+      },
+      "playmakers": [
+        {
+          "name": "Rashee Rice",
+          "role": "crosser"
+        },
+        {
+          "name": "Travis Kelce",
+          "role": "mesh partner"
+        },
+        {
+          "name": "Josh Downs",
+          "role": "sit route"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-22-0946/xo-mesh.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Four verts if the box sells out on Johnson",
+      "concept": "four_verts",
+      "why": "Downs (18-yard touchdown, 21-yard catch), Allen (39-yard touchdown), and Rice (50-yard catch on the Atlanta tape) stress a secondary that has already lost Marvin Harrison Jr. on the other sideline's roster math.",
+      "coaching": "Seams bend to the hash. Allen and Downs own the verticals; Rice can bend off the hash. Worthy is the outside vertical from the Atlanta incompletions, not a guaranteed target.",
+      "labels": {
+        "x": "go",
+        "z": "go",
+        "te": "seam"
+      },
+      "playmakers": [
+        {
+          "name": "Josh Downs",
+          "role": "seam"
+        },
+        {
+          "name": "Cyrus Allen",
+          "role": "vertical"
+        },
+        {
+          "name": "Rashee Rice",
+          "role": "hash bender"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-22-0946/xo-four_verts.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Cover 2 against a quarterback in flux",
+      "concept": "cover_two",
+      "why": "Atlanta still hit explosives — London for 38, Dotson for 37, Pitts for 28 — while Kansas City won. Two deep and five under takes the shot and lets Bolton rally.",
+      "coaching": "Spagnuolo: corners sink, safeties stay deep, linebackers fit the checkdown.",
+      "labels": {
+        "x": "deep half",
+        "z": "deep half",
+        "te": "hook"
+      },
+      "playmakers": [
+        {
+          "name": "N. Bolton",
+          "role": "hook-to-curl fitter"
+        },
+        {
+          "name": "N. Williams",
+          "role": "deep-half safety"
+        },
+        {
+          "name": "C. Conner",
+          "role": "underneath rally"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-22-0946/xo-cover_two.svg",
+      "side": "defense"
+    },
+    {
+      "title": "Zone blitz as a call, not a trophy",
+      "concept": "zone_blitz",
+      "why": "Show heat, drop a lineman, rush the second level. Karlaftis is the rusher to feature after a 1.5-sack lead. The call does not rewrite the Williams interception or the Bolton-forced fumble.",
+      "coaching": "Spagnuolo: simulated pressure, eyes on the hot throw. Bolton can be the second-level rusher or the dropper depending on the picture. Finish the tackle if Johnson checks it down.",
+      "labels": {
+        "x": "flat drop",
+        "z": "deep third",
+        "te": "hook replace"
+      },
+      "playmakers": [
+        {
+          "name": "Karlaftis",
+          "role": "featured rusher"
+        },
+        {
+          "name": "N. Bolton",
+          "role": "second-level rush or drop"
+        },
+        {
+          "name": "Steve Spagnuolo",
+          "role": "call"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-22-0946/xo-zone_blitz.svg",
+      "side": "defense"
+    }
+  ],
+  "coaching": [
+    {
+      "topic": "Reid's price management",
+      "detail": "A 15.5 favorite on a 40.5 total does not need a 35-point script. Reid should treat Arizona as a finish-the-drives game before Buffalo."
+    },
+    {
+      "topic": "Bieniemy without Walker",
+      "detail": "Johnson is the back. Carter is elevated depth at two Atlanta touches. Third-and-medium has to be mesh and screens after 4-of-13."
+    },
+    {
+      "topic": "Spagnuolo's two answers",
+      "detail": "Cover 2 for the shot, zone blitz for the third down. Credit N. Williams, Bolton, and Conner for what they actually took in Atlanta."
+    }
+  ],
+  "injuries": [
+    {
+      "player": "Kenneth Walker III",
+      "status": "Out",
+      "note": "Will be without Walker again as offensive-line injuries mount; he is not in the Arizona plan.",
+      "source": "Arrowhead Addict"
+    }
+  ],
+  "personnel": [
+    {
+      "move": "Practice-squad elevations",
+      "detail": "Nate Carter and Pete Nygra are elevated for the Arizona game and revert to the practice squad afterward.",
+      "players": [
+        "Nate Carter",
+        "Pete Nygra"
+      ]
+    },
+    {
+      "move": "Run-game hierarchy",
+      "detail": "With Walker out, Johnson remains the ball carrier after 22 carries and six catches. Carter is the spare back.",
+      "players": [
+        "Kenneth Walker III",
+        "Emmett Johnson",
+        "Nate Carter"
+      ]
+    }
+  ],
+  "strategies": [
+    "Feed Johnson on early downs and keep Carter's snap count light.",
+    "Use spacing screens to cut eight-hit dropback volume.",
+    "Call mesh on third-and-medium before another shot to Worthy.",
+    "Zone-blitz on third-and-long with Karlaftis featured; do not treat it as the Atlanta takeaway.",
+    "Bank the 15.5 by finishing drives, then turn to Buffalo on Thu Nov 26, 7:20 PM CT."
+  ],
+  "debates": [
+    "Should Johnson stay near 22 carries with a Buffalo trip four days later?",
+    "Is 4-of-13 the real Week 11 problem, or will explosives cover it again at home?",
+    "Does a 15.5 lay on a 40.5 total change how aggressive Reid should be in the red zone?",
+    "Is Karlaftis the rush plan, or does Spagnuolo need the zone blitz to create the down?"
+  ],
+  "sources": [
+    {
+      "title": "Chiefs elevate 2 practice squad players for Week 11",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/217071/chiefs-elevate-2-practice-squad-players-for-week-11",
+      "note": "Carter and Nygra elevations."
+    },
+    {
+      "title": "Chiefs will be without Kenneth Walker again as offensive line injuries mount",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/chiefs-will-be-without-kenneth-walker-again-offensive-line-injuries-mount?utm_source=RSS",
+      "note": "Walker out."
+    },
+    {
+      "title": "Chiefs-Cardinals Week 11 Final injury report: 3 KC starters ruled out",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-injuries/217004/chiefs-cardinals-week-11-final-injury-report-3-kc-starters-ruled-out",
+      "note": "Three starters ruled out; other names not in the blurb."
+    },
+    {
+      "title": "Chiefs News: Cardinals preparing to start 4th QB in 4 weeks",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/217016/chiefs-news-cardinals-preparing-start-4th-qb-4-weeks"
+    },
+    {
+      "title": "Cardinals turn to 40-year-old journeyman QB for daunting matchup with Chiefs",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/cardinals-turn-to-40-year-old-journeyman-qb-for-daunting-matchup-with-chiefs?utm_source=RSS",
+      "note": "Josh Johnson identified."
+    },
+    {
+      "title": "Chiefs are massive favorites against Cardinals (but not the biggest Week 11 favorite)",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/chiefs-are-massive-favorites-against-cardinals-but-not-the-biggest-week-11-favorite-01m7rrtksnj9?utm_source=RSS",
+      "note": "15.5-point favorite framing."
+    },
+    {
+      "title": "Kingdom Keys: 3 Keys to a Chiefs victory over the Cardinals in Week 11",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/216986/kingdom-keys-3-keys-chiefs-victory-over-cardinals-week-11",
+      "note": "7-2, tied with Denver, one back of Buffalo; Arizona 3-7."
+    },
+    {
+      "title": "In Week 11’s ‘Reacts’ poll, Chiefs fans praise George Karlaftis",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/nfl-reacts-survey/217030/week-11-results-chiefs-fans-praise-george-karlaftis",
+      "note": "Fan praise for Karlaftis."
+    }
+  ],
+  "slug": "2026-11-22-0946"
+}
