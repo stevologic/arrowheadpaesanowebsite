@@ -56,6 +56,19 @@ MUTANTS: dict[str, tuple[str, str]] = {
         "print(NOT_FOUND_MESSAGE, flush=True)  # frozen-not-found-message",
         'print("download failed", flush=True)  # frozen-not-found-message',
     ),
+    "MN3a": (
+        '        return KIND_DIGEST_MISMATCH, "digest mismatch: missing digest field"',
+        "        extracted = _extract_zip(blob, dest)\n"
+        "        if extracted != KIND_OK:\n"
+        '            return KIND_BAD_ZIP, "bad zip"\n'
+        '        return KIND_OK, "ok"',
+    ),
+    "MN3b": (
+        '            if name.startswith("/") or ".." in parts:\n'
+        "                return KIND_BAD_ZIP",
+        "            if False:\n"
+        "                return KIND_BAD_ZIP",
+    ),
 }
 
 
@@ -174,25 +187,20 @@ def hit_responses(
     digest: str | None = None,
     artifact_id: int = 11,
     zip_body: bytes | None = None,
+    omit_digest: bool = False,
 ) -> tuple[FakeResponse, FakeResponse, bytes, dict[str, bytes]]:
     files = files if files is not None else sample_files()
     blob = zip_body if zip_body is not None else make_zip(files)
-    if digest is None:
-        digest = "sha256:" + hashlib.sha256(blob).hexdigest()
-    listing = http_json(
-        200,
-        {
-            "total_count": 1,
-            "artifacts": [
-                {
-                    "id": artifact_id,
-                    "name": "publication-compatibility",
-                    "digest": digest,
-                    "workflow_run": {"id": int(run_id)},
-                }
-            ],
-        },
-    )
+    artifact: dict[str, Any] = {
+        "id": artifact_id,
+        "name": "publication-compatibility",
+        "workflow_run": {"id": int(run_id)},
+    }
+    if not omit_digest:
+        artifact["digest"] = (
+            "sha256:" + hashlib.sha256(blob).hexdigest() if digest is None else digest
+        )
+    listing = http_json(200, {"total_count": 1, "artifacts": [artifact]})
     return listing, FakeResponse(200, blob), blob, files
 
 
@@ -220,6 +228,26 @@ def _list_calls(transport: FakeTransport) -> list[dict[str, Any]]:
 
 def _zip_calls(transport: FakeTransport) -> list[dict[str, Any]]:
     return [call for call in transport.calls if call["url"].endswith("/zip")]
+
+
+def _try_lines(log: str) -> list[str]:
+    return [line for line in log.splitlines() if line.startswith("try ")]
+
+
+def _files_outside(root: Path, dest: Path) -> dict[str, bytes]:
+    dest_resolved = dest.resolve()
+    found: dict[str, bytes] = {}
+    if not root.exists():
+        return found
+    for path in root.rglob("*"):
+        if not path.is_file():
+            continue
+        resolved = path.resolve()
+        try:
+            resolved.relative_to(dest_resolved)
+        except ValueError:
+            found[str(resolved)] = path.read_bytes()
+    return found
 
 
 def assert_pinned_list_url(url: str, run_id: str = RUN_ID) -> None:
@@ -415,10 +443,6 @@ def case_r4_retry_only_not_found(mod) -> None:
 
 
 def case_r5_bounds(mod) -> None:
-    if getattr(mod, "RETRY_LIMIT") != 5:
-        raise AssertionError(f"RETRY_LIMIT={mod.RETRY_LIMIT}")
-    if getattr(mod, "RETRY_DELAY_SECONDS") != 3:
-        raise AssertionError(f"RETRY_DELAY_SECONDS={mod.RETRY_DELAY_SECONDS}")
     download = _step_by_name(_load_yaml(_ci_text()), "Download publication compatibility fixture")
     if download.get("timeout-minutes") is None:
         raise AssertionError("timeout-minutes missing")
@@ -548,6 +572,97 @@ def case_r10_harness_in_gates() -> None:
         raise AssertionError("harness should run before the live download")
 
 
+def case_n1_caught_up() -> None:
+    behind = subprocess.check_output(
+        ["git", "rev-list", "--count", "HEAD..origin/develop"],
+        cwd=REPO,
+        text=True,
+    ).strip()
+    if behind != "0":
+        raise AssertionError(f"HEAD is {behind} commits behind origin/develop")
+    develop_sha = subprocess.check_output(
+        ["git", "rev-parse", "origin/develop"],
+        cwd=REPO,
+        text=True,
+    ).strip()
+    merge_base = subprocess.check_output(
+        ["git", "merge-base", "HEAD", "origin/develop"],
+        cwd=REPO,
+        text=True,
+    ).strip()
+    if merge_base != develop_sha:
+        raise AssertionError("origin/develop is not an ancestor of HEAD")
+
+
+def case_n2_recorded_sleeps(mod) -> None:
+    transport = FakeTransport([http_status(404, b"missing") for _ in range(8)])
+    rc, log, sleeps, _dest = run_download(mod, transport)
+    if rc == 0:
+        raise AssertionError("5-try all-miss succeeded")
+    if sleeps != [3, 3, 3, 3]:
+        raise AssertionError(f"recorded sleeps {sleeps} != [3, 3, 3, 3]")
+    if _try_lines(log) != ["try 1/5", "try 2/5", "try 3/5", "try 4/5", "try 5/5"]:
+        raise AssertionError(f"recorded tries {_try_lines(log)}")
+    if len(_list_calls(transport)) != 5:
+        raise AssertionError(f"recorded list calls {len(_list_calls(transport))}")
+
+
+def case_n3a_missing_digest(mod) -> None:
+    variants: tuple[tuple[str, dict[str, Any]], ...] = (
+        ("missing", {"omit_digest": True}),
+        ("blank", {"digest": ""}),
+    )
+    for label, kwargs in variants:
+        listing, zipped, _blob, _files = hit_responses(**kwargs)
+        later_list, later_zip, _blob2, _files2 = hit_responses(artifact_id=99)
+        dest = Path(tempfile.mkdtemp()) / "n3a" / label
+        transport = FakeTransport([listing, zipped, later_list, later_zip])
+        rc, log, sleeps, dest = run_download(mod, transport, dest=dest)
+        if rc == 0:
+            raise AssertionError(f"{label} digest accepted rc=0 log={log!r}")
+        if sleeps:
+            raise AssertionError(f"{label} digest retried sleeps={sleeps}")
+        if len(_list_calls(transport)) != 1:
+            raise AssertionError(f"{label} digest list retries {len(_list_calls(transport))}")
+        if len(_zip_calls(transport)) != 1:
+            raise AssertionError(f"{label} digest zip retries {len(_zip_calls(transport))}")
+        if dest.exists() and any(path.is_file() for path in dest.rglob("*")):
+            raise AssertionError(f"{label} digest extracted into {dest}")
+        if "digest mismatch" not in log:
+            raise AssertionError(f"{label} digest log={log!r}")
+
+
+def _slip_zip(relative_name: str, absolute_name: str) -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as archive:
+        archive.writestr(zipfile.ZipInfo(relative_name), b"pwned-rel\n")
+        archive.writestr(zipfile.ZipInfo(absolute_name), b"pwned-abs\n")
+    return buf.getvalue()
+
+
+def case_n3b_zip_slip(mod) -> None:
+    root = Path(tempfile.mkdtemp())
+    dest = root / "artifact-roundtrip"
+    dest.mkdir(parents=True, exist_ok=True)
+    sentinel = root / "sentinel.txt"
+    sentinel.write_bytes(b"keep\n")
+    abs_name = str((root / "abs-escaped.txt").resolve())
+    blob = _slip_zip("../escaped.txt", abs_name)
+    listing, zipped, _blob, _files = hit_responses(zip_body=blob, files={})
+    before = _files_outside(root, dest)
+    if str(sentinel.resolve()) not in before:
+        raise AssertionError("sentinel parent listing missed the planted file")
+    transport = FakeTransport([listing, zipped])
+    rc, log, sleeps, dest = run_download(mod, transport, dest=dest)
+    after = _files_outside(root, dest)
+    if after != before:
+        raise AssertionError(f"zip-slip wrote outside dest: before={before!r} after={after!r}")
+    if rc == 0:
+        raise AssertionError(f"zip-slip extracted rc=0 log={log!r}")
+    if sleeps:
+        raise AssertionError(f"zip-slip retried {sleeps}")
+
+
 def apply_mutant(source: str, mutant_id: str) -> str:
     old, new = MUTANTS[mutant_id]
     count = source.count(old)
@@ -561,11 +676,18 @@ def killer_m1(mod) -> None:
     transport = FakeTransport(
         [http_status(404, b"missing") for _ in range(5)] + [sixth_list, sixth_zip]
     )
-    rc, log, _sleeps, _dest = run_download(mod, transport)
+    rc, log, sleeps, _dest = run_download(mod, transport)
+    tries = _try_lines(log)
+    if tries != ["try 1/5", "try 2/5", "try 3/5", "try 4/5", "try 5/5"]:
+        raise AssertionError(f"observed tries {tries}")
+    if sleeps != [3, 3, 3, 3]:
+        raise AssertionError(f"observed sleeps {sleeps}")
+    if len(_list_calls(transport)) != 5:
+        raise AssertionError(f"observed list calls {len(_list_calls(transport))}")
+    if _zip_calls(transport):
+        raise AssertionError("observed a zip download after try 5")
     if rc == 0:
         raise AssertionError("N>5 accepted a 6th try")
-    if len(_list_calls(transport)) != 5:
-        raise AssertionError(f"expected 5 list calls, got {len(_list_calls(transport))} log={log!r}")
 
 
 def killer_m2(mod) -> None:
@@ -573,25 +695,19 @@ def killer_m2(mod) -> None:
     listing, zipped, _blob, _files = hit_responses(artifact_id=15)
     transport = FakeTransport(delayed + [listing, zipped])
     rc, log, sleeps, _dest = run_download(mod, transport)
+    tries = _try_lines(log)
+    if tries != ["try 1/5", "try 2/5", "try 3/5", "try 4/5", "try 5/5"]:
+        raise AssertionError(f"observed tries {tries}")
+    if sleeps != [3, 3, 3, 3]:
+        raise AssertionError(f"observed sleeps {sleeps}")
+    if len(_list_calls(transport)) != 5:
+        raise AssertionError(f"observed list calls {len(_list_calls(transport))}")
     if rc != 0:
         raise AssertionError(f"hit on try 5 must pass: rc={rc} log={log!r}")
-    if sleeps != [3, 3, 3, 3] and sleeps != [mod.RETRY_DELAY_SECONDS] * 4:
-        raise AssertionError(f"hit on try 5 sleeps {sleeps}")
-    if len(_list_calls(transport)) != 5:
-        raise AssertionError("hit on try 5 must issue 5 list calls")
 
 
 def killer_m3(mod) -> None:
-    if mod.RETRY_DELAY_SECONDS != 3:
-        raise AssertionError(f"delay is {mod.RETRY_DELAY_SECONDS}, not 3")
-    transport = FakeTransport(
-        [http_status(404, b"missing"), *hit_responses(artifact_id=21)[:2]]
-    )
-    rc, _log, sleeps, _dest = run_download(mod, transport)
-    if rc != 0:
-        raise AssertionError("try 2 hit failed while checking delay")
-    if sleeps != [3]:
-        raise AssertionError(f"delay used {sleeps}, not [3]")
+    case_n2_recorded_sleeps(mod)
 
 
 def killer_m4(mod) -> None:
@@ -662,6 +778,8 @@ KILLERS: dict[str, Callable] = {
     "M6": killer_m6,
     "M7": killer_m7,
     "M8": killer_m8,
+    "MN3a": case_n3a_missing_digest,
+    "MN3b": case_n3b_zip_slip,
 }
 
 CRASH_TOKENS = (
@@ -682,6 +800,9 @@ def run_behavioural(mod) -> None:
     case_r6_message(mod)
     case_r8_message_not_swallowed(mod)
     case_r9_try_count(mod)
+    case_n2_recorded_sleeps(mod)
+    case_n3a_missing_digest(mod)
+    case_n3b_zip_slip(mod)
 
 
 def _is_assertion(exc: BaseException) -> bool:
@@ -750,6 +871,10 @@ CASES: dict[str, Callable] = {
     "R8": lambda: case_r8_message_not_swallowed(live_script()),
     "R9": lambda: case_r9_try_count(live_script()),
     "R10": case_r10_harness_in_gates,
+    "N1": case_n1_caught_up,
+    "N2": lambda: case_n2_recorded_sleeps(live_script()),
+    "N3a": lambda: case_n3a_missing_digest(live_script()),
+    "N3b": lambda: case_n3b_zip_slip(live_script()),
 }
 
 
@@ -764,6 +889,10 @@ RECEIPTS = {
     "R8": "all-miss log still contains the frozen not-found message",
     "R9": "script logs try N/5; live pull_request attempt 1 is the remaining proof",
     "R10": "gates job runs tools.tests.run_publication_compatibility_download_harness",
+    "N1": "HEAD is 0 behind origin/develop; merge-base is origin/develop",
+    "N2": "injected sleep recorded [3, 3, 3, 3] on a 5-try all-miss; tries 1/5..5/5",
+    "N3a": "listed artifact with missing/blank digest fails immediately; 0 retries, 0 sleeps",
+    "N3b": "zip-slip ../x and absolute path fail closed; sentinel parent listing unchanged",
 }
 
 
