@@ -1,0 +1,557 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-23T18:55:30+00:00",
+  "updatedAt": "2026-11-23T18:55:32+00:00",
+  "generator": "grok:grok-4.7",
+  "heroMediaId": "none",
+  "phase": {
+    "type": "regular",
+    "label": "Week 11",
+    "week": 11,
+    "mode": "review"
+  },
+  "edition": "2026 Week 11 · Review",
+  "record": "8-2",
+  "headline": "Buffalo is a three-point road problem after a 34-7 Arrowhead afternoon",
+  "sectionTitles": {
+    "lastGame": "34-7 film: Johnson's 27 touches, Kelce's two scores",
+    "currentState": "8-2, a thin tight-end room, and a West tiebreaker to chase",
+    "gamePlan": "Thursday in Buffalo: a 47.1 percent FPI underdog with a real script",
+    "pressConferences": "Podium clips stay off this desk"
+  },
+  "dek": "Kansas City is 8-2 after a 34-7 win over Arizona and travels to Buffalo on Thu Nov 26, 7:20 PM CT on NBC as a DraftKings three-point underdog on a 50.5 total, with ESPN FPI at 47.1 percent.",
+  "videoHook": "Thirty-four to seven was the afternoon. Thursday in Buffalo is the assignment, and the number says Kansas City is not supposed to win it.",
+  "theEdge": "ESPN FPI has Kansas City at 47.1 percent in Buffalo against 52.5 for the Bills, with DraftKings listing Buffalo minus 3 on a 50.5 total, after an Arrowhead afternoon of 435 yards, 7-of-13 on third down, and zero giveaways.",
+  "editorNotes": [
+    "Last-game KC box is 435 yards, 317 net pass, 118 rush, 27 first downs, 7-13, 10 drives, 32:26. ARI is 205, 130 net pass, 75 rush, 14 first downs, 5-13, 9 drives, 27:34. Prior Atlanta KC box stays separate: 461, 339 net pass, 122 rush, 21 first downs, 4-13, 13 drives, 28:36; ATL clock 31:24.",
+    "ARI touchdown is 2 yards, unknown scorer. KC scoring: 8-yard TD unknown, Johnson 3-yard rush TD on the Q1 0:48 play, 40-yard FG, Kelce 22-yard TD, 44-yard FG, 18-yard TD unknown. Mahomes leader line is 3 passing TDs and 324 yards on 27-of-39. Team net pass remains 317.",
+    "Fumble: forced by Karlaftis, recovered by Fryar for Arizona. Both teams 0 turnovers. QB hits: KC 7, opponent 5 on Mahomes. Sacks: Johnson 3, Mahomes 1, Fields 0. Karlaftis 2.5 sacks."
+  ],
+  "pressConferences": [
+    {
+      "url": "https://www.youtube.com/watch?v=lYa-1Qb_CGo",
+      "videoId": "lYa-1Qb_CGo",
+      "speaker": "Andy Reid, Patrick Mahomes, and George Karlaftis",
+      "channel": "Kansas City Chiefs",
+      "title": "Andy Reid, Patrick Mahomes, George Karlaftis & Emmett Johnson Postgame Press Conferences-NFL Week 11",
+      "date": "2026-11-22",
+      "dateLabel": "Sun Nov 22, 2026"
+    }
+  ],
+  "storyline": {
+    "lede": "The Cardinals afternoon did what a heavy home price is supposed to do: Kansas City led 14-0 before Arizona scored, closed the half at 27-7, and finished 34-7 with four touchdowns, two Harrison Butker field goals, and a clean sheet on giveaways. The story that matters now is the short trip to Buffalo, where DraftKings has the Bills minus 3 and ESPN FPI has Kansas City at 47.1 percent.",
+    "body": [
+      "Andy Reid's group is 8-2 and has won three in a row, including 35-13 at Atlanta and 35-12 against the Jets before this 34-7. Arrowhead Addict's read is that this roster cashed a softer stretch instead of playing down to it. That is useful context, not a Buffalo game plan. The Bills are 9-1 in the framing Arrowhead Pride used for this rivalry week, and the market treats Thursday as a toss-up with the home side leaned.",
+      "The Arizona tape still has transferable pieces. Emmett Johnson carried 23 times for 105 yards and a touchdown and finished with 27 touches. Patrick Mahomes was 27-of-39 for 324 yards and three touchdowns with one sack and a 120.0 rating. Travis Kelce caught six passes for 74 yards and two touchdowns, including the 22-yard score with 1:54 left in the second quarter. Steve Spagnuolo's defense held Arizona to 205 yards, 14 first downs, and 5-of-13 on third down, with George Karlaftis at 2.5 sacks.",
+      "What has to travel is the correction, not the margin. Third down moved from 4-of-13 in Atlanta to 7-of-13 against Arizona, and Kansas City held the ball for 32:26 on 10 drives. The third quarter produced no points. Noah Gray's injury leaves the tight-end room thin behind Kelce on the week Eric Bieniemy would most like a second inline option. Kenneth Walker's injury remains a managed absence, with Johnson, Jaydn Ott, and Nate Carter splitting the backfield work that is actually on the tape.",
+      "Denver is also 8-2 and, per Arrowhead Pride, leads the AFC West on tiebreakers with both clubs 3-1 in the division. A road result in Buffalo does not fix that tiebreaker by itself. It does tell you whether an 8-2 built on 435 yards and zero turnovers against Arizona can stand up when the opponent is favored."
+    ]
+  },
+  "lastGameReview": {
+    "opponent": "Arizona Cardinals",
+    "label": "Week 11 · Sun, Nov 22 · 12:00 PM CT",
+    "result": "W",
+    "score": "KC 34–7",
+    "lede": "The fourth-quarter 18-yard touchdown made it 34-7. Both clubs finished with zero turnovers.",
+    "analysis": [
+      {
+        "body": "The opening script was a run game with a quarterback attached, not a track meet. Johnson's first snap went right end for 16 to the Kansas City 44, then the carries stacked up the middle: 4, 5, 7, and a no-gain right end to the Arizona 8 before the 8-yard score. A later drive put him up the middle for 2, 4, 8, and the 3-yard touchdown. That is 23 carries, 105 yards, one touchdown, plus four catches, 27 touches. Ott added five rushes and Carter one. The team line was 31 attempts for 118 yards."
+      },
+      {
+        "body": "Mahomes was 27-of-39 for 324 yards, three touchdowns, one sack, and a 120.0 rating. The team net passing line is 317. Kelce's 22-yard touchdown, thrown deep middle with 1:54 left in the second quarter, is the one scoring throw the play-by-play names. His day was six catches, 74 yards, two touchdowns. Rashee Rice also had six catches. Josh Downs had four. Noah Gray had three. Xavier Worthy and Cyrus Allen had two apiece, including Allen's 26-yard catch to the Arizona 18 with 0:04 left in the third quarter, ahead of the 18-yard touchdown at Q4 14:54. Deep shots were not automatic: incomplete deep right to Downs, deep left to Allen, deep left to Worthy, and another deep right to Worthy."
+      },
+      {
+        "body": "Josh Johnson finished 18-of-31 with three sacks and an 82.1 rating. The Cardinals managed 14 first downs, 75 rushing yards on 21 attempts, 130 net passing yards, and 205 total yards in 27:34. Trey McBride had 10 touches. Tyler Allgeier had seven rushes. Bam Knight had eight touches. Two Arizona drives ended on downs: Simi Fehoko right end for no gain at the Arizona 37, and a Johnson incompletion to Harrison Wallace. Kansas City had 27 first downs, 7-of-13 on third down, 435 yards, 10 drives, and 32:26 of possession."
+      },
+      {
+        "body": "Karlaftis posted 2.5 sacks inside a defense that put seven quarterback hits on Josh Johnson. On the third-quarter sack at the Arizona 45, Karlaftis forced the fumble and J. Fryar recovered it for Arizona, so the strip did not become a Kansas City takeaway. Mahomes was hit five times and sacked once. The penalty list that changed the picture: intentional grounding on Mahomes at the Arizona 16 with 0:16 left in the half, then the 44-yard field goal at 0:00; a J. Hicks illegal block above the waist in the fourth quarter; and Arizona flags on J. Williams and I. Adams that wiped plays. The third quarter stayed off the scoreboard."
+      }
+    ],
+    "takeaways": [
+      {
+        "title": "Johnson was the down-to-down offense",
+        "body": "Twenty-three carries, 105 yards, a 3-yard touchdown, and four catches gave Kansas City an early-down identity Arizona never flipped. The team still finished at 118 rushing yards on 31 attempts, so the backfield was more than one highlight carry."
+      },
+      {
+        "title": "Third down climbed without a giveaway",
+        "body": "Seven of 13 is a different afternoon from the 4-of-13 in Atlanta, and the turnover column stayed at zero. Ten drives and 32:26 let the score grow from 14-0 to 27-7 before the half and 34-7 after the fourth-quarter touchdown."
+      },
+      {
+        "title": "The pass rush won the down, not the ball",
+        "body": "Karlaftis' 2.5 sacks and the seven quarterback hits sat on an Arizona offense that managed 130 net passing yards. The forced fumble went back to Arizona via Fryar. That is pressure production with the ball staying put."
+      }
+    ],
+    "whatWorked": [
+      "Johnson's up-the-middle and right-end carries, including the 16-yard right end and the 3-yard touchdown",
+      "Kelce's six catches, 74 yards, and two touchdowns, with the 22-yard score named in the play-by-play",
+      "Mahomes at 27-of-39, 324 yards, three touchdowns, 120.0, and zero interceptions",
+      "A defense that held Arizona to 205 yards, 5-of-13, and two failed fourth downs",
+      "Karlaftis at 2.5 sacks with seven team quarterback hits"
+    ],
+    "whatDidnt": [
+      "No points in the third quarter after a 27-7 halftime lead",
+      "Five quarterback hits and one sack on Mahomes",
+      "Intentional grounding before the half-ending 44-yard field goal, plus Hicks' illegal block",
+      "Deep incompletions to Downs, Allen, and Worthy",
+      "Gray's injury on a day he caught three passes, with the tight-end room already thin for Thursday"
+    ]
+  },
+  "currentState": {
+    "lede": "Kansas City is 8-2, tied with Denver in the loss column, and behind the Broncos on the tiebreakers Arrowhead Pride laid out after both clubs went to 3-1 in the division. The next three listed games are at Buffalo, at the Rams, and at Cincinnati. The Arizona win is the proof of focus. It is not the opponent.",
+    "record": "8-2",
+    "workOn": [
+      {
+        "title": "Tight-end snaps without Gray",
+        "body": "Arrowhead Addict reports Gray's status as uncertain after the Arizona win, with the room dangerously thin ahead of the hardest stretch. Kelce's six catches and two touchdowns cannot be the whole inline plan if Gray cannot go. Bieniemy has to decide who replaces those three catches in the pattern, not just who stands next to the tackle."
+      },
+      {
+        "title": "Third-down stay-ahead against a better front",
+        "body": "Seven of 13 against Arizona fixed the 4-of-13 Atlanta line. Buffalo will not live on 205 yards. The staff should treat 7-of-13 as the floor to protect, especially after a third quarter that did not score."
+      },
+      {
+        "title": "Hits on Mahomes on a short week",
+        "body": "Five quarterback hits and one sack is the Arizona number. Write that, not a story about a clean pocket. Johnson, Ott, and a quick answer have to be available when Buffalo shows heat, because Thursday does not come with a long recovery window."
+      }
+    ],
+    "thinkAbout": [
+      {
+        "title": "How much of Johnson's 27 touches repeats",
+        "body": "Walker remains an injury the club is managing, per Arrowhead Addict. Johnson just posted 23 carries and four catches. Ott had five rushes and Carter one. Reid has to decide whether that split is the Thursday plan or whether the lead back needs a lighter early script so he is available late."
+      },
+      {
+        "title": "Whether 8-2 is a West lead or a West tie",
+        "body": "Denver holds the tiebreaker edge with matching 8-2 and 3-1 division marks. Fans can enjoy 34-7 and still track that the division is not a cushion. Buffalo is the national stage. The Broncos are the column that decides home-field math if both keep winning."
+      }
+    ]
+  },
+  "gamePlan": {
+    "opponent": "Buffalo Bills",
+    "lede": "Thursday, Thu Nov 26, 7:20 PM CT, on NBC, Kansas City is a three-point underdog at Buffalo on a 50.5 total. ESPN FPI lists the Chiefs at 47.1 percent and Buffalo at 52.5. The assignment is to play a complete road game against a 9-1 opponent without asking the Arizona margin to do the work.",
+    "howTheyMatch": "Kansas City just won the possession game, 32:26 to 27:34, and the yardage game, 435 to 205, behind Johnson's 27 touches and Mahomes' 27-of-39. Buffalo is the favorite because the Bills' offense is the problem Arizona's 130 net passing yards were not. Spagnuolo can steal the structure that limited Josh Johnson — rally tackles, seven quarterback hits, three sacks — and still needs a plan for a quarterback who will not operate on an 82.1 rating script. On offense, Bieniemy has a proven early-down runner, Kelce and Rice as the volume catchers, and a question at the second tight end. Reid's veterans avoided a letdown before this trip, which Arrowhead Addict noted. Avoiding a letdown against Arizona is the entry fee. Winning a minus-3 road game is the course.",
+    "keys": [
+      {
+        "title": "Stay on schedule with Johnson before the down gets long",
+        "body": "Against Buffalo, those early wins matter more, because a third-and-8 against this pass rush is where the five hits on Mahomes become a drive-killer. Give Johnson the early down. Use Ott as the changeup, not the rescue."
+      },
+      {
+        "title": "Make Kelce and Rice the answers if Gray cannot play",
+        "body": "Kelce already has the two touchdowns and 74 yards. Rice has six catches with no yardage total supplied, so the plan is volume and leverage, not a made-up average. Crossers and sit routes keep Mahomes from holding the ball into a second hit. Worthy and Downs remain the vertical stress, used when the shell cheats to Kelce."
+      },
+      {
+        "title": "Rush Josh Allen's launch point without abandoning the deep half",
+        "body": "Karlaftis has 2.5 sacks in this game and eight on the season, per Arrowhead Pride, with Chris Jones already on the Arizona tackle chart. The call is heat that still has two deep defenders. Arizona's 2-yard touchdown came on a drive that included a 25-yard completion to Wallace. Buffalo will hunt that explosive. Cover-2 and a zone blitz are the two answers, used as calls, not as a retelling of the Fryar recovery."
+      }
+    ],
+    "script": [
+      "Open under center with inside zone to Johnson and force Buffalo to declare a front before Mahomes throws.",
+      "On the second third-and-medium, mesh Kelce and Rice with Ott as the checkdown so a five-hit pocket does not become a sack.",
+      "Steal a down with a Johnson or Ott screen if the Bills' edge crashes inside.",
+      "Take one four-verticals shot to Worthy or Downs once the run has Buffalo in a single-high look.",
+      "On Buffalo's first third-and-long, start in Cover-2 and rally the flats instead of trading a deep shot for a pressure.",
+      "Dial the zone blitz on a second-and-medium after a modest gain, with Karlaftis and Jones as the rush threats and a second-level defender replacing a dropped lineman."
+    ]
+  },
+  "nextGame": {
+    "label": "Week 12 · Thu, Nov 26 · 7:20 PM CT",
+    "opponent": "Buffalo Bills",
+    "at": "@ Highmark Stadium",
+    "tv": "NBC",
+    "note": "DraftKings has Buffalo minus 3 on a 50.5 total; ESPN FPI has Kansas City at 47.1 percent on Thu Nov 26, 7:20 PM CT."
+  },
+  "markets": {
+    "game": {
+      "opponent": "Buffalo Bills",
+      "label": "Thu, Nov 26 · 7:20 PM CT",
+      "homeAway": "away",
+      "kcWin": 47.1,
+      "spreadDetail": "BUF -3",
+      "overUnder": 50.5,
+      "source": "ESPN FPI win probability; ESPN / DraftKings spread",
+      "url": "https://www.espn.com/nfl/game/_/gameId/401873082"
+    },
+    "model": {
+      "kcWin": 47.1,
+      "oppWin": 52.5,
+      "label": "ESPN FPI game projection",
+      "source": "ESPN FPI",
+      "url": "https://www.espn.com/nfl/fpi"
+    },
+    "vegas": {
+      "provider": "DraftKings",
+      "spreadDetail": "BUF -3",
+      "overUnder": 50.5,
+      "homeMoneyline": -149.0,
+      "awayMoneyline": 126.0,
+      "source": "ESPN / DraftKings",
+      "url": "https://www.espn.com/nfl/lines"
+    }
+  },
+  "spotlight": [
+    {
+      "tag": "Backfield",
+      "title": "Johnson's 27 touches are the Walker-week answer on tape",
+      "body": "Twenty-three carries, 105 yards, one rushing touchdown, four catches. Ott's five rushes and Carter's one carry are the changeup. Arrowhead Addict says the club is handling Walker's injury the right way. Thursday's plan should start from the touches that already happened."
+    },
+    {
+      "tag": "Tight end",
+      "title": "Gray's three catches now sit next to an uncertain status",
+      "body": "Kelce scored twice and caught six. Gray caught three and left the room thinner, per Arrowhead Addict. If he cannot play, the pattern has to be Kelce, Rice, and a back, not a hope that a familiar name arrives in time."
+    },
+    {
+      "tag": "Pass rush",
+      "title": "Karlaftis at 2.5, with the ball staying Arizona's",
+      "body": "Arrowhead Pride has him at eight sacks on the season after 2.5 in this game, plus the forced fumble Fryar recovered. Seven team quarterback hits and three sacks on Josh Johnson are the production. Zero turnovers is the column."
+    },
+    {
+      "tag": "West",
+      "title": "8-2 is a tie, and Denver owns the tiebreaker",
+      "body": "The Buffalo result will not redraw that column. It will tell you if this team can win when it is not laying a home number."
+    },
+    {
+      "tag": "Market",
+      "title": "A 47.1 percent road side on a 50.5 total",
+      "body": "FPI has Buffalo at 52.5 percent. DraftKings has the Bills minus 3. That is a respectful underdog, not a collapse narrative. The Arizona 34-7 does not move the kickoff string: Thu Nov 26, 7:20 PM CT, NBC."
+    }
+  ],
+  "matchups": [
+    {
+      "unit": "Chiefs run game vs. Bills front",
+      "chiefs": "Emmett Johnson, 23 carries, 105 yards, 1 TD; team 118 yards on 31 attempts",
+      "opponent": "Buffalo front that has not been on this tape",
+      "edge": "PUSH",
+      "note": "Johnson's Arrowhead afternoon is real. Buffalo is favored for a reason, and no Bills run-defense total is in the supplied facts, so the edge stays even until the fronts declare."
+    },
+    {
+      "unit": "Mahomes vs. Buffalo pass rush",
+      "chiefs": "27-of-39, 324 yards, 3 TD, 1 sack, 5 quarterback hits, 120.0",
+      "opponent": "Home favorite, minus 3",
+      "edge": "PUSH",
+      "note": "The rating is excellent and the hit count is five. Thursday's pocket will tell you which number was the Arizona effect."
+    },
+    {
+      "unit": "Karlaftis and Jones vs. Bills protection",
+      "chiefs": "Karlaftis 2.5 sacks; Kansas City 7 quarterback hits and 3 sacks on Josh Johnson",
+      "opponent": "Josh Allen and a 9-1 offense",
+      "edge": "KC",
+      "note": "Recent pressure is the Chiefs edge. It is an edge of form, not a promise that 205 yards travels to Buffalo.",
+      "chiefsStat": "2.5 sacks, eight on the season",
+      "statSource": "https://www.arrowheadpride.com/kansas-city-chiefs-news/217283/chiefs-news-george-karlaftis-continues-impressive-run-sacks",
+      "statDate": "2026-11-22"
+    },
+    {
+      "unit": "Kelce and Rice vs. Bills coverage",
+      "chiefs": "Kelce 6 catches, 74 yards, 2 TD; Rice 6 catches",
+      "opponent": "Buffalo secondary, unspecified in the wire",
+      "edge": "KC",
+      "note": "Volume and the two Kelce touchdowns are the matchup Kansas City can actually point to. Gray's uncertain status makes this pair the plan, not a luxury."
+    },
+    {
+      "unit": "Third down",
+      "chiefs": "7-of-13, 27 first downs, 10 drives, 32:26",
+      "opponent": "Arizona was 5-of-13; Buffalo is the next test",
+      "edge": "PUSH",
+      "note": "The climb from Atlanta's 4-of-13 is the improvement. Sustaining it on the road against a favorite is the question, so neither side gets the edge on projection alone."
+    },
+    {
+      "unit": "Short-week operation",
+      "chiefs": "Reid, veterans who treated Arizona as a real game",
+      "opponent": "Bills at home, 9-1 in the Pride framing, minus 3",
+      "edge": "OPP",
+      "note": "Home field, the market, and FPI's 52.5 percent are Buffalo's edge."
+    }
+  ],
+  "xsandos": [
+    {
+      "title": "Early-down inside zone to Johnson",
+      "situation": "First-and-10 at Buffalo, opening series, before the down gets to third-and-long",
+      "concept": "inside_zone",
+      "why": "Johnson just turned 23 carries into 105 yards and the 3-yard touchdown, with the team at 118 rushing yards. Buffalo is minus 3 because it can make Kansas City one-dimensional. Win the first down and Mahomes is not throwing into a five-hit script on every series.",
+      "coaching": "Bieniemy should come under center, let the line take zone steps, and give Johnson one cut. Ott is the second back if the front widens, not a replacement for the down-to-down runner. Reid does not need a new backfield identity on Thursday. He needs the one that already produced 27 touches.",
+      "labels": {
+        "x": "stalk and hold the edge",
+        "z": "insert crack if the safety flies",
+        "te": "zone reach, then climb"
+      },
+      "playmakers": [
+        {
+          "name": "Emmett Johnson",
+          "role": "one-cut runner on early downs"
+        },
+        {
+          "name": "Patrick Mahomes",
+          "role": "under-center quarterback, run-game constraint"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-23-1855/xo-inside_zone.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Mesh for Kelce and Rice",
+      "situation": "Third-and-5 to third-and-7, Buffalo in man, Gray's status uncertain",
+      "concept": "mesh",
+      "why": "Kelce has the two touchdowns and Rice has six catches. If Gray cannot give Bieniemy a third inline body, the rub has to live with the two volume targets and a back outlet so Mahomes throws before the fifth hit becomes a sack.",
+      "coaching": "Kelce crosses from the inline spot, Rice crosses from the slot, and they pass tight enough to pick man leverage. Ott sits as the checkdown. Mahomes' rule is simple: throw the open crosser, do not hunt Worthy on a down the sticks can be gained in the shallow.",
+      "labels": {
+        "x": "corner and sit",
+        "z": "clear vertical",
+        "te": "shallow cross"
+      },
+      "playmakers": [
+        {
+          "name": "Travis Kelce",
+          "role": "shallow cross from the tight end spot"
+        },
+        {
+          "name": "Rashee Rice",
+          "role": "opposite shallow cross"
+        },
+        {
+          "name": "Jaydn Ott",
+          "role": "checkdown outlet"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-23-1855/xo-mesh.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Screen when the edge crashes",
+      "situation": "Second-and-8 after a modest Johnson gain, Buffalo showing heat",
+      "concept": "spacing_screen",
+      "why": "Mahomes took five quarterback hits and one sack against Arizona. A screen to Johnson or Ott is the answer that uses the line already blocking for 31 team rushes, and it keeps Thursday from becoming a dropback count Buffalo wants.",
+      "coaching": "Sell the inside zone path, then let the guards and the play-side tackle lead. Johnson is the preferred receiver because he just caught four balls.",
+      "labels": {
+        "x": "stalk the corner",
+        "z": "vertical clear",
+        "te": "arc and log the edge"
+      },
+      "playmakers": [
+        {
+          "name": "Emmett Johnson",
+          "role": "screen target"
+        },
+        {
+          "name": "Patrick Mahomes",
+          "role": "quick throw, no hold"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-23-1855/xo-spacing_screen.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Four verticals once the run is respected",
+      "situation": "Second-and-5 in Buffalo territory after a Johnson first down",
+      "concept": "four_verts",
+      "why": "Downs, Worthy, and Allen all saw deep throws against Arizona, and several were incomplete. The call still belongs once Buffalo loads the box for Johnson. Kelce's 22-yard touchdown showed the middle of the field can be a score, not just a checkdown.",
+      "coaching": "Worthy and Downs take the outside verticals. Kelce bends the seam to the hash. Rice sits the intermediate if the safety caps the seam. Mahomes throws the open vertical or the sit. He does not force the deep left that was incomplete to Allen and Worthy in the Arizona game.",
+      "labels": {
+        "x": "outside vertical",
+        "z": "outside vertical",
+        "te": "seam to the hash"
+      },
+      "playmakers": [
+        {
+          "name": "Xavier Worthy",
+          "role": "outside vertical"
+        },
+        {
+          "name": "Josh Downs",
+          "role": "opposite vertical"
+        },
+        {
+          "name": "Travis Kelce",
+          "role": "seam"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-23-1855/xo-four_verts.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Cover-2 on Buffalo third-and-long",
+      "situation": "Buffalo third-and-8 or longer, first time they need a chunk throw",
+      "concept": "cover_two",
+      "why": "Arizona's explosive on the scoring drive was a 25-yard completion to Wallace, and the Cardinals still only reached 130 net passing yards because the defense rallied after it. Two deep and five under takes the home-run throw away from Josh Allen and dares a 9-1 offense to live in the flats.",
+      "coaching": "Spagnuolo should keep the corners in the deep halves and let Bolton and Tranquill trigger downhill. The rally has to be immediate. A 25-yard catch cannot become a 2-yard touchdown the way Arizona's drive did after Wallace's gain. Karlaftis rushes from his end spot inside the shell. He does not need a new job on this call.",
+      "labels": {
+        "x": "deep half",
+        "z": "deep half",
+        "te": "hook to curl"
+      },
+      "playmakers": [
+        {
+          "name": "Nick Bolton",
+          "role": "underneath rally"
+        },
+        {
+          "name": "Drue Tranquill",
+          "role": "second hook, fit the flat"
+        },
+        {
+          "name": "George Karlaftis",
+          "role": "four-man rush end"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-23-1855/xo-cover_two.svg",
+      "side": "defense"
+    },
+    {
+      "title": "Zone blitz on second-and-medium",
+      "situation": "Buffalo second-and-6 to second-and-8, after a short gain, midfield or backed up",
+      "concept": "zone_blitz",
+      "why": "Karlaftis and Jones just lived in Josh Johnson's launch point: 2.5 sacks for Karlaftis, three team sacks, seven quarterback hits. A simulated pressure gives Spagnuolo that heat with a dropped lineman so Allen cannot simply throw the hot route into an empty zone.",
+      "coaching": "Show four, rush a second-level defender, and drop a defensive lineman into the hook. Jones and Karlaftis are the named rush threats. The dropped lineman has to carry the crossing tight end, because Buffalo will try to replace the rusher with a quick answer. Call it as pressure. The Arizona fumble Fryar recovered is a separate play, already on the tape.",
+      "labels": {
+        "x": "quarter-flat drop",
+        "z": "deep zone carry",
+        "te": "hook drop from the second level"
+      },
+      "playmakers": [
+        {
+          "name": "George Karlaftis",
+          "role": "featured rusher"
+        },
+        {
+          "name": "Chris Jones",
+          "role": "interior rush or drop, depending on the picture"
+        },
+        {
+          "name": "Nick Bolton",
+          "role": "second-level rusher or hook player"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-23-1855/xo-zone_blitz.svg",
+      "side": "defense"
+    }
+  ],
+  "coaching": [
+    {
+      "topic": "Reid's no-letdown standard",
+      "detail": "Arrowhead Addict reports Reid credited veterans for treating Arizona as a real game before the Buffalo trip. That standard is the Thursday message: 34-7 is closed, and a three-point road number is the new job."
+    },
+    {
+      "topic": "Bieniemy without a full tight-end pair",
+      "detail": "Gray's uncertain status means the script should be built on Kelce, Rice, Johnson, and the receivers already catching balls, with K. Tonga's eligible report staying a single snap from the Arizona tape rather than a new identity."
+    },
+    {
+      "topic": "Spagnuolo's pressure without a empty deep half",
+      "detail": "Seven quarterback hits and Karlaftis' 2.5 sacks are the template. Cover-2 on third-and-long and a zone blitz on second-and-medium keep the rush attached to a shell Josh Allen cannot throw over for free."
+    }
+  ],
+  "injuries": [
+    {
+      "player": "Noah Gray",
+      "status": "Uncertain",
+      "note": "Injured in the Arizona win after three catches. Arrowhead Addict says the tight-end room is dangerously thin heading into the hardest stretch.",
+      "source": "Arrowhead Addict"
+    },
+    {
+      "player": "Kenneth Walker III",
+      "status": "Injured, managed",
+      "note": "Arrowhead Addict says the club is handling the injury the way it should. Johnson's 27 touches, Ott's five rushes, and Carter's one carry are the backfield that played.",
+      "source": "Arrowhead Addict"
+    }
+  ],
+  "personnel": [
+    {
+      "move": "Hunter Nourzad in the offensive-line rotation",
+      "detail": "Arrowhead Pride's snap-count piece flags Nourzad emerging up front in the 34-7 win. No snap total is in the supplied excerpt, so the note is the role, not a made-up count, heading into a short week on the road.",
+      "players": [
+        "Hunter Nourzad"
+      ]
+    },
+    {
+      "move": "Backfield split behind a managed Walker absence",
+      "detail": "Johnson took 23 rushes and four catches. Ott took five rushes. Carter took one. Fields added two rushes and an 0-of-1 throw. That is the rotation Buffalo should expect unless Walker is active.",
+      "players": [
+        "Emmett Johnson",
+        "Jaydn Ott",
+        "Nate Carter",
+        "Kenneth Walker III",
+        "Justin Fields"
+      ]
+    }
+  ],
+  "strategies": [
+    "Lean on Johnson for early-down inside zone so third down stays in the 7-of-13 neighborhood instead of sliding back toward Atlanta's 4-of-13.",
+    "Feature Kelce and Rice in mesh and sit concepts if Gray cannot play, and keep Ott as the outlet.",
+    "Use one screen series to cut the five quarterback hits Mahomes absorbed against Arizona.",
+    "Start Buffalo's long downs in Cover-2 and rally after the catch the way the defense had to after Wallace's 25-yard gain.",
+    "Call the zone blitz on second-and-medium with Karlaftis and Jones as the rush picture and a lineman dropping into the hook.",
+    "Protect the ball the way both recent Kansas City games did — zero turnovers against Arizona and zero against Atlanta — because a minus-3 road game does not forgive a short field."
+  ],
+  "debates": [
+    "Does Johnson's 27-touch afternoon mean he should touch it 20 times again in Buffalo, or does the short week call for Ott earlier?",
+    "If Gray cannot play, is Kelce-plus-Rice enough, or does Bieniemy have to manufacture a second tight end from the roster already in the building?",
+    "Is Buffalo minus 3 a fair price for an 8-2 team that just put up 435 yards, or does FPI's 47.1 percent say the market is right?",
+    "Should Spagnuolo live in Cover-2 against Josh Allen, or is the zone blitz the down that actually changes the launch point?",
+    "How much should the West tiebreaker with Denver color a Thursday that cannot, by itself, pass the Broncos?"
+  ],
+  "sources": [
+    {
+      "title": "Chiefs Defeat Cardinals, 34-7, for Third Win in a Row",
+      "publisher": "Chiefs.com",
+      "url": "https://www.chiefs.com/news/chiefs-defeat-cardinals-34-7-for-third-win-in-a-row",
+      "note": "Confirms the 34-7 result and frames the win as a Sunday afternoon."
+    },
+    {
+      "title": "10 Quick Facts Following the Chiefs Week 11 Win Over Arizona | Upon Further Review",
+      "publisher": "Chiefs.com",
+      "url": "https://www.chiefs.com/news/10-quick-facts-following-the-chiefs-week-11-win-over-arizona-upon-further-review",
+      "note": "Confirms the move to 8-2."
+    },
+    {
+      "title": "Who gets your Game Ball from the Chiefs’ win over the Cardinals?",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-discussions/217328/game-ball-chiefs-win-over-cardinals",
+      "note": "8-2 after 34-7, with Mahomes leading the game-ball vote."
+    },
+    {
+      "title": "Chiefs News: George Karlaftis continues impressive run of sacks",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-news/217283/chiefs-news-george-karlaftis-continues-impressive-run-sacks",
+      "note": "2.5 sacks, forced fumble, and eight sacks on the season."
+    },
+    {
+      "title": "AFC Playoff Picture: Broncos take over AFC West lead by tiebreakers",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-nfl-playoffs/217044/afc-playoff-picture-kansas-city-chiefs-standings-afc-west-week-11",
+      "note": "Denver and Kansas City both 8-2 and 3-1 in the division, Denver ahead on tiebreakers."
+    },
+    {
+      "title": "Chiefs Week 11 snap count analysis: Hunter Nourzad emerges up front",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/217307/chiefs-week-11-snap-count-analysis-hunter-nourzad-emerges-up-front",
+      "note": "Nourzad's emergence on the offensive line in the Arizona win."
+    },
+    {
+      "title": "Andy Reid credits Chiefs veterans for avoiding a letdown before Bills matchup",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/andy-reid-credits-chiefs-veterans-for-avoiding-letdown-before-bills-matchup?utm_source=RSS",
+      "note": "Reid on treating Arizona seriously ahead of Buffalo."
+    },
+    {
+      "title": "Chiefs' tight end depth takes another hit after Noah Gray injury",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/chiefs-tight-end-depth-takes-another-hit-after-noah-gray-injury?utm_source=RSS",
+      "note": "Gray injured in the Arizona win."
+    },
+    {
+      "title": "Chiefs could turn to familiar faces for tight end help after Noah Gray injury",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/chiefs-could-turn-to-familiar-faces-for-tight-end-help-after-noah-gray-injury-01m82rfdv38z?utm_source=RSS",
+      "note": "Uncertain status and a thin room before the toughest stretch."
+    },
+    {
+      "title": "Chiefs are playing the Kenneth Walker injury situation perfectly",
+      "publisher": "Arrowhead Addict",
+      "url": "https://arrowheadaddict.com/kansas-city-chiefs-playing-kenneth-walker-injury-perfectly?utm_source=RSS",
+      "note": "Walker injury management while Johnson carries the load."
+    },
+    {
+      "title": "Revisiting the regular-season history of modern Chiefs-Bills rivalry",
+      "publisher": "Arrowhead Pride",
+      "url": "https://www.arrowheadpride.com/kansas-city-chiefs-analysis/217338/revisiting-regular-season-history-modern-chiefs-bills-rivalry",
+      "note": "Frames the Buffalo game as a meaningful annual rivalry meeting."
+    }
+  ],
+  "slug": "2026-11-23-1855"
+}
