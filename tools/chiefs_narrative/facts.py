@@ -715,6 +715,9 @@ _HYPHEN_NUM = rf"(?:{_TENS_WORDS})-(?:{_ONES_WORDS})"
 _NUM_TOKEN = (
     rf"{_HYPHEN_NUM}|\d{{1,3}}|{_TEEN_WORDS}|{_TENS_WORDS}|zero|{_ONES_WORDS}"
 )
+# One decimal guard for every count regex: a lookbehind so `2.5 sacks`
+# is not an integer `5 sacks`. Do not also skip on `text[start-1] == '.'`.
+_COUNT_NUM = rf"(?<![\d.])(?:{_NUM_TOKEN})"
 _NUMBER_WORDS = {
     "zero": 0,
     "one": 1,
@@ -741,13 +744,13 @@ _NUMBER_WORDS = {
     "forty": 40,
 }
 _TOTAL_DRIVES = re.compile(
-    rf"\b({_NUM_TOKEN})\s+(?:total\s+)?drives\b",
+    rf"\b({_COUNT_NUM})\s+(?:total\s+)?drives\b",
     re.IGNORECASE,
 )
 _TOUCH_COUNT = re.compile(
-    rf"\b({_NUM_TOKEN})\s+touches\b|"
-    rf"\btouched the ball\s+({_NUM_TOKEN})\s+times\b|"
-    rf"\bhandled the ball\s+({_NUM_TOKEN})\s+times\b",
+    rf"\b({_COUNT_NUM})\s+touches\b|"
+    rf"\btouched the ball\s+({_COUNT_NUM})\s+times\b|"
+    rf"\bhandled the ball\s+({_COUNT_NUM})\s+times\b",
     re.IGNORECASE,
 )
 # Game-total touches only. Red-zone / drive / quarter windows are not
@@ -765,11 +768,11 @@ _TOUCH_WINDOW = re.compile(
 # "40-dropback" / "40 dropbacks" are attempt claims. Bare "40-drop vacuum"
 # is metaphor and is not Mahomes' pass-attempt total.
 _DROP_ATTEMPT = re.compile(
-    rf"\b({_NUM_TOKEN})-dropbacks?\b|"
-    rf"\b({_NUM_TOKEN})\s+dropbacks?\b|"
-    rf"\bthrew\s+({_NUM_TOKEN})\s+passes\b|"
-    rf"\battempted\s+({_NUM_TOKEN})\s+passes\b|"
-    rf"\b({_NUM_TOKEN})[-\s]attempts?\b",
+    rf"\b({_COUNT_NUM})-dropbacks?\b|"
+    rf"\b({_COUNT_NUM})\s+dropbacks?\b|"
+    rf"\bthrew\s+({_COUNT_NUM})\s+passes\b|"
+    rf"\battempted\s+({_COUNT_NUM})\s+passes\b|"
+    rf"\b({_COUNT_NUM})[-\s]attempts?\b",
     re.IGNORECASE,
 )
 _OWNER_ADVERB = r"(?:(?:\w+ly|already|now|also|still|just|currently)\s+)*"
@@ -781,27 +784,27 @@ _OWNER_VERBS = (
 _TEAM_UNIT = r"(?:\s+(?:defense|defence|front))?"
 _PROPER_NAME = r"(?-i:[A-Z][A-Za-z''-]+(?:\s+[A-Z][A-Za-z''-]+)?)"
 _SACK_COUNT = re.compile(
-    rf"\bsacked\s+(?P<sack_qb>{_PROPER_NAME})\s+(once|twice|{_NUM_TOKEN})(?:\s+times)?\b|"
+    rf"\bsacked\s+(?P<sack_qb>{_PROPER_NAME})\s+(once|twice|{_COUNT_NUM})(?:\s+times)?\b|"
     rf"\b(?:was\s+)?(?:repeatedly\s+)?sacked[,;]?\s+"
-    rf"(once|twice|{_NUM_TOKEN})\s+times(?:\s+in all)?\b|"
-    rf"\bsacked\s+(once|twice|{_NUM_TOKEN})(?:\s+times)?\b|"
-    rf"\bwent down\s+(once|twice|{_NUM_TOKEN})(?:\s+times)?\s+for sacks\b|"
-    rf"\b(?:was\s+)?taken down\s+(once|twice|{_NUM_TOKEN})(?:\s+times)?\b|"
+    rf"(once|twice|{_COUNT_NUM})\s+times(?:\s+in all)?\b|"
+    rf"\bsacked\s+(once|twice|{_COUNT_NUM})(?:\s+times)?\b|"
+    rf"\bwent down\s+(once|twice|{_COUNT_NUM})(?:\s+times)?\s+for sacks\b|"
+    rf"\b(?:was\s+)?taken down\s+(once|twice|{_COUNT_NUM})(?:\s+times)?\b|"
     rf"\b(?:The\s+)?(?P<sack_owner>{_PROPER_NAME})"
     rf"{_TEAM_UNIT}\s+{_OWNER_VERBS}\s+"
-    rf"(?P<sack_n>a|an|once|twice|{_NUM_TOKEN})\s+sacks?\b|"
+    rf"(?P<sack_n>(?<!half\s)(?:a|an)|once|twice|{_COUNT_NUM})\s+sacks?\b|"
     # `(?<![\d.])` so `2.5 sacks` is not a `5 sacks` team total
-    # (run 45149121946 leftover).
-    rf"(?<![\d.])\b({_NUM_TOKEN})\s+sacks\b",
+    # (run 45149121946 leftover). This is the only decimal guard.
+    rf"\b({_COUNT_NUM})\s+sacks\b",
     re.IGNORECASE,
 )
 _QB_HIT_COUNT = re.compile(
-    rf"\bhit\s+(?P<hit_qb>Mahomes|Willis)\s+(?:\w+\s+){{0,2}}({_NUM_TOKEN})\s+times\b|"
-    rf"\bhit\s+(?:\w+\s+){{0,2}}({_NUM_TOKEN})\s+times\b|"
+    rf"\bhit\s+(?P<hit_qb>Mahomes|Willis)\s+(?:\w+\s+){{0,2}}({_COUNT_NUM})\s+times\b|"
+    rf"\bhit\s+(?:\w+\s+){{0,2}}({_COUNT_NUM})\s+times\b|"
     rf"\b(?:The\s+)?(?P<hit_owner>{_PROPER_NAME})"
     rf"{_TEAM_UNIT}\s+{_OWNER_VERBS}\s+"
-    rf"({_NUM_TOKEN})\s+(?:quarterback\s+|QB\s+)?hits\b|"
-    rf"\b({_NUM_TOKEN})\s+(?:quarterback\s+|QB\s+)?hits\b",
+    rf"({_COUNT_NUM})\s+(?:quarterback\s+|QB\s+)?hits\b|"
+    rf"\b({_COUNT_NUM})\s+(?:quarterback\s+|QB\s+)?hits\b",
     re.IGNORECASE,
 )
 _SEASON_SPAN = re.compile(
@@ -821,7 +824,7 @@ _PRESSURE_OWNER = re.compile(
 )
 # "Miami's 5 QB hits" binds; "Kansas City's plan after 5 hits" does not.
 _POSSESSIVE_PRESSURE = re.compile(
-    rf"\b({_PROPER_NAME})['’]s\s+(?:(?:{_NUM_TOKEN})\s+)?(?:QB\s+)?"
+    rf"\b({_PROPER_NAME})['’]s\s+(?:(?:{_COUNT_NUM})\s+)?(?:QB\s+)?"
     rf"(?:hits?|sacks?)\b",
     re.IGNORECASE,
 )
@@ -885,10 +888,10 @@ _INT_AT_CLOCK = re.compile(
     re.IGNORECASE,
 )
 _PASS_TD_COUNT = re.compile(
-    rf"\bthrew\s+({_NUM_TOKEN})\s+touchdown\s+passes\b|"
-    rf"\b({_NUM_TOKEN})\s+touchdown\s+passes\b|"
-    rf"\b\d{{1,2}}-of-\d{{1,2}}\s+with\s+({_NUM_TOKEN})\s+touchdowns?\b|"
-    rf"\b(?:with|and)\s+({_NUM_TOKEN})\s+touchdowns?\b",
+    rf"\bthrew\s+({_COUNT_NUM})\s+touchdown\s+passes\b|"
+    rf"\b({_COUNT_NUM})\s+touchdown\s+passes\b|"
+    rf"\b\d{{1,2}}-of-\d{{1,2}}\s+with\s+({_COUNT_NUM})\s+touchdowns?\b|"
+    rf"\b(?:with|and)\s+({_COUNT_NUM})\s+touchdowns?\b",
     re.IGNORECASE,
 )
 # Name tokens stay case-sensitive so IGNORECASE cannot turn "was"/"one"/"an"
@@ -1925,9 +1928,17 @@ def _player_teams(recap: dict | None) -> dict[str, str]:
         if not team or team == "OPP" or not player:
             return
         out.setdefault(player.lower(), team)
+        full = _player_full_key(player)
         last = _player_last(player)
+        if full:
+            out.setdefault(full, team)
         if last:
-            out.setdefault(last, team)
+            # Unique last only: colliding lasts stay full-key-only.
+            existing = out.get(last)
+            if existing is None:
+                out[last] = team
+            elif existing != team:
+                out.pop(last, None)
 
     for play in payload.get("scoringPlays") or []:
         if isinstance(play, dict):
@@ -2073,42 +2084,48 @@ def _bound_team(
 
 
 def _player_aliases(recap: dict | None) -> dict[str, str]:
-    """Last-name → last-name for ESPN box players (usage, passers, scorers)."""
-    aliases: dict[str, str] = {}
+    """Full-name and last-name aliases for ESPN box players."""
     payload = recap or {}
-    for row in (
+    rows = (
         list(payload.get("touches") or [])
         + list(payload.get("passing") or [])
         + list(payload.get("leaders") or [])
-    ):
-        if not isinstance(row, dict):
-            continue
-        last = _player_last(row.get("player") or "")
-        if last:
-            aliases[last] = last
-    for play in payload.get("scoringPlays") or []:
-        if not isinstance(play, dict):
-            continue
-        last = _player_last(play.get("player") or "")
-        if last:
-            aliases[last] = last
-    return aliases
+        + [
+            play
+            for play in payload.get("scoringPlays") or []
+            if isinstance(play, dict)
+        ]
+    )
+    return _player_alias_table(rows)
 
 
 def _leader_stat_yards(recap: dict | None, category: str) -> dict[str, int]:
-    """Player last-name → yards from the ESPN leaders block."""
-    out: dict[str, int] = {}
+    """Player full-name → yards; unique last names stay as fallback."""
+    rows: list[dict] = []
     needle = (category or "").lower()
     for row in (recap or {}).get("leaders") or []:
         if not isinstance(row, dict):
             continue
         if needle not in (row.get("category") or "").lower():
             continue
-        last = _player_last(row.get("player") or "")
         hit = re.search(r"(\d{2,3})\s*YDS", row.get("value") or "", re.I)
-        if last and hit:
-            out[last] = int(hit.group(1))
-    return out
+        player = row.get("player") or ""
+        if player and hit:
+            rows.append({"player": player, "yards": int(hit.group(1))})
+    if "rush" in needle:
+        for row in (recap or {}).get("touches") or []:
+            if not isinstance(row, dict):
+                continue
+            raw = row.get("rushingYards")
+            if raw in (None, ""):
+                continue
+            try:
+                rows.append(
+                    {"player": row.get("player") or "", "yards": int(raw)}
+                )
+            except (TypeError, ValueError):
+                continue
+    return _index_player_values(rows, lambda item: item.get("yards"))
 
 
 def _player_owns_stat(
@@ -4484,44 +4501,67 @@ def _bound_pass_matches(text: str, last_name: str):
                 yield match, claimed
 
 
+def _passing_bind_names(player: str, unique_lasts: set[str]) -> list[str]:
+    """Full name first; unique last-name fallback only."""
+    names: list[str] = []
+    full = (player or "").strip()
+    if full:
+        names.append(full)
+    last = _player_last(player)
+    if last and last in unique_lasts and last.lower() not in {n.lower() for n in names}:
+        names.append(last)
+    return names
+
+
 def _check_stat_lines(text: str, recap: dict, last_game: dict | None = None) -> list[str]:
     issues = []
     finals = _final_score_pairs(last_game)
-    for leader in (recap or {}).get("leaders") or []:
-        if not isinstance(leader, dict):
-            continue
+    leaders = [
+        leader
+        for leader in (recap or {}).get("leaders") or []
+        if isinstance(leader, dict)
+        and "pass" in (leader.get("category") or "").lower()
+    ]
+    last_n: dict[str, int] = {}
+    for leader in leaders:
+        last = _player_last(leader.get("player") or "")
+        if last:
+            last_n[last] = last_n.get(last, 0) + 1
+    unique_lasts = {last for last, count in last_n.items() if count == 1}
+    for leader in leaders:
         player = (leader.get("player") or "").strip()
         value = leader.get("value") or ""
-        last = player.split()[-1] if player else ""
+        last = _player_last(player)
         if len(last) < 3:
             continue
         official = _parse_pass_line(value)
         if not official:
             continue
         seen: set[tuple[int, int]] = set()
-        for match, claimed in _bound_pass_matches(text, last):
-            if _down_context(text, match.start(), match.end()):
-                continue
-            pair = (claimed[0], claimed[1])
-            if pair in finals:
-                continue
-            if pair in seen:
-                continue
-            seen.add(pair)
-            if pair != (official[0], official[1]):
-                issues.append(
-                    f"{player} passing line {claimed[0]}-of-{claimed[1]} "
-                    f"disagrees with ESPN {official[0]}/{official[1]}"
-                )
-            if (
-                claimed[2] is not None
-                and official[2] is not None
-                and claimed[2] != official[2]
-            ):
-                issues.append(
-                    f"{player} passing yards {claimed[2]} disagree with "
-                    f"ESPN {official[2]}"
-                )
+        for name in _passing_bind_names(player, unique_lasts):
+            for match, claimed in _bound_pass_matches(text, name):
+                if _down_context(text, match.start(), match.end()):
+                    continue
+                pair = (claimed[0], claimed[1])
+                if pair in finals:
+                    continue
+                if pair in seen:
+                    continue
+                seen.add(pair)
+                if pair != (official[0], official[1]):
+                    issues.append(
+                        f"{player} passing line {claimed[0]}-of-{claimed[1]} "
+                        f"disagrees with ESPN {official[0]}/{official[1]}"
+                    )
+                if (
+                    claimed[2] is not None
+                    and official[2] is not None
+                    and claimed[2] != official[2]
+                ):
+                    issues.append(
+                        f"{player} passing yards {claimed[2]} disagree with "
+                        f"ESPN {official[2]}"
+                    )
     return issues
 
 
@@ -5786,7 +5826,7 @@ def _check_team_yards(
         except (TypeError, ValueError):
             continue
         last = _player_last(name)
-        official = player_rush.get(last)
+        official = _lookup_player(player_rush, name)
         if official is None:
             continue
         if yards == official:
@@ -5801,27 +5841,14 @@ def _check_team_yards(
         Two Johnsons in the same box (Josh 2, Emmett 23) used to share the
         `johnson` key, so Emmett's carry line leftovered against Josh.
         """
-        by_full: dict[str, int] = {}
-        last_to_fulls: dict[str, set[str]] = {}
-        for row in (box or {}).get("touches") or []:
-            if not isinstance(row, dict):
-                continue
-            player = row.get("player") or ""
-            last = _player_last(player)
-            full = _player_full_key(player)
+
+        def _rushes(row: dict):
             try:
-                rushes = int(row.get("rushes"))
+                return int(row.get("rushes"))
             except (TypeError, ValueError):
-                continue
-            if not full:
-                continue
-            by_full[full] = rushes
-            if last:
-                last_to_fulls.setdefault(last, set()).add(full)
-        for last, fulls in last_to_fulls.items():
-            if len(fulls) == 1:
-                by_full.setdefault(last, by_full[next(iter(fulls))])
-        return by_full
+                return None
+
+        return _index_player_values((box or {}).get("touches") or [], _rushes)
 
     player_rushes: dict[str, int] = _rushes_from(recap)
     for match in _PLAYER_CARRY_LINE.finditer(text):
@@ -5862,10 +5889,8 @@ def _check_team_yards(
             yards = int(raw_yards)
         except (TypeError, ValueError):
             continue
-        official_carries = rushes.get(_player_full_key(name))
-        if official_carries is None:
-            official_carries = rushes.get(last)
-        official_yards = rush_yards.get(last)
+        official_carries = _lookup_player(rushes, name)
+        official_yards = _lookup_player(rush_yards, name)
         if official_carries is not None and carries != official_carries:
             issues.append(
                 f"player carries {carries} disagrees with ESPN {official_carries} "
@@ -6909,11 +6934,22 @@ def _check_drive_counts(
     return issues
 
 
+_PLAYER_AFFIX_SKIP = frozenset({"ii", "iii", "iv", "jr", "sr", "the"})
+# Mutant (e) empties this set; suffixes then steal the given-name token.
+_PLAYER_FIRST_SKIP = frozenset({"ii", "iii", "iv", "jr", "sr", "the"})
+
+
+def _player_name_parts(name: str) -> list[str]:
+    """Letter tokens. Straight and curly apostrophes both split."""
+    token = (name or "").replace(".", " ")
+    token = token.replace("\u2019", "'").replace("`", "'")
+    return [p for p in re.split(r"[^A-Za-z]+", token) if p]
+
+
 def _player_last(name: str) -> str:
-    token = (name or "").replace(".", " ").strip()
-    parts = [p for p in re.split(r"[^A-Za-z]+", token) if p]
-    skip = {"ii", "iii", "iv", "jr", "sr", "the"}
-    parts = [p for p in parts if p.lower() not in skip]
+    parts = [
+        p for p in _player_name_parts(name) if p.lower() not in _PLAYER_AFFIX_SKIP
+    ]
     return parts[-1].lower() if parts else ""
 
 
@@ -6924,10 +6960,8 @@ def _player_first(name: str) -> str:
     line that ate a preceding word still binds to Emmett Johnson rather
     than colliding with Josh Johnson (run 45149121946 leftover).
     """
-    token = (name or "").replace(".", " ").strip()
-    parts = [p for p in re.split(r"[^A-Za-z]+", token) if p]
-    skip = {"ii", "iii", "iv", "jr", "sr", "the"}
-    parts = [p for p in parts if p.lower() not in skip]
+    skip = _PLAYER_FIRST_SKIP
+    parts = [p for p in _player_name_parts(name) if p.lower() not in skip]
     if len(parts) < 2:
         return ""
     return parts[-2].lower()
@@ -6939,6 +6973,81 @@ def _player_full_key(name: str) -> str:
     if first and last:
         return f"{first} {last}"
     return last
+
+
+def _index_player_values(rows, value_of) -> dict:
+    """Map full name → value; unique last names stay as a fallback key.
+
+    Two Johnsons (Josh 2, Emmett 23) must not share `johnson`. Ambiguous
+    last-name-only text then misses and skips rather than wrong-binding.
+    """
+    by_full: dict = {}
+    last_to_fulls: dict[str, set[str]] = {}
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        player = row.get("player") or ""
+        value = value_of(row)
+        if value is None:
+            continue
+        full = _player_full_key(player)
+        last = _player_last(player)
+        if not full:
+            continue
+        by_full[full] = value
+        if last:
+            last_to_fulls.setdefault(last, set()).add(full)
+    for last, fulls in last_to_fulls.items():
+        if len(fulls) == 1:
+            by_full.setdefault(last, by_full[next(iter(fulls))])
+    return by_full
+
+
+def _lookup_player(index: dict, name: str):
+    """Bind a prose name onto a full-name index.
+
+    Full name wins. Unique last-name keys are the fallback. Initials bind
+    only when exactly one indexed first name shares that letter and last
+    name. Ambiguous last-name-only text returns None (skip, never a wrong
+    bind).
+    """
+    if not index or not name:
+        return None
+    full = _player_full_key(name)
+    if full and full in index:
+        return index[full]
+    last = _player_last(name)
+    first = _player_first(name)
+    if last and last in index:
+        return index[last]
+    if first and last and len(first) == 1:
+        hits = []
+        for key in index:
+            if " " not in key:
+                continue
+            given, _, family = key.partition(" ")
+            if family == last and given.startswith(first):
+                hits.append(key)
+        uniq = set(hits)
+        if len(uniq) == 1:
+            return index[next(iter(uniq))]
+    return None
+
+
+def _player_alias_table(rows) -> dict[str, str]:
+    """Search aliases: full keys plus last names (longer names win)."""
+    aliases: dict[str, str] = {}
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+        player = row.get("player") or ""
+        full = _player_full_key(player)
+        last = _player_last(player)
+        if full:
+            aliases[full] = full
+        if last:
+            aliases.setdefault(last, last)
+    return aliases
 
 
 def _bound_touch_row(text: str, claim_at: int, rows: list[dict]) -> dict | None:
@@ -6976,16 +7085,33 @@ def _bound_touch_row(text: str, claim_at: int, rows: list[dict]) -> dict | None:
     def _row_for_last(last: str) -> dict | None:
         if last_n.get(last, 0) <= 1:
             return by_last.get(last)
-        clause = text[start:end].lower()
-        hits = [
-            (clause.rfind(full), full)
-            for full in by_full
-            if " " in full and full.endswith(" " + last) and full in clause
-        ]
-        if not hits:
+        clause = text[start:end]
+        clause_lower = clause.lower()
+        best = None
+        best_dist = None
+        for full in by_full:
+            if " " not in full or not full.endswith(" " + last):
+                continue
+            search_from = 0
+            while True:
+                pos = clause_lower.find(full, search_from)
+                if pos < 0:
+                    break
+                abs_pos = start + pos
+                name_end = abs_pos + len(full)
+                if name_end <= claim_at:
+                    dist = claim_at - name_end
+                elif abs_pos >= claim_at:
+                    dist = abs_pos - claim_at
+                else:
+                    dist = 0
+                if best_dist is None or dist < best_dist:
+                    best_dist = dist
+                    best = full
+                search_from = pos + 1
+        if best is None:
             return None
-        hits.sort()
-        return by_full[hits[-1][1]]
+        return by_full[best]
 
     usage_pos, last = _last_name_pos(before, aliases)
     other_pos, _ = _rightmost_other_person(before, aliases)
@@ -7128,7 +7254,12 @@ def _attempt_passer_row(
                 return row
         return kc
     if owner:
-        return by_last.get(owner) or kc
+        bound = _lookup_player(by_last, owner) if owner else None
+        if bound is None:
+            bound = by_last.get(owner)
+        if bound is None:
+            return None
+        return bound
     token = match.group(0) or ""
     if re.search(r"\d+[-\s]attempts?\b", token, re.I):
         matches = []
@@ -7157,11 +7288,7 @@ def _check_attempt_counts(
     kc = next((row for row in passing if (row.get("team") or "").upper() == "KC"), None)
     if not kc:
         return []
-    by_last = {}
-    for row in passing:
-        last = _player_last(row.get("player") or "")
-        if last:
-            by_last[last] = row
+    by_last = _index_player_values(passing, lambda row: row)
     aliases = _team_aliases(last_game, recap)
     opp_abbr = ((recap or {}).get("oppAbbr") or "").strip().upper()
     rush_att = {
@@ -7193,17 +7320,15 @@ def _check_attempt_counts(
             )
             and "drop" not in (match.group(0) or "").lower()
         ):
-            player_att = {}
-            for row in (recap or {}).get("touches") or []:
-                if not isinstance(row, dict):
-                    continue
-                last = _player_last(row.get("player") or "")
+            def _rush_att(row: dict):
                 try:
-                    rushes = int(row.get("rushes"))
+                    return int(row.get("rushes"))
                 except (TypeError, ValueError):
-                    continue
-                if last:
-                    player_att[last] = rushes
+                    return None
+
+            player_att = _index_player_values(
+                (recap or {}).get("touches") or [], _rush_att
+            )
             passer = _last_name_in(
                 text[_stat_clause_span(text, match.start())[0] : match.start()],
                 {last: last for last in by_last},
@@ -7228,6 +7353,8 @@ def _check_attempt_counts(
         row = _attempt_passer_row(
             passing, kc, by_last, owner, team, claimed, match
         )
+        if row is None:
+            continue
         if kind == "pass" and not _explicit_pass_attempt(match):
             try:
                 completions = int(row.get("completions"))
@@ -7497,7 +7624,7 @@ def _season_rate_companion_skip(clause: str) -> bool:
     return True
 
 
-def _skip_pressure_claim(sentence: str, match) -> bool:
+def _skip_pressure_claim(sentence: str, match, recap: dict | None = None) -> bool:
     clause = _local_pressure_clause(sentence, match)
     if _SEASON_SPAN.search(clause):
         return True
@@ -7514,26 +7641,35 @@ def _skip_pressure_claim(sentence: str, match) -> bool:
     tokens = _owner_tokens(owner)
     if tokens.intersection(_TEAM_SIDES) or tokens.intersection(_QB_ALIASES):
         return False
+    sides = _passer_sides(recap)
+    if _lookup_player(sides, owner) is not None:
+        return False
+    groups = match.groupdict() if getattr(match, "re", None) and match.re.groupindex else {}
+    qb = (groups.get("sack_qb") or groups.get("hit_qb") or "").strip()
+    if qb and _lookup_player(sides, qb) is not None:
+        return False
     return True
 
 
 def _passer_sides(recap: dict | None) -> dict[str, str]:
-    """Last-name and full-name → kc_qb / opp_qb from the ESPN passing table."""
-    out: dict[str, str] = {}
-    for row in (recap or {}).get("passing") or []:
-        if not isinstance(row, dict):
-            continue
-        name = (row.get("player") or "").strip()
-        if not name:
-            continue
-        team = (row.get("team") or "").strip().upper()
-        side = "kc_qb" if team == "KC" else "opp_qb"
-        low = name.lower()
-        out[low] = side
-        last = low.split()[-1]
-        if len(last) >= 4:
-            out[last] = side
-    return out
+    """Full-name and unique last-name → kc_qb / opp_qb from the passing table."""
+    rows = [
+        row
+        for row in (recap or {}).get("passing") or []
+        if isinstance(row, dict) and (row.get("player") or "").strip()
+    ]
+    indexed = _index_player_values(
+        rows,
+        lambda row: "kc_qb"
+        if (row.get("team") or "").strip().upper() == "KC"
+        else "opp_qb",
+    )
+    out: dict[str, str] = dict(indexed)
+    for row in rows:
+        low = (row.get("player") or "").strip().lower()
+        if low:
+            out.setdefault(low, indexed.get(_player_full_key(row.get("player") or "")) or "")
+    return {key: side for key, side in out.items() if side}
 
 
 def _passer_side_name(name: str, recap: dict | None) -> str:
@@ -7544,13 +7680,14 @@ def _passer_side_name(name: str, recap: dict | None) -> str:
     if low in _QB_ALIASES:
         return _QB_ALIASES[low]
     sides = _passer_sides(recap)
+    bound = _lookup_player(sides, name)
+    if bound:
+        return bound
     if low in sides:
         return sides[low]
-    last = low.split()[-1]
+    last = _player_last(name)
     if last in _QB_ALIASES:
         return _QB_ALIASES[last]
-    if last in sides:
-        return sides[last]
     return ""
 
 
@@ -7651,7 +7788,7 @@ def _pressure_side(sentence: str, match, recap: dict | None = None) -> str:
 
 def _claimed_hit_total(sentence: str) -> int | None:
     match = re.search(
-        rf"\b({_NUM_TOKEN})\s+(?:quarterback\s+|QB\s+)?hits?\b",
+        rf"\b({_COUNT_NUM})\s+(?:quarterback\s+|QB\s+)?hits?\b",
         sentence or "",
         re.I,
     )
@@ -7728,20 +7865,39 @@ def _official_qb_hits(recap: dict | None, side: str):
     return None if value is None else int(value)
 
 
+def _sacks_taken_by_player(recap: dict | None) -> dict:
+    def _sacks(row: dict):
+        if row.get("sacks") is None:
+            return None
+        try:
+            return int(row["sacks"])
+        except (TypeError, ValueError):
+            return None
+
+    return _index_player_values((recap or {}).get("passing") or [], _sacks)
+
+
 def _check_sack_counts(text: str, recap: dict | None) -> list[str]:
     if not text:
         return []
     issues = []
+    by_player = _sacks_taken_by_player(recap)
     for match in _SACK_COUNT.finditer(text):
-        # Decimal tails (`2.5 sacks`) must not bind as an integer `5 sacks`.
-        if match.start() > 0 and text[match.start() - 1] == ".":
-            continue
         sentence = _sentence_at(text, match.start())
-        if _skip_pressure_claim(sentence, match):
+        if _skip_pressure_claim(sentence, match, recap):
             continue
         claimed = _match_count(match)
+        groups = match.groupdict() if match.re.groupindex else {}
+        named = (
+            (groups.get("sack_owner") or groups.get("sack_qb") or "")
+        ).strip()
+        player_official = _lookup_player(by_player, named) if named else None
         side = _pressure_side(sentence, match, recap)
-        official = _official_sacks(recap, side)
+        official = (
+            player_official
+            if player_official is not None
+            else _official_sacks(recap, side)
+        )
         if claimed is None or official is None or claimed == official:
             continue
         other = _official_sacks(
@@ -7765,7 +7921,7 @@ def _check_qb_hit_counts(text: str, recap: dict | None) -> list[str]:
     issues = []
     for match in _QB_HIT_COUNT.finditer(text):
         sentence = _sentence_at(text, match.start())
-        if _skip_pressure_claim(sentence, match):
+        if _skip_pressure_claim(sentence, match, recap):
             continue
         claimed = _match_count(match)
         side = _pressure_side(sentence, match, recap)
@@ -8250,14 +8406,14 @@ def _distance_bucket(distance: int) -> str:
 
 def _claimed_play_yards(sentence: str) -> int | None:
     hyphen = re.search(
-        rf"\b({_NUM_TOKEN})\s*-yard\b",
+        rf"\b({_COUNT_NUM})\s*-yard\b",
         sentence or "",
         re.IGNORECASE,
     )
     if hyphen:
         return _parse_count(hyphen.group(1))
     for_yards = re.search(
-        rf"\bfor\s+({_NUM_TOKEN})\s+yards?\b",
+        rf"\bfor\s+({_COUNT_NUM})\s+yards?\b",
         sentence or "",
         re.IGNORECASE,
     )
@@ -8359,21 +8515,21 @@ def _on_player_side(row_team: str, player_team: str) -> bool:
 def _receiving_yards_by_last(
     recap: dict | None, player_team: str = ""
 ) -> dict[str, int]:
-    yards: dict[str, int] = {}
-    for row in (recap or {}).get("touches") or []:
-        if not isinstance(row, dict):
-            continue
+    def _recv(row: dict):
         if not _on_player_side(str(row.get("team") or ""), player_team):
-            continue
-        last = _player_last(row.get("player") or "")
+            return None
         value = row.get("receivingYards")
-        if last and value not in (None, ""):
-            try:
-                yards[last] = int(value)
-            except (TypeError, ValueError):
-                pass
+        if value in (None, ""):
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
+    yards = _index_player_values((recap or {}).get("touches") or [], _recv)
     if yards:
         return yards
+    play_rows = []
     for play in _plays(recap):
         if (play.get("kind") or "") != "completion":
             continue
@@ -8381,15 +8537,22 @@ def _receiving_yards_by_last(
             continue
         if not _on_player_side(str(play.get("team") or ""), player_team):
             continue
-        last = _player_last(play.get("target") or "")
         value = play.get("yards")
-        if not last or value in (None, ""):
+        target = play.get("target") or ""
+        if not target or value in (None, ""):
             continue
         try:
-            yards[last] = yards.get(last, 0) + int(value)
+            play_rows.append({"player": target, "yards": int(value)})
         except (TypeError, ValueError):
             continue
-    return yards
+    summed: dict[str, int] = {}
+    for row in play_rows:
+        key = _player_full_key(row["player"])
+        if not key:
+            continue
+        summed[key] = summed.get(key, 0) + row["yards"]
+    as_rows = [{"player": name, "yards": value} for name, value in summed.items()]
+    return _index_player_values(as_rows, lambda item: item.get("yards"))
 
 
 def _stat_rows_for_lead(
@@ -8397,28 +8560,26 @@ def _stat_rows_for_lead(
 ) -> dict[str, int]:
     if stat == "receiving_yards":
         return _receiving_yards_by_last(recap, player_team)
-    out: dict[str, int] = {}
     field = {
         "catches": "catches",
         "touches": "touches",
         "rushes": "rushes",
     }.get(stat)
     if not field:
-        return out
-    for row in (recap or {}).get("touches") or []:
-        if not isinstance(row, dict):
-            continue
+        return {}
+
+    def _field(row: dict):
         if not _on_player_side(str(row.get("team") or ""), player_team):
-            continue
-        last = _player_last(row.get("player") or "")
+            return None
         value = row.get(field)
-        if not last or value in (None, ""):
-            continue
+        if value in (None, ""):
+            return None
         try:
-            out[last] = int(value)
+            return int(value)
         except (TypeError, ValueError):
-            continue
-    return out
+            return None
+
+    return _index_player_values((recap or {}).get("touches") or [], _field)
 
 
 def _lead_stats_from_rest(group: str, rest: str) -> list[str]:
@@ -8442,7 +8603,7 @@ def _lead_stats_from_rest(group: str, rest: str) -> list[str]:
 def _claimed_lead_values(rest: str) -> dict[str, int]:
     out: dict[str, int] = {}
     catches = re.search(
-        rf"\b({_NUM_TOKEN})\s+(?:catches|receptions?)\b",
+        rf"\b({_COUNT_NUM})\s+(?:catches|receptions?)\b",
         rest or "",
         re.IGNORECASE,
     )
@@ -8451,7 +8612,7 @@ def _claimed_lead_values(rest: str) -> dict[str, int]:
         if value is not None:
             out["catches"] = value
     yards = re.search(
-        rf"\b({_NUM_TOKEN})\s+(?:receiving\s+)?yards\b",
+        rf"\b({_COUNT_NUM})\s+(?:receiving\s+)?yards\b",
         rest or "",
         re.IGNORECASE,
     )
@@ -8460,7 +8621,7 @@ def _claimed_lead_values(rest: str) -> dict[str, int]:
         if value is not None:
             out["receiving_yards"] = value
     touches = re.search(
-        rf"\b({_NUM_TOKEN})\s+touches\b",
+        rf"\b({_COUNT_NUM})\s+touches\b",
         rest or "",
         re.IGNORECASE,
     )
@@ -8469,7 +8630,7 @@ def _claimed_lead_values(rest: str) -> dict[str, int]:
         if value is not None:
             out["touches"] = value
     rushes = re.search(
-        rf"\b({_NUM_TOKEN})\s+(?:carries|rushes)\b",
+        rf"\b({_COUNT_NUM})\s+(?:carries|rushes)\b",
         rest or "",
         re.IGNORECASE,
     )
@@ -8483,8 +8644,10 @@ def _claimed_lead_values(rest: str) -> dict[str, int]:
 def _solo_leaders(rows: dict[str, int]) -> list[str]:
     if not rows:
         return []
-    top = max(rows.values())
-    return [name for name, value in rows.items() if value == top]
+    full = {name: value for name, value in rows.items() if " " in name}
+    pool = full or rows
+    top = max(pool.values())
+    return [name for name, value in pool.items() if value == top]
 
 
 def _check_box_leaders(text: str, recap: dict | None) -> list[str]:
@@ -8499,7 +8662,8 @@ def _check_box_leaders(text: str, recap: dict | None) -> list[str]:
     seen: set[str] = set()
     for match in _LED_RECEIVERS_OR_TEAM.finditer(text):
         sentence = _sentence_at(text, match.start())
-        player = _player_last(match.group("player") or "")
+        named = match.group("player") or ""
+        player = _player_full_key(named) or _player_last(named)
         rest = match.group("rest") or ""
         stats = _lead_stats_from_rest(match.group("group"), rest)
         claimed_vals = _claimed_lead_values(rest)
@@ -8514,34 +8678,37 @@ def _check_box_leaders(text: str, recap: dict | None) -> list[str]:
             for row in box.get("touches") or []:
                 if not isinstance(row, dict):
                     continue
+                key = _player_full_key(row.get("player") or "")
                 last = _player_last(row.get("player") or "")
-                if last == player:
+                if key == player or last == player:
                     player_team = str(row.get("team") or "")
                 value = row.get("receivingYards")
-                if last and value not in (None, ""):
+                if key and value not in (None, ""):
                     try:
-                        touch_yards[last] = int(value)
+                        touch_yards[key] = int(value)
                     except (TypeError, ValueError):
                         pass
             for stat in stats:
                 rows = _stat_rows_for_lead(box, stat, player_team)
-                if player not in rows:
+                bound = _lookup_player(rows, named)
+                if bound is None:
                     continue
                 claimed = claimed_vals.get(stat)
-                if claimed is not None and rows[player] != claimed:
+                if claimed is not None and bound != claimed:
                     continue
                 if (
                     stat == "receiving_yards"
-                    and player not in touch_yards
-                    and (claimed is None or rows[player] != claimed)
+                    and _lookup_player(touch_yards, named) is None
+                    and (claimed is None or bound != claimed)
                 ):
                     continue
                 found = True
                 leaders = _solo_leaders(rows)
-                if player in leaders and len(leaders) == 1:
-                    solo = True
-                elif player in leaders and len(leaders) > 1:
-                    tied = True
+                if leaders and bound == rows[leaders[0]]:
+                    if len(leaders) == 1:
+                        solo = True
+                    else:
+                        tied = True
         if not found:
             continue
         if solo and not tied:
@@ -9877,14 +10044,14 @@ _BOX_KIND_PATTERNS = (
     re.compile(r"(?<!:)\d+\s+rush(?:ing)?(?:\s+yards)?\b", re.I),
     re.compile(r"(?<!:)\d+\s+(?:net\s+)?pass(?:ing)?(?:\s+yards)?\b", re.I),
     re.compile(r"\d+\s+total yards\b", re.I),
-    re.compile(rf"(?:{_NUM_TOKEN})\s+drives\b", re.I),
+    re.compile(rf"(?:{_COUNT_NUM})\s+drives\b", re.I),
     re.compile(r"\d{1,2}:\d{2}\s+(?:of\s+)?possession\b", re.I),
 )
 _BOX_FD = re.compile(r"\b(\d{1,2})\s+first downs\b", re.I)
 _BOX_RUSH = re.compile(r"(?<!:)\b(\d{2,3})\s+rush(?:ing)?(?:\s+yards)?\b", re.I)
 _BOX_PASS = re.compile(r"(?<!:)\b(\d{2,3})\s+(?:net\s+)?pass(?:ing)?(?:\s+yards)?\b", re.I)
 _BOX_TOTAL = re.compile(r"\b(\d{2,3})\s+total yards\b", re.I)
-_BOX_DRIVES = re.compile(rf"\b({_NUM_TOKEN})\s+drives\b", re.I)
+_BOX_DRIVES = re.compile(rf"\b({_COUNT_NUM})\s+drives\b", re.I)
 _BOX_CLOCK = re.compile(r"\b(\d{1,2}:\d{2})\b(?!\s*(?:AM|PM))", re.I)
 
 
