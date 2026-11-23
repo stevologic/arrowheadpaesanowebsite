@@ -1,22 +1,26 @@
 {
   "droppedSentences": [
-    "Steve Spagnuolo's group put five quarterback hits on Michael Penix Jr., who was sacked three times, and Karlaftis led Kansas City with 1.5 sacks.",
-    "That is the rush standard to carry into a Beck-or-Johnson week, not a finished product.",
-    "Team totals were 339 net passing yards, 122 rushing yards on 27 attempts, 461 total yards, 21 first downs, 4-of-13 on third down, zero turnovers, 13 drives, and 28:36 possession.",
-    "Penix was 23-of-43 with three sacks and a 64.7 rating.",
-    "Karlaftis led with 1.5 sacks, Penix took three sacks, and Kansas City had five quarterback hits.",
-    "N. Williams interception and Conner's recovery off Bolton's forced fumble.",
-    "The Reacts poll praised Karlaftis, and he led Kansas City with 1.5 sacks against Atlanta.",
-    "Cyrus Allen's 39-yard touchdown made it 21-3, a 6-yard touchdown made it 28-3, and Atlanta's 3-yard touchdown plus a 38-yard field goal cut it to 28-13 before Andrew Armstrong's 43-yard touchdown closed it at 35-13."
+    "On a Sunday afternoon at Arrowhead, Kansas City scored 5:14 into the game on an 8-yard touchdown, added Emmett Johnson's 3-yard rush touchdown with 0:48 left in the first quarter, and answered Arizona's 2-yard touchdown with a 40-yard field goal, Travis Kelce's 22-yard touchdown, and a 44-yard field goal at the half.",
+    "Do not swap Johnson's 105 for that team total.",
+    "Arizona could not stop the up-the-middle series that produced the 3-yard touchdown or the 16-yard right end that started the day.",
+    "If he needs a breather after 27 touches, Ott gets the same screen with Carter as the personal protector look from the backfield.",
+    "Arrowhead Pride has both clubs at 8-2 and 3-1 in the division, with Denver ahead on tiebreakers after a 38-24 win.",
+    "Arizona's one touchdown was a 2-yard score at Q2 9:48 that made it 14-7."
   ],
   "correctedSentences": [
-    "N. Williams's interception and Conner's recovery off Bolton's forced fumble. \u2192 N. Williams interception and Conner's recovery off Bolton's forced fumble.",
-    "The call does not rewrite the Atlanta interception or the Bolton-forced fumble. \u2192 The call does not rewrite the Williams interception or the Bolton-forced fumble.",
-    "unverifiable opponent Team totals; holding"
+    "Steve Spagnuolo's defense played the cleaner complementary half. Arizona had 14 first downs, 21 rushes for 75 yards, 130 net passing yards, 205 total yards, a 5-of-13 third-down line, nine drives, and 27:34 of possession. Josh Johnson was 18-of-31 with three sacks, a 82.1 rating, and no interceptions. Kansas City recorded seven quarterback hits. Karlaftis posted 2.5 sacks and forced a fumble on a sack; J. Fryar recovered it for Arizona, so the strip did not become a Kansas City takeaway. Both teams finished with zero turnovers. Arizona's empty trips were two turnovers on downs, including Simi Fehoko stopped at the Arizona 37 and a late incomplete to Harrison Wallace. Trey McBride still got his: one rush and nine catches, 10 touches. Wallace had a 25-yard catch. Tyler Allgeier and Bam Knight carried the run share. \u2192 Steve Spagnuolo's defense played the cleaner complementary half. Arizona had 14 first downs, 21 rushes for 75 yards, 130 net passing yards, 205 total yards, a 5-of-13 third-down line, nine drives, and 27:34 of possession. Josh Johnson was 18-of-31 with three sacks, an 82.1 rating, and no interceptions. Kansas City recorded seven quarterback hits. Karlaftis posted 2.5 sacks and forced a fumble on a sack; J. Fryar recovered it for Arizona, so the strip did not become a Kansas City takeaway. Both teams finished with zero turnovers. Arizona's empty trips were two turnovers on downs, including Simi Fehoko stopped at the Arizona 37 and a late incomplete to Harrison Wallace. Trey McBride still got his: one rush and nine catches, 10 touches. Wallace had a 25-yard catch. Tyler Allgeier and Bam Knight carried the run share.",
+    "ambiguous snippet 'and two touchdowns'; holding",
+    "ambiguous snippet 'and two touchdowns'; holding"
   ],
-  "leftoverIssues": [],
+  "leftoverIssues": [
+    "first downs 27 disagrees with ESPN 21 for prior KC (\"7-of-13, 27 first downs, 10 drives, 32:26\\nArizona was 5-of-13; Buffalo is the next test\\nPUSH\\nThe climb from Atlanta's 4-of-13 is the improvement\")",
+    "passing touchdowns 2 disagrees with ESPN 3 ('and two touchdowns')",
+    "Chiefs Narrative fact-check left fragments after repair: fragment after repair ('stalk the corner')",
+    "pinned fact: list-form wipe claim has no ESPN play-by-play; must hold, not be rewritten ('flags on J. Williams and I. Adams that wiped plays')",
+    "replay not run"
+  ],
   "holdOnlySentinels": [],
   "headlineOrLedeTouched": true,
-  "wordShortfall": 1279,
+  "wordShortfall": 0,
   "holdAutomerge": true
 }
