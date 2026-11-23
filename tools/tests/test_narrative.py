@@ -687,6 +687,59 @@ class DeskSections(unittest.TestCase):
         self.assertEqual(narrative["lastGameReview"]["result"], "")
         self.assertEqual(narrative["lastGameReview"]["score"], "")
 
+    def test_ensure_desk_stamps_espn_next_game_tv_from_slate(self):
+        """Daily publish copies ESPN kickoff/TV, not a stale CBS noon card.
+
+        Run 45149121946 advanced the slate to Buffalo (NBC, Thu 7:20 PM CT)
+        after Arizona went final. Writer copy that still said CBS must lose.
+        """
+        bills = next(
+            game for game in frozen_schedule() if str(game.get("id")) == "401873082"
+        )
+        jets = next(
+            game for game in frozen_schedule() if str(game.get("id")) == "401873045"
+        )
+        self.assertEqual(bills.get("tv"), "NBC")
+        self.assertEqual(jets.get("tv"), "CBS")
+        narrative = {
+            "nextGame": {
+                "opponent": "Arizona Cardinals",
+                "label": "Week 11 · Sun, Nov 22 · 12:00 PM CT",
+                "at": "Arrowhead Stadium",
+                "tv": "CBS",
+            }
+        }
+        generate._ensure_desk_sections(
+            narrative,
+            {"news": [], "markets": {}, "schedule": [bills]},
+            {"nextGame": bills},
+            [bills],
+        )
+        card = phase.format_next_game(bills)
+        self.assertEqual(narrative["nextGame"]["tv"], card["tv"])
+        self.assertEqual(narrative["nextGame"]["tv"], "NBC")
+        self.assertIn("7:20 PM CT", narrative["nextGame"]["label"])
+        self.assertEqual(narrative["nextGame"]["opponent"], bills["opponent"])
+
+        jets_desk = {
+            "nextGame": {
+                "opponent": "Buffalo Bills",
+                "label": "Week 12 · Thu, Nov 26 · 7:20 PM CT",
+                "at": "@ Highmark Stadium",
+                "tv": "NBC",
+            }
+        }
+        generate._ensure_desk_sections(
+            jets_desk,
+            {"news": [], "markets": {}, "schedule": [jets]},
+            {"nextGame": jets},
+            [jets],
+        )
+        jets_card = phase.format_next_game(jets)
+        self.assertEqual(jets_desk["nextGame"]["tv"], jets_card["tv"])
+        self.assertEqual(jets_desk["nextGame"]["tv"], "CBS")
+        self.assertIn("12:00 PM CT", jets_desk["nextGame"]["label"])
+
     def test_fetch_game_recap_reads_espn_summary(self):
         payload = {
             "boxscore": {
@@ -6930,6 +6983,98 @@ class FactCheck(unittest.TestCase):
                 last,
                 recap,
             )
+        )
+
+    def _two_johnson_recap(self):
+        """Run 45149121946 box shape: Josh Johnson 2 rushes, Emmett 23, OPP 1 sack."""
+        recap = json.loads(json.dumps(_load_fixture("espn_401872952_recap.json")))
+        recap["touches"] = list(recap.get("touches") or []) + [
+            {
+                "player": "Josh Johnson",
+                "team": "OPP",
+                "rushes": 2,
+                "catches": 0,
+                "touches": 2,
+            },
+            {
+                "player": "Emmett Johnson",
+                "team": "KC",
+                "rushes": 23,
+                "catches": 4,
+                "touches": 27,
+            },
+        ]
+        recap["passing"] = list(recap.get("passing") or []) + [
+            {
+                "player": "Josh Johnson",
+                "team": "OPP",
+                "completions": 18,
+                "attempts": 31,
+                "sacks": 1,
+                "sackYards": 8,
+                "touchdowns": 0,
+                "rating": "82.1",
+            }
+        ]
+        return recap
+
+    def test_decimal_player_sacks_are_not_a_five_sack_team_total(self):
+        """`2.5 sacks` must not leftover as `sacks 5 disagrees with ESPN 1`.
+
+        Real caller: check_review on the Karlaftis sentence from run 45149121946.
+        """
+        recap = self._two_johnson_recap()
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        sentence = (
+            "Karlaftis had 2.5 sacks and forced the fumble Fryar recovered."
+        )
+        issues = facts.check_review(self._review(lede=sentence), last, recap)
+        self.assertFalse(
+            any("sacks 5" in item for item in issues),
+            issues,
+        )
+        five = facts.check_review(
+            self._review(lede="Kansas City had 5 sacks."),
+            last,
+            recap,
+        )
+        self.assertTrue(
+            any("sacks 5 disagrees with ESPN" in item for item in five),
+            five,
+        )
+
+    def test_emmett_johnson_carries_do_not_bind_to_josh_johnson(self):
+        """Emmett's 23 carries must not leftover against Josh Johnson's 2.
+
+        Real caller: check_review with the run 45149121946 carry line.
+        """
+        recap = self._two_johnson_recap()
+        last = dict(self.LAST)
+        last["date"] = "2026-09-27T17:00:00Z"
+        emmett = "Emmett Johnson carried 23 times for 105 yards."
+        issues = facts.check_review(self._review(lede=emmett), last, recap)
+        self.assertFalse(
+            any("player carries 23" in item for item in issues),
+            issues,
+        )
+        touches = facts.check_review(
+            self._review(lede="Emmett Johnson had 27 touches."),
+            last,
+            recap,
+        )
+        self.assertFalse(
+            any("touches 27" in item and "josh" in item.lower() for item in touches),
+            touches,
+        )
+        wrong = facts.check_review(
+            self._review(lede="Josh Johnson carried 23 times for 105 yards."),
+            last,
+            recap,
+        )
+        self.assertTrue(
+            any("player carries 23" in item for item in wrong),
+            wrong,
         )
 
     def _week3_usage_recap(self):
@@ -14354,10 +14499,15 @@ class Oct14EditionGates(unittest.TestCase):
             any("24-28" in item and "official final" in item for item in leftover),
             leftover,
         )
-        live = json.loads(config.NARRATIVE_JSON.read_text(encoding="utf-8"))
-        self.assertEqual(live.get("heroMediaId"), "none")
-        self.assertEqual(live.get("nextGame", {}).get("tv"), "CBS")
-        self.assertIn("12:00 PM CT", live.get("nextGame", {}).get("label") or "")
+        # Hermetic: ESPN kickoff/TV for the Jets row on the same frozen
+        # slate this test already uses. Do not read the live desk JSON
+        # (run 45149121946 failed when the desk advanced to Buffalo on NBC).
+        jets_row = next(
+            game for game in frozen_schedule() if str(game.get("id")) == "401873045"
+        )
+        jets_card = phase.format_next_game(jets_row)
+        self.assertEqual(jets_card.get("tv"), "CBS")
+        self.assertIn("12:00 PM CT", jets_card.get("label") or "")
         jets_wrong = self._week9_jets_review(
             score="KC 24–28",
             lede="Kansas City lost 24-28 to the Jets.",

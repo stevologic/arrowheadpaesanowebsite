@@ -790,7 +790,9 @@ _SACK_COUNT = re.compile(
     rf"\b(?:The\s+)?(?P<sack_owner>{_PROPER_NAME})"
     rf"{_TEAM_UNIT}\s+{_OWNER_VERBS}\s+"
     rf"(?P<sack_n>a|an|once|twice|{_NUM_TOKEN})\s+sacks?\b|"
-    rf"\b({_NUM_TOKEN})\s+sacks\b",
+    # `(?<![\d.])` so `2.5 sacks` is not a `5 sacks` team total
+    # (run 45149121946 leftover).
+    rf"(?<![\d.])\b({_NUM_TOKEN})\s+sacks\b",
     re.IGNORECASE,
 )
 _QB_HIT_COUNT = re.compile(
@@ -5794,22 +5796,37 @@ def _check_team_yards(
             f"{last} ({match.group(0)!r})"
         )
     def _rushes_from(box: dict | None) -> dict[str, int]:
-        out: dict[str, int] = {}
+        """Rush counts keyed by full name; unique last names stay as fallback.
+
+        Two Johnsons in the same box (Josh 2, Emmett 23) used to share the
+        `johnson` key, so Emmett's carry line leftovered against Josh.
+        """
+        by_full: dict[str, int] = {}
+        last_to_fulls: dict[str, set[str]] = {}
         for row in (box or {}).get("touches") or []:
             if not isinstance(row, dict):
                 continue
-            name = _player_last(row.get("player") or "")
+            player = row.get("player") or ""
+            last = _player_last(player)
+            full = _player_full_key(player)
             try:
                 rushes = int(row.get("rushes"))
             except (TypeError, ValueError):
                 continue
-            if name:
-                out[name] = rushes
-        return out
+            if not full:
+                continue
+            by_full[full] = rushes
+            if last:
+                last_to_fulls.setdefault(last, set()).add(full)
+        for last, fulls in last_to_fulls.items():
+            if len(fulls) == 1:
+                by_full.setdefault(last, by_full[next(iter(fulls))])
+        return by_full
 
     player_rushes: dict[str, int] = _rushes_from(recap)
     for match in _PLAYER_CARRY_LINE.finditer(text):
-        last = _player_last(match.group("name") or "")
+        name = match.group("name") or ""
+        last = _player_last(name)
         if not last:
             continue
         if _other_club_contest(text, match, recap, last_game, schedule):
@@ -5845,7 +5862,9 @@ def _check_team_yards(
             yards = int(raw_yards)
         except (TypeError, ValueError):
             continue
-        official_carries = rushes.get(last)
+        official_carries = rushes.get(_player_full_key(name))
+        if official_carries is None:
+            official_carries = rushes.get(last)
         official_yards = rush_yards.get(last)
         if official_carries is not None and carries != official_carries:
             issues.append(
@@ -6898,6 +6917,30 @@ def _player_last(name: str) -> str:
     return parts[-1].lower() if parts else ""
 
 
+def _player_first(name: str) -> str:
+    """Given-name token immediately before the last name.
+
+    `and Emmett Johnson` must still yield Emmett, not `and`, so a carry
+    line that ate a preceding word still binds to Emmett Johnson rather
+    than colliding with Josh Johnson (run 45149121946 leftover).
+    """
+    token = (name or "").replace(".", " ").strip()
+    parts = [p for p in re.split(r"[^A-Za-z]+", token) if p]
+    skip = {"ii", "iii", "iv", "jr", "sr", "the"}
+    parts = [p for p in parts if p.lower() not in skip]
+    if len(parts) < 2:
+        return ""
+    return parts[-2].lower()
+
+
+def _player_full_key(name: str) -> str:
+    last = _player_last(name)
+    first = _player_first(name)
+    if first and last:
+        return f"{first} {last}"
+    return last
+
+
 def _bound_touch_row(text: str, claim_at: int, rows: list[dict]) -> dict | None:
     """Bind N touches to the nearest named ESPN player, not recap order.
 
@@ -6912,28 +6955,50 @@ def _bound_touch_row(text: str, claim_at: int, rows: list[dict]) -> dict | None:
     """
     aliases: dict[str, str] = {}
     by_last: dict[str, dict] = {}
+    by_full: dict[str, dict] = {}
+    last_n: dict[str, int] = {}
     for row in rows:
-        last = _player_last(row.get("player") or "")
+        player = row.get("player") or ""
+        last = _player_last(player)
+        full = _player_full_key(player)
         if last:
             aliases[last] = last
             by_last[last] = row
+            last_n[last] = last_n.get(last, 0) + 1
+        if full:
+            by_full[full] = row
     if not aliases:
         return rows[0] if len(rows) == 1 else None
     start, end = _stat_clause_span(text, claim_at)
     before = text[start:claim_at]
     after = text[claim_at:end]
+
+    def _row_for_last(last: str) -> dict | None:
+        if last_n.get(last, 0) <= 1:
+            return by_last.get(last)
+        clause = text[start:end].lower()
+        hits = [
+            (clause.rfind(full), full)
+            for full in by_full
+            if " " in full and full.endswith(" " + last) and full in clause
+        ]
+        if not hits:
+            return None
+        hits.sort()
+        return by_full[hits[-1][1]]
+
     usage_pos, last = _last_name_pos(before, aliases)
     other_pos, _ = _rightmost_other_person(before, aliases)
     if other_pos > usage_pos:
         return None
     if last:
-        return by_last.get(last)
+        return _row_for_last(last)
     after_pos, last = _last_name_pos(after, aliases)
     first_other, _ = _first_other_person(after, aliases)
     if last and first_other >= 0 and (after_pos < 0 or first_other < after_pos):
         return None
     if last:
-        return by_last.get(last)
+        return _row_for_last(last)
     # A named person who is not in the usage table is not the lone listed back.
     # --check-edition's Walker-only fixture used to take '1 touches' / '6
     # touches' on Kelce or Rice and score them against Walker's 20.
@@ -7668,6 +7733,9 @@ def _check_sack_counts(text: str, recap: dict | None) -> list[str]:
         return []
     issues = []
     for match in _SACK_COUNT.finditer(text):
+        # Decimal tails (`2.5 sacks`) must not bind as an integer `5 sacks`.
+        if match.start() > 0 and text[match.start() - 1] == ".":
+            continue
         sentence = _sentence_at(text, match.start())
         if _skip_pressure_claim(sentence, match):
             continue
