@@ -214,10 +214,10 @@
     "homeAway": "home",
     "venue": "Arrowhead Stadium",
     "tv": "CBS",
-    "completed": false,
+    "completed": true,
     "inProgress": false,
-    "kcScore": null,
-    "oppScore": null,
+    "kcScore": 34,
+    "oppScore": 7,
     "kickoff": "Sun, Nov 22 · 12:00 PM CT"
   },
   {
