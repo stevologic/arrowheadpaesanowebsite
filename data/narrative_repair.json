@@ -1,26 +1,16 @@
 {
   "droppedSentences": [
-    "On a Sunday afternoon at Arrowhead, Kansas City scored 5:14 into the game on an 8-yard touchdown, added Emmett Johnson's 3-yard rush touchdown with 0:48 left in the first quarter, and answered Arizona's 2-yard touchdown with a 40-yard field goal, Travis Kelce's 22-yard touchdown, and a 44-yard field goal at the half.",
-    "Do not swap Johnson's 105 for that team total.",
-    "Arizona could not stop the up-the-middle series that produced the 3-yard touchdown or the 16-yard right end that started the day.",
-    "If he needs a breather after 27 touches, Ott gets the same screen with Carter as the personal protector look from the backfield.",
-    "Arrowhead Pride has both clubs at 8-2 and 3-1 in the division, with Denver ahead on tiebreakers after a 38-24 win.",
-    "Arizona's one touchdown was a 2-yard score at Q2 9:48 that made it 14-7."
+    "At Arrowhead, Kansas City led 14-0 after two first-quarter touchdowns, answered Arizona's only score, and closed a 34-7 win with 27 first downs, 7-of-13 on third down, 10 drives, and 32:26 of possession.",
+    "The game clock at the first score was Q1 9:46, an 8-yard touchdown the scoring table does not assign to a player, and Kansas City led 7-0.",
+    "The efficiency has to travel without treating every red-zone snap as solved, because two Kansas City touchdowns on the scoring table have no named scorer.",
+    "Bieniemy called Rousseau Stretch Armstrong for a reason: 10 sacks and 29 quarterback hits.",
+    "Buffalo's listed advantage is the pass rush: Rousseau at 10 sacks and 29 quarterback hits, which is the best edge profile Bieniemy says this offense has seen.",
+    "Ten sacks and 29 quarterback hits is the season line Arrowhead Pride attached to Gregory Rousseau."
   ],
-  "correctedSentences": [
-    "Steve Spagnuolo's defense played the cleaner complementary half. Arizona had 14 first downs, 21 rushes for 75 yards, 130 net passing yards, 205 total yards, a 5-of-13 third-down line, nine drives, and 27:34 of possession. Josh Johnson was 18-of-31 with three sacks, a 82.1 rating, and no interceptions. Kansas City recorded seven quarterback hits. Karlaftis posted 2.5 sacks and forced a fumble on a sack; J. Fryar recovered it for Arizona, so the strip did not become a Kansas City takeaway. Both teams finished with zero turnovers. Arizona's empty trips were two turnovers on downs, including Simi Fehoko stopped at the Arizona 37 and a late incomplete to Harrison Wallace. Trey McBride still got his: one rush and nine catches, 10 touches. Wallace had a 25-yard catch. Tyler Allgeier and Bam Knight carried the run share. \u2192 Steve Spagnuolo's defense played the cleaner complementary half. Arizona had 14 first downs, 21 rushes for 75 yards, 130 net passing yards, 205 total yards, a 5-of-13 third-down line, nine drives, and 27:34 of possession. Josh Johnson was 18-of-31 with three sacks, an 82.1 rating, and no interceptions. Kansas City recorded seven quarterback hits. Karlaftis posted 2.5 sacks and forced a fumble on a sack; J. Fryar recovered it for Arizona, so the strip did not become a Kansas City takeaway. Both teams finished with zero turnovers. Arizona's empty trips were two turnovers on downs, including Simi Fehoko stopped at the Arizona 37 and a late incomplete to Harrison Wallace. Trey McBride still got his: one rush and nine catches, 10 touches. Wallace had a 25-yard catch. Tyler Allgeier and Bam Knight carried the run share.",
-    "ambiguous snippet 'and two touchdowns'; holding",
-    "ambiguous snippet 'and two touchdowns'; holding"
-  ],
-  "leftoverIssues": [
-    "first downs 27 disagrees with ESPN 21 for prior KC (\"7-of-13, 27 first downs, 10 drives, 32:26\\nArizona was 5-of-13; Buffalo is the next test\\nPUSH\\nThe climb from Atlanta's 4-of-13 is the improvement\")",
-    "passing touchdowns 2 disagrees with ESPN 3 ('and two touchdowns')",
-    "Chiefs Narrative fact-check left fragments after repair: fragment after repair ('stalk the corner')",
-    "pinned fact: list-form wipe claim has no ESPN play-by-play; must hold, not be rewritten ('flags on J. Williams and I. Adams that wiped plays')",
-    "replay not run"
-  ],
+  "correctedSentences": [],
+  "leftoverIssues": [],
   "holdOnlySentinels": [],
   "headlineOrLedeTouched": true,
-  "wordShortfall": 0,
+  "wordShortfall": 856,
   "holdAutomerge": true
 }
