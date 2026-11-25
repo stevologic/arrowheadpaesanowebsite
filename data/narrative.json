@@ -15,7 +15,6 @@
   "headline": "Buffalo lays three, and Cook is the first job",
   "sectionTitles": {
     "lastGame": "What the 34-7 Arrowhead afternoon actually showed",
-    "currentState": "Walker limited, Johnson signed, West still tied",
     "gamePlan": "How to travel into a Bills building that has owned the regular season",
     "pressConferences": "Week 12 podium, attached by the desk"
   },
@@ -113,7 +112,7 @@
     ]
   },
   "currentState": {
-    "lede": "The club is 8-2 with three straight wins, tied with Denver for the AFC West lead, and walking into Buffalo as a three-point underdog. The Arizona afternoon was efficient. The roster questions that matter on Thu Nov 26 are tackle depth, Walker's limited return, and whether the Johnson workload is the plan or the bridge.",
+    "lede": "The club is 8-2 with three straight wins, tied with Denver for the AFC West lead, and walking into Buffalo as a three-point underdog. The Arizona afternoon was efficient.",
     "record": "8-2",
     "workOn": [
       {
@@ -126,7 +125,7 @@
       },
       {
         "title": "Red-zone and third-down identity without assuming Walker",
-        "body": "Johnson just carried 23 times. Walker is limited, not cleared in the supplied Tuesday report. Bieniemy needs a script that does not require a second featured back to be available on a short week."
+        "body": "Johnson just carried 23 times. Bieniemy needs a script that does not require a second featured back to be available on a short week."
       }
     ],
     "thinkAbout": [
