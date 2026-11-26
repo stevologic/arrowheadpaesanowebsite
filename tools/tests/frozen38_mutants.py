@@ -96,8 +96,8 @@ MUTANTS: list[tuple[str, str, str, str, str]] = [
         "M11",
         "test_D7_rename_lists_both",
         "tools/chiefs_narrative/review_gate.py",
-        '"--no-renames",',
-        "# --no-renames mutated off\n                ",
+        '    rename_flag = "-M" if detect_renames else "--no-renames"',
+        '    rename_flag = "-M"',
     ),
     (
         "M12",
@@ -278,29 +278,29 @@ MUTANTS: list[tuple[str, str, str, str, str]] = [
         "M37",
         "test_H1_override_api",
         "tools/chiefs_narrative/review_gate.py",
-        "    if named != develop_sha:\n        return \"hold override refused: b: SHA != tip\"",
-        "    if False and named != develop_sha:\n        return \"hold override refused: b: SHA != tip\"",
+        "        if named != develop_sha:\n            return \"hold override refused: b: SHA != tip\"",
+        "        if False and named != develop_sha:\n            return \"hold override refused: b: SHA != tip\"",
     ),
     (
         "M38",
         "test_E2H_bot_merge_refused",
         "tools/chiefs_narrative/review_gate.py",
-        "    if login in BOT_MERGE_LOGINS or mtype == \"Bot\" or login.endswith(\"[bot]\"):",
-        "    if False and (login in BOT_MERGE_LOGINS or mtype == \"Bot\" or login.endswith(\"[bot]\")):",
+        "    if mtype != \"User\" or not login or login.endswith(\"[bot]\") or mtype == \"Bot\":",
+        "    if False and (mtype != \"User\" or not login or login.endswith(\"[bot]\") or mtype == \"Bot\"):",
     ),
     (
         "M39",
         "test_H1_override_api",
         "tools/chiefs_narrative/review_gate.py",
-        "    if code != 200:\n        return f\"hold override refused: b: API error: HTTP {code}\"",
-        "    if code != 200:\n        return None",
+        "        if code != 200:\n            return f\"hold override refused: b: API error: HTTP {code}\"",
+        "        if code != 200:\n            return None",
     ),
     (
         "M40",
         "test_R2_B4a_ci_hold_step_present",
         ".github/workflows/ci.yml",
-        "          HEAD_REF: ${{ github.head_ref }}\n          PR_NUMBER: ${{ github.event.pull_request.number }}\n          GITHUB_REPOSITORY: ${{ github.repository }}\n        run: |\n          set -euo pipefail\n          GATE_BASE=\"${RUNNER_TEMP}/gate-base\"",
-        "          HEAD_REF: ${{ github.head_ref }}\n          PR_NUMBER: ${{ github.event.pull_request.number }}\n          GITHUB_REPOSITORY: ${{ github.repository }}\n        run: |\n          set -euo pipefail\n          exit 0\n          GATE_BASE=\"${RUNNER_TEMP}/gate-base\"",
+        "          HEAD_REF: ${{ github.head_ref }}\n          BASE_SHA: ${{ github.event.pull_request.base.sha }}\n          PR_NUMBER: ${{ github.event.pull_request.number }}\n          GITHUB_REPOSITORY: ${{ github.repository }}\n        run: |\n          set -euo pipefail\n          GATE_BASE=\"${RUNNER_TEMP}/gate-base\"",
+        "          HEAD_REF: ${{ github.head_ref }}\n          BASE_SHA: ${{ github.event.pull_request.base.sha }}\n          PR_NUMBER: ${{ github.event.pull_request.number }}\n          GITHUB_REPOSITORY: ${{ github.repository }}\n        run: |\n          set -euo pipefail\n          exit 0\n          GATE_BASE=\"${RUNNER_TEMP}/gate-base\"",
     ),
     (
         "M41",
@@ -334,8 +334,8 @@ MUTANTS: list[tuple[str, str, str, str, str]] = [
         "M45",
         "test_R2_B4b_edition_qa_hold_step_present",
         ".github/workflows/edition-qa.yml",
-        "          HEAD_REF: ${{ github.head_ref }}\n          PR_NUMBER: ${{ github.event.pull_request.number }}\n          GITHUB_REPOSITORY: ${{ github.repository }}\n        run: |\n          set -euo pipefail\n          GATE_BASE=\"${RUNNER_TEMP}/gate-base\"",
-        "          HEAD_REF: ${{ github.head_ref }}\n          PR_NUMBER: ${{ github.event.pull_request.number }}\n          GITHUB_REPOSITORY: ${{ github.repository }}\n        run: |\n          set -euo pipefail\n          exit 0\n          GATE_BASE=\"${RUNNER_TEMP}/gate-base\"",
+        "          HEAD_REF: ${{ github.head_ref }}\n          BASE_SHA: ${{ github.event.pull_request.base.sha }}\n          PR_NUMBER: ${{ github.event.pull_request.number }}\n          GITHUB_REPOSITORY: ${{ github.repository }}\n        run: |\n          set -euo pipefail\n          GATE_BASE=\"${RUNNER_TEMP}/gate-base\"",
+        "          HEAD_REF: ${{ github.head_ref }}\n          BASE_SHA: ${{ github.event.pull_request.base.sha }}\n          PR_NUMBER: ${{ github.event.pull_request.number }}\n          GITHUB_REPOSITORY: ${{ github.repository }}\n        run: |\n          set -euo pipefail\n          exit 0\n          GATE_BASE=\"${RUNNER_TEMP}/gate-base\"",
     ),
     (
         "M46",
@@ -348,15 +348,15 @@ MUTANTS: list[tuple[str, str, str, str, str]] = [
         "M47",
         "test_R2_B4c_karen_pending",
         "tools/chiefs_narrative/review_gate.py",
-        "            if conclusion == \"success\":\n                return True, \"ok\"",
-        "            if conclusion != \"failure\":\n                return True, \"ok\"",
+        "    if state == \"success\":\n        return True, \"ok\"",
+        "    if state != \"failure\":\n        return True, \"ok\"",
     ),
     (
         "M48",
         "test_R2_B4d_karen_absent",
         "tools/chiefs_narrative/review_gate.py",
-        "    return False, \"karen-qa absent\"",
-        "    return True, \"ok\"",
+        "        return False, \"karen-qa absent\"\n    state = str(exact[0].get(\"state\") or \"\").lower()",
+        "        return True, \"ok\"\n    state = str(exact[0].get(\"state\") or \"\").lower()",
     ),
     (
         "M49",
@@ -369,10 +369,66 @@ MUTANTS: list[tuple[str, str, str, str, str]] = [
         "M50",
         "test_R2_B2b_multiple_prs",
         "tools/chiefs_narrative/review_gate.py",
-        "    if len(pulls) != 1:\n        return f\"hold override refused: b: zero or multiple PRs ({len(pulls)})\"",
-        "    if False and len(pulls) != 1:\n        return f\"hold override refused: b: zero or multiple PRs ({len(pulls)})\"",
+        "        if multi:\n            return f\"hold override refused: b: {multi}\"\n"
+        "        if not candidates:\n            return \"hold override refused: b: no introducing PR\"\n"
+        "        if len(candidates) != 1:\n            return f\"hold override refused: b: zero or multiple PRs ({len(candidates)})\"",
+        "        if False and multi:\n            return f\"hold override refused: b: {multi}\"\n"
+        "        if not candidates:\n            return \"hold override refused: b: no introducing PR\"\n"
+        "        if False and len(candidates) != 1:\n            return f\"hold override refused: b: zero or multiple PRs ({len(candidates)})\"",
+    ),
+    (
+        "F1i",
+        "test_R3_F1b_bot_refuses",
+        "tools/chiefs_narrative/review_gate.py",
+        "        pr, fetch_why = fetch_pull(repository, number)\n        if fetch_why:\n            return f\"hold override refused: b: {fetch_why}\"\n        if pr is None:\n            return \"hold override refused: b: no introducing PR\"",
+        "        pr, fetch_why = summary, None\n        if fetch_why:\n            return f\"hold override refused: b: {fetch_why}\"\n        if pr is None:\n            return \"hold override refused: b: no introducing PR\"",
+    ),
+    (
+        "F2h",
+        "test_R3_F2h_all_contributors",
+        "tools/chiefs_narrative/review_gate.py",
+        "        for sha in shas:\n            pr, why = resolve_contributor_pr(sha, repository)",
+        "        for sha in shas[:1]:\n            pr, why = resolve_contributor_pr(sha, repository)",
+    ),
+    (
+        "F2l_json",
+        "test_R3_F2l_skip_non_json",
+        "tools/chiefs_narrative/review_gate.py",
+        "    for path, status in paths:\n        del status\n        try:\n            shas = _commits_touching(root, base, develop_sha, path)",
+        "    for path, status in paths:\n        del status\n        if not path.endswith(\".json\"):\n            continue\n        try:\n            shas = _commits_touching(root, base, develop_sha, path)",
+    ),
+    (
+        "F2l_del",
+        "test_R3_F2l_skip_deletes",
+        "tools/chiefs_narrative/review_gate.py",
+        "    for path, status in paths:\n        del status\n        try:\n            shas = _commits_touching(root, base, develop_sha, path)",
+        "    for path, status in paths:\n        if str(status)[:1] == \"D\":\n            continue\n        del status\n        try:\n            shas = _commits_touching(root, base, develop_sha, path)",
+    ),
+    (
+        "F2l_unres",
+        "test_R3_F2l_unresolved_as_pass",
+        "tools/chiefs_narrative/review_gate.py",
+        "            if pr is None:\n                return f\"provenance: {why}\"",
+        "            if pr is None:\n                continue",
+    ),
+    (
+        "Y3",
+        "test_R3_Y3b_pending",
+        "tools/chiefs_narrative/review_gate.py",
+        "    if state == \"success\":\n        return True, \"ok\"",
+        "    if True:\n        return True, \"ok\"",
+    ),
+    (
+        "KN5",
+        "test_R3_N5n_merge_not_already_merged",
+        ".github/workflows/ci.yml",
+        "          if printf '%s\\n' \"$out\" | grep -qi 'already merged'; then",
+        "          if printf '%s\\n' \"$out\" | grep -qi 'merge'; then",
     ),
 ]
+
+
+R3 = "tools.tests.test_frozen38_r3.Frozen38R3"
 
 
 GATE = "tools.tests.test_frozen38_promote_gate.Frozen38PromoteGate"
@@ -399,6 +455,8 @@ WF_PREFIXES = (
 
 
 def _killer_mod(killer: str) -> str:
+    if killer.startswith("test_R3_"):
+        return R3
     if killer.startswith("test_R2_"):
         return R2
     if killer in {"test_C1_promote_prefix", "test_C2_lookalike_refs"}:
@@ -509,6 +567,7 @@ def run_clean_control(times: int = 6) -> list[dict]:
                 f"{GATE}.test_A1_preview_11",
                 f"{R2}.test_R2_B1g_full_set_hold_false",
                 f"{WF}.test_A_two_and_C1b_Y_no_auto",
+                f"{R3}.test_R3_F1a_human_merger_passes",
                 "-q",
             ],
             cwd=REPO,

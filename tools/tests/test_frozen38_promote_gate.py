@@ -28,6 +28,7 @@ from tools.tests.frozen38_harness import (
     run_gate,
     run_hold_override,
     sign_pair,
+    start_github_api,
 )
 
 
@@ -919,39 +920,28 @@ class Frozen38PromoteGate(unittest.TestCase):
             files = edition_files(SLUG, preview_payload(), hold=True)
             promo = build_promo(Path(tmp), files)
             body = f"Edition-only promote (develop squash {promo.develop_sha})."
-
-            class Handler(BaseHTTPRequestHandler):
-                def log_message(self, format, *args):
-                    del format, args
-
-                def do_GET(self):
-                    if self.path.endswith("/pulls") and "commits/" in self.path:
-                        payload = [
-                            {
-                                "head": {"sha": "abc" * 8 + "abcdabcdabcdabcdabcdabcdabcdab"},
-                                "merged_by": {"login": "stevologic", "type": "User"},
-                            }
-                        ]
-                    elif self.path.endswith("/check-runs"):
-                        payload = {
-                            "check_runs": [
-                                {"name": "karen-qa", "conclusion": "success"}
-                            ]
+            pr = [
+                {
+                    "number": 417,
+                    "head": {"sha": "a" * 40},
+                    "merged_at": "2026-11-26T18:01:00Z",
+                    "base": {"ref": "develop"},
+                    "merged_by": {"login": "stevologic", "type": "User"},
+                }
+            ]
+            server, root = start_github_api(
+                {
+                    "/pulls": pr,
+                    "/statuses": [
+                        {
+                            "context": "karen-qa",
+                            "state": "success",
+                            "updated_at": "2026-11-26T18:00:00Z",
                         }
-                    else:
-                        payload = {"statuses": []}
-                    raw = json.dumps(payload).encode("utf-8")
-                    self.send_response(200)
-                    self.send_header("Content-Type", "application/json")
-                    self.send_header("Content-Length", str(len(raw)))
-                    self.end_headers()
-                    self.wfile.write(raw)
-
-            server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-            thread = threading.Thread(target=server.serve_forever, daemon=True)
-            thread.start()
+                    ],
+                }
+            )
             try:
-                root = f"http://127.0.0.1:{server.server_address[1]}"
                 env = {"FROZEN38_GITHUB_API_ROOT": root}
                 self._assert_pass(
                     run_hold_override(promo, pr_body=body, env=env), "H1-P"
@@ -1007,42 +997,31 @@ class Frozen38PromoteGate(unittest.TestCase):
             files = edition_files(SLUG, preview_payload(), hold=True)
             promo = build_promo(Path(tmp), files)
             body = f"develop squash {promo.develop_sha}"
-
-            class Handler(BaseHTTPRequestHandler):
-                def log_message(self, format, *args):
-                    del format, args
-
-                def do_GET(self):
-                    if self.path.endswith("/pulls") and "commits/" in self.path:
-                        payload = [
-                            {
-                                "head": {"sha": "a" * 40},
-                                "merged_by": {
-                                    "login": "github-actions[bot]",
-                                    "type": "Bot",
-                                },
-                            }
-                        ]
-                    elif self.path.endswith("/check-runs"):
-                        payload = {
-                            "check_runs": [
-                                {"name": "karen-qa", "conclusion": "success"}
-                            ]
+            server, root = start_github_api(
+                {
+                    "/pulls": [
+                        {
+                            "number": 417,
+                            "head": {"sha": "a" * 40},
+                            "merged_at": "2026-11-26T18:01:00Z",
+                            "base": {"ref": "develop"},
+                            "merged_by": {
+                                "login": "github-actions[bot]",
+                                "type": "Bot",
+                            },
                         }
-                    else:
-                        payload = {}
-                    raw = json.dumps(payload).encode("utf-8")
-                    self.send_response(200)
-                    self.end_headers()
-                    self.wfile.write(raw)
-
-            server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-            thread = threading.Thread(target=server.serve_forever, daemon=True)
-            thread.start()
-            try:
-                env = {
-                    "FROZEN38_GITHUB_API_ROOT": f"http://127.0.0.1:{server.server_address[1]}"
+                    ],
+                    "/statuses": [
+                        {
+                            "context": "karen-qa",
+                            "state": "success",
+                            "updated_at": "2026-11-26T18:00:00Z",
+                        }
+                    ],
                 }
+            )
+            try:
+                env = {"FROZEN38_GITHUB_API_ROOT": root}
                 self._assert_refuse(
                     run_hold_override(promo, pr_body=body, env=env),
                     "hold override refused: c",

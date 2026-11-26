@@ -293,6 +293,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           HEAD_REF: ${{ github.head_ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
@@ -302,6 +303,7 @@ jobs:
           PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.review_gate --hold-override \
             --head "$HEAD_SHA" \
             --head-ref "$HEAD_REF" \
+            --base "$BASE_SHA" \
             --develop-ref origin/develop \
             --pr-number "$PR_NUMBER" \
             --repository "$GITHUB_REPOSITORY" \

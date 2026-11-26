@@ -6,9 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
-import threading
 import unittest
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from tools.tests.frozen38_harness import (
@@ -26,64 +24,49 @@ from tools.tests.frozen38_harness import (
     review_payload,
     run_gate,
     run_hold_override,
+    start_github_api,
     step_env,
     write_gh_stub,
 )
 
 
-def _api_server(routes: dict[str, object]):
-    class Handler(BaseHTTPRequestHandler):
-        def log_message(self, format, *args):
-            del format, args
-
-        def do_GET(self):
-            payload = None
-            for key, value in routes.items():
-                if key in self.path:
-                    payload = value
-                    break
-            if payload is None:
-                self.send_response(404)
-                self.end_headers()
-                self.wfile.write(b"{}")
-                return
-            raw = json.dumps(payload).encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(raw)))
-            self.end_headers()
-            self.wfile.write(raw)
-
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    return server, f"http://127.0.0.1:{server.server_address[1]}"
-
-
-def _human_pr(head_sha: str) -> list[dict]:
+def _human_pr(head_sha: str, number: int = 417) -> list[dict]:
     return [
         {
+            "number": number,
             "head": {"sha": head_sha},
-            "merged_by": {"login": "stevologic", "type": "User"},
+            "merged_at": "2026-11-26T18:01:00Z",
+            "base": {"ref": "develop"},
             "merge_commit_sha": head_sha,
+            "merged_by": {"login": "stevologic", "type": "User"},
         }
     ]
 
 
-def _bot_pr(head_sha: str) -> list[dict]:
+def _bot_pr(head_sha: str, number: int = 418) -> list[dict]:
     return [
         {
+            "number": number,
             "head": {"sha": head_sha},
+            "merged_at": "2026-11-26T18:01:00Z",
+            "base": {"ref": "develop"},
+            "merge_commit_sha": head_sha,
             "merged_by": {"login": "github-actions[bot]", "type": "Bot"},
         }
     ]
 
 
-def _karen(conclusion: str | None, status: str = "completed") -> dict:
-    run = {"name": "karen-qa", "status": status}
-    if conclusion is not None:
-        run["conclusion"] = conclusion
-    return {"check_runs": [run]}
+def _karen(state: str | None, _status: str = "completed") -> list[dict]:
+    value = "pending" if state is None else state
+    if value == "completed":
+        value = "success"
+    return [
+        {
+            "context": "karen-qa",
+            "state": value,
+            "updated_at": "2026-11-26T18:00:00Z",
+        }
+    ]
 
 
 class Frozen38R2(unittest.TestCase):
@@ -268,7 +251,7 @@ class Frozen38R2(unittest.TestCase):
                 server.shutdown()
 
     def _hold_env(self, promo, routes):
-        server, root = _api_server(routes)
+        server, root = start_github_api(routes)
         env = {"FROZEN38_GITHUB_API_ROOT": root}
         body = f"Edition-only promote of #417 (develop squash {promo.develop_sha[:8]}, Karen r2)."
         return server, env, body
@@ -291,8 +274,8 @@ class Frozen38R2(unittest.TestCase):
             routes = {
                 f"/commits/{intro}/pulls": _bot_pr(bot_sha),
                 f"/commits/{later}/pulls": _human_pr(human_sha),
-                f"/commits/{bot_sha}/check-runs": _karen("success"),
-                f"/commits/{human_sha}/check-runs": _karen("success"),
+                f"/commits/{bot_sha}/statuses": _karen("success"),
+                f"/commits/{human_sha}/statuses": _karen("success"),
             }
             server, env, body = self._hold_env(promo, routes)
             body = f"develop squash {later}"
@@ -307,7 +290,7 @@ class Frozen38R2(unittest.TestCase):
             promo = self._full(tmp, hold=True)
             routes = {
                 "/pulls": _human_pr("a" * 40) + _human_pr("b" * 40),
-                "/check-runs": _karen("success"),
+                "/statuses": _karen("success"),
             }
             server, env, body = self._hold_env(promo, routes)
             try:
@@ -319,7 +302,7 @@ class Frozen38R2(unittest.TestCase):
     def test_R2_B2c_no_pr(self):
         with tempfile.TemporaryDirectory() as tmp:
             promo = self._full(tmp, hold=True)
-            routes = {"/pulls": [], "/check-runs": _karen("success")}
+            routes = {"/pulls": [], "/statuses": _karen("success")}
             server, env, body = self._hold_env(promo, routes)
             try:
                 result = run_hold_override(promo, pr_body=body, env=env)
@@ -346,7 +329,7 @@ class Frozen38R2(unittest.TestCase):
             routes = {
                 f"/commits/{human_intro}/pulls": _human_pr("c" * 40),
                 f"/commits/{latest}/pulls": _bot_pr("d" * 40),
-                "/check-runs": _karen("success"),
+                "/statuses": _karen("success"),
             }
             server, env, _body = self._hold_env(promo, routes)
             body = f"develop squash {latest}"
@@ -362,7 +345,7 @@ class Frozen38R2(unittest.TestCase):
             sha = "e" * 40
             routes = {
                 "/pulls": _human_pr(sha),
-                "/check-runs": _karen("success"),
+                "/statuses": _karen("success"),
             }
             server, env, body = self._hold_env(promo, routes)
             try:
@@ -371,7 +354,7 @@ class Frozen38R2(unittest.TestCase):
                 server.shutdown()
         with tempfile.TemporaryDirectory() as tmp:
             promo = self._full(tmp, hold=True)
-            routes = {"/pulls": _bot_pr("e" * 40), "/check-runs": _karen("success")}
+            routes = {"/pulls": _bot_pr("e" * 40), "/statuses": _karen("success")}
             server, env, body = self._hold_env(promo, routes)
             try:
                 self._refuse(
@@ -471,7 +454,7 @@ class Frozen38R2(unittest.TestCase):
     def test_R2_B4c_karen_pending(self):
         with tempfile.TemporaryDirectory() as tmp:
             promo = self._full(tmp, hold=True)
-            routes = {"/pulls": _human_pr("a" * 40), "/check-runs": _karen(None, "in_progress")}
+            routes = {"/pulls": _human_pr("a" * 40), "/statuses": _karen(None, "in_progress")}
             server, env, body = self._hold_env(promo, routes)
             try:
                 self._refuse(
@@ -484,7 +467,7 @@ class Frozen38R2(unittest.TestCase):
     def test_R2_B4d_karen_absent(self):
         with tempfile.TemporaryDirectory() as tmp:
             promo = self._full(tmp, hold=True)
-            routes = {"/pulls": _human_pr("a" * 40), "/check-runs": {"check_runs": []}, "/status": {"statuses": []}}
+            routes = {"/pulls": _human_pr("a" * 40), "/statuses": []}
             server, env, body = self._hold_env(promo, routes)
             try:
                 self._refuse(
@@ -497,7 +480,7 @@ class Frozen38R2(unittest.TestCase):
     def test_R2_B4e_karen_failure(self):
         with tempfile.TemporaryDirectory() as tmp:
             promo = self._full(tmp, hold=True)
-            routes = {"/pulls": _human_pr("a" * 40), "/check-runs": _karen("failure")}
+            routes = {"/pulls": _human_pr("a" * 40), "/statuses": _karen("failure")}
             server, env, body = self._hold_env(promo, routes)
             try:
                 self._refuse(
@@ -510,7 +493,7 @@ class Frozen38R2(unittest.TestCase):
     def test_R2_B4f_karen_any_state_not_success(self):
         with tempfile.TemporaryDirectory() as tmp:
             promo = self._full(tmp, hold=True)
-            routes = {"/pulls": _human_pr("a" * 40), "/check-runs": _karen("neutral")}
+            routes = {"/pulls": _human_pr("a" * 40), "/statuses": _karen("neutral")}
             server, env, body = self._hold_env(promo, routes)
             try:
                 self._refuse(
@@ -530,9 +513,9 @@ class Frozen38R2(unittest.TestCase):
             other = "2" * 40
             routes = {
                 "/pulls": _human_pr(pr_head),
-                f"/commits/{pr_head}/check-runs": _karen("failure"),
-                f"/commits/{other}/check-runs": _karen("success"),
-                f"/commits/{promo.develop_sha}/check-runs": _karen("success"),
+                f"/commits/{pr_head}/statuses": _karen("failure"),
+                f"/commits/{other}/statuses": _karen("success"),
+                f"/commits/{promo.develop_sha}/statuses": _karen("success"),
             }
             server, env, body = self._hold_env(promo, routes)
             try:
@@ -594,6 +577,7 @@ class Frozen38R2(unittest.TestCase):
             "GITHUB_OUTPUT": str(tmp_path / "out"),
             "RUNNER_TEMP": str(tmp_path),
             "GH_TOKEN": "x",
+            "BASE_SHA": git(["rev-parse", "origin/main"], cwd=promo.pr_tree).stdout.strip(),
         }
         if extra_env:
             env.update(extra_env)
@@ -853,7 +837,7 @@ class Frozen38R2(unittest.TestCase):
                 f"{'8'*40} via git data API. No code changes."
             )
             sha = "a" * 40
-            routes = {"/pulls": _human_pr(sha), "/check-runs": _karen("success")}
+            routes = {"/pulls": _human_pr(sha), "/statuses": _karen("success")}
             server, env, _ = self._hold_env(promo, routes)
             try:
                 self._pass(run_hold_override(promo, pr_body=body, env=env))

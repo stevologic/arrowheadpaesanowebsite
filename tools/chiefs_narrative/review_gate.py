@@ -121,15 +121,10 @@ ES_FIXED_PATHS = frozenset(
         "data/schedule_2026.json",
     }
 )
-BOT_MERGE_LOGINS = frozenset(
-    {
-        "github-actions[bot]",
-        "dependabot[bot]",
-        "app/github-actions",
-        "dependabot",
-    }
-)
 _SHA40 = re.compile(r"\b([0-9a-f]{40})\b")
+COMPARE_FILE_CAP = 300
+COMMIT_PAGE_CAP = 250
+_KAREN_QA_CONTEXT = "karen-qa"
 _DEVELOP_SQUASH = re.compile(
     r"develop squash ([0-9a-f]{7,40})\b", re.IGNORECASE
 )
@@ -1236,8 +1231,11 @@ def _parse_raw_z(blob: bytes) -> list[RawChange]:
     return changes
 
 
-def git_raw_changed(base: str, head: str, root: Path) -> list[RawChange]:
+def git_raw_changed(
+    base: str, head: str, root: Path, *, detect_renames: bool = False
+) -> list[RawChange]:
     """List the net diff with rename expansion and embedded-NUL paths intact."""
+    rename_flag = "-M" if detect_renames else "--no-renames"
     try:
         out = subprocess.check_output(
             [
@@ -1248,7 +1246,7 @@ def git_raw_changed(base: str, head: str, root: Path) -> list[RawChange]:
                 "--full-index",
                 "-z",
                 "--raw",
-                "--no-renames",
+                rename_flag,
                 "--no-ext-diff",
                 base,
                 head,
@@ -1516,8 +1514,14 @@ def _write_github_output(path: str, values: dict[str, str]) -> None:
             handle.write(f"{key}={value}\n")
 
 
-def github_api_get(url_path: str, token: str | None = None) -> tuple[int, object]:
-    """GET a GitHub API path. Tests may set FROZEN38_GITHUB_API_ROOT."""
+def github_api_get(
+    url_path: str, token: str | None = None, *, want_headers: bool = False
+):
+    """GET a GitHub API path. Tests may set FROZEN38_GITHUB_API_ROOT.
+
+    Never raises into a traceback for 404/5xx/non-JSON/timeout: those return
+    a status plus a dict the caller refuses by name (F1e).
+    """
     root = (os.environ.get("FROZEN38_GITHUB_API_ROOT") or "https://api.github.com").rstrip(
         "/"
     )
@@ -1533,24 +1537,72 @@ def github_api_get(url_path: str, token: str | None = None) -> tuple[int, object
     if auth:
         headers["Authorization"] = f"Bearer {auth}"
     request = urllib.request.Request(url, headers=headers, method="GET")
+    header_map: dict[str, str] = {}
     try:
         with urllib.request.urlopen(request, timeout=20) as resp:
             body = resp.read()
             status = getattr(resp, "status", 200)
+            header_map = {str(k): str(v) for k, v in resp.headers.items()}
     except urllib.error.HTTPError as exc:
         raw = exc.read() if exc.fp else b""
+        header_map = {str(k): str(v) for k, v in (exc.headers or {}).items()}
         try:
             parsed = json.loads(raw.decode("utf-8")) if raw else {}
         except json.JSONDecodeError:
-            parsed = {"message": raw.decode("utf-8", "replace")}
+            parsed = {"_non_json": True, "message": raw.decode("utf-8", "replace")}
+        if want_headers:
+            return int(exc.code), parsed, header_map
         return int(exc.code), parsed
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise GateError(f"GitHub API error: {exc}") from exc
+    except (urllib.error.URLError, TimeoutError, OSError):
+        parsed = {"_timeout": True}
+        if want_headers:
+            return 599, parsed, header_map
+        return 599, parsed
     try:
         parsed = json.loads(body.decode("utf-8")) if body else {}
-    except json.JSONDecodeError as exc:
-        raise GateError(f"GitHub API unparseable: {exc}") from exc
+    except json.JSONDecodeError:
+        parsed = {"_non_json": True}
+    if want_headers:
+        return int(status), parsed, header_map
     return int(status), parsed
+
+
+def _link_next(headers: dict[str, str]) -> str | None:
+    blob = headers.get("Link") or headers.get("link") or ""
+    for part in blob.split(","):
+        if 'rel="next"' in part or "rel='next'" in part:
+            match = re.search(r"<([^>]+)>", part)
+            if match:
+                return match.group(1)
+    return None
+
+
+def github_api_get_paginated(
+    url_path: str,
+    *,
+    page_cap: int,
+    token: str | None = None,
+) -> tuple[int, list, str | None]:
+    """Follow Link rel=next. Fail closed when a page hits ``page_cap`` with no next."""
+    collected: list = []
+    url: str | None = url_path
+    while url:
+        code, payload, headers = github_api_get(url, token=token, want_headers=True)
+        if code != 200:
+            return code, collected, f"HTTP {code}"
+        if isinstance(payload, dict) and (payload.get("_non_json") or payload.get("_timeout")):
+            why = "timeout" if payload.get("_timeout") else "non-JSON"
+            return code, collected, why
+        if not isinstance(payload, list):
+            return code, collected, "not a list"
+        collected.extend(payload)
+        if len(payload) > page_cap:
+            return code, collected, "truncated"
+        nxt = _link_next(headers)
+        if len(payload) == page_cap and not nxt:
+            return code, collected, "truncated"
+        url = nxt
+    return 200, collected, None
 
 
 def _expand_commit_sha(root: Path | None, token: str) -> str | None:
@@ -1592,40 +1644,250 @@ def extract_develop_sha_from_body(body: str, root: Path | None = None) -> str | 
     return expanded or (token if re.fullmatch(r"[0-9a-f]{40}", token) else None)
 
 
+def _is_bot_merger(merged_by: object) -> bool:
+    """F1b: type Bot and/or login ending [bot]. No extra identity list."""
+    if not isinstance(merged_by, dict):
+        return False
+    login = str(merged_by.get("login") or "")
+    mtype = str(merged_by.get("type") or "")
+    return mtype == "Bot" or login.endswith("[bot]")
+
+
+def _payload_error(payload: object) -> str | None:
+    if isinstance(payload, dict) and payload.get("_timeout"):
+        return "timeout"
+    if isinstance(payload, dict) and payload.get("_non_json"):
+        return "non-JSON"
+    return None
+
+
+def _merged_develop_candidates(pulls: object) -> tuple[list[dict], str | None]:
+    """N-F4: ignore open and closed-unmerged and non-develop bases.
+
+    An open PR never converts a bot-merged develop PR into a pass (N4a).
+    Two merged develop PRs claiming the sha refuse (N4c).
+    """
+    if not isinstance(pulls, list):
+        return [], "zero or multiple PRs (0)"
+    merged: list[dict] = []
+    for item in pulls:
+        if not isinstance(item, dict):
+            continue
+        if not item.get("merged_at"):
+            continue
+        base = item.get("base") if isinstance(item.get("base"), dict) else {}
+        if str(base.get("ref") or "") != "develop":
+            continue
+        merged.append(item)
+    if len(merged) > 1:
+        return merged, f"zero or multiple PRs ({len(merged)})"
+    return merged, None
+
+
+def _pr_number(pr: dict) -> int | None:
+    try:
+        number = int(pr.get("number"))
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+def fetch_pull(repository: str, number: int) -> tuple[dict | None, str | None]:
+    """GET /pulls/{n}. Merger identity lives only here (F1)."""
+    code, payload = github_api_get(f"/repos/{repository}/pulls/{number}")
+    err = _payload_error(payload)
+    if err:
+        return None, f"pulls {err}"
+    if code == 404:
+        return None, "pulls HTTP 404"
+    if code >= 500:
+        return None, f"pulls HTTP {code}"
+    if code != 200:
+        return None, f"pulls HTTP {code}"
+    if not isinstance(payload, dict):
+        return None, "pulls non-JSON"
+    return payload, None
+
+
+def merger_identity(pr: dict) -> tuple[bool, str]:
+    """Pass only type User whose login does not end in [bot] (F1a/b/c/d)."""
+    if "merged_by" not in pr:
+        return False, "merged_by missing"
+    merged_by = pr.get("merged_by")
+    if merged_by is None:
+        return False, "merged_by null"
+    if not isinstance(merged_by, dict):
+        return False, "merged_by missing"
+    login = str(merged_by.get("login") or "")
+    mtype = str(merged_by.get("type") or "")
+    if mtype != "User" or not login or login.endswith("[bot]") or mtype == "Bot":
+        return False, "bot merge"
+    return True, "ok"
+
+
 def _karen_qa_success(head_sha: str, repository: str) -> tuple[bool, str]:
-    status_code, checks = github_api_get(
-        f"/repos/{repository}/commits/{head_sha}/check-runs"
+    """N-F3: latest commit *status* with context exactly ``karen-qa``."""
+    code, payload = github_api_get(
+        f"/repos/{repository}/commits/{head_sha}/statuses?per_page=100"
     )
-    if status_code != 200:
-        return False, f"check-runs HTTP {status_code}"
-    runs = []
-    if isinstance(checks, dict):
-        runs = checks.get("check_runs") or []
-    for run in runs:
-        if not isinstance(run, dict):
-            continue
-        name = str(run.get("name") or "")
-        if name.lower().replace(" ", "-") in {item.lower() for item in _KAREN_QA_NAMES} or name == "karen-qa":
-            conclusion = str(run.get("conclusion") or "").lower()
-            if conclusion == "success":
-                return True, "ok"
-            return False, f"karen-qa {conclusion or run.get('status') or 'absent'}"
-    status_code, combined = github_api_get(
-        f"/repos/{repository}/commits/{head_sha}/status"
+    err = _payload_error(payload)
+    if err:
+        return False, f"karen-qa {err}"
+    if code != 200:
+        return False, f"karen-qa HTTP {code}"
+    rows: list[dict]
+    if isinstance(payload, list):
+        rows = [row for row in payload if isinstance(row, dict)]
+    elif isinstance(payload, dict):
+        rows = [row for row in (payload.get("statuses") or []) if isinstance(row, dict)]
+    else:
+        return False, "karen-qa absent"
+    rows = sorted(
+        rows,
+        key=lambda row: str(row.get("updated_at") or row.get("created_at") or ""),
+        reverse=True,
     )
-    if status_code != 200:
-        return False, f"status HTTP {status_code}"
-    statuses = combined.get("statuses") if isinstance(combined, dict) else None
-    for row in statuses or []:
-        if not isinstance(row, dict):
-            continue
-        context = str(row.get("context") or "")
-        if context == "karen-qa":
-            state = str(row.get("state") or "").lower()
-            if state == "success":
-                return True, "ok"
-            return False, f"karen-qa {state or 'absent'}"
-    return False, "karen-qa absent"
+    exact = [row for row in rows if row.get("context") == _KAREN_QA_CONTEXT]
+    if not exact:
+        for row in rows:
+            context = str(row.get("context") or "")
+            if context != _KAREN_QA_CONTEXT and "karen" in context.lower():
+                return False, f"karen-qa lookalike {context}"
+        return False, "karen-qa absent"
+    state = str(exact[0].get("state") or "").lower()
+    if state == "success":
+        return True, "ok"
+    return False, f"karen-qa {state or 'absent'}"
+
+
+def pr_contains_commit(repository: str, number: int, sha: str, merge_commit_sha: str) -> tuple[bool, str | None]:
+    """F2m/F2n: sha equals merge_commit_sha or is in paginated /pulls/{n}/commits."""
+    if merge_commit_sha and sha == merge_commit_sha:
+        return True, None
+    code, commits, why = github_api_get_paginated(
+        f"/repos/{repository}/pulls/{number}/commits?per_page={COMMIT_PAGE_CAP}",
+        page_cap=COMMIT_PAGE_CAP,
+    )
+    if why == "truncated":
+        return False, "commits truncated"
+    if code != 200:
+        return False, why or f"HTTP {code}"
+    for row in commits:
+        if isinstance(row, dict) and str(row.get("sha") or "") == sha:
+            return True, None
+    return False, None
+
+
+def resolve_contributor_pr(sha: str, repository: str) -> tuple[dict | None, str]:
+    """Map a commit to exactly one human-merged develop PR (F1 + N-F4 + F2m/n)."""
+    code, pulls = github_api_get(f"/repos/{repository}/commits/{sha}/pulls")
+    err = _payload_error(pulls)
+    if err:
+        return None, f"unresolvable: {err}"
+    if code == 404:
+        return None, "no introducing PR"
+    if code != 200:
+        return None, f"unresolvable: HTTP {code}"
+    candidates, multi = _merged_develop_candidates(pulls)
+    if multi and candidates:
+        return None, "multiple PRs"
+    if not candidates:
+        return None, "no introducing PR"
+    summary = candidates[0]
+    number = _pr_number(summary)
+    if number is None:
+        return None, "no introducing PR"
+    merge_sha = str(summary.get("merge_commit_sha") or "")
+    contained, why = pr_contains_commit(repository, number, sha, merge_sha)
+    if why:
+        return None, why
+    if not contained:
+        return None, "unresolvable"
+    full, fetch_why = fetch_pull(repository, number)
+    if fetch_why:
+        return None, fetch_why
+    if full is None:
+        return None, "unresolvable"
+    return full, "ok"
+
+
+def _commits_touching(root: Path, start: str, end: str, path: str) -> list[str]:
+    blob = _git_output(
+        ["log", "--format=%H", f"{start}..{end}", "--", path],
+        cwd=root,
+        text=True,
+    )
+    return [line.strip() for line in str(blob).splitlines() if line.strip()]
+
+
+def _compare_truncated(repository: str, base: str, head: str) -> str | None:
+    """F2j: GitHub compare 300-file page. Fail closed when truncated or at cap."""
+    code, payload = github_api_get(
+        f"/repos/{repository}/compare/{base}...{head}?per_page={COMPARE_FILE_CAP}"
+    )
+    if code != 200:
+        return None
+    if not isinstance(payload, dict) or payload.get("_non_json") or payload.get("_timeout"):
+        return None
+    files = payload.get("files") or []
+    truncated = bool(payload.get("truncated"))
+    if truncated or (isinstance(files, list) and len(files) >= COMPARE_FILE_CAP):
+        return "compare truncated"
+    return None
+
+
+def provenance_diff_paths(changes: list[RawChange]) -> list[tuple[str, str]]:
+    """F2a: adds, modifies, deletes, and both sides of a rename."""
+    paths: list[tuple[str, str]] = []
+    for change in changes:
+        paths.append((change.path, change.status))
+        if change.orig_path:
+            paths.append((change.orig_path, change.status))
+    return paths
+
+
+def path_provenance_check(
+    *,
+    root: Path,
+    base: str,
+    head: str,
+    develop_sha: str,
+    repository: str,
+) -> str | None:
+    """F2: every promote-diff path's develop contributors since base are human+karen-qa."""
+    if not repository or not base:
+        return "provenance: missing base"
+    cap = _compare_truncated(repository, base, head)
+    if cap:
+        return f"provenance: {cap}"
+    try:
+        changes = git_raw_changed(base, head, root)
+    except GateError as exc:
+        return f"provenance: {exc}"
+    paths = provenance_diff_paths(changes)
+    for path, status in paths:
+        del status
+        try:
+            shas = _commits_touching(root, base, develop_sha, path)
+        except GateError as exc:
+            return f"provenance: {exc}"
+        if not shas:
+            return f"provenance: unresolvable {path}"
+        for sha in shas:
+            pr, why = resolve_contributor_pr(sha, repository)
+            if pr is None:
+                return f"provenance: {why}"
+            ok, ident = merger_identity(pr)
+            if not ok:
+                return f"provenance: {ident}"
+            head_info = pr.get("head") if isinstance(pr.get("head"), dict) else {}
+            pr_head = str(head_info.get("sha") or "").strip()
+            if not pr_head:
+                return "provenance: missing PR head SHA"
+            karen_ok, karen_why = _karen_qa_success(pr_head, repository)
+            if not karen_ok:
+                return f"provenance: {karen_why}"
+    return None
 
 
 def _verify_signoff_bytes(
@@ -1692,68 +1954,92 @@ def hold_override_check(
     repository: str,
     token: str | None = None,
     edition_slug: str | None = None,
+    base: str = "",
 ) -> str | None:
     """E2 (b)/(c). Hold/repair/archive/wire come from develop-tip objects.
 
     Provenance is the PR that *introduced* the edition blobs, not develop tip.
+    Merger identity is GET /pulls/{n}.merged_by only (F1). F2 then checks every
+    promote-diff path's develop contributors since base.
     """
     del token
     del develop_ref
     repair_bytes = _blob_at(root, develop_sha, "data/narrative_repair.json")
-    if repair_bytes is None:
-        return None
-    try:
-        repair = strict_json_object(repair_bytes, "data/narrative_repair.json")
-    except GateError as exc:
-        return f"hold override refused: a: {exc}"
-    if not repair.get("holdAutomerge"):
-        return None
-    named = extract_develop_sha_from_body(pr_body, root=root)
-    if not named:
-        return "hold override refused: b: missing body SHA"
-    if named != develop_sha:
-        return "hold override refused: b: SHA != tip"
-    if not repository:
-        return "hold override refused: b: missing repository"
-    slug = edition_slug
-    if not slug:
-        live = _blob_at(root, develop_sha, "data/narrative.json")
-        if live is not None:
-            try:
-                slug = _slug_from_edition_bytes(live, "data/narrative.json")
-            except GateError:
-                slug = ""
-    try:
-        intro = edition_introducing_sha(root, develop_sha, slug or "")
-    except GateError as exc:
-        return f"hold override refused: b: {exc}"
-    try:
+    hold = False
+    if repair_bytes is not None:
+        try:
+            repair = strict_json_object(repair_bytes, "data/narrative_repair.json")
+        except GateError as exc:
+            return f"hold override refused: a: {exc}"
+        hold = bool(repair.get("holdAutomerge"))
+    if hold:
+        named = extract_develop_sha_from_body(pr_body, root=root)
+        if not named:
+            return "hold override refused: b: missing body SHA"
+        if named != develop_sha:
+            return "hold override refused: b: SHA != tip"
+        if not repository:
+            return "hold override refused: b: missing repository"
+        slug = edition_slug
+        if not slug:
+            live = _blob_at(root, develop_sha, "data/narrative.json")
+            if live is not None:
+                try:
+                    slug = _slug_from_edition_bytes(live, "data/narrative.json")
+                except GateError:
+                    slug = ""
+        try:
+            intro = edition_introducing_sha(root, develop_sha, slug or "")
+        except GateError as exc:
+            return f"hold override refused: b: {exc}"
         code, pulls = github_api_get(f"/repos/{repository}/commits/{intro}/pulls")
-    except GateError as exc:
-        return f"hold override refused: b: API error: {exc}"
-    if code != 200:
-        return f"hold override refused: b: API error: HTTP {code}"
-    if not isinstance(pulls, list):
-        return "hold override refused: b: zero or multiple PRs (0)"
-    if len(pulls) == 0:
-        return "hold override refused: b: no introducing PR"
-    if len(pulls) != 1:
-        return f"hold override refused: b: zero or multiple PRs ({len(pulls)})"
-    pr = pulls[0]
-    if not isinstance(pr, dict):
-        return "hold override refused: b: zero or multiple PRs"
-    head_info = pr.get("head") if isinstance(pr.get("head"), dict) else {}
-    pr_head = str(head_info.get("sha") or "").strip()
-    if not pr_head:
-        return "hold override refused: b: missing PR head SHA"
-    ok, why = _karen_qa_success(pr_head, repository)
-    if not ok:
-        return f"hold override refused: b: {why}"
-    merged_by = pr.get("merged_by") if isinstance(pr.get("merged_by"), dict) else {}
-    login = str(merged_by.get("login") or "")
-    mtype = str(merged_by.get("type") or "")
-    if login in BOT_MERGE_LOGINS or mtype == "Bot" or login.endswith("[bot]"):
-        return "hold override refused: c: bot merge"
+        err = _payload_error(pulls)
+        if err:
+            return f"hold override refused: b: API error: {err}"
+        if code != 200:
+            return f"hold override refused: b: API error: HTTP {code}"
+        if not isinstance(pulls, list):
+            return "hold override refused: b: zero or multiple PRs (0)"
+        if len(pulls) == 0:
+            return "hold override refused: b: no introducing PR"
+        candidates, multi = _merged_develop_candidates(pulls)
+        if multi:
+            return f"hold override refused: b: {multi}"
+        if not candidates:
+            return "hold override refused: b: no introducing PR"
+        if len(candidates) != 1:
+            return f"hold override refused: b: zero or multiple PRs ({len(candidates)})"
+        summary = candidates[0]
+        if not isinstance(summary, dict):
+            return "hold override refused: b: zero or multiple PRs"
+        number = _pr_number(summary)
+        if number is None:
+            return "hold override refused: b: no introducing PR"
+        pr, fetch_why = fetch_pull(repository, number)
+        if fetch_why:
+            return f"hold override refused: b: {fetch_why}"
+        if pr is None:
+            return "hold override refused: b: no introducing PR"
+        head_info = pr.get("head") if isinstance(pr.get("head"), dict) else {}
+        pr_head = str(head_info.get("sha") or "").strip()
+        if not pr_head:
+            return "hold override refused: b: missing PR head SHA"
+        ok, why = _karen_qa_success(pr_head, repository)
+        if not ok:
+            return f"hold override refused: b: {why}"
+        ident_ok, ident_why = merger_identity(pr)
+        if not ident_ok:
+            return f"hold override refused: c: {ident_why}"
+    if repository and base:
+        prov = path_provenance_check(
+            root=root,
+            base=base,
+            head=head,
+            develop_sha=develop_sha,
+            repository=repository,
+        )
+        if prov:
+            return prov
     del head
     return None
 
@@ -2148,6 +2434,7 @@ def main(argv: list[str] | None = None) -> int:
                 or os.environ.get("GITHUB_REPOSITORY")
                 or "",
                 edition_slug=promote_slug_from_ref(args.head_ref or ""),
+                base=args.base or "",
             )
             if reason:
                 print(reason, file=sys.stderr)

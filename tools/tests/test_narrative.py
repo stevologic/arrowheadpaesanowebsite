@@ -13466,6 +13466,7 @@ class ArchiveDates(unittest.TestCase):
             "test_frozen38_workflows.py",
             "test_frozen38_mutants.py",
             "test_frozen38_r2.py",
+            "test_frozen38_r3.py",
         }
         for path in tests_dir.rglob("*.py"):
             if path.name in skip:

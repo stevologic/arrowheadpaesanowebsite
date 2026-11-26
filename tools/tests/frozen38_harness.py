@@ -9,7 +9,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 from dataclasses import dataclass, field
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -325,12 +327,109 @@ def run_gate(
     )
 
 
+def start_github_api(
+    routes: dict[str, object],
+    *,
+    link_next: dict[str, str] | None = None,
+    status_for: dict[str, int] | None = None,
+    raw_for: dict[str, bytes] | None = None,
+):
+    """Substring-match mock. Strips merged_by from commits/.../pulls (F1f)."""
+    link_next = link_next or {}
+    status_for = status_for or {}
+    raw_for = raw_for or {}
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, format, *args):
+            del format, args
+
+        def do_GET(self):
+            path = self.path.split("?", 1)[0]
+            if path in raw_for:
+                raw = raw_for[path]
+                self.send_response(status_for.get(path, 200))
+                self.send_header("Content-Type", "text/plain")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+                return
+            payload = None
+            matched = ""
+            for key, value in routes.items():
+                if key in path and len(key) >= len(matched):
+                    payload = value
+                    matched = key
+            pull_one = re.search(r"/pulls/(\d+)$", path)
+            if payload is None and pull_one and path not in status_for and path not in raw_for:
+                number = int(pull_one.group(1))
+                for value in routes.values():
+                    if not isinstance(value, list):
+                        continue
+                    for item in value:
+                        if isinstance(item, dict) and int(item.get("number") or 0) == number:
+                            payload = [item]
+                            matched = f"/pulls/{number}"
+                            break
+                    if payload is not None:
+                        break
+            if payload is None:
+                self.send_response(status_for.get(path, 404))
+                body = b"{}"
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            served: object = payload
+            commit_pulls = re.search(r"/commits/([0-9a-f]{7,40})/pulls$", path)
+            if commit_pulls and isinstance(payload, list):
+                sha = commit_pulls.group(1)
+                cleaned = []
+                for item in payload:
+                    if not isinstance(item, dict):
+                        continue
+                    row = dict(item)
+                    row.pop("merged_by", None)
+                    row.setdefault("merge_commit_sha", sha)
+                    row.setdefault("merged_at", "2026-11-26T18:01:00Z")
+                    row.setdefault("base", {"ref": "develop"})
+                    cleaned.append(row)
+                served = cleaned
+            elif pull_one and isinstance(payload, list):
+                number = int(pull_one.group(1))
+                found = None
+                for item in payload:
+                    if isinstance(item, dict) and int(item.get("number") or 0) == number:
+                        found = dict(item)
+                        break
+                if found is None and payload and isinstance(payload[0], dict):
+                    found = dict(payload[0])
+                    found["number"] = number
+                served = found or {}
+            raw = json.dumps(served).encode("utf-8")
+            code = status_for.get(path, status_for.get(matched, 200))
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            nxt = link_next.get(path) or link_next.get(matched)
+            if nxt:
+                self.send_header("Link", f'<{nxt}>; rel="next"')
+            self.end_headers()
+            self.wfile.write(raw)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return server, f"http://127.0.0.1:{server.server_address[1]}"
+
+
 def run_hold_override(
     promo: PromoRepo,
     *,
     pr_body: str,
     repository: str = "stevologic/arrowheadpaesanowebsite",
     env: dict[str, str] | None = None,
+    base: str = "",
 ) -> subprocess.CompletedProcess:
     cmd = [
         sys.executable,
@@ -351,6 +450,8 @@ def run_hold_override(
         "--root",
         str(promo.pr_tree),
     ]
+    if base:
+        cmd.extend(["--base", base])
     merged = {**os.environ, "PYTHONPATH": str(promo.main_tree)}
     if env:
         merged.update(env)
@@ -451,6 +552,7 @@ def write_gh_stub(
     already_merged=False,
     pr_json=None,
     fail_api=False,
+    merge_error: str = "not merged",
 ) -> None:
     pr_json = pr_json or {"draft": False, "labels": []}
     payload = json.dumps(pr_json)
@@ -477,7 +579,7 @@ if [[ "$args" == *"pr merge"* ]]; then
     echo "merge" >> "{log}.merge"
     exit 0
   fi
-  echo "not merged" >&2
+  echo "{merge_error}" >&2
   exit 1
 fi
 if [[ "$args" == *"api"* ]]; then
