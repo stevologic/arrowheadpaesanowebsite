@@ -270,8 +270,35 @@ def case_r1_scope() -> None:
     baseline = _load_yaml(_baseline_ci_text())
     if current.get("permissions") != {"contents": "read"}:
         raise AssertionError(f"workflow permissions changed: {current.get('permissions')}")
-    if current["jobs"]["automerge"] != baseline["jobs"]["automerge"]:
-        raise AssertionError("automerge job is not byte-identical to origin/develop")
+    # FROZEN-38 J1/J2: automerge *steps* are owned by #419 (C1b/A-two/E6/B7).
+    # Publication-compat R1 still pins needs/permissions/if/runs-on so this
+    # harness cannot widen tokens or skip gates. Replacement rows: C1b, A-two.
+    current_auto = current["jobs"]["automerge"]
+    baseline_auto = baseline["jobs"]["automerge"]
+    if current_auto.get("needs") != baseline_auto.get("needs"):
+        raise AssertionError("automerge needs changed")
+    if current_auto.get("permissions") != baseline_auto.get("permissions"):
+        raise AssertionError(
+            f"automerge permissions changed: {current_auto.get('permissions')}"
+        )
+    if current_auto.get("runs-on") != baseline_auto.get("runs-on"):
+        raise AssertionError("automerge runs-on changed")
+    if current_auto.get("if") != baseline_auto.get("if"):
+        raise AssertionError("automerge if changed")
+    auto_if = str(current_auto.get("if") or "")
+    if "always(" in auto_if or "!cancelled(" in auto_if:
+        raise AssertionError("automerge if uses always()/!cancelled()")
+    auto_scripts = "\n".join(
+        str(step.get("run") or "")
+        for step in current_auto.get("steps") or []
+        if isinstance(step, dict)
+    )
+    if "--match-head-commit" not in auto_scripts:
+        raise AssertionError("automerge lost --match-head-commit")
+    if re.search(r"gh pr merge[\s\S]{0,200}--auto", auto_scripts):
+        raise AssertionError("automerge uses gh pr merge --auto")
+    if 'gh workflow run "Deploy Hugo site to GitHub Pages"' not in auto_scripts:
+        raise AssertionError("automerge lost Pages dispatch")
     baseline_gates = baseline["jobs"]["gates"]
     gates = current["jobs"]["gates"]
     if gates.get("runs-on") != baseline_gates.get("runs-on"):
@@ -879,7 +906,7 @@ CASES: dict[str, Callable] = {
 
 
 RECEIPTS = {
-    "R1": "Upload/Verify/automerge match origin/develop; download is the REST script; job actions:read only",
+    "R1": "Upload/Verify/gates match origin/develop; automerge needs/permissions/if pinned; download is the REST script; job actions:read only",
     "R2": "list URL pinned to /actions/runs/{run_id}/artifacts?name=publication-compatibility",
     "R3": "matching digest extracts; mismatch fails with 0 retries; upload-artifact stays SHA-pinned",
     "R4": "digest/403/401/5xx-after-download/bad-zip fail immediately with 0 retries",
