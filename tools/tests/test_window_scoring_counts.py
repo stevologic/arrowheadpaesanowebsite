@@ -192,6 +192,79 @@ ADVERSARIAL_ROWS = (
         "note": "negation: skip the count",
     },
     {
+        "id": "i12_figure_dash",
+        "sentence": "Five Kansas City touchdowns after a 14\u201212 halftime.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "U+2012 figure dash folded to hyphen",
+    },
+    {
+        "id": "i12_nbsp_reached",
+        "sentence": (
+            "Kansas City scored five touchdowns after the score reached "
+            "14\u00a0–\u00a012."
+        ),
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "NBSP inside 14–12",
+    },
+    {
+        "id": "i12_non_after_reached",
+        "sentence": "Five Kansas City touchdowns non-after the score reached 14-12.",
+        "head": "pass",
+        "develop": "pass",
+        "note": "un/non lookbehind on after the score reached",
+    },
+    {
+        "id": "i12_following_the_score_reached",
+        "sentence": "Five Kansas City touchdowns following the score reached 14-12.",
+        "head": "pass",
+        "develop": "pass",
+        "note": "following the score reached is not after",
+    },
+    {
+        "id": "i12_had_reached",
+        "sentence": "Five Kansas City touchdowns after the score had reached 14-12.",
+        "head": "pass",
+        "develop": "pass",
+        "note": "had reached is not the bind",
+    },
+    {
+        "id": "i12_falling_behind",
+        "sentence": "Five Kansas City touchdowns after falling behind 0-6.",
+        "head": "pass",
+        "develop": "pass",
+        "note": "falling behind is not trailing",
+    },
+    {
+        "id": "i12_once_trailing",
+        "sentence": "Five Kansas City touchdowns once trailing 6-0.",
+        "head": "pass",
+        "develop": "pass",
+        "note": "once trailing is not after trailing",
+    },
+    {
+        "id": "i12_never_trailed",
+        "sentence": "Kansas City never trailed 6-0 after the score reached 14-12.",
+        "head": "pass",
+        "develop": "pass",
+        "note": "negation / no count noun",
+    },
+    {
+        "id": "i12_digit_five_reached",
+        "sentence": "Kansas City scored 5 touchdowns after the score reached 14-12.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "digit 5 vs word five on the new score window",
+    },
+    {
+        "id": "i12_td_singular_reached",
+        "sentence": "Kansas City scored 5 touchdown after the score reached 14-12.",
+        "head": "FLAG",
+        "develop": "pass",
+        "note": "singular touchdown on the new score window",
+    },
+    {
         "id": "digit_5",
         "sentence": "5 Kansas City touchdowns after halftime.",
         "head": "FLAG",
@@ -659,6 +732,139 @@ class WindowScoringCounts(unittest.TestCase):
     def test_win_after_a_score(self):
         self.test_after_a_score_flags()
 
+    def test_win_after_score_reached(self):
+        self._assert_window_flag(
+            "Kansas City scored five touchdowns after the score reached 14-12."
+        )
+
+    def test_win_after_score_reached_endash(self):
+        self._assert_window_flag(
+            "Kansas City scored five touchdowns after the score reached 14–12."
+        )
+
+    def test_win_after_trailing(self):
+        self._assert_window_flag(
+            "Kansas City scored four touchdowns after trailing 6-0."
+        )
+
+    def test_win_after_trailing_endash(self):
+        self._assert_window_flag(
+            "Kansas City scored four touchdowns after trailing 6–0."
+        )
+
+    def test_win_after_a_start(self):
+        self._assert_window_flag(
+            "Kansas City scored four touchdowns after a 0-6 start."
+        )
+
+    def test_win_after_a_start_endash(self):
+        self._assert_window_flag(
+            "Kansas City scored four touchdowns after a 0–6 start."
+        )
+
+    def test_i2_swapped_pair_12_14(self):
+        window = self._window(
+            _review(
+                "Kansas City scored five touchdowns after the score reached 12-14."
+            )
+        )
+        self.assertTrue(
+            any("disagrees" in item and "3" in item for item in window),
+            window,
+        )
+
+    def test_i2_off_by_one_includes_state_play(self):
+        window = self._window(
+            _review(
+                "Kansas City scored three touchdowns after the score reached 21-12."
+            )
+        )
+        self.assertTrue(
+            any("disagrees" in item and "3" in item and "2" in item for item in window),
+            window,
+        )
+
+    def test_i2_trailing_skips_kc_ahead(self):
+        window = self._window(
+            _review(
+                "Kansas City scored five touchdowns after trailing 14-12."
+            )
+        )
+        self.assertTrue(
+            any("cannot be verified" in item for item in window),
+            window,
+        )
+
+    def test_i2_start_mode_skips_kc_ahead(self):
+        window = self._window(
+            _review(
+                "Kansas City scored three touchdowns after a 14-12 start."
+            )
+        )
+        self.assertTrue(
+            any("cannot be verified" in item for item in window),
+            window,
+        )
+
+    def test_i2_missing_score_state_unverifiable(self):
+        window = self._window(
+            _review(
+                "Kansas City scored five touchdowns after the score reached 99-99."
+            )
+        )
+        self.assertTrue(
+            any("cannot be verified" in item for item in window),
+            window,
+        )
+
+    def test_i4_digit_five_after_reached(self):
+        self._assert_window_flag(
+            "Kansas City scored 5 touchdowns after the score reached 14-12."
+        )
+
+    def test_i4_singular_touchdown_after_reached(self):
+        self._assert_window_flag(
+            "Kansas City scored 4 touchdown after trailing 0-6."
+        )
+
+    def test_win_conjunct_after_score_reached(self):
+        self._assert_window_flag(
+            "Five Kansas City touchdowns and no need for a made field goal "
+            "after the score reached 14–12."
+        )
+
+    def test_m_after_check_review_flags(self):
+        issues = self._issues(
+            _review(
+                "Kansas City scored five touchdowns after the score reached 14–12."
+            )
+        )
+        self.assertTrue(
+            any(
+                "window-bound" in item
+                and "5" in item
+                and "3" in item
+                for item in issues
+            ),
+            issues,
+        )
+
+    def test_five_after_0_6_start_passes(self):
+        issues = self._issues(
+            _review("Kansas City scored five touchdowns after a 0-6 start.")
+        )
+        self.assertEqual(
+            [item for item in issues if "window-bound" in item],
+            [],
+        )
+
+    def test_whole_game_five_still_passes(self):
+        issues = self._issues(_review("Five Kansas City touchdowns."))
+        self.assertEqual(
+            [item for item in issues if "touchdown count 5 disagrees" in item],
+            [],
+        )
+
     # --- I1 unicode fold members ---
 
     def test_fold_em_dash(self):
@@ -669,6 +875,17 @@ class WindowScoringCounts(unittest.TestCase):
     def test_fold_minus(self):
         self._assert_window_flag(
             "Five Kansas City touchdowns after a 14−12 halftime."
+        )
+
+    def test_fold_figure_dash(self):
+        self._assert_window_flag(
+            "Five Kansas City touchdowns after a 14\u201212 halftime."
+        )
+
+    def test_fold_nbsp_in_score(self):
+        self._assert_window_flag(
+            "Kansas City scored five touchdowns after the score reached "
+            "14\u00a0–\u00a012."
         )
 
     def test_fold_soft_hyphen(self):
@@ -913,6 +1130,54 @@ class WindowScoringCounts(unittest.TestCase):
         )
 
     # --- I6/I7 _COUNT_SCOPE + _SCOPE_QUARTERS + rewrite ---
+
+    def test_scope_score_reached_three_empty_issues(self):
+        self.assertEqual(
+            self._issues(
+                _review(
+                    "Three Kansas City touchdowns after the score reached 14-12."
+                )
+            ),
+            [],
+        )
+
+    def test_scope_trailing_five_empty_window_leftover(self):
+        issues = self._issues(
+            _review("Five Kansas City touchdowns after trailing 0-6.")
+        )
+        self.assertEqual(_window_issues(issues), [])
+
+    def test_scope_start_five_empty_issues(self):
+        self.assertEqual(
+            self._issues(
+                _review("Five Kansas City touchdowns after a 0-6 start.")
+            ),
+            [],
+        )
+
+    def test_i3_scope_trailing_three_empty_leftover(self):
+        leftovers = _leftover_issues(
+            self._issues(
+                _review("Three Kansas City touchdowns after trailing 0-6.")
+            )
+        )
+        self.assertEqual(leftovers, [])
+
+    def test_i3_scope_start_three_empty_leftover(self):
+        leftovers = _leftover_issues(
+            self._issues(
+                _review("Three Kansas City touchdowns after a 0-6 start.")
+            )
+        )
+        self.assertEqual(leftovers, [])
+
+    def test_i3_skip_branch_endash_start(self):
+        leftovers = _leftover_issues(
+            self._issues(
+                _review("Three Kansas City touchdowns after a 0–6 start.")
+            )
+        )
+        self.assertEqual(leftovers, [])
 
     def test_scope_after_halftime_three_empty_issues(self):
         self.assertEqual(
@@ -1195,6 +1460,36 @@ class WindowScoringCounts(unittest.TestCase):
     def test_non_prefix_does_not_bind(self):
         self._assert_window_clean(
             "Five Kansas City touchdowns in the non-second-half."
+        )
+
+    def test_non_after_score_reached_does_not_bind(self):
+        self._assert_window_clean(
+            "Five Kansas City touchdowns non-after the score reached 14-12."
+        )
+
+    def test_following_the_score_reached_does_not_bind(self):
+        self._assert_window_clean(
+            "Five Kansas City touchdowns following the score reached 14-12."
+        )
+
+    def test_after_the_score_had_reached_does_not_bind(self):
+        self._assert_window_clean(
+            "Five Kansas City touchdowns after the score had reached 14-12."
+        )
+
+    def test_after_falling_behind_does_not_bind(self):
+        self._assert_window_clean(
+            "Five Kansas City touchdowns after falling behind 0-6."
+        )
+
+    def test_once_trailing_does_not_bind(self):
+        self._assert_window_clean(
+            "Five Kansas City touchdowns once trailing 6-0."
+        )
+
+    def test_never_trailed_is_negation(self):
+        self._assert_window_clean(
+            "Kansas City never trailed 6-0 after the score reached 14-12."
         )
 
     def test_scoring_play_yardage_list_not_volume(self):

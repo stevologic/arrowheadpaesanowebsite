@@ -64,6 +64,11 @@ jobs:
             fi
           fi
 
+      - name: Refuse held edition
+        run: |
+          set -euo pipefail
+          python -m tools.chiefs_narrative.review_gate --hold-repair
+
       - name: Publish to gh-pages
         if: steps.review.outputs.skip != 'true'
         env:

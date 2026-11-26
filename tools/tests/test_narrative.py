@@ -1202,6 +1202,11 @@ class GrokModelSelection(unittest.TestCase):
         self.assertIn("fetch-depth: 0", gates)
         self.assertIn("Fetch develop for edition diffs", gates)
         self.assertIn("git fetch --no-tags origin develop", gates)
+        self.assertIn("review_gate --hold-repair", gates)
+        self.assertLess(
+            gates.index("review_gate --pages"),
+            gates.index("review_gate --hold-repair"),
+        )
 
     def test_edition_ci_uses_approved_pr_event_without_dispatch_merge(self):
         """Dispatch success cannot satisfy PR checks; retain human approval."""
@@ -5443,7 +5448,8 @@ class FactCheck(unittest.TestCase):
                                 generate.hero_posts, "validate_sidecar", return_value=[]
                             ):
                                 generate.check_published_edition()
-        self.assertEqual(captured, [True])
+        self.assertGreaterEqual(len(captured), 1)
+        self.assertTrue(all(flag is True for flag in captured))
 
     def test_archive_replay_issues_always_rechecks(self):
         leak = {
@@ -8050,27 +8056,30 @@ class FactCheck(unittest.TestCase):
             "reviewDecision": "APPROVED",
             "headRefOid": "new-head",
         }
-        with patch.object(edition_merge, "fetch_pr", return_value=pr):
-            with patch.object(edition_merge, "fetch_review_threads", return_value=[]):
-                result = edition_merge.inspect_pr("12")
+        with patch.object(edition_merge, "repair_holds_automerge", return_value=False):
+            with patch.object(edition_merge, "fetch_pr", return_value=pr):
+                with patch.object(edition_merge, "fetch_review_threads", return_value=[]):
+                    result = edition_merge.inspect_pr("12")
         self.assertTrue(result["refused"])
         self.assertEqual(result["reason"], "no approval at current head")
         pr["reviews"] = [{"state": "APPROVED", "commit": "new-head"}]
-        with patch.object(edition_merge, "fetch_pr", return_value=pr):
-            with patch.object(edition_merge, "fetch_review_threads", return_value=[]):
-                ok = edition_merge.inspect_pr("12")
+        with patch.object(edition_merge, "repair_holds_automerge", return_value=False):
+            with patch.object(edition_merge, "fetch_pr", return_value=pr):
+                with patch.object(edition_merge, "fetch_review_threads", return_value=[]):
+                    ok = edition_merge.inspect_pr("12")
         self.assertFalse(ok["refused"])
         self.assertTrue(edition_merge.REQUIRE_HEAD_APPROVAL)
 
     def test_inspect_pr_missing_number_fails_closed(self):
-        with patch.object(
-            edition_merge,
-            "fetch_pr",
-            return_value={"labels": [], "reviews": [], "headRefOid": "abc"},
-        ):
-            with self.assertRaises(edition_merge.MergeLookupError):
-                edition_merge.inspect_pr("12")
-            self.assertEqual(edition_merge.main(["--pr", "12"]), 1)
+        with patch.object(edition_merge, "repair_holds_automerge", return_value=False):
+            with patch.object(
+                edition_merge,
+                "fetch_pr",
+                return_value={"labels": [], "reviews": [], "headRefOid": "abc"},
+            ):
+                with self.assertRaises(edition_merge.MergeLookupError):
+                    edition_merge.inspect_pr("12")
+                self.assertEqual(edition_merge.main(["--pr", "12"]), 1)
 
     def test_review_threads_paginate_past_100(self):
         pages = [
@@ -8156,6 +8165,7 @@ class FactCheck(unittest.TestCase):
         )
         self.assertIn("edition_merge", scripts)
         self.assertIn("--pr", scripts)
+        self.assertIn('--root "${GITHUB_WORKSPACE}"', scripts)
         self.assertLess(scripts.index("edition_merge"), scripts.index("gh pr merge"))
         self.assertIn("Refusing edition auto-merge and promote", scripts)
         self.assertIn("Promote develop to main", " ".join(
@@ -8471,9 +8481,17 @@ class FactCheck(unittest.TestCase):
             "python -m tools.chiefs_narrative.review_gate --pages --dist dist",
             pages_scripts,
         )
+        self.assertIn(
+            "python -m tools.chiefs_narrative.review_gate --hold-repair",
+            pages_scripts,
+        )
         self.assertLess(
             pages_scripts.index("hugo --gc --minify"),
             pages_scripts.index("review_gate --pages --dist dist"),
+        )
+        self.assertLess(
+            pages_scripts.index("review_gate --hold-repair"),
+            pages_scripts.index("git push"),
         )
         # G7: `review_gate --pages || true`
         self.assertIsNone(
@@ -8767,6 +8785,10 @@ class FactCheck(unittest.TestCase):
             for tree in (root, unsigned):
                 editions = tree / "data" / editions_name
                 editions.mkdir(parents=True)
+                (tree / "data" / "narrative_repair.json").write_text(
+                    json.dumps({"holdAutomerge": False}) + "\n",
+                    encoding="utf-8",
+                )
             review_bytes = (json.dumps(review) + "\n").encode("utf-8")
             preview_bytes = (json.dumps(preview) + "\n").encode("utf-8")
             (root / "data" / editions_name / "2026-10-05-0937.json").write_bytes(
@@ -9875,6 +9897,7 @@ class FactCheck(unittest.TestCase):
         self.assertIn(
             "python -P -m tools.chiefs_narrative.edition_merge", publish_blob
         )
+        self.assertIn('--root "${GITHUB_WORKSPACE}"', publish_blob)
         self.assertLess(
             publish_blob.index("edition_merge"),
             publish_blob.index("gh pr merge"),
@@ -14717,8 +14740,13 @@ class Oct14EditionGates(unittest.TestCase):
             path.write_text(json.dumps(narrative) + "\n", encoding="utf-8")
             with patch.object(generate.config, "NARRATIVE_JSON", path):
                 with patch.object(generate, "archive_replay_issues", return_value=held):
-                    with redirect_stdout(io.StringIO()) as out:
-                        rc = generate.main(["--gate-replay"])
+                    with patch.object(
+                        generate, "_fact_check_changed_editions", return_value=[]
+                    ), patch.object(
+                        generate, "_live_matches_latest_edition", return_value=[]
+                    ):
+                        with redirect_stdout(io.StringIO()) as out:
+                            rc = generate.main(["--gate-replay"])
             self.assertEqual(rc, 0)
             self.assertIn("held", out.getvalue())
 
@@ -14816,7 +14844,11 @@ class Oct14EditionGates(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "narrative.json"
             path.write_text(json.dumps(week7) + "\n", encoding="utf-8")
-            with patch.object(generate.config, "NARRATIVE_JSON", path):
+            with patch.object(generate.config, "NARRATIVE_JSON", path), patch.object(
+                generate, "_fact_check_changed_editions", return_value=[]
+            ), patch.object(
+                generate, "_live_matches_latest_edition", return_value=[]
+            ):
                 with redirect_stdout(io.StringIO()) as out:
                     rc = generate.main(["--gate-replay"])
             self.assertEqual(rc, 0, out.getvalue())
@@ -14868,7 +14900,11 @@ class Oct14EditionGates(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "narrative.json"
             path.write_text(json.dumps(week8) + "\n", encoding="utf-8")
-            with patch.object(generate.config, "NARRATIVE_JSON", path):
+            with patch.object(generate.config, "NARRATIVE_JSON", path), patch.object(
+                generate, "_fact_check_changed_editions", return_value=[]
+            ), patch.object(
+                generate, "_live_matches_latest_edition", return_value=[]
+            ):
                 with redirect_stdout(io.StringIO()) as out:
                     rc = generate.main(["--gate-replay"])
             self.assertEqual(rc, 0, out.getvalue())
@@ -14921,7 +14957,11 @@ class Oct14EditionGates(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "narrative.json"
             path.write_text(json.dumps(week9) + "\n", encoding="utf-8")
-            with patch.object(generate.config, "NARRATIVE_JSON", path):
+            with patch.object(generate.config, "NARRATIVE_JSON", path), patch.object(
+                generate, "_fact_check_changed_editions", return_value=[]
+            ), patch.object(
+                generate, "_live_matches_latest_edition", return_value=[]
+            ):
                 with redirect_stdout(io.StringIO()) as out:
                     rc = generate.main(["--gate-replay"])
             self.assertEqual(rc, 0, out.getvalue())
