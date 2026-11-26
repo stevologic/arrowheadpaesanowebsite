@@ -1,0 +1,484 @@
+"""FROZEN-38 mutants M1–M43. A kill counts only on a behavioural AssertionError."""
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+HUNK = "\n@@\n"
+
+MUTANTS: list[tuple[str, str, str, str, str]] = [
+    (
+        "M1",
+        "test_D3_lookalike_paths",
+        "tools/chiefs_narrative/review_gate.py",
+        "    if not _path_is_exact(path):\n        return \"bad\", None\n    if path in ES_FIXED_PATHS:",
+        "    if path.startswith(\"data/\") or path.startswith(\"public/\"):\n        return \"fixed\", None\n    if not _path_is_exact(path):\n        return \"bad\", None\n    if path in ES_FIXED_PATHS:",
+    ),
+    (
+        "M2",
+        "test_B2_each_es_member",
+        "tools/chiefs_narrative/review_gate.py",
+        "        if dev_sha != change.new_sha:",
+        "        if False and dev_sha != change.new_sha:",
+    ),
+    (
+        "M3",
+        "test_A1_preview_11",
+        "tools/chiefs_narrative/review_gate.py",
+        "        dev = _ls_tree(root, develop_sha, change.path)",
+        "        dev = _ls_tree(root, base, change.path)",
+    ),
+    (
+        "M4",
+        "test_B2_each_es_member",
+        "tools/chiefs_narrative/review_gate.py",
+        "        dev = _ls_tree(root, develop_sha, change.path)",
+        "        dev = _ls_tree(root, head, change.path)",
+    ),
+    (
+        "M5",
+        "test_B9_stale_local_develop_ignored",
+        "tools/chiefs_narrative/review_gate.py",
+        "        if fetch_develop:\n            develop_sha = fetch_origin_develop(root, develop_ref)\n        else:\n            develop_sha = _resolve_develop_sha(root, develop_ref)",
+        "        develop_sha = _resolve_develop_sha(root, \"develop\")",
+    ),
+    (
+        "M6",
+        "test_B8_develop_fetch_failed",
+        "tools/chiefs_narrative/review_gate.py",
+        "        meta[\"verdict\"] = \"refuse\"\n        return msg, meta",
+        "        return None, meta",
+    ),
+    (
+        "M7",
+        "test_B7_reverify_refuses_merge",
+        ".github/workflows/ci.yml",
+        "      - name: Re-verify against develop",
+        "      - name: Skip re-verify against develop",
+    ),
+    (
+        "M8",
+        "test_C2_lookalike_refs",
+        "tools/chiefs_narrative/review_gate.py",
+        "    return bool(head_ref) and bool(PROMOTE_HEAD_RE.fullmatch(head_ref or \"\"))",
+        '    return bool(head_ref) and "promote" in (head_ref or "")',
+    ),
+    (
+        "M9",
+        "test_A9_non_promote_old_allowlist",
+        "tools/chiefs_narrative/review_gate.py",
+        "    promote = is_promote_head_ref(head_ref)",
+        "    promote = True",
+    ),
+    (
+        "M10",
+        "test_C4_head_ref_env_only",
+        ".github/workflows/ci.yml",
+        '--head-ref "$HEAD_REF"',
+        '--head-ref "${{ github.head_ref }}"',
+    ),
+    (
+        "M11",
+        "test_D7_rename_lists_both",
+        "tools/chiefs_narrative/review_gate.py",
+        '"--no-renames",',
+        "# --no-renames mutated off\n                ",
+    ),
+    (
+        "M12",
+        "test_D6_deletes",
+        "tools/chiefs_narrative/review_gate.py",
+        '"--no-ext-diff",'
+        + HUNK
+        + "        if dev_ent is not None and head_ent is None:",
+        '"--diff-filter=AM",\n                "--no-ext-diff",'
+        + HUNK
+        + "        if False and dev_ent is not None and head_ent is None:",
+    ),
+    (
+        "M13",
+        "test_D8_mode_symlink",
+        "tools/chiefs_narrative/review_gate.py",
+        '    if change.new_mode == "120000" or change.old_mode == "120000":\n        return f"mode/symlink: {change.path}"\n    if change.new_mode == "160000" or change.old_mode == "160000":\n        return f"mode/symlink: {change.path}"\n    if change.new_mode != "100644":',
+        '    if False and (change.new_mode == "120000" or change.old_mode == "120000"):\n        return f"mode/symlink: {change.path}"\n    if False and (change.new_mode == "160000" or change.old_mode == "160000"):\n        return f"mode/symlink: {change.path}"\n    if False and change.new_mode != "100644":',
+    ),
+    (
+        "M14",
+        "test_D3_lookalike_paths",
+        "tools/chiefs_narrative/review_gate.py",
+        '    if path.startswith("data/narrative_editions/") and path.count("/") == 2:',
+        '    if path.lower().replace("\\\\", "/").find("narrative_editions") >= 0:',
+    ),
+    (
+        "M15",
+        "test_D4_case_tricks",
+        "tools/chiefs_narrative/review_gate.py",
+        "    if not _path_is_exact(path):\n        return \"bad\", None",
+        "    path = path.replace(\"\\\\\", \"/\").lower()\n    if not path:\n        return \"bad\", None",
+    ),
+    (
+        "M16",
+        "test_E1_title_ignored",
+        "tools/chiefs_narrative/review_gate.py",
+        "    if mode in _REVIEW_MODES:\n        return True",
+        "    if \"review\" in str(payload.get(\"title\") or payload.get(\"branch\") or edition).lower():\n        return True\n    if False and mode in _REVIEW_MODES:\n        return True",
+    ),
+    (
+        "M17",
+        "test_E4_mismatched_copies",
+        "tools/chiefs_narrative/review_gate.py",
+        '    for rel in ("data/narrative.json", editions_path):',
+        '    for rel in ("data/narrative.json",):',
+    ),
+    (
+        "M18",
+        "test_E5_E1W_E1S_invalid_pairs",
+        "tools/chiefs_narrative/review_gate.py",
+        "    if not _verify_ed25519(message=json_bytes, signature=signature, pubkey_path=pubkey):",
+        "    if False and not _verify_ed25519(message=json_bytes, signature=signature, pubkey_path=pubkey):",
+    ),
+    (
+        "M19",
+        "test_E5_E1W_E1S_invalid_pairs",
+        "tools/chiefs_narrative/review_gate.py",
+        "    if pair_slug != slug:\n        return \"invalid signoff: slug\"",
+        "    if False and pair_slug != slug:\n        return \"invalid signoff: slug\"",
+    ),
+    (
+        "M20",
+        "test_E5_E1W_E1S_invalid_pairs",
+        "tools/chiefs_narrative/review_gate.py",
+        "    if data.get(\"sha\") != sha:\n        return \"invalid signoff: payload sha\"\n    if json_bytes != expected:\n        return \"invalid signoff: payload sha\"",
+        "    if False and data.get(\"sha\") != sha:\n        return \"invalid signoff: payload sha\"\n    if False and json_bytes != expected:\n        return \"invalid signoff: payload sha\"",
+    ),
+    (
+        "M21",
+        "test_E6_pubkey_from_base",
+        "tools/chiefs_narrative/review_gate.py",
+        "    return Path(__file__).resolve().parents[2] / PUBLIC_KEY_REL",
+        "    return Path(os.environ.get(\"GITHUB_WORKSPACE\") or \".\") / PUBLIC_KEY_REL",
+    ),
+    (
+        "M22",
+        "test_F7_no_swallowed_rc",
+        ".github/workflows/ci.yml",
+        "            --root \"${GITHUB_WORKSPACE}\"",
+        "            --root \"${GITHUB_WORKSPACE}\" || true",
+    ),
+    (
+        "M23",
+        "test_D1_empty_diff",
+        "tools/chiefs_narrative/review_gate.py",
+        "    if not changes:\n        meta[\"verdict\"] = \"refuse\"\n        return \"no changes\", meta",
+        "    if not changes:\n        return None, meta",
+    ),
+    (
+        "M24",
+        "test_G1_G2_cap",
+        "tools/chiefs_narrative/review_gate.py",
+        "    if len(listed) > AUTOMERGE_PATH_CAP:",
+        "    if len(listed) >= AUTOMERGE_PATH_CAP:",
+    ),
+    (
+        "M25",
+        "test_G4_listing_completeness",
+        "tools/chiefs_narrative/review_gate.py",
+        "            orig_path=orig,\n            )\n        )\n    return changes",
+        "            orig_path=orig,\n            )\n        )\n    return changes[:100]",
+    ),
+    (
+        "M26",
+        "test_D2_non_es_paths",
+        "tools/chiefs_narrative/review_gate.py",
+        '        if kind == "bad":',
+        '        if kind == "bad" and False:',
+    ),
+    (
+        "M27",
+        "test_F1_needs_gates",
+        ".github/workflows/ci.yml",
+        "          github.event.pull_request.head.repo.full_name == github.repository }}",
+        "          github.event.pull_request.head.repo.full_name == github.repository && always() }}",
+    ),
+    (
+        "M28",
+        "test_A_two_and_C1b_Y_no_auto",
+        ".github/workflows/edition-qa.yml",
+        "--head-ref \"$HEAD_REF\"",
+        "--head-ref \"not-a-promote\"",
+    ),
+    (
+        "M29",
+        "test_A_msg_distinct_reasons",
+        "tools/chiefs_narrative/review_gate.py",
+        "            if reason:\n                print(reason, file=sys.stderr)\n                return 1\n            return 0\n        if args.pages:",
+        "            if reason:\n                print(\"Review edition requires Karen's ed25519 sign-off (signoff/review/<slug>.json + <slug>.sig), or this PR is off the automerge allowlist\", file=sys.stderr)\n                return 1\n            return 0\n        if args.pages:",
+    ),
+    (
+        "M30",
+        "test_D5z_newline_is_one_path",
+        "tools/chiefs_narrative/review_gate.py",
+        '    parts = blob.split(b"\\0")',
+        '    parts = blob.replace(b"\\n", b"\\0").split(b"\\0")',
+    ),
+    (
+        "M31",
+        "test_D11_svg_slug_and_nesting",
+        "tools/chiefs_narrative/review_gate.py",
+        '    if path.startswith("public/images/narrative/") and path.count("/") == 4:',
+        '    if path.startswith("public/"):\n        return "svg", None\n    if False and path.startswith("public/images/narrative/") and path.count("/") == 4:',
+    ),
+    (
+        "M32",
+        "test_E3_preview_mode_wins_final",
+        "tools/chiefs_narrative/review_gate.py",
+        "    if mode in _PREVIEW_MODES:\n        return False",
+        "    if False and mode in _PREVIEW_MODES:\n        return False",
+    ),
+    (
+        "M33",
+        "test_A6_S2_E1U_unsigned_review",
+        "tools/chiefs_narrative/review_gate.py",
+        "    if review_paths:",
+        "    if review_paths and not promote:",
+    ),
+    (
+        "M34",
+        "test_E5_E1W_E1S_invalid_pairs",
+        "tools/chiefs_narrative/review_gate.py",
+        "    if pair_slug != slug:\n        return \"invalid signoff: slug\"",
+        "    if False:\n        return \"invalid signoff: slug\"",
+    ),
+    (
+        "M35",
+        "test_E5_E1W_E1S_invalid_pairs",
+        "tools/chiefs_narrative/review_gate.py",
+        "    if json_bytes != expected:\n        return \"invalid signoff: payload sha\"",
+        "    if False and json_bytes != expected:\n        return \"invalid signoff: payload sha\"",
+    ),
+    (
+        "M36",
+        "test_H1P_hold_true_identity_passes_gate",
+        "tools/chiefs_narrative/review_gate.py",
+        "        if repair.get(\"holdAutomerge\"):\n            meta[\"hold_automerge\"] = \"true\"",
+        "        if repair.get(\"holdAutomerge\"):\n            meta[\"hold_automerge\"] = \"true\"\n            meta[\"verdict\"] = \"refuse\"\n            return \"holdAutomerge\", meta",
+    ),
+    (
+        "M37",
+        "test_H1_override_api",
+        "tools/chiefs_narrative/review_gate.py",
+        "    if named != develop_sha:\n        return \"hold override refused: b: SHA != tip\"",
+        "    if False and named != develop_sha:\n        return \"hold override refused: b: SHA != tip\"",
+    ),
+    (
+        "M38",
+        "test_E2H_bot_merge_refused",
+        "tools/chiefs_narrative/review_gate.py",
+        "    if login in BOT_MERGE_LOGINS or mtype == \"Bot\" or login.endswith(\"[bot]\"):",
+        "    if False and (login in BOT_MERGE_LOGINS or mtype == \"Bot\" or login.endswith(\"[bot]\")):",
+    ),
+    (
+        "M39",
+        "test_H1_override_api",
+        "tools/chiefs_narrative/review_gate.py",
+        "    if code != 200:\n        return f\"hold override refused: b: API error: HTTP {code}\"",
+        "    if code != 200:\n        return None",
+    ),
+    (
+        "M40",
+        "test_H2_L_D_F_label_reread",
+        ".github/workflows/ci.yml",
+        "      - name: Re-read labels and draft",
+        "      - name: Skip re-read labels and draft",
+    ),
+    (
+        "M41",
+        "test_F7_no_swallowed_rc",
+        ".github/workflows/ci.yml",
+        "          payload=\"$(gh api \"repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}\")\"",
+        "          payload=\"$(gh api \"repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}\" || true)\"",
+    ),
+    (
+        "M42",
+        "test_A_two_and_C1b_Y_no_auto",
+        ".github/workflows/ci.yml",
+        "            --squash \\",
+        "            --squash --auto \\",
+    ),
+    (
+        "M43",
+        "test_C4_R_head_gate_module_never_runs",
+        ".github/workflows/edition-qa.yml",
+        "          fetch-depth: 0\n          ref: ${{ github.event.pull_request.base.sha }}",
+        "          fetch-depth: 0\n          ref: ${{ github.event.pull_request.head.sha }}",
+    ),
+]
+
+
+GATE = "tools.tests.test_frozen38_promote_gate.Frozen38PromoteGate"
+WF = "tools.tests.test_frozen38_workflows.Frozen38Workflows"
+WF_PREFIXES = (
+    "test_A_two",
+    "test_A8",
+    "test_A10",
+    "test_C3",
+    "test_C4",
+    "test_C5",
+    "test_C6",
+    "test_C7",
+    "test_F",
+    "test_H2",
+    "test_H5",
+    "test_E_parity",
+    "test_B7",
+    "test_B10",
+    "test_C1b",
+)
+
+
+def _killer_mod(killer: str) -> str:
+    if killer in {"test_C1_promote_prefix", "test_C2_lookalike_refs"}:
+        return GATE
+    if killer.startswith(WF_PREFIXES):
+        return WF
+    return GATE
+
+
+def apply_mutant(dest: Path, rel: str, old: str, new: str) -> str:
+    path = dest / rel
+    text = path.read_text(encoding="utf-8")
+    chunks = old.split(HUNK)
+    news = new.split(HUNK)
+    if len(chunks) != len(news):
+        return f"HUNK COUNT {rel}: {len(chunks)} vs {len(news)}"
+    for hunk_old, hunk_new in zip(chunks, news):
+        if hunk_old not in text:
+            return f"MISSING {rel}: {hunk_old[:80]!r}"
+        text = text.replace(hunk_old, hunk_new, 1)
+    path.write_text(text, encoding="utf-8")
+    return "ok"
+
+
+def mutant_old_present(root: Path, rel: str, old: str) -> list[str]:
+    text = (root / rel).read_text(encoding="utf-8")
+    missing = []
+    for hunk_old in old.split(HUNK):
+        if hunk_old not in text:
+            missing.append(hunk_old[:80])
+    return missing
+
+
+def _is_assertion_kill(stderr: str, stdout: str) -> bool:
+    blob = stderr + stdout
+    if "AssertionError" in blob or "\nFAIL:" in blob or blob.startswith("FAIL:"):
+        return True
+    return False
+
+
+def run_one(mutant: tuple[str, str, str, str, str]) -> dict:
+    mid, killer, rel, old, new = mutant
+    started = time.time()
+    with tempfile.TemporaryDirectory(prefix=f"f38-{mid}-") as tmp:
+        dest = Path(tmp)
+        shutil.copytree(
+            REPO / "tools",
+            dest / "tools",
+            ignore=shutil.ignore_patterns("__pycache__", "*.pyc", ".mypy_cache"),
+        )
+        wf_dest = dest / ".github" / "workflows"
+        wf_dest.mkdir(parents=True, exist_ok=True)
+        for name in ("ci.yml", "edition-qa.yml", "narrative.yml", "pages.yml"):
+            src = REPO / ".github" / "workflows" / name
+            if src.is_file():
+                shutil.copy2(src, wf_dest / name)
+        scripts_dest = dest / "scripts"
+        scripts_dest.mkdir(parents=True, exist_ok=True)
+        pubkey = REPO / "scripts" / "review_signoff_pubkey.pem"
+        if pubkey.is_file():
+            shutil.copy2(pubkey, scripts_dest / pubkey.name)
+        status = apply_mutant(dest, rel, old, new)
+        if status != "ok":
+            return {
+                "id": mid,
+                "killer": killer,
+                "ok": False,
+                "why": status,
+                "seconds": time.time() - started,
+            }
+        target = f"{_killer_mod(killer)}.{killer}"
+        env = {
+            **os.environ,
+            "PYTHONPATH": str(dest),
+            "PYTHONDONTWRITEBYTECODE": "1",
+        }
+        killed = subprocess.run(
+            [sys.executable, "-m", "unittest", target, "-q"],
+            cwd=dest,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        assertion = _is_assertion_kill(killed.stderr, killed.stdout)
+        return {
+            "id": mid,
+            "killer": killer,
+            "ok": killed.returncode != 0 and assertion,
+            "returncode": killed.returncode,
+            "assertion": assertion,
+            "stderr": (killed.stderr or "")[-1500:],
+            "stdout": (killed.stdout or "")[-500:],
+            "diff": f"{rel}: {old[:60]!r} -> {new[:60]!r}",
+            "seconds": time.time() - started,
+        }
+
+
+def run_clean_control(times: int = 6) -> list[dict]:
+    rows = []
+    for i in range(times):
+        started = time.time()
+        env = {**os.environ, "PYTHONPATH": str(REPO), "PYTHONDONTWRITEBYTECODE": "1"}
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "unittest",
+                f"{GATE}.test_A1_preview_11",
+                f"{GATE}.test_A5_two_file_control",
+                f"{WF}.test_A_two_and_C1b_Y_no_auto",
+                "-q",
+            ],
+            cwd=REPO,
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        rows.append(
+            {
+                "n": i + 1,
+                "returncode": result.returncode,
+                "seconds": time.time() - started,
+                "ts": time.time(),
+                "stderr": (result.stderr or "")[-400:] if result.returncode else "",
+            }
+        )
+        if result.returncode != 0:
+            break
+    return rows
+
+
+def run_all(workers: int = 4) -> list[dict]:
+    os.nice(15)
+    results = []
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futs = {pool.submit(run_one, mutant): mutant[0] for mutant in MUTANTS}
+        for fut in as_completed(futs):
+            results.append(fut.result())
+    results.sort(key=lambda row: row["id"])
+    return results
