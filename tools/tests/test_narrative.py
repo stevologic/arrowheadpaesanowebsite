@@ -13455,8 +13455,8 @@ class ArchiveDates(unittest.TestCase):
         # archive_replay.py walks published editions. test_imageless_hero.py
         # pins the live published desk (C4: out of scope for this PR).
         # FROZEN-38 J2: promote ES fixtures must name data/narrative.json and
-        # data/narrative_editions/<slug>.json (A1, E-parity). Replacement rows
-        # live in test_frozen38_promote_gate.py / test_frozen38_workflows.py.
+        # data/narrative_editions/<slug>.json (A1, E-parity, r2 B1/N2). Replacement
+        # rows live in test_frozen38_*.py.
         skip = {
             "archive_replay.py",
             "test_imageless_hero.py",
@@ -13465,6 +13465,7 @@ class ArchiveDates(unittest.TestCase):
             "test_frozen38_promote_gate.py",
             "test_frozen38_workflows.py",
             "test_frozen38_mutants.py",
+            "test_frozen38_r2.py",
         }
         for path in tests_dir.rglob("*.py"):
             if path.name in skip:
