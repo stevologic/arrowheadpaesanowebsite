@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/review_gate.py	2026-11-13 23:20:17.938877441 +0000
++++ b/tools/chiefs_narrative/review_gate.py	2026-11-13 23:20:17.938877441 +0000
+@@ -752,7 +752,7 @@
+ 
+ # Automerge refusal log: PR paths are untrusted. Cap listed paths so a
+ # huge diff cannot flood the Actions log; extras collapse to "(+N more)".
+-AUTOMERGE_REFUSAL_PATH_CAP = 16
++AUTOMERGE_REFUSAL_PATH_CAP = 15
+ _SIGNOFF_REFUSAL = (
+     "Review edition requires Karen's ed25519 sign-off "
+     f"({SIGNOFF_DIR}/<slug>.json + <slug>.sig)"

@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/review_gate.py	2026-11-13 22:56:53.026091720 +0000
++++ b/tools/chiefs_narrative/review_gate.py	2026-11-13 22:56:53.026091720 +0000
+@@ -776,7 +776,7 @@
+     signed = False
+     base = Path(root) if root is not None else config.REPO_ROOT
+     for raw in paths or []:
+-        if not automerge_review_edition_path(raw):
++        if not edition_path(raw):
+             continue
+         rel = _posix_rel(raw)
+         payload = load_payload(base / rel)

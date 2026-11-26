@@ -1,0 +1,11 @@
+--- a/tools/chiefs_narrative/review_gate.py	2026-11-13 22:56:53.026091720 +0000
++++ b/tools/chiefs_narrative/review_gate.py	2026-11-13 22:56:53.026091720 +0000
+@@ -767,7 +767,7 @@
+     Signed Reviews still need a human merge. Only Preview edition JSON
+     may automerge. Bool wrapper around ``_automerge_is_blocked``.
+     """
+-    return bool(_automerge_is_blocked(paths, root=root))
++    return False
+ 
+ 
+ def _automerge_review_flags(paths, *, root: Path | None = None) -> tuple[bool, bool]:
