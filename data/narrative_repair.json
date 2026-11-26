@@ -1,17 +1,11 @@
 {
   "droppedSentences": [
-    "The team line was 27 first downs, 31 rushes for 118 yards, 317 net passing yards, 435 total yards, 7-of-13 on third down, 10 drives, 32:26 of possession, and zero turnovers.",
-    "The first score was an 8-yard touchdown at Q1 9:46, 5:14 into the game, for a 7-0 lead.",
-    "The drive profile favored Kansas City without a possession blowout: 10 drives to 9, 32:26 to Arizona's 27:34, 27 first downs to 14.",
-    "Do not call a named gap or a blitz type the tape has not given you."
+    "Mahomes at 120.0, Kelce with six catches for 74 yards and two touchdowns, including the 22-yard score at Q2 1:54"
   ],
-  "correctedSentences": [
-    "Steve Spagnuolo's defense held Josh Johnson to 18-of-31, three sacks, a 82.1 rating, and 130 net passing yards. Kansas City recorded seven quarterback hits. Karlaftis was credited with 2.5 sacks. At Q3 10:30 he sacked Johnson for a 9-yard loss and forced a fumble that J. Fryar recovered for Arizona, so the ball stayed with the offense. Both teams finished with zero turnovers. Arizona also failed on downs at Q2 3:05 and Q4 4:04. Arizona possession was 27:34 across nine drives, 205 total yards, and 5-of-13 on third down. \u2192 Steve Spagnuolo's defense held Josh Johnson to 18-of-31, three sacks, an 82.1 rating, and 130 net passing yards. Kansas City recorded seven quarterback hits. Karlaftis was credited with 2.5 sacks. At Q3 10:30 he sacked Johnson for a 9-yard loss and forced a fumble that J. Fryar recovered for Arizona, so the ball stayed with the offense. Both teams finished with zero turnovers. Arizona also failed on downs at Q2 3:05 and Q4 4:04. Arizona possession was 27:34 across nine drives, 205 total yards, and 5-of-13 on third down.",
-    "unverifiable opponent team line; holding"
-  ],
+  "correctedSentences": [],
   "leftoverIssues": [],
   "holdOnlySentinels": [],
-  "headlineOrLedeTouched": true,
-  "wordShortfall": 415,
+  "headlineOrLedeTouched": false,
+  "wordShortfall": 1483,
   "holdAutomerge": true
 }
