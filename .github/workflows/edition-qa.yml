@@ -128,12 +128,21 @@ jobs:
       pull-requests: write
       actions: write
     steps:
-      - name: Checkout PR head
+      - name: Checkout base
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
+
+      - name: Fetch PR head as git objects
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_CLONE: ${{ github.event.pull_request.head.repo.clone_url }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --prune --no-recurse-submodules \
+            "$HEAD_CLONE" "+${HEAD_SHA}:refs/tmp/pr-head"
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -141,32 +150,122 @@ jobs:
           python-version: "3.11"
 
       - name: Refuse unsigned Review editions
+        id: gate
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
-          git fetch --no-tags origin "${{ github.base_ref }}"
+          git fetch --no-tags origin "$BASE_REF"
+          git fetch --no-tags origin +refs/heads/develop:refs/remotes/origin/develop
           GATE_BASE="${RUNNER_TEMP}/gate-base"
-          git worktree add --detach "$GATE_BASE" "origin/${{ github.base_ref }}"
+          git worktree add --detach "$GATE_BASE" "origin/${BASE_REF}"
           # cwd + python -m would import PR-head tools/ (sys.path[0]).
           # -P keeps cwd off sys.path; the module comes from GATE_BASE only.
-          # --root is the PR tree, read as data, never imported.
+          # --root is the git dir; head is read as objects, never imported.
           cd "$GATE_BASE"
           PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.review_gate --automerge \
-            --base "origin/${{ github.base_ref }}" \
+            --base "origin/${BASE_REF}" \
+            --head "$HEAD_SHA" \
+            --head-ref "$HEAD_REF" \
+            --develop-ref origin/develop \
+            --fetch-develop \
+            --github-output "$GITHUB_OUTPUT" \
             --root "${GITHUB_WORKSPACE}"
 
-      - name: Squash-merge the pull request
+      - name: Re-verify against develop
+        id: reverify
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.base_ref }}
+          PINNED_DEVELOP_SHA: ${{ steps.gate.outputs.develop_sha }}
         run: |
           set -euo pipefail
-          gh pr merge "${{ github.event.pull_request.html_url }}" \
-            --squash --auto \
-            --match-head-commit ${{ github.event.pull_request.head.sha }} \
-            || gh pr merge "${{ github.event.pull_request.html_url }}" \
-              --squash \
-              --match-head-commit ${{ github.event.pull_request.head.sha }}
+          git fetch --no-tags origin +refs/heads/develop:refs/remotes/origin/develop
+          GATE_BASE="${RUNNER_TEMP}/gate-base"
+          cd "$GATE_BASE"
+          PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.review_gate --automerge \
+            --base "origin/${BASE_REF}" \
+            --head "$HEAD_SHA" \
+            --head-ref "$HEAD_REF" \
+            --develop-ref origin/develop \
+            --fetch-develop \
+            --pinned-develop-sha "$PINNED_DEVELOP_SHA" \
+            --github-output "$GITHUB_OUTPUT" \
+            --root "${GITHUB_WORKSPACE}"
+
+      - name: Refuse holdAutomerge without a human develop merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          GATE_BASE="${RUNNER_TEMP}/gate-base"
+          cd "$GATE_BASE"
+          PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.review_gate --hold-override \
+            --head "$HEAD_SHA" \
+            --head-ref "$HEAD_REF" \
+            --base "$BASE_SHA" \
+            --develop-ref origin/develop \
+            --pr-number "$PR_NUMBER" \
+            --repository "$GITHUB_REPOSITORY" \
+            --root "${GITHUB_WORKSPACE}"
+
+      - name: Re-read labels and draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          payload="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
+          test -n "$payload"
+          NEUTRAL="${RUNNER_TEMP}/label-parse"
+          mkdir -p "$NEUTRAL"
+          cd "$NEUTRAL"
+          draft="$(printf '%s' "$payload" | python3 -P -c 'import json,sys; print(json.load(sys.stdin).get("draft"))')"
+          labels="$(printf '%s' "$payload" | python3 -P -c 'import json,sys; print("\n".join(x.get("name","") for x in json.load(sys.stdin).get("labels") or []))')"
+          if [ "$draft" != "False" ] && [ "$draft" != "false" ]; then
+            echo "refuse: PR is draft"
+            exit 1
+          fi
+          if printf '%s\n' "$labels" | grep -Fxq hold; then
+            echo "refuse: hold label"
+            exit 1
+          fi
+
+      - name: Squash-merge the pull request
+        id: merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          set +e
+          out="$(gh pr merge "$PR_URL" --squash --match-head-commit "$HEAD_SHA" 2>&1)"
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
+            echo "skip_pages=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if printf '%s\n' "$out" | grep -qi 'already merged'; then
+            echo "already merged; treating as success"
+            echo "skip_pages=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          printf '%s\n' "$out" >&2
+          exit "$rc"
 
       - name: Trigger Pages deploy
+        if: ${{ steps.merge.outputs.skip_pages != 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

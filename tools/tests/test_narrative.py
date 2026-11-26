@@ -8778,6 +8778,9 @@ class FactCheck(unittest.TestCase):
                 review_bytes
             )
             with patch.dict(os.environ, env, clear=False):
+                # FROZEN-38 J2: automerge_blocked stays Preview-only for
+                # non-promote callers. Signed Review on promote/<slug> is
+                # S1/A4/E1 in tools/tests/test_frozen38_promote_gate.py.
                 self.assertTrue(
                     review_gate.automerge_blocked([review_rel], root=root)
                 )
@@ -8996,7 +8999,7 @@ class FactCheck(unittest.TestCase):
                     review_gate.main(
                         ["--automerge", "--root", str(root), preview_rel]
                     ),
-                    0,
+                    1,
                 )
                 self.assertEqual(
                     review_gate.main(["--automerge", "--root", str(tmp_path)]),
@@ -13451,7 +13454,20 @@ class ArchiveDates(unittest.TestCase):
         offenders = []
         # archive_replay.py walks published editions. test_imageless_hero.py
         # pins the live published desk (C4: out of scope for this PR).
-        skip = {"archive_replay.py", "test_imageless_hero.py"}
+        # FROZEN-38 J2: promote ES fixtures must name data/narrative.json and
+        # data/narrative_editions/<slug>.json (A1, E-parity, r2 B1/N2). Replacement
+        # rows live in test_frozen38_*.py.
+        skip = {
+            "archive_replay.py",
+            "test_imageless_hero.py",
+            "frozen38_harness.py",
+            "frozen38_mutants.py",
+            "test_frozen38_promote_gate.py",
+            "test_frozen38_workflows.py",
+            "test_frozen38_mutants.py",
+            "test_frozen38_r2.py",
+            "test_frozen38_r3.py",
+        }
         for path in tests_dir.rglob("*.py"):
             if path.name in skip:
                 continue

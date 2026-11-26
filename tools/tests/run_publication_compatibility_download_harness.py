@@ -270,8 +270,84 @@ def case_r1_scope() -> None:
     baseline = _load_yaml(_baseline_ci_text())
     if current.get("permissions") != {"contents": "read"}:
         raise AssertionError(f"workflow permissions changed: {current.get('permissions')}")
-    if current["jobs"]["automerge"] != baseline["jobs"]["automerge"]:
-        raise AssertionError("automerge job is not byte-identical to origin/develop")
+    # FROZEN-38 J1/J2: automerge *steps* are owned by #419 (C1b/A-two/E6/B7).
+    # Publication-compat R1 still pins needs/permissions/if/runs-on so this
+    # harness cannot widen tokens or skip gates. Replacement rows: C1b, A-two.
+    current_auto = current["jobs"]["automerge"]
+    baseline_auto = baseline["jobs"]["automerge"]
+    if current_auto.get("needs") != baseline_auto.get("needs"):
+        raise AssertionError("automerge needs changed")
+    if current_auto.get("permissions") != baseline_auto.get("permissions"):
+        raise AssertionError(
+            f"automerge permissions changed: {current_auto.get('permissions')}"
+        )
+    if current_auto.get("runs-on") != baseline_auto.get("runs-on"):
+        raise AssertionError("automerge runs-on changed")
+    if current_auto.get("if") != baseline_auto.get("if"):
+        raise AssertionError("automerge if changed")
+    auto_if = str(current_auto.get("if") or "")
+    if "always(" in auto_if or "!cancelled(" in auto_if:
+        raise AssertionError("automerge if uses always()/!cancelled()")
+    auto_scripts = "\n".join(
+        str(step.get("run") or "")
+        for step in current_auto.get("steps") or []
+        if isinstance(step, dict)
+    )
+    if "--match-head-commit" not in auto_scripts:
+        raise AssertionError("automerge lost --match-head-commit")
+    if re.search(r"gh pr merge[\s\S]{0,200}--auto", auto_scripts):
+        raise AssertionError("automerge uses gh pr merge --auto")
+    if 'gh workflow run "Deploy Hugo site to GitHub Pages"' not in auto_scripts:
+        raise AssertionError("automerge lost Pages dispatch")
+    required_auto = [
+        "Refuse unsigned Review editions",
+        "Re-verify against develop",
+        "Refuse holdAutomerge without a human develop merge",
+        "Re-read labels and draft",
+        "Squash-merge the pull request",
+    ]
+    current_names = [
+        step.get("name")
+        for step in current_auto.get("steps") or []
+        if isinstance(step, dict)
+    ]
+    for name in required_auto:
+        if name not in current_names:
+            raise AssertionError(f"automerge missing step {name}")
+    if current_names.index(required_auto[0]) > current_names.index(required_auto[1]):
+        raise AssertionError("gate must precede re-verify")
+    if current_names.index(required_auto[1]) > current_names.index(required_auto[2]):
+        raise AssertionError("re-verify must precede hold")
+    gate_step = next(
+        step
+        for step in current_auto.get("steps") or []
+        if isinstance(step, dict) and step.get("name") == required_auto[0]
+    )
+    gate_env = gate_step.get("env") or {}
+    if "GH_TOKEN" in gate_env or "GITHUB_TOKEN" in gate_env:
+        raise AssertionError("gate env carries a token")
+    if "HEAD_REF" not in gate_env:
+        raise AssertionError("gate missing HEAD_REF env")
+    qa_path = REPO / ".github" / "workflows" / "edition-qa.yml"
+    qa = _load_yaml(qa_path.read_text(encoding="utf-8"))
+    qa_auto = (qa.get("jobs") or {}).get("automerge") or {}
+    qa_names = [
+        step.get("name")
+        for step in qa_auto.get("steps") or []
+        if isinstance(step, dict)
+    ]
+    for name in required_auto:
+        if name not in qa_names:
+            raise AssertionError(f"edition-qa automerge missing step {name}")
+    if qa_names.index(required_auto[0]) > qa_names.index(required_auto[1]):
+        raise AssertionError("edition-qa gate must precede re-verify")
+    qa_gate = next(
+        step
+        for step in qa_auto.get("steps") or []
+        if isinstance(step, dict) and step.get("name") == required_auto[0]
+    )
+    if "GH_TOKEN" in (qa_gate.get("env") or {}):
+        raise AssertionError("edition-qa gate env carries GH_TOKEN")
     baseline_gates = baseline["jobs"]["gates"]
     gates = current["jobs"]["gates"]
     if gates.get("runs-on") != baseline_gates.get("runs-on"):
@@ -879,7 +955,7 @@ CASES: dict[str, Callable] = {
 
 
 RECEIPTS = {
-    "R1": "Upload/Verify/automerge match origin/develop; download is the REST script; job actions:read only",
+    "R1": "Upload/Verify/gates match origin/develop; automerge needs/permissions/if pinned; download is the REST script; job actions:read only",
     "R2": "list URL pinned to /actions/runs/{run_id}/artifacts?name=publication-compatibility",
     "R3": "matching digest extracts; mismatch fails with 0 retries; upload-artifact stays SHA-pinned",
     "R4": "digest/403/401/5xx-after-download/bad-zip fail immediately with 0 retries",

@@ -12,14 +12,24 @@ Automerge must run this module from the *base* checkout, never the PR
 head, so a PR cannot rewrite the gate and then pass it. Workflows do
 that with ``cd "$GATE_BASE" && python -P -m … --root <PR-tree>``: ``-P``
 keeps the PR working directory off ``sys.path``, and ``--root`` is only
-a path argument.
+a git directory whose objects are read with ``git cat-file`` /
+``git diff``. Head content is never imported, installed, or executed.
 
-Automerge is an allowlist, not a growing blocklist. Only generated
-Preview data may automerge: ``data/narrative.json`` and Preview
-``data/narrative_editions/*.json``. Everything else — tests,
-requirements, scripts, ``public/``, layouts, workflows, the gate
-itself, README — needs a human merge. A Review edition, even a
-signed one, still needs a human merge.
+Automerge is an allowlist, not a growing blocklist. Every ref under
+``promote/`` takes the edition/develop path (hold, repair, archive and
+wire are read from the develop-tip git objects). A non-``promote/``
+ref never automerges. A promote whose diff touches ``.github/`` or
+``tools/`` is always a human merge (authoritative in edition-qa.yml;
+ci.yml YAML is from head — residual #426).
+
+A ``promote/<slug>`` PR (slug ``YYYY-MM-DD-HHMM``, optional suffix such
+as ``-lede``) may automerge when the slug path set plus blobs exactly
+equal the freshly fetched ``origin/develop`` tip, modes are ``100644``,
+and a Review carries a valid ed25519 pair for this slug and payload
+(pubkey from this BASE tree). Unsigned Reviews still refuse.
+``holdAutomerge`` is read from develop-tip ``narrative_repair.json``.
+When it is true the hold-override step (always run) binds human-merge
+and ``karen-qa`` to the PR whose merge *introduced* the edition blobs.
 
 After Hugo writes ``dist/``, ``--pages --dist`` fails closed unless
 every file under the publish dir is a known asset or a page Hugo
@@ -45,6 +55,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.error
+import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
 
 from tools.chiefs_narrative import config
@@ -92,6 +105,33 @@ AUTOMERGE_ALLOWED_PATHS = frozenset(
     }
 )
 AUTOMERGE_ALLOWED_PREFIXES = ()
+PROMOTE_HEAD_RE = re.compile(
+    r"^promote/(\d{4}-\d{2}-\d{2}-\d{4})(?:-[A-Za-z0-9._-]+)?$"
+)
+PROMOTE_PREFIX = "promote/"
+AUTOMERGE_PATH_CAP = 40
+AUTOMERGE_BLOB_CAP = 5 * 1024 * 1024
+DEVELOP_REF_DEFAULT = "origin/develop"
+ES_FIXED_PATHS = frozenset(
+    {
+        "data/narrative.json",
+        "data/narrative_archive.json",
+        "data/narrative_repair.json",
+        "data/wire.json",
+        "data/schedule_2026.json",
+    }
+)
+_SHA40 = re.compile(r"\b([0-9a-f]{40})\b")
+COMPARE_FILE_CAP = 300
+COMMIT_PAGE_CAP = 250
+_KAREN_QA_CONTEXT = "karen-qa"
+_DEVELOP_SQUASH = re.compile(
+    r"develop squash ([0-9a-f]{7,40})\b", re.IGNORECASE
+)
+_FROM_DEVELOP = re.compile(
+    r"from develop ([0-9a-f]{7,40})\b", re.IGNORECASE
+)
+_KAREN_QA_NAMES = frozenset({"karen-qa", "Karen QA", "karen_qa"})
 _ASSET_SUFFIXES = frozenset(
     {
         ".svg",
@@ -724,10 +764,11 @@ def requires_human_merge(paths, *, root: Path | None = None) -> bool:
 
 
 def automerge_blocked(paths, *, root: Path | None = None) -> bool:
-    """True when the PR is off the allowlist or a Review edition changed.
+    """True when a non-promote PR is off the Preview allowlist or is a Review.
 
-    Signed Reviews still need a human merge. Only Preview edition JSON
-    may automerge.
+    ``promote/<slug>`` automerge is decided by ``automerge_check`` (ES set,
+    develop identity, signed Review). This helper keeps the original
+    Preview-only rule for every other caller and for existing tests.
     """
     if requires_human_merge(paths, root=root):
         return True
@@ -1059,15 +1100,1247 @@ def pages_blocked(paths=None, *, root: Path | None = None, dist: Path | None = N
     return False
 
 
-def _git_changed(base: str, root: Path) -> list[str]:
-    cmd = ["git", "diff", "--name-only", f"{base}...HEAD"]
+@dataclass(frozen=True)
+class RawChange:
+    old_mode: str
+    new_mode: str
+    old_sha: str
+    new_sha: str
+    status: str
+    path: str
+    orig_path: str | None = None
+
+
+def is_promote_head_ref(head_ref: str | None) -> bool:
+    """True for any one-segment ref under ``promote/`` (including ``-lede``)."""
+    text = head_ref or ""
+    if not text.startswith(PROMOTE_PREFIX):
+        return False
+    rest = text[len(PROMOTE_PREFIX) :]
+    if not rest or "/" in rest or rest.startswith(".") or ".." in rest.split("-"):
+        return False
+    if "\n" in rest or "\0" in rest or " " in rest:
+        return False
+    return True
+
+
+def promote_slug_from_ref(head_ref: str) -> str | None:
+    match = PROMOTE_HEAD_RE.fullmatch(head_ref or "")
+    return match.group(1) if match else None
+
+
+def _git_output(
+    args: list[str],
+    *,
+    cwd: Path,
+    text: bool = False,
+) -> str | bytes:
     try:
-        out = subprocess.check_output(
-            cmd, cwd=root, text=True, stderr=subprocess.STDOUT
+        return subprocess.check_output(
+            ["git", *args],
+            cwd=cwd,
+            stderr=subprocess.STDOUT,
+            text=text,
         )
     except (OSError, subprocess.CalledProcessError) as exc:
-        raise GateError(f"git diff failed ({base}...HEAD): {exc}") from exc
-    return [line.strip() for line in out.splitlines() if line.strip()]
+        detail = getattr(exc, "output", "") or exc
+        if isinstance(detail, bytes):
+            detail = detail.decode("utf-8", "replace")
+        raise GateError(f"git {' '.join(args)} failed: {detail}") from exc
+
+
+def fetch_origin_develop(root: Path, develop_ref: str = DEVELOP_REF_DEFAULT) -> str:
+    """Fetch ``origin/develop`` into the remote-tracking ref only. Never a local branch."""
+    try:
+        subprocess.check_output(
+            [
+                "git",
+                "fetch",
+                "--no-tags",
+                "origin",
+                "+refs/heads/develop:refs/remotes/origin/develop",
+            ],
+            cwd=root,
+            stderr=subprocess.STDOUT,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        detail = getattr(exc, "output", b"") or b""
+        if isinstance(detail, bytes):
+            detail = detail.decode("utf-8", "replace")
+        raise GateError(f"develop fetch failed: {detail or exc}") from exc
+    return _resolve_develop_sha(root, develop_ref)
+
+
+def _resolve_develop_sha(root: Path, develop_ref: str) -> str:
+    try:
+        sha = subprocess.check_output(
+            ["git", "rev-parse", "--verify", f"{develop_ref}^{{commit}}"],
+            cwd=root,
+            text=True,
+            stderr=subprocess.STDOUT,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise GateError("develop fetch failed: ref missing") from exc
+    if not re.fullmatch(r"[0-9a-f]{40}", sha):
+        raise GateError("develop fetch failed: ref missing")
+    return sha
+
+
+def _parse_raw_z(blob: bytes) -> list[RawChange]:
+    """Parse ``git diff -z --raw --no-renames`` NUL records as whole paths."""
+    if not blob:
+        return []
+    parts = blob.split(b"\0")
+    changes: list[RawChange] = []
+    i = 0
+    while i < len(parts):
+        meta = parts[i]
+        if meta == b"":
+            i += 1
+            continue
+        if not meta.startswith(b":"):
+            raise GateError(f"git raw diff: unexpected record {meta!r}")
+        text = meta.decode("utf-8", "surrogateescape")
+        bits = text[1:].split()
+        if len(bits) != 5:
+            raise GateError(f"git raw diff: bad meta {text!r}")
+        old_mode, new_mode, old_sha, new_sha, status = bits
+        i += 1
+        if i >= len(parts):
+            raise GateError("git raw diff: truncated path")
+        path = parts[i].decode("utf-8", "surrogateescape")
+        i += 1
+        orig: str | None = None
+        if status[:1] in {"R", "C"}:
+            orig = path
+            if i >= len(parts):
+                raise GateError("git raw diff: truncated rename path")
+            path = parts[i].decode("utf-8", "surrogateescape")
+            i += 1
+        changes.append(
+            RawChange(
+                old_mode=old_mode,
+                new_mode=new_mode,
+                old_sha=old_sha,
+                new_sha=new_sha,
+                status=status,
+                path=path,
+                orig_path=orig,
+            )
+        )
+    return changes
+
+
+def git_raw_changed(
+    base: str, head: str, root: Path, *, detect_renames: bool = False
+) -> list[RawChange]:
+    """List the net diff with rename expansion and embedded-NUL paths intact."""
+    rename_flag = "-M" if detect_renames else "--no-renames"
+    try:
+        out = subprocess.check_output(
+            [
+                "git",
+                "-c",
+                "core.abbrev=no",
+                "diff",
+                "--full-index",
+                "-z",
+                "--raw",
+                rename_flag,
+                "--no-ext-diff",
+                base,
+                head,
+            ],
+            cwd=root,
+            stderr=subprocess.STDOUT,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        detail = getattr(exc, "output", b"") or b""
+        if isinstance(detail, bytes):
+            detail = detail.decode("utf-8", "replace")
+        raise GateError(f"git diff failed ({base} {head}): {detail or exc}") from exc
+    return _parse_raw_z(out)
+
+
+def _git_changed(base: str, root: Path) -> list[str]:
+    """Name-only view of ``git_raw_changed`` (legacy callers / argv-less CLI)."""
+    head = "HEAD"
+    return [item.path for item in git_raw_changed(base, head, root)]
+
+
+def _path_is_exact(path: str) -> bool:
+    """True when the git path is already a case-sensitive relative POSIX name."""
+    if not path:
+        return False
+    if "\0" in path or "\n" in path or "\r" in path:
+        return False
+    if "\\" in path or path.startswith("/") or path.startswith("./"):
+        return False
+    if path.endswith("/") or "//" in path:
+        return False
+    parts = path.split("/")
+    if any(part in ("", ".", "..") for part in parts):
+        return False
+    return True
+
+
+def classify_es_path(path: str) -> tuple[str, str | None]:
+    """Return ``(kind, slug)`` for an ES member, or ``('bad', None)``.
+
+    Exact case-sensitive match. No ``./``, ``\\``, ``//``, nested editions,
+    or non-slug names. SVG is one level under ``public/images/narrative/<slug>/``.
+    """
+    if not _path_is_exact(path):
+        return "bad", None
+    if path in ES_FIXED_PATHS:
+        return "fixed", None
+    if path.startswith("data/narrative_editions/") and path.count("/") == 2:
+        name = path.rsplit("/", 1)[-1]
+        if name.endswith(".json"):
+            slug = name[: -len(".json")]
+            if SIGNOFF_SLUG_RE.fullmatch(slug):
+                return "editions", slug
+    if path.startswith("public/images/narrative/") and path.count("/") == 4:
+        parts = path.split("/")
+        slug = parts[3]
+        name = parts[4]
+        if SIGNOFF_SLUG_RE.fullmatch(slug) and name.endswith(".svg") and ".." not in name:
+            return "svg", slug
+    if path.startswith("signoff/review/") and path.count("/") == 2:
+        name = path.rsplit("/", 1)[-1]
+        if name.endswith(".json"):
+            slug = name[: -len(".json")]
+            if SIGNOFF_SLUG_RE.fullmatch(slug):
+                return "signoff_json", slug
+        if name.endswith(".sig"):
+            slug = name[: -len(".sig")]
+            if SIGNOFF_SLUG_RE.fullmatch(slug):
+                return "signoff_sig", slug
+    return "bad", None
+
+
+def _change_status_reason(change: RawChange) -> str | None:
+    if change.orig_path:
+        return f"rename/delete: {change.orig_path} -> {change.path}"
+    letter = change.status[:1]
+    if letter in {"D", "R", "C", "T", "U", "X", "B"}:
+        return f"rename/delete: {change.path}"
+    if letter not in {"A", "M"}:
+        return f"rename/delete: {change.path}"
+    if change.new_mode == "120000" or change.old_mode == "120000":
+        return f"mode/symlink: {change.path}"
+    if change.new_mode == "160000" or change.old_mode == "160000":
+        return f"mode/symlink: {change.path}"
+    if change.new_mode != "100644":
+        return f"mode/symlink: {change.path}"
+    if letter == "M" and change.old_mode != "100644":
+        return f"mode/symlink: {change.path}"
+    if letter == "A" and change.old_mode not in {"000000", "100644"}:
+        return f"mode/symlink: {change.path}"
+    return None
+
+
+def _ls_tree(root: Path, ref: str, path: str) -> tuple[str, str, str] | None:
+    try:
+        out = subprocess.check_output(
+            ["git", "ls-tree", "-z", ref, "--", path],
+            cwd=root,
+            stderr=subprocess.STDOUT,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise GateError(f"git ls-tree failed ({ref} {path}): {exc}") from exc
+    if not out or out == b"\0":
+        return None
+    rec = out.split(b"\0", 1)[0]
+    if not rec:
+        return None
+    try:
+        meta, name = rec.split(b"\t", 1)
+    except ValueError as exc:
+        raise GateError(f"git ls-tree: bad record for {path}") from exc
+    del name
+    bits = meta.decode("ascii", "replace").split()
+    if len(bits) != 3:
+        raise GateError(f"git ls-tree: bad meta for {path}")
+    return bits[0], bits[1], bits[2]
+
+
+def _iter_ls_tree(root: Path, ref: str, prefix: str = "") -> list[tuple[str, str, str]]:
+    """Return ``(path, mode, blob_sha)`` rows for a tree (git objects only)."""
+    args = ["ls-tree", "-r", "-z", "--full-tree", ref]
+    if prefix:
+        args.extend(["--", prefix])
+    try:
+        out = subprocess.check_output(
+            ["git", *args],
+            cwd=root,
+            stderr=subprocess.STDOUT,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise GateError(f"git ls-tree failed ({ref} {prefix}): {exc}") from exc
+    rows: list[tuple[str, str, str]] = []
+    if not out:
+        return rows
+    for rec in out.split(b"\0"):
+        if not rec:
+            continue
+        try:
+            meta, name = rec.split(b"\t", 1)
+        except ValueError as exc:
+            raise GateError(f"git ls-tree: bad record under {prefix}") from exc
+        bits = meta.decode("ascii", "replace").split()
+        if len(bits) != 3:
+            continue
+        mode, kind, sha = bits
+        if kind != "blob":
+            continue
+        path = name.decode("utf-8", "surrogateescape")
+        rows.append((path, mode, sha))
+    return rows
+
+
+def slug_tree_files(root: Path, ref: str, slug: str) -> dict[str, tuple[str, str]]:
+    """Edition path set at ``ref``: core JSON, SVGs, optional schedule/signoff."""
+    out: dict[str, tuple[str, str]] = {}
+    core = [
+        "data/narrative.json",
+        "data/narrative_archive.json",
+        "data/narrative_repair.json",
+        "data/wire.json",
+        f"data/narrative_editions/{slug}.json",
+        "data/schedule_2026.json",
+        f"{SIGNOFF_DIR}/{slug}.json",
+        f"{SIGNOFF_DIR}/{slug}.sig",
+    ]
+    for path in core:
+        ent = _ls_tree(root, ref, path)
+        if ent is not None:
+            out[path] = (ent[0], ent[2])
+    prefix = f"public/images/narrative/{slug}/"
+    for path, mode, sha in _iter_ls_tree(root, ref, prefix):
+        kind, path_slug = classify_es_path(path)
+        if kind == "svg" and path_slug == slug:
+            out[path] = (mode, sha)
+    return out
+
+
+def edition_introducing_sha(root: Path, develop_sha: str, slug: str) -> str:
+    """Latest first-parent commit on develop that introduced the edition blob."""
+    path = f"data/narrative_editions/{slug}.json"
+    if _ls_tree(root, develop_sha, path) is None:
+        path = "data/narrative.json"
+    try:
+        out = subprocess.check_output(
+            [
+                "git",
+                "log",
+                "-1",
+                "--first-parent",
+                "--format=%H",
+                develop_sha,
+                "--",
+                path,
+            ],
+            cwd=root,
+            text=True,
+            stderr=subprocess.STDOUT,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise GateError(f"introducing commit lookup failed: {exc}") from exc
+    if not re.fullmatch(r"[0-9a-f]{40}", out or ""):
+        raise GateError("no introducing commit")
+    return out
+
+
+def _slug_blobs_changed(
+    root: Path, old_sha: str, new_sha: str, slug: str
+) -> bool:
+    old = slug_tree_files(root, old_sha, slug)
+    new = slug_tree_files(root, new_sha, slug)
+    return old != new
+
+
+def _cat_blob(root: Path, sha: str) -> bytes:
+    try:
+        return subprocess.check_output(
+            ["git", "cat-file", "blob", sha],
+            cwd=root,
+            stderr=subprocess.STDOUT,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise GateError(f"git cat-file failed ({sha}): {exc}") from exc
+
+
+def _strict_json_load(raw: bytes, path: str):
+    """Parse JSON. BOM, NUL, invalid UTF-8, duplicates fail closed."""
+    if b"\x00" in raw:
+        raise GateError(f"NUL bytes in {path}")
+    if raw.startswith(b"\xef\xbb\xbf"):
+        raise GateError(f"UTF-8 BOM in {path}")
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise GateError(f"invalid UTF-8 in {path}: {exc}") from exc
+    if not text.strip():
+        raise GateError(f"empty JSON in {path}")
+
+    def _hook(pairs: list[tuple[str, object]]) -> dict:
+        out: dict[str, object] = {}
+        for key, value in pairs:
+            if key in out:
+                raise GateError(f"duplicate key {key!r} in {path}")
+            out[key] = value
+        return out
+
+    try:
+        return json.loads(text, object_pairs_hook=_hook)
+    except json.JSONDecodeError as exc:
+        raise GateError(f"cannot parse {path}: {exc}") from exc
+
+
+def strict_json_object(raw: bytes, path: str) -> dict:
+    """Parse an ES JSON object. Archive/schedule lists use ``_strict_json_load``."""
+    data = _strict_json_load(raw, path)
+    if not isinstance(data, dict):
+        raise GateError(f"{path} is not a JSON object")
+    return data
+
+
+def _write_github_output(path: str, values: dict[str, str]) -> None:
+    if not path:
+        return
+    with open(path, "a", encoding="utf-8") as handle:
+        for key, value in values.items():
+            handle.write(f"{key}={value}\n")
+
+
+def github_api_get(
+    url_path: str, token: str | None = None, *, want_headers: bool = False
+):
+    """GET a GitHub API path. Tests may set FROZEN38_GITHUB_API_ROOT.
+
+    Never raises into a traceback for 404/5xx/non-JSON/timeout: those return
+    a status plus a dict the caller refuses by name (F1e).
+    """
+    root = (os.environ.get("FROZEN38_GITHUB_API_ROOT") or "https://api.github.com").rstrip(
+        "/"
+    )
+    if url_path.startswith("http://") or url_path.startswith("https://"):
+        url = url_path
+    else:
+        url = root + (url_path if url_path.startswith("/") else "/" + url_path)
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "arrowheadpaesano-review-gate",
+    }
+    auth = token or os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN") or ""
+    if auth:
+        headers["Authorization"] = f"Bearer {auth}"
+    request = urllib.request.Request(url, headers=headers, method="GET")
+    header_map: dict[str, str] = {}
+    try:
+        with urllib.request.urlopen(request, timeout=20) as resp:
+            body = resp.read()
+            status = getattr(resp, "status", 200)
+            header_map = {str(k): str(v) for k, v in resp.headers.items()}
+    except urllib.error.HTTPError as exc:
+        raw = exc.read() if exc.fp else b""
+        header_map = {str(k): str(v) for k, v in (exc.headers or {}).items()}
+        try:
+            parsed = json.loads(raw.decode("utf-8")) if raw else {}
+        except json.JSONDecodeError:
+            parsed = {"_non_json": True, "message": raw.decode("utf-8", "replace")}
+        if want_headers:
+            return int(exc.code), parsed, header_map
+        return int(exc.code), parsed
+    except (urllib.error.URLError, TimeoutError, OSError):
+        parsed = {"_timeout": True}
+        if want_headers:
+            return 599, parsed, header_map
+        return 599, parsed
+    try:
+        parsed = json.loads(body.decode("utf-8")) if body else {}
+    except json.JSONDecodeError:
+        parsed = {"_non_json": True}
+    if want_headers:
+        return int(status), parsed, header_map
+    return int(status), parsed
+
+
+def _link_next(headers: dict[str, str]) -> str | None:
+    blob = headers.get("Link") or headers.get("link") or ""
+    for part in blob.split(","):
+        if 'rel="next"' in part or "rel='next'" in part:
+            match = re.search(r"<([^>]+)>", part)
+            if match:
+                return match.group(1)
+    return None
+
+
+def github_api_get_paginated(
+    url_path: str,
+    *,
+    page_cap: int,
+    token: str | None = None,
+) -> tuple[int, list, str | None]:
+    """Follow Link rel=next. Fail closed when a page hits ``page_cap`` with no next."""
+    collected: list = []
+    url: str | None = url_path
+    while url:
+        code, payload, headers = github_api_get(url, token=token, want_headers=True)
+        if code != 200:
+            return code, collected, f"HTTP {code}"
+        if isinstance(payload, dict) and (payload.get("_non_json") or payload.get("_timeout")):
+            why = "timeout" if payload.get("_timeout") else "non-JSON"
+            return code, collected, why
+        if not isinstance(payload, list):
+            return code, collected, "not a list"
+        collected.extend(payload)
+        if len(payload) > page_cap:
+            return code, collected, "truncated"
+        nxt = _link_next(headers)
+        if len(payload) == page_cap and not nxt:
+            return code, collected, "truncated"
+        url = nxt
+    return 200, collected, None
+
+
+def _expand_commit_sha(root: Path | None, token: str) -> str | None:
+    if re.fullmatch(r"[0-9a-f]{40}", token):
+        return token
+    if root is None or not re.fullmatch(r"[0-9a-f]{7,40}", token):
+        return None
+    try:
+        full = subprocess.check_output(
+            ["git", "rev-parse", "--verify", f"{token}^{{commit}}"],
+            cwd=root,
+            text=True,
+            stderr=subprocess.STDOUT,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return full if re.fullmatch(r"[0-9a-f]{40}", full) else None
+
+
+def extract_develop_sha_from_body(body: str, root: Path | None = None) -> str | None:
+    """Parse #418 ``develop squash <short>`` / ``from develop <short>`` first."""
+    if not body:
+        return None
+    token = None
+    match = _DEVELOP_SQUASH.search(body)
+    if match:
+        token = match.group(1)
+    if token is None:
+        match = _FROM_DEVELOP.search(body)
+        if match:
+            token = match.group(1)
+    if token is None:
+        found = _SHA40.findall(body)
+        if len(found) == 1:
+            token = found[0]
+    if not token:
+        return None
+    expanded = _expand_commit_sha(root, token)
+    return expanded or (token if re.fullmatch(r"[0-9a-f]{40}", token) else None)
+
+
+def _is_bot_merger(merged_by: object) -> bool:
+    """F1b: type Bot and/or login ending [bot]. No extra identity list."""
+    if not isinstance(merged_by, dict):
+        return False
+    login = str(merged_by.get("login") or "")
+    mtype = str(merged_by.get("type") or "")
+    return mtype == "Bot" or login.endswith("[bot]")
+
+
+def _payload_error(payload: object) -> str | None:
+    if isinstance(payload, dict) and payload.get("_timeout"):
+        return "timeout"
+    if isinstance(payload, dict) and payload.get("_non_json"):
+        return "non-JSON"
+    return None
+
+
+def _merged_develop_candidates(pulls: object) -> tuple[list[dict], str | None]:
+    """N-F4: ignore open and closed-unmerged and non-develop bases.
+
+    An open PR never converts a bot-merged develop PR into a pass (N4a).
+    Two merged develop PRs claiming the sha refuse (N4c).
+    """
+    if not isinstance(pulls, list):
+        return [], "zero or multiple PRs (0)"
+    merged: list[dict] = []
+    for item in pulls:
+        if not isinstance(item, dict):
+            continue
+        if not item.get("merged_at"):
+            continue
+        base = item.get("base") if isinstance(item.get("base"), dict) else {}
+        if str(base.get("ref") or "") != "develop":
+            continue
+        merged.append(item)
+    if len(merged) > 1:
+        return merged, f"zero or multiple PRs ({len(merged)})"
+    return merged, None
+
+
+def _pr_number(pr: dict) -> int | None:
+    try:
+        number = int(pr.get("number"))
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+def fetch_pull(repository: str, number: int) -> tuple[dict | None, str | None]:
+    """GET /pulls/{n}. Merger identity lives only here (F1)."""
+    code, payload = github_api_get(f"/repos/{repository}/pulls/{number}")
+    err = _payload_error(payload)
+    if err:
+        return None, f"pulls {err}"
+    if code == 404:
+        return None, "pulls HTTP 404"
+    if code >= 500:
+        return None, f"pulls HTTP {code}"
+    if code != 200:
+        return None, f"pulls HTTP {code}"
+    if not isinstance(payload, dict):
+        return None, "pulls non-JSON"
+    return payload, None
+
+
+def merger_identity(pr: dict) -> tuple[bool, str]:
+    """Pass only type User whose login does not end in [bot] (F1a/b/c/d)."""
+    if "merged_by" not in pr:
+        return False, "merged_by missing"
+    merged_by = pr.get("merged_by")
+    if merged_by is None:
+        return False, "merged_by null"
+    if not isinstance(merged_by, dict):
+        return False, "merged_by missing"
+    login = str(merged_by.get("login") or "")
+    mtype = str(merged_by.get("type") or "")
+    if mtype != "User" or not login or login.endswith("[bot]") or mtype == "Bot":
+        return False, "bot merge"
+    return True, "ok"
+
+
+def _karen_qa_success(head_sha: str, repository: str) -> tuple[bool, str]:
+    """N-F3: latest commit *status* with context exactly ``karen-qa``."""
+    code, payload = github_api_get(
+        f"/repos/{repository}/commits/{head_sha}/statuses?per_page=100"
+    )
+    err = _payload_error(payload)
+    if err:
+        return False, f"karen-qa {err}"
+    if code != 200:
+        return False, f"karen-qa HTTP {code}"
+    rows: list[dict]
+    if isinstance(payload, list):
+        rows = [row for row in payload if isinstance(row, dict)]
+    elif isinstance(payload, dict):
+        rows = [row for row in (payload.get("statuses") or []) if isinstance(row, dict)]
+    else:
+        return False, "karen-qa absent"
+    rows = sorted(
+        rows,
+        key=lambda row: str(row.get("updated_at") or row.get("created_at") or ""),
+        reverse=True,
+    )
+    exact = [row for row in rows if row.get("context") == _KAREN_QA_CONTEXT]
+    if not exact:
+        for row in rows:
+            context = str(row.get("context") or "")
+            if context != _KAREN_QA_CONTEXT and "karen" in context.lower():
+                return False, f"karen-qa lookalike {context}"
+        return False, "karen-qa absent"
+    state = str(exact[0].get("state") or "").lower()
+    if state == "success":
+        return True, "ok"
+    return False, f"karen-qa {state or 'absent'}"
+
+
+def pr_contains_commit(repository: str, number: int, sha: str, merge_commit_sha: str) -> tuple[bool, str | None]:
+    """F2m/F2n: sha equals merge_commit_sha or is in paginated /pulls/{n}/commits."""
+    if merge_commit_sha and sha == merge_commit_sha:
+        return True, None
+    code, commits, why = github_api_get_paginated(
+        f"/repos/{repository}/pulls/{number}/commits?per_page={COMMIT_PAGE_CAP}",
+        page_cap=COMMIT_PAGE_CAP,
+    )
+    if why == "truncated":
+        return False, "commits truncated"
+    if code != 200:
+        return False, why or f"HTTP {code}"
+    for row in commits:
+        if isinstance(row, dict) and str(row.get("sha") or "") == sha:
+            return True, None
+    return False, None
+
+
+def resolve_contributor_pr(sha: str, repository: str) -> tuple[dict | None, str]:
+    """Map a commit to exactly one human-merged develop PR (F1 + N-F4 + F2m/n)."""
+    code, pulls = github_api_get(f"/repos/{repository}/commits/{sha}/pulls")
+    err = _payload_error(pulls)
+    if err:
+        return None, f"unresolvable: {err}"
+    if code == 404:
+        return None, "no introducing PR"
+    if code != 200:
+        return None, f"unresolvable: HTTP {code}"
+    candidates, multi = _merged_develop_candidates(pulls)
+    if multi and candidates:
+        return None, "multiple PRs"
+    if not candidates:
+        return None, "no introducing PR"
+    summary = candidates[0]
+    number = _pr_number(summary)
+    if number is None:
+        return None, "no introducing PR"
+    merge_sha = str(summary.get("merge_commit_sha") or "")
+    contained, why = pr_contains_commit(repository, number, sha, merge_sha)
+    if why:
+        return None, why
+    if not contained:
+        return None, "unresolvable"
+    full, fetch_why = fetch_pull(repository, number)
+    if fetch_why:
+        return None, fetch_why
+    if full is None:
+        return None, "unresolvable"
+    return full, "ok"
+
+
+def _commits_touching(root: Path, start: str, end: str, path: str) -> list[str]:
+    blob = _git_output(
+        ["log", "--format=%H", f"{start}..{end}", "--", path],
+        cwd=root,
+        text=True,
+    )
+    return [line.strip() for line in str(blob).splitlines() if line.strip()]
+
+
+def _compare_truncated(repository: str, base: str, head: str) -> str | None:
+    """F2j: GitHub compare 300-file page. Fail closed when truncated or at cap."""
+    code, payload = github_api_get(
+        f"/repos/{repository}/compare/{base}...{head}?per_page={COMPARE_FILE_CAP}"
+    )
+    if code != 200:
+        return None
+    if not isinstance(payload, dict) or payload.get("_non_json") or payload.get("_timeout"):
+        return None
+    files = payload.get("files") or []
+    truncated = bool(payload.get("truncated"))
+    if truncated or (isinstance(files, list) and len(files) >= COMPARE_FILE_CAP):
+        return "compare truncated"
+    return None
+
+
+def provenance_diff_paths(changes: list[RawChange]) -> list[tuple[str, str]]:
+    """F2a: adds, modifies, deletes, and both sides of a rename."""
+    paths: list[tuple[str, str]] = []
+    for change in changes:
+        paths.append((change.path, change.status))
+        if change.orig_path:
+            paths.append((change.orig_path, change.status))
+    return paths
+
+
+def path_provenance_check(
+    *,
+    root: Path,
+    base: str,
+    head: str,
+    develop_sha: str,
+    repository: str,
+) -> str | None:
+    """F2: every promote-diff path's develop contributors since base are human+karen-qa."""
+    if not repository or not base:
+        return "provenance: missing base"
+    cap = _compare_truncated(repository, base, head)
+    if cap:
+        return f"provenance: {cap}"
+    try:
+        changes = git_raw_changed(base, head, root)
+    except GateError as exc:
+        return f"provenance: {exc}"
+    paths = provenance_diff_paths(changes)
+    for path, status in paths:
+        del status
+        try:
+            shas = _commits_touching(root, base, develop_sha, path)
+        except GateError as exc:
+            return f"provenance: {exc}"
+        if not shas:
+            return f"provenance: unresolvable {path}"
+        for sha in shas:
+            pr, why = resolve_contributor_pr(sha, repository)
+            if pr is None:
+                return f"provenance: {why}"
+            ok, ident = merger_identity(pr)
+            if not ok:
+                return f"provenance: {ident}"
+            head_info = pr.get("head") if isinstance(pr.get("head"), dict) else {}
+            pr_head = str(head_info.get("sha") or "").strip()
+            if not pr_head:
+                return "provenance: missing PR head SHA"
+            karen_ok, karen_why = _karen_qa_success(pr_head, repository)
+            if not karen_ok:
+                return f"provenance: {karen_why}"
+    return None
+
+
+def _verify_signoff_bytes(
+    slug: str,
+    edition_bytes: bytes,
+    json_bytes: bytes | None,
+    sig_text: str | None,
+    pubkey: Path,
+) -> str | None:
+    """Return a refuse reason, or None when the pair is valid."""
+    if json_bytes is None and sig_text is None:
+        return "unsigned Review"
+    if json_bytes is None:
+        return "invalid signoff: missing json"
+    if sig_text is None or sig_text.strip() == "":
+        return "invalid signoff: missing sig"
+    sha = hashlib.sha256(edition_bytes).hexdigest()
+    expected = signoff_canonical_bytes(slug, sha)
+    try:
+        data = json.loads(json_bytes)
+    except json.JSONDecodeError:
+        return "invalid signoff: payload sha"
+    if not isinstance(data, dict):
+        return "invalid signoff: payload sha"
+    pair_slug = str(data.get("slug") or "")
+    if pair_slug != slug:
+        return "invalid signoff: slug"
+    if data.get("sha") != sha:
+        return "invalid signoff: payload sha"
+    if json_bytes != expected:
+        return "invalid signoff: payload sha"
+    if data.get("verdict") != "PASS":
+        return "invalid signoff: payload sha"
+    try:
+        signature = base64.b64decode(sig_text.strip(), validate=True)
+    except (ValueError, binascii.Error):
+        return "invalid signoff: sig"
+    if len(signature) != 64:
+        return "invalid signoff: sig"
+    if not _verify_ed25519(message=json_bytes, signature=signature, pubkey_path=pubkey):
+        return "invalid signoff: sig"
+    return None
+
+
+def _blob_at(root: Path, ref: str, path: str) -> bytes | None:
+    entry = _ls_tree(root, ref, path)
+    if entry is None:
+        return None
+    return _cat_blob(root, entry[2])
+
+
+def _slug_from_edition_bytes(raw: bytes, path: str) -> str:
+    payload = strict_json_object(raw, path)
+    return str(payload.get("slug") or "").strip()
+
+
+def hold_override_check(
+    *,
+    root: Path,
+    develop_ref: str,
+    develop_sha: str,
+    head: str,
+    pr_body: str,
+    repository: str,
+    token: str | None = None,
+    edition_slug: str | None = None,
+    base: str = "",
+) -> str | None:
+    """E2 (b)/(c). Hold/repair/archive/wire come from develop-tip objects.
+
+    Provenance is the PR that *introduced* the edition blobs, not develop tip.
+    Merger identity is GET /pulls/{n}.merged_by only (F1). F2 then checks every
+    promote-diff path's develop contributors since base.
+    """
+    del token
+    del develop_ref
+    repair_bytes = _blob_at(root, develop_sha, "data/narrative_repair.json")
+    hold = False
+    if repair_bytes is not None:
+        try:
+            repair = strict_json_object(repair_bytes, "data/narrative_repair.json")
+        except GateError as exc:
+            return f"hold override refused: a: {exc}"
+        hold = bool(repair.get("holdAutomerge"))
+    if hold:
+        named = extract_develop_sha_from_body(pr_body, root=root)
+        if not named:
+            return "hold override refused: b: missing body SHA"
+        if named != develop_sha:
+            return "hold override refused: b: SHA != tip"
+        if not repository:
+            return "hold override refused: b: missing repository"
+        slug = edition_slug
+        if not slug:
+            live = _blob_at(root, develop_sha, "data/narrative.json")
+            if live is not None:
+                try:
+                    slug = _slug_from_edition_bytes(live, "data/narrative.json")
+                except GateError:
+                    slug = ""
+        try:
+            intro = edition_introducing_sha(root, develop_sha, slug or "")
+        except GateError as exc:
+            return f"hold override refused: b: {exc}"
+        code, pulls = github_api_get(f"/repos/{repository}/commits/{intro}/pulls")
+        err = _payload_error(pulls)
+        if err:
+            return f"hold override refused: b: API error: {err}"
+        if code != 200:
+            return f"hold override refused: b: API error: HTTP {code}"
+        if not isinstance(pulls, list):
+            return "hold override refused: b: zero or multiple PRs (0)"
+        if len(pulls) == 0:
+            return "hold override refused: b: no introducing PR"
+        candidates, multi = _merged_develop_candidates(pulls)
+        if multi:
+            return f"hold override refused: b: {multi}"
+        if not candidates:
+            return "hold override refused: b: no introducing PR"
+        if len(candidates) != 1:
+            return f"hold override refused: b: zero or multiple PRs ({len(candidates)})"
+        summary = candidates[0]
+        if not isinstance(summary, dict):
+            return "hold override refused: b: zero or multiple PRs"
+        number = _pr_number(summary)
+        if number is None:
+            return "hold override refused: b: no introducing PR"
+        pr, fetch_why = fetch_pull(repository, number)
+        if fetch_why:
+            return f"hold override refused: b: {fetch_why}"
+        if pr is None:
+            return "hold override refused: b: no introducing PR"
+        head_info = pr.get("head") if isinstance(pr.get("head"), dict) else {}
+        pr_head = str(head_info.get("sha") or "").strip()
+        if not pr_head:
+            return "hold override refused: b: missing PR head SHA"
+        ok, why = _karen_qa_success(pr_head, repository)
+        if not ok:
+            return f"hold override refused: b: {why}"
+        ident_ok, ident_why = merger_identity(pr)
+        if not ident_ok:
+            return f"hold override refused: c: {ident_why}"
+    if repository and base:
+        prov = path_provenance_check(
+            root=root,
+            base=base,
+            head=head,
+            develop_sha=develop_sha,
+            repository=repository,
+        )
+        if prov:
+            return prov
+    del head
+    return None
+
+
+def _payload_from_head_blob(root: Path, head: str, rel: str) -> dict | None:
+    raw = _blob_at(root, head, rel)
+    if raw is None:
+        return None
+    data = _strict_json_load(raw, rel)
+    return data if isinstance(data, dict) else None
+
+
+def _legacy_paths_reason(paths: list[str], root: Path, head: str) -> str | None:
+    """Non-promote refs never automerge. Reasons come from HEAD git objects."""
+    if not paths:
+        return "no changes"
+    if len(paths) > AUTOMERGE_PATH_CAP:
+        return f"cap: {len(paths)} paths exceeds {AUTOMERGE_PATH_CAP}"
+    unsigned = None
+    allow = None
+    for raw in paths:
+        rel = str(raw)
+        if rel.startswith(".github/") or rel.startswith("tools/"):
+            allow = allow or f"off the automerge allowlist: {rel}"
+        if extra_publish_path(rel):
+            allow = allow or f"off the automerge allowlist: {rel}"
+        if rel == "data/narrative.json" or _editions_json_path(_posix_rel(rel)):
+            try:
+                payload = _payload_from_head_blob(root, head, rel)
+            except GateError:
+                payload = None
+            if payload_is_review(payload):
+                unsigned = unsigned or f"unsigned Review: {rel}"
+        if not automerge_allowlisted(rel):
+            allow = allow or f"off the automerge allowlist: {rel}"
+    if unsigned:
+        return unsigned
+    if allow:
+        return allow
+    return "off the automerge allowlist"
+
+
+def automerge_check(
+    *,
+    root: Path,
+    base: str,
+    head: str,
+    head_ref: str,
+    develop_ref: str,
+    fetch_develop: bool,
+    paths_override: list[str] | None = None,
+    pinned_develop_sha: str = "",
+) -> tuple[str | None, dict[str, str]]:
+    """Return ``(refuse_reason, github_output)``. Reason None means pass."""
+    meta: dict[str, str] = {
+        "head_sha": "",
+        "develop_sha": "",
+        "hold_automerge": "false",
+        "verdict": "pass",
+    }
+    try:
+        head_sha = subprocess.check_output(
+            ["git", "rev-parse", "--verify", f"{head}^{{commit}}"],
+            cwd=root,
+            text=True,
+            stderr=subprocess.STDOUT,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        head_sha = head
+    meta["head_sha"] = head_sha
+
+    if paths_override is not None:
+        reason = _legacy_paths_reason(paths_override, root, head)
+        if reason:
+            meta["verdict"] = "refuse"
+        return reason, meta
+
+    promote = is_promote_head_ref(head_ref)
+    try:
+        if fetch_develop:
+            develop_sha = fetch_origin_develop(root, develop_ref)
+        else:
+            develop_sha = _resolve_develop_sha(root, develop_ref)
+    except GateError as exc:
+        msg = str(exc)
+        if "develop fetch failed" not in msg:
+            msg = f"develop fetch failed: {exc}"
+        meta["verdict"] = "refuse"
+        return msg, meta
+    meta["develop_sha"] = develop_sha
+
+    changes = git_raw_changed(base, head, root)
+    if not changes:
+        meta["verdict"] = "refuse"
+        return "no changes", meta
+
+    listed: list[str] = []
+    for change in changes:
+        listed.append(change.path)
+        if change.orig_path:
+            listed.append(change.orig_path)
+    if len(listed) > AUTOMERGE_PATH_CAP:
+        meta["verdict"] = "refuse"
+        return f"cap: {len(listed)} paths exceeds {AUTOMERGE_PATH_CAP}", meta
+
+    if not promote:
+        names = []
+        for change in changes:
+            names.append(change.path)
+            if change.orig_path:
+                names.append(change.orig_path)
+        reason = _legacy_paths_reason(names, root, head)
+        meta["verdict"] = "refuse"
+        return reason or "off the automerge allowlist", meta
+
+    branch_slug = promote_slug_from_ref(head_ref)
+    if not branch_slug:
+        meta["verdict"] = "refuse"
+        return "off the automerge allowlist: branch slug", meta
+
+    slugs: set[str] = set()
+    edition_json_paths: list[str] = []
+    signoff_json: dict[str, RawChange] = {}
+    signoff_sig: dict[str, RawChange] = {}
+    for change in changes:
+        status_reason = _change_status_reason(change)
+        if status_reason:
+            meta["verdict"] = "refuse"
+            return status_reason, meta
+        for candidate in (change.path, change.orig_path):
+            if not candidate:
+                continue
+            if candidate.startswith(".github/") or candidate.startswith("tools/"):
+                meta["verdict"] = "refuse"
+                return f"off the automerge allowlist: {candidate}", meta
+            if candidate in {".gitattributes", ".gitmodules"} or candidate.endswith(
+                "/.gitattributes"
+            ) or candidate.endswith("/.gitmodules"):
+                meta["verdict"] = "refuse"
+                return f"off the automerge allowlist: {candidate}", meta
+        kind, slug = classify_es_path(change.path)
+        if kind == "bad":
+            meta["verdict"] = "refuse"
+            return f"off the automerge allowlist: {change.path}", meta
+        if slug and kind in {"editions", "svg"}:
+            slugs.add(slug)
+        if kind in {"editions", "fixed"} and change.path.endswith(".json"):
+            if kind == "editions" or change.path == "data/narrative.json":
+                edition_json_paths.append(change.path)
+        if kind == "signoff_json" and slug:
+            signoff_json[slug] = change
+        if kind == "signoff_sig" and slug:
+            signoff_sig[slug] = change
+        if len(change.new_sha.strip("0")) == 0:
+            meta["verdict"] = "refuse"
+            return f"rename/delete: {change.path}", meta
+        blob = _cat_blob(root, change.new_sha)
+        if len(blob) > AUTOMERGE_BLOB_CAP:
+            meta["verdict"] = "refuse"
+            return (
+                f"cap: blob {change.path} is {len(blob)} bytes "
+                f"(limit {AUTOMERGE_BLOB_CAP})"
+            ), meta
+        if change.path.endswith(".json"):
+            if change.path in {"data/narrative_archive.json", "data/schedule_2026.json"}:
+                data = _strict_json_load(blob, change.path)
+                if not isinstance(data, (dict, list)):
+                    raise GateError(f"{change.path} is not JSON")
+            else:
+                strict_json_object(blob, change.path)
+        dev = _ls_tree(root, develop_sha, change.path)
+        if dev is None:
+            meta["verdict"] = "refuse"
+            return f"blob differs from develop {develop_sha}: {change.path}", meta
+        dev_mode, _dev_type, dev_sha = dev
+        if dev_sha != change.new_sha:
+            meta["verdict"] = "refuse"
+            return f"stale vs develop {develop_sha}: {change.path}", meta
+        if dev_mode != change.new_mode or dev_mode != "100644":
+            meta["verdict"] = "refuse"
+            return f"mode/symlink: {change.path}", meta
+
+    if len(slugs) > 1:
+        meta["verdict"] = "refuse"
+        return f"off the automerge allowlist: two editions {sorted(slugs)}", meta
+    edition_slug = branch_slug
+    live_bytes = _blob_at(root, head, "data/narrative.json")
+    if live_bytes is None:
+        meta["verdict"] = "refuse"
+        return "off the automerge allowlist: data/narrative.json", meta
+    live_slug = _slug_from_edition_bytes(live_bytes, "data/narrative.json")
+    if live_slug and live_slug != edition_slug:
+        meta["verdict"] = "refuse"
+        return (
+            f"off the automerge allowlist: narrative.json slug {live_slug} "
+            f"!= branch slug {edition_slug}"
+        ), meta
+    if live_slug and SIGNOFF_SLUG_RE.fullmatch(live_slug):
+        slugs.add(live_slug)
+    develop_files = slug_tree_files(root, develop_sha, edition_slug)
+    head_files = slug_tree_files(root, head, edition_slug)
+    missing = sorted(set(develop_files) - set(head_files))
+    extra = sorted(set(head_files) - set(develop_files))
+    if missing:
+        meta["verdict"] = "refuse"
+        return f"blob differs from develop {develop_sha}: {missing[0]}", meta
+    if extra:
+        meta["verdict"] = "refuse"
+        return f"blob differs from develop {develop_sha}: {extra[0]}", meta
+    for path, (dev_mode, dev_blob) in sorted(develop_files.items()):
+        head_mode, head_blob = head_files[path]
+        if head_blob != dev_blob:
+            meta["verdict"] = "refuse"
+            return f"stale vs develop {develop_sha}: {path}", meta
+        if dev_mode != "100644" or head_mode != "100644":
+            meta["verdict"] = "refuse"
+            return f"mode/symlink: {path}", meta
+    if pinned_develop_sha and pinned_develop_sha != develop_sha:
+        if _slug_blobs_changed(root, pinned_develop_sha, develop_sha, edition_slug):
+            meta["verdict"] = "refuse"
+            return f"stale vs develop {develop_sha}", meta
+    editions_path = f"data/narrative_editions/{edition_slug}.json"
+    editions_bytes = _blob_at(root, head, editions_path)
+    pubkey = public_key_path()
+    review_paths: list[str] = []
+    for rel in ("data/narrative.json", editions_path):
+        raw = live_bytes if rel == "data/narrative.json" else editions_bytes
+        if raw is None:
+            continue
+        payload = strict_json_object(raw, rel)
+        try:
+            is_review = payload_is_review(payload)
+        except GateError:
+            raise
+        if is_review:
+            review_paths.append(rel)
+
+    pair_json = _blob_at(root, head, f"{SIGNOFF_DIR}/{edition_slug}.json")
+    pair_sig_raw = _blob_at(root, head, f"{SIGNOFF_DIR}/{edition_slug}.sig")
+    pair_sig = (
+        pair_sig_raw.decode("ascii")
+        if pair_sig_raw is not None
+        else None
+    )
+    pair_in_diff = edition_slug in signoff_json or edition_slug in signoff_sig
+    other_signoff = set(signoff_json) | set(signoff_sig)
+    other_signoff.discard(edition_slug)
+    if other_signoff:
+        meta["verdict"] = "refuse"
+        return f"invalid signoff: slug {sorted(other_signoff)[0]}", meta
+
+    edition_for_sig = editions_bytes if editions_bytes is not None else live_bytes
+    if review_paths:
+        why = _verify_signoff_bytes(
+            edition_slug, edition_for_sig, pair_json, pair_sig, pubkey
+        )
+        if why == "unsigned Review":
+            meta["verdict"] = "refuse"
+            return f"unsigned Review: {review_paths[0]}", meta
+        if why:
+            meta["verdict"] = "refuse"
+            return f"{why}: {review_paths[0]}", meta
+
+    if editions_bytes is not None and editions_bytes != live_bytes:
+        meta["verdict"] = "refuse"
+        return f"off the automerge allowlist: {editions_path} bytes != data/narrative.json", meta
+    if editions_bytes is not None:
+        copy_slug = _slug_from_edition_bytes(editions_bytes, editions_path)
+        if copy_slug != edition_slug:
+            meta["verdict"] = "refuse"
+            return (
+                f"off the automerge allowlist: {editions_path} slug {copy_slug} "
+                f"!= {edition_slug}"
+            ), meta
+
+    main_live = _blob_at(root, base, "data/narrative.json")
+    if main_live is not None:
+        try:
+            main_slug = _slug_from_edition_bytes(main_live, "data/narrative.json")
+        except GateError:
+            main_slug = ""
+        if main_slug and edition_slug < main_slug:
+            meta["verdict"] = "refuse"
+            return f"older than main: {edition_slug} < {main_slug}", meta
+
+    repair_bytes = _blob_at(root, develop_sha, "data/narrative_repair.json")
+    if repair_bytes is not None:
+        repair = strict_json_object(repair_bytes, "data/narrative_repair.json")
+        if repair.get("holdAutomerge"):
+            meta["hold_automerge"] = "true"
+
+    if not review_paths and (pair_in_diff or pair_json is not None or pair_sig is not None):
+        why = _verify_signoff_bytes(
+            edition_slug, edition_for_sig, pair_json, pair_sig, pubkey
+        )
+        if why:
+            meta["verdict"] = "refuse"
+            labeled = why if why != "unsigned Review" else "invalid signoff: missing pair"
+            return f"{labeled}: signoff/review/{edition_slug}", meta
+
+    return None, meta
 
 
 def _git_changed_from_parent(root: Path) -> list[str]:
@@ -1089,6 +2362,40 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--pages", action="store_true")
     parser.add_argument("--base", help="git ref to diff against for --automerge")
     parser.add_argument("--root", default="")
+    parser.add_argument("--head", default="HEAD", help="PR head SHA or ref (git objects)")
+    parser.add_argument(
+        "--head-ref",
+        default="",
+        help="PR branch name; must arrive via env, never ${{ github.head_ref }} in run:",
+    )
+    parser.add_argument(
+        "--develop-ref",
+        default=DEVELOP_REF_DEFAULT,
+        help="remote-tracking develop tip for identity (never a local develop branch)",
+    )
+    parser.add_argument(
+        "--fetch-develop",
+        action="store_true",
+        help="git fetch origin develop into refs/remotes/origin/develop before identity",
+    )
+    parser.add_argument(
+        "--github-output",
+        default="",
+        help="append develop_sha/head_sha/hold_automerge/verdict (GITHUB_OUTPUT)",
+    )
+    parser.add_argument(
+        "--hold-override",
+        action="store_true",
+        help="E2 (a)(b)(c) check; no head checkout; uses develop blobs + GitHub API",
+    )
+    parser.add_argument(
+        "--pinned-develop-sha",
+        default="",
+        help="gate-time develop SHA; re-verify refuses if tip moved and slug blobs changed",
+    )
+    parser.add_argument("--pr-body", default="")
+    parser.add_argument("--pr-number", default="")
+    parser.add_argument("--repository", default="")
     parser.add_argument(
         "--dist",
         default="",
@@ -1099,16 +2406,54 @@ def main(argv: list[str] | None = None) -> int:
     root = Path(args.root) if args.root else config.REPO_ROOT
     paths = list(args.paths)
     try:
-        if args.automerge:
-            if not paths:
-                paths = _git_changed(args.base or "origin/main", root)
-            if automerge_blocked(paths, root=root):
-                print(
-                    "Review edition requires Karen's ed25519 sign-off "
-                    f"({SIGNOFF_DIR}/<slug>.json + <slug>.sig), "
-                    "or this PR is off the automerge allowlist",
-                    file=sys.stderr,
+        if args.hold_override:
+            develop_ref = args.develop_ref or DEVELOP_REF_DEFAULT
+            if args.fetch_develop:
+                develop_sha = fetch_origin_develop(root, develop_ref)
+            else:
+                develop_sha = _resolve_develop_sha(root, develop_ref)
+            body = args.pr_body
+            if not body and args.pr_number and args.repository:
+                code, pr = github_api_get(
+                    f"/repos/{args.repository}/pulls/{args.pr_number}"
                 )
+                if code != 200 or not isinstance(pr, dict):
+                    print(
+                        f"hold override refused: b: API error: HTTP {code}",
+                        file=sys.stderr,
+                    )
+                    return 1
+                body = str(pr.get("body") or "")
+            reason = hold_override_check(
+                root=root,
+                develop_ref=develop_ref,
+                develop_sha=develop_sha,
+                head=args.head or "HEAD",
+                pr_body=body,
+                repository=args.repository
+                or os.environ.get("GITHUB_REPOSITORY")
+                or "",
+                edition_slug=promote_slug_from_ref(args.head_ref or ""),
+                base=args.base or "",
+            )
+            if reason:
+                print(reason, file=sys.stderr)
+                return 1
+            return 0
+        if args.automerge:
+            reason, meta = automerge_check(
+                root=root,
+                base=args.base or "origin/main",
+                head=args.head or "HEAD",
+                head_ref=args.head_ref or "",
+                develop_ref=args.develop_ref or DEVELOP_REF_DEFAULT,
+                fetch_develop=bool(args.fetch_develop),
+                paths_override=paths or None,
+                pinned_develop_sha=args.pinned_develop_sha or "",
+            )
+            _write_github_output(args.github_output, meta)
+            if reason:
+                print(reason, file=sys.stderr)
                 return 1
             return 0
         if args.pages:

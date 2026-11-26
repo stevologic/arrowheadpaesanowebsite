@@ -1,0 +1,25 @@
+{
+  "id": 19742384,
+  "name": "main",
+  "bypass_actors": [],
+  "rules": [
+    {
+      "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0
+      }
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "required_status_checks": [
+          {
+            "context": "gates",
+            "integration_id": 15368
+          }
+        ]
+      }
+    }
+  ]
+}
