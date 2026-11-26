@@ -15,20 +15,21 @@ keeps the PR working directory off ``sys.path``, and ``--root`` is only
 a git directory whose objects are read with ``git cat-file`` /
 ``git diff``. Head content is never imported, installed, or executed.
 
-Automerge is an allowlist, not a growing blocklist. Non-``promote/``
-branches keep the original Preview-only set: ``data/narrative.json``
-and Preview ``data/narrative_editions/*.json``. Everything else —
-tests, requirements, scripts, ``public/``, layouts, workflows, the
-gate itself, README — needs a human merge on those branches.
+Automerge is an allowlist, not a growing blocklist. Every ref under
+``promote/`` takes the edition/develop path (hold, repair, archive and
+wire are read from the develop-tip git objects). A non-``promote/``
+ref never automerges. A promote whose diff touches ``.github/`` or
+``tools/`` is always a human merge (authoritative in edition-qa.yml;
+ci.yml YAML is from head — residual #426).
 
-A ``promote/<slug>`` PR (slug ``YYYY-MM-DD-HHMM``, exact prefix) may
-automerge the edition path set ES when every blob equals the freshly
-fetched ``origin/develop`` tip, modes are ``100644``, and a Review
-carries a valid ed25519 pair for this slug and payload (pubkey from
-this BASE tree). Unsigned Reviews still refuse. ``holdAutomerge`` in
-``narrative_repair.json`` is not a gate input; when it is true the
-workflow's hold-override step still requires the develop merge to be
-a human merge with ``karen-qa`` success.
+A ``promote/<slug>`` PR (slug ``YYYY-MM-DD-HHMM``, optional suffix such
+as ``-lede``) may automerge when the slug path set plus blobs exactly
+equal the freshly fetched ``origin/develop`` tip, modes are ``100644``,
+and a Review carries a valid ed25519 pair for this slug and payload
+(pubkey from this BASE tree). Unsigned Reviews still refuse.
+``holdAutomerge`` is read from develop-tip ``narrative_repair.json``.
+When it is true the hold-override step (always run) binds human-merge
+and ``karen-qa`` to the PR whose merge *introduced* the edition blobs.
 
 After Hugo writes ``dist/``, ``--pages --dist`` fails closed unless
 every file under the publish dir is a known asset or a page Hugo
@@ -104,7 +105,10 @@ AUTOMERGE_ALLOWED_PATHS = frozenset(
     }
 )
 AUTOMERGE_ALLOWED_PREFIXES = ()
-PROMOTE_HEAD_RE = re.compile(r"^promote/(\d{4}-\d{2}-\d{2}-\d{4})$")
+PROMOTE_HEAD_RE = re.compile(
+    r"^promote/(\d{4}-\d{2}-\d{2}-\d{4})(?:-[A-Za-z0-9._-]+)?$"
+)
+PROMOTE_PREFIX = "promote/"
 AUTOMERGE_PATH_CAP = 40
 AUTOMERGE_BLOB_CAP = 5 * 1024 * 1024
 DEVELOP_REF_DEFAULT = "origin/develop"
@@ -127,7 +131,10 @@ BOT_MERGE_LOGINS = frozenset(
 )
 _SHA40 = re.compile(r"\b([0-9a-f]{40})\b")
 _DEVELOP_SQUASH = re.compile(
-    r"develop squash ([0-9a-f]{40})", re.IGNORECASE
+    r"develop squash ([0-9a-f]{7,40})\b", re.IGNORECASE
+)
+_FROM_DEVELOP = re.compile(
+    r"from develop ([0-9a-f]{7,40})\b", re.IGNORECASE
 )
 _KAREN_QA_NAMES = frozenset({"karen-qa", "Karen QA", "karen_qa"})
 _ASSET_SUFFIXES = frozenset(
@@ -1110,8 +1117,16 @@ class RawChange:
 
 
 def is_promote_head_ref(head_ref: str | None) -> bool:
-    """True only for the exact ``promote/<slug>`` branch name."""
-    return bool(head_ref) and bool(PROMOTE_HEAD_RE.fullmatch(head_ref or ""))
+    """True for any one-segment ref under ``promote/`` (including ``-lede``)."""
+    text = head_ref or ""
+    if not text.startswith(PROMOTE_PREFIX):
+        return False
+    rest = text[len(PROMOTE_PREFIX) :]
+    if not rest or "/" in rest or rest.startswith(".") or ".." in rest.split("-"):
+        return False
+    if "\n" in rest or "\0" in rest or " " in rest:
+        return False
+    return True
 
 
 def promote_slug_from_ref(head_ref: str) -> str | None:
@@ -1352,6 +1367,101 @@ def _ls_tree(root: Path, ref: str, path: str) -> tuple[str, str, str] | None:
     return bits[0], bits[1], bits[2]
 
 
+def _iter_ls_tree(root: Path, ref: str, prefix: str = "") -> list[tuple[str, str, str]]:
+    """Return ``(path, mode, blob_sha)`` rows for a tree (git objects only)."""
+    args = ["ls-tree", "-r", "-z", "--full-tree", ref]
+    if prefix:
+        args.extend(["--", prefix])
+    try:
+        out = subprocess.check_output(
+            ["git", *args],
+            cwd=root,
+            stderr=subprocess.STDOUT,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise GateError(f"git ls-tree failed ({ref} {prefix}): {exc}") from exc
+    rows: list[tuple[str, str, str]] = []
+    if not out:
+        return rows
+    for rec in out.split(b"\0"):
+        if not rec:
+            continue
+        try:
+            meta, name = rec.split(b"\t", 1)
+        except ValueError as exc:
+            raise GateError(f"git ls-tree: bad record under {prefix}") from exc
+        bits = meta.decode("ascii", "replace").split()
+        if len(bits) != 3:
+            continue
+        mode, kind, sha = bits
+        if kind != "blob":
+            continue
+        path = name.decode("utf-8", "surrogateescape")
+        rows.append((path, mode, sha))
+    return rows
+
+
+def slug_tree_files(root: Path, ref: str, slug: str) -> dict[str, tuple[str, str]]:
+    """Edition path set at ``ref``: core JSON, SVGs, optional schedule/signoff."""
+    out: dict[str, tuple[str, str]] = {}
+    core = [
+        "data/narrative.json",
+        "data/narrative_archive.json",
+        "data/narrative_repair.json",
+        "data/wire.json",
+        f"data/narrative_editions/{slug}.json",
+        "data/schedule_2026.json",
+        f"{SIGNOFF_DIR}/{slug}.json",
+        f"{SIGNOFF_DIR}/{slug}.sig",
+    ]
+    for path in core:
+        ent = _ls_tree(root, ref, path)
+        if ent is not None:
+            out[path] = (ent[0], ent[2])
+    prefix = f"public/images/narrative/{slug}/"
+    for path, mode, sha in _iter_ls_tree(root, ref, prefix):
+        kind, path_slug = classify_es_path(path)
+        if kind == "svg" and path_slug == slug:
+            out[path] = (mode, sha)
+    return out
+
+
+def edition_introducing_sha(root: Path, develop_sha: str, slug: str) -> str:
+    """Latest first-parent commit on develop that introduced the edition blob."""
+    path = f"data/narrative_editions/{slug}.json"
+    if _ls_tree(root, develop_sha, path) is None:
+        path = "data/narrative.json"
+    try:
+        out = subprocess.check_output(
+            [
+                "git",
+                "log",
+                "-1",
+                "--first-parent",
+                "--format=%H",
+                develop_sha,
+                "--",
+                path,
+            ],
+            cwd=root,
+            text=True,
+            stderr=subprocess.STDOUT,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise GateError(f"introducing commit lookup failed: {exc}") from exc
+    if not re.fullmatch(r"[0-9a-f]{40}", out or ""):
+        raise GateError("no introducing commit")
+    return out
+
+
+def _slug_blobs_changed(
+    root: Path, old_sha: str, new_sha: str, slug: str
+) -> bool:
+    old = slug_tree_files(root, old_sha, slug)
+    new = slug_tree_files(root, new_sha, slug)
+    return old != new
+
+
 def _cat_blob(root: Path, sha: str) -> bytes:
     try:
         return subprocess.check_output(
@@ -1443,16 +1553,43 @@ def github_api_get(url_path: str, token: str | None = None) -> tuple[int, object
     return int(status), parsed
 
 
-def extract_develop_sha_from_body(body: str) -> str | None:
+def _expand_commit_sha(root: Path | None, token: str) -> str | None:
+    if re.fullmatch(r"[0-9a-f]{40}", token):
+        return token
+    if root is None or not re.fullmatch(r"[0-9a-f]{7,40}", token):
+        return None
+    try:
+        full = subprocess.check_output(
+            ["git", "rev-parse", "--verify", f"{token}^{{commit}}"],
+            cwd=root,
+            text=True,
+            stderr=subprocess.STDOUT,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return full if re.fullmatch(r"[0-9a-f]{40}", full) else None
+
+
+def extract_develop_sha_from_body(body: str, root: Path | None = None) -> str | None:
+    """Parse #418 ``develop squash <short>`` / ``from develop <short>`` first."""
     if not body:
         return None
+    token = None
     match = _DEVELOP_SQUASH.search(body)
     if match:
-        return match.group(1)
-    found = _SHA40.findall(body)
-    if len(found) == 1:
-        return found[0]
-    return None
+        token = match.group(1)
+    if token is None:
+        match = _FROM_DEVELOP.search(body)
+        if match:
+            token = match.group(1)
+    if token is None:
+        found = _SHA40.findall(body)
+        if len(found) == 1:
+            token = found[0]
+    if not token:
+        return None
+    expanded = _expand_commit_sha(root, token)
+    return expanded or (token if re.fullmatch(r"[0-9a-f]{40}", token) else None)
 
 
 def _karen_qa_success(head_sha: str, repository: str) -> tuple[bool, str]:
@@ -1554,14 +1691,15 @@ def hold_override_check(
     pr_body: str,
     repository: str,
     token: str | None = None,
+    edition_slug: str | None = None,
 ) -> str | None:
-    """E2 (b)/(c). Identity (a) is ``automerge_check``; this step must not read head.
+    """E2 (b)/(c). Hold/repair/archive/wire come from develop-tip objects.
 
-    Reads ``narrative_repair.json`` from the fetched develop tip only.
+    Provenance is the PR that *introduced* the edition blobs, not develop tip.
     """
     del token
-    del head
-    repair_bytes = _blob_at(root, develop_sha or develop_ref, "data/narrative_repair.json")
+    del develop_ref
+    repair_bytes = _blob_at(root, develop_sha, "data/narrative_repair.json")
     if repair_bytes is None:
         return None
     try:
@@ -1570,30 +1708,45 @@ def hold_override_check(
         return f"hold override refused: a: {exc}"
     if not repair.get("holdAutomerge"):
         return None
-    named = extract_develop_sha_from_body(pr_body)
+    named = extract_develop_sha_from_body(pr_body, root=root)
     if not named:
         return "hold override refused: b: missing body SHA"
     if named != develop_sha:
         return "hold override refused: b: SHA != tip"
     if not repository:
         return "hold override refused: b: missing repository"
+    slug = edition_slug
+    if not slug:
+        live = _blob_at(root, develop_sha, "data/narrative.json")
+        if live is not None:
+            try:
+                slug = _slug_from_edition_bytes(live, "data/narrative.json")
+            except GateError:
+                slug = ""
     try:
-        code, pulls = github_api_get(f"/repos/{repository}/commits/{develop_sha}/pulls")
+        intro = edition_introducing_sha(root, develop_sha, slug or "")
+    except GateError as exc:
+        return f"hold override refused: b: {exc}"
+    try:
+        code, pulls = github_api_get(f"/repos/{repository}/commits/{intro}/pulls")
     except GateError as exc:
         return f"hold override refused: b: API error: {exc}"
     if code != 200:
         return f"hold override refused: b: API error: HTTP {code}"
-    if not isinstance(pulls, list) or len(pulls) != 1:
-        n = len(pulls) if isinstance(pulls, list) else 0
-        return f"hold override refused: b: zero or multiple PRs ({n})"
+    if not isinstance(pulls, list):
+        return "hold override refused: b: zero or multiple PRs (0)"
+    if len(pulls) == 0:
+        return "hold override refused: b: no introducing PR"
+    if len(pulls) != 1:
+        return f"hold override refused: b: zero or multiple PRs ({len(pulls)})"
     pr = pulls[0]
     if not isinstance(pr, dict):
         return "hold override refused: b: zero or multiple PRs"
     head_info = pr.get("head") if isinstance(pr.get("head"), dict) else {}
-    head_sha = str(head_info.get("sha") or "").strip()
-    if not head_sha:
+    pr_head = str(head_info.get("sha") or "").strip()
+    if not pr_head:
         return "hold override refused: b: missing PR head SHA"
-    ok, why = _karen_qa_success(head_sha, repository)
+    ok, why = _karen_qa_success(pr_head, repository)
     if not ok:
         return f"hold override refused: b: {why}"
     merged_by = pr.get("merged_by") if isinstance(pr.get("merged_by"), dict) else {}
@@ -1601,28 +1754,46 @@ def hold_override_check(
     mtype = str(merged_by.get("type") or "")
     if login in BOT_MERGE_LOGINS or mtype == "Bot" or login.endswith("[bot]"):
         return "hold override refused: c: bot merge"
+    del head
     return None
 
 
-def _legacy_paths_reason(paths: list[str], root: Path) -> str | None:
-    """Named refuse for the original Preview-only allowlist (non-promote)."""
+def _payload_from_head_blob(root: Path, head: str, rel: str) -> dict | None:
+    raw = _blob_at(root, head, rel)
+    if raw is None:
+        return None
+    data = _strict_json_load(raw, rel)
+    return data if isinstance(data, dict) else None
+
+
+def _legacy_paths_reason(paths: list[str], root: Path, head: str) -> str | None:
+    """Non-promote refs never automerge. Reasons come from HEAD git objects."""
     if not paths:
         return "no changes"
     if len(paths) > AUTOMERGE_PATH_CAP:
         return f"cap: {len(paths)} paths exceeds {AUTOMERGE_PATH_CAP}"
+    unsigned = None
+    allow = None
     for raw in paths:
         rel = str(raw)
-        if not automerge_allowlisted(rel):
-            return f"off the automerge allowlist: {rel}"
+        if rel.startswith(".github/") or rel.startswith("tools/"):
+            allow = allow or f"off the automerge allowlist: {rel}"
         if extra_publish_path(rel):
-            return f"off the automerge allowlist: {rel}"
+            allow = allow or f"off the automerge allowlist: {rel}"
         if rel == "data/narrative.json" or _editions_json_path(_posix_rel(rel)):
-            payload = load_payload(root / rel)
+            try:
+                payload = _payload_from_head_blob(root, head, rel)
+            except GateError:
+                payload = None
             if payload_is_review(payload):
-                return f"unsigned Review: {rel}"
-    if extra_publish_surface(root):
-        return "off the automerge allowlist: extra publish surface"
-    return None
+                unsigned = unsigned or f"unsigned Review: {rel}"
+        if not automerge_allowlisted(rel):
+            allow = allow or f"off the automerge allowlist: {rel}"
+    if unsigned:
+        return unsigned
+    if allow:
+        return allow
+    return "off the automerge allowlist"
 
 
 def automerge_check(
@@ -1634,6 +1805,7 @@ def automerge_check(
     develop_ref: str,
     fetch_develop: bool,
     paths_override: list[str] | None = None,
+    pinned_develop_sha: str = "",
 ) -> tuple[str | None, dict[str, str]]:
     """Return ``(refuse_reason, github_output)``. Reason None means pass."""
     meta: dict[str, str] = {
@@ -1654,7 +1826,7 @@ def automerge_check(
     meta["head_sha"] = head_sha
 
     if paths_override is not None:
-        reason = _legacy_paths_reason(paths_override, root)
+        reason = _legacy_paths_reason(paths_override, root, head)
         if reason:
             meta["verdict"] = "refuse"
         return reason, meta
@@ -1693,10 +1865,14 @@ def automerge_check(
             names.append(change.path)
             if change.orig_path:
                 names.append(change.orig_path)
-        reason = _legacy_paths_reason(names, root)
-        if reason:
-            meta["verdict"] = "refuse"
-        return reason, meta
+        reason = _legacy_paths_reason(names, root, head)
+        meta["verdict"] = "refuse"
+        return reason or "off the automerge allowlist", meta
+
+    branch_slug = promote_slug_from_ref(head_ref)
+    if not branch_slug:
+        meta["verdict"] = "refuse"
+        return "off the automerge allowlist: branch slug", meta
 
     slugs: set[str] = set()
     edition_json_paths: list[str] = []
@@ -1710,6 +1886,9 @@ def automerge_check(
         for candidate in (change.path, change.orig_path):
             if not candidate:
                 continue
+            if candidate.startswith(".github/") or candidate.startswith("tools/"):
+                meta["verdict"] = "refuse"
+                return f"off the automerge allowlist: {candidate}", meta
             if candidate in {".gitattributes", ".gitmodules"} or candidate.endswith(
                 "/.gitattributes"
             ) or candidate.endswith("/.gitmodules"):
@@ -1760,35 +1939,42 @@ def automerge_check(
     if len(slugs) > 1:
         meta["verdict"] = "refuse"
         return f"off the automerge allowlist: two editions {sorted(slugs)}", meta
-    edition_slug = next(iter(slugs), None)
-    expected_es = set(ES_FIXED_PATHS)
-    if edition_slug:
-        expected_es.add(f"data/narrative_editions/{edition_slug}.json")
-        expected_es.add(f"{SIGNOFF_DIR}/{edition_slug}.json")
-        expected_es.add(f"{SIGNOFF_DIR}/{edition_slug}.sig")
-    for path in sorted(expected_es):
-        dev_ent = _ls_tree(root, develop_sha, path)
-        head_ent = _ls_tree(root, head, path)
-        if dev_ent is not None and head_ent is None:
-            meta["verdict"] = "refuse"
-            return f"rename/delete: {path}", meta
+    edition_slug = branch_slug
     live_bytes = _blob_at(root, head, "data/narrative.json")
     if live_bytes is None:
         meta["verdict"] = "refuse"
         return "off the automerge allowlist: data/narrative.json", meta
     live_slug = _slug_from_edition_bytes(live_bytes, "data/narrative.json")
-    if edition_slug and live_slug and edition_slug != live_slug:
+    if live_slug and live_slug != edition_slug:
         meta["verdict"] = "refuse"
         return (
             f"off the automerge allowlist: narrative.json slug {live_slug} "
-            f"!= editions slug {edition_slug}"
+            f"!= branch slug {edition_slug}"
         ), meta
     if live_slug and SIGNOFF_SLUG_RE.fullmatch(live_slug):
         slugs.add(live_slug)
-        edition_slug = live_slug
-    if edition_slug is None:
+    develop_files = slug_tree_files(root, develop_sha, edition_slug)
+    head_files = slug_tree_files(root, head, edition_slug)
+    missing = sorted(set(develop_files) - set(head_files))
+    extra = sorted(set(head_files) - set(develop_files))
+    if missing:
         meta["verdict"] = "refuse"
-        return "off the automerge allowlist: missing edition slug", meta
+        return f"blob differs from develop {develop_sha}: {missing[0]}", meta
+    if extra:
+        meta["verdict"] = "refuse"
+        return f"blob differs from develop {develop_sha}: {extra[0]}", meta
+    for path, (dev_mode, dev_blob) in sorted(develop_files.items()):
+        head_mode, head_blob = head_files[path]
+        if head_blob != dev_blob:
+            meta["verdict"] = "refuse"
+            return f"stale vs develop {develop_sha}: {path}", meta
+        if dev_mode != "100644" or head_mode != "100644":
+            meta["verdict"] = "refuse"
+            return f"mode/symlink: {path}", meta
+    if pinned_develop_sha and pinned_develop_sha != develop_sha:
+        if _slug_blobs_changed(root, pinned_develop_sha, develop_sha, edition_slug):
+            meta["verdict"] = "refuse"
+            return f"stale vs develop {develop_sha}", meta
     editions_path = f"data/narrative_editions/{edition_slug}.json"
     editions_bytes = _blob_at(root, head, editions_path)
     pubkey = public_key_path()
@@ -1853,7 +2039,7 @@ def automerge_check(
             meta["verdict"] = "refuse"
             return f"older than main: {edition_slug} < {main_slug}", meta
 
-    repair_bytes = _blob_at(root, head, "data/narrative_repair.json")
+    repair_bytes = _blob_at(root, develop_sha, "data/narrative_repair.json")
     if repair_bytes is not None:
         repair = strict_json_object(repair_bytes, "data/narrative_repair.json")
         if repair.get("holdAutomerge"):
@@ -1916,6 +2102,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="E2 (a)(b)(c) check; no head checkout; uses develop blobs + GitHub API",
     )
+    parser.add_argument(
+        "--pinned-develop-sha",
+        default="",
+        help="gate-time develop SHA; re-verify refuses if tip moved and slug blobs changed",
+    )
     parser.add_argument("--pr-body", default="")
     parser.add_argument("--pr-number", default="")
     parser.add_argument("--repository", default="")
@@ -1956,6 +2147,7 @@ def main(argv: list[str] | None = None) -> int:
                 repository=args.repository
                 or os.environ.get("GITHUB_REPOSITORY")
                 or "",
+                edition_slug=promote_slug_from_ref(args.head_ref or ""),
             )
             if reason:
                 print(reason, file=sys.stderr)
@@ -1970,6 +2162,7 @@ def main(argv: list[str] | None = None) -> int:
                 develop_ref=args.develop_ref or DEVELOP_REF_DEFAULT,
                 fetch_develop=bool(args.fetch_develop),
                 paths_override=paths or None,
+                pinned_develop_sha=args.pinned_develop_sha or "",
             )
             _write_github_output(args.github_output, meta)
             if reason:

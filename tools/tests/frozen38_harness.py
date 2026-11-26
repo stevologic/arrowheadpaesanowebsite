@@ -172,6 +172,7 @@ def edition_files(
 def _copy_gate_tree(dest: Path) -> None:
     pkg = dest / "tools" / "chiefs_narrative"
     pkg.mkdir(parents=True, exist_ok=True)
+    (dest / "tools" / "__init__.py").write_text("", encoding="utf-8")
     src = REPO / "tools" / "chiefs_narrative"
     for name in ("__init__.py", "config.py", "review_gate.py"):
         shutil.copy2(src / name, pkg / name)
@@ -339,6 +340,8 @@ def run_hold_override(
         "--hold-override",
         "--head",
         "HEAD",
+        "--head-ref",
+        promo.head_ref,
         "--develop-ref",
         "origin/develop",
         "--pr-body",
@@ -440,7 +443,15 @@ def github_ns(
     )
 
 
-def write_gh_stub(path: Path, log: Path, *, merge_ok=True, pr_json=None, fail_api=False) -> None:
+def write_gh_stub(
+    path: Path,
+    log: Path,
+    *,
+    merge_ok=True,
+    already_merged=False,
+    pr_json=None,
+    fail_api=False,
+) -> None:
     pr_json = pr_json or {"draft": False, "labels": []}
     payload = json.dumps(pr_json)
     script = f"""#!/bin/bash
@@ -456,6 +467,11 @@ if [[ "$args" == *"workflow run"* ]]; then
   exit 0
 fi
 if [[ "$args" == *"pr merge"* ]]; then
+  if [ "{1 if already_merged else 0}" = "1" ]; then
+    echo "Pull request is already merged" >&2
+    echo "already-merged" >> "{log}.merge"
+    exit 1
+  fi
   if [ "{1 if merge_ok else 0}" = "1" ]; then
     echo "merged"
     echo "merge" >> "{log}.merge"
@@ -476,6 +492,22 @@ exit 0
 """
     path.write_text(script, encoding="utf-8")
     path.chmod(0o755)
+
+
+def bash_c(script: str, *, cwd: Path, env: dict[str, str]) -> subprocess.CompletedProcess:
+    """Run a workflow ``run:`` block with ``bash -c`` (never ``-lc``)."""
+    return subprocess.run(
+        ["bash", "-c", script],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+
+
+def extracted_step_script(workflow_name: str, step_name: str, root: Path | None = None) -> str:
+    wf = load_workflow(workflow_name, root)
+    return step_run(wf, "automerge", step_name)
 
 
 def edition_qa_globs(root: Path | None = None) -> list[str]:

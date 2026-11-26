@@ -1,4 +1,4 @@
-"""FROZEN-38 mutants M1–M43. A kill counts only on a behavioural AssertionError."""
+"""FROZEN-38 mutants M1–M50. A kill counts only on a behavioural AssertionError."""
 from __future__ import annotations
 
 import os
@@ -25,8 +25,12 @@ MUTANTS: list[tuple[str, str, str, str, str]] = [
         "M2",
         "test_B2_each_es_member",
         "tools/chiefs_narrative/review_gate.py",
-        "        if dev_sha != change.new_sha:",
-        "        if False and dev_sha != change.new_sha:",
+        "        if dev_sha != change.new_sha:"
+        + HUNK
+        + "        if head_blob != dev_blob:",
+        "        if False and dev_sha != change.new_sha:"
+        + HUNK
+        + "        if False and head_blob != dev_blob:",
     ),
     (
         "M3",
@@ -39,8 +43,12 @@ MUTANTS: list[tuple[str, str, str, str, str]] = [
         "M4",
         "test_B2_each_es_member",
         "tools/chiefs_narrative/review_gate.py",
-        "        dev = _ls_tree(root, develop_sha, change.path)",
-        "        dev = _ls_tree(root, head, change.path)",
+        "        dev = _ls_tree(root, develop_sha, change.path)"
+        + HUNK
+        + "    develop_files = slug_tree_files(root, develop_sha, edition_slug)",
+        "        dev = _ls_tree(root, head, change.path)"
+        + HUNK
+        + "    develop_files = slug_tree_files(root, head, edition_slug)",
     ),
     (
         "M5",
@@ -58,21 +66,21 @@ MUTANTS: list[tuple[str, str, str, str, str]] = [
     ),
     (
         "M7",
-        "test_B7_reverify_refuses_merge",
+        "test_R2_B6a_reverify_ci_runs",
         ".github/workflows/ci.yml",
-        "      - name: Re-verify against develop",
-        "      - name: Skip re-verify against develop",
+        "          PINNED_DEVELOP_SHA: ${{ steps.gate.outputs.develop_sha }}\n        run: |\n          set -euo pipefail\n          git fetch --no-tags origin +refs/heads/develop:refs/remotes/origin/develop",
+        "          PINNED_DEVELOP_SHA: ${{ steps.gate.outputs.develop_sha }}\n        run: |\n          set -euo pipefail\n          exit 0\n          git fetch --no-tags origin +refs/heads/develop:refs/remotes/origin/develop",
     ),
     (
         "M8",
         "test_C2_lookalike_refs",
         "tools/chiefs_narrative/review_gate.py",
-        "    return bool(head_ref) and bool(PROMOTE_HEAD_RE.fullmatch(head_ref or \"\"))",
-        '    return bool(head_ref) and "promote" in (head_ref or "")',
+        "    if not text.startswith(PROMOTE_PREFIX):\n        return False",
+        "    return True\n    if not text.startswith(PROMOTE_PREFIX):\n        return False",
     ),
     (
         "M9",
-        "test_A9_non_promote_old_allowlist",
+        "test_R2_N7c_non_promote_never_automerge",
         "tools/chiefs_narrative/review_gate.py",
         "    promote = is_promote_head_ref(head_ref)",
         "    promote = True",
@@ -95,12 +103,8 @@ MUTANTS: list[tuple[str, str, str, str, str]] = [
         "M12",
         "test_D6_deletes",
         "tools/chiefs_narrative/review_gate.py",
-        '"--no-ext-diff",'
-        + HUNK
-        + "        if dev_ent is not None and head_ent is None:",
-        '"--diff-filter=AM",\n                "--no-ext-diff",'
-        + HUNK
-        + "        if False and dev_ent is not None and head_ent is None:",
+        '"--no-ext-diff",',
+        '"--diff-filter=AM",\n                "--no-ext-diff",',
     ),
     (
         "M13",
@@ -209,7 +213,7 @@ MUTANTS: list[tuple[str, str, str, str, str]] = [
     ),
     (
         "M28",
-        "test_A_two_and_C1b_Y_no_auto",
+        "test_R2_B3b_preview_promote_both_pass",
         ".github/workflows/edition-qa.yml",
         "--head-ref \"$HEAD_REF\"",
         "--head-ref \"not-a-promote\"",
@@ -293,37 +297,87 @@ MUTANTS: list[tuple[str, str, str, str, str]] = [
     ),
     (
         "M40",
-        "test_H2_L_D_F_label_reread",
+        "test_R2_B4a_ci_hold_step_present",
         ".github/workflows/ci.yml",
-        "      - name: Re-read labels and draft",
-        "      - name: Skip re-read labels and draft",
+        "          HEAD_REF: ${{ github.head_ref }}\n          PR_NUMBER: ${{ github.event.pull_request.number }}\n          GITHUB_REPOSITORY: ${{ github.repository }}\n        run: |\n          set -euo pipefail\n          GATE_BASE=\"${RUNNER_TEMP}/gate-base\"",
+        "          HEAD_REF: ${{ github.head_ref }}\n          PR_NUMBER: ${{ github.event.pull_request.number }}\n          GITHUB_REPOSITORY: ${{ github.repository }}\n        run: |\n          set -euo pipefail\n          exit 0\n          GATE_BASE=\"${RUNNER_TEMP}/gate-base\"",
     ),
     (
         "M41",
-        "test_F7_no_swallowed_rc",
+        "test_H2_L_D_F_label_reread",
         ".github/workflows/ci.yml",
         "          payload=\"$(gh api \"repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}\")\"",
-        "          payload=\"$(gh api \"repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}\" || true)\"",
+        "          payload=\"$(gh api \"repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}\" || echo '{\"draft\":false,\"labels\":[]}')\"",
     ),
     (
         "M42",
-        "test_A_two_and_C1b_Y_no_auto",
+        "test_H2_L_D_F_label_reread",
         ".github/workflows/ci.yml",
-        "            --squash \\",
-        "            --squash --auto \\",
+        '          out="$(gh pr merge "$PR_URL" --squash --match-head-commit "$HEAD_SHA" 2>&1)"',
+        '          out="$(gh pr merge "$PR_URL" --squash --auto --match-head-commit "$HEAD_SHA" 2>&1)"',
     ),
     (
         "M43",
-        "test_C4_R_head_gate_module_never_runs",
+        "test_R2_B5b_edition_qa_gate_step_clean_no_sentinel",
         ".github/workflows/edition-qa.yml",
-        "          fetch-depth: 0\n          ref: ${{ github.event.pull_request.base.sha }}",
-        "          fetch-depth: 0\n          ref: ${{ github.event.pull_request.head.sha }}",
+        "          cd \"$GATE_BASE\"\n          PYTHONPATH=\"$GATE_BASE\" python -P -m tools.chiefs_narrative.review_gate --automerge \\",
+        "          cd \"$GITHUB_WORKSPACE\"\n          PYTHONPATH=\"$GITHUB_WORKSPACE\" python -P -m tools.chiefs_narrative.review_gate --automerge \\",
+    ),
+    (
+        "M44",
+        "test_R2_B6b_reverify_edition_qa_runs",
+        ".github/workflows/edition-qa.yml",
+        "          PINNED_DEVELOP_SHA: ${{ steps.gate.outputs.develop_sha }}\n        run: |\n          set -euo pipefail\n          git fetch --no-tags origin +refs/heads/develop:refs/remotes/origin/develop",
+        "          PINNED_DEVELOP_SHA: ${{ steps.gate.outputs.develop_sha }}\n        run: |\n          set -euo pipefail\n          exit 0\n          git fetch --no-tags origin +refs/heads/develop:refs/remotes/origin/develop",
+    ),
+    (
+        "M45",
+        "test_R2_B4b_edition_qa_hold_step_present",
+        ".github/workflows/edition-qa.yml",
+        "          HEAD_REF: ${{ github.head_ref }}\n          PR_NUMBER: ${{ github.event.pull_request.number }}\n          GITHUB_REPOSITORY: ${{ github.repository }}\n        run: |\n          set -euo pipefail\n          GATE_BASE=\"${RUNNER_TEMP}/gate-base\"",
+        "          HEAD_REF: ${{ github.head_ref }}\n          PR_NUMBER: ${{ github.event.pull_request.number }}\n          GITHUB_REPOSITORY: ${{ github.repository }}\n        run: |\n          set -euo pipefail\n          exit 0\n          GATE_BASE=\"${RUNNER_TEMP}/gate-base\"",
+    ),
+    (
+        "M46",
+        "test_R2_B5a_ci_gate_step_clean_no_sentinel",
+        ".github/workflows/ci.yml",
+        "          cd \"$GATE_BASE\"\n          PYTHONPATH=\"$GATE_BASE\" python -P -m tools.chiefs_narrative.review_gate --automerge \\",
+        "          cd \"$GITHUB_WORKSPACE\"\n          PYTHONPATH=\"$GITHUB_WORKSPACE\" python -P -m tools.chiefs_narrative.review_gate --automerge \\",
+    ),
+    (
+        "M47",
+        "test_R2_B4c_karen_pending",
+        "tools/chiefs_narrative/review_gate.py",
+        "            if conclusion == \"success\":\n                return True, \"ok\"",
+        "            if conclusion != \"failure\":\n                return True, \"ok\"",
+    ),
+    (
+        "M48",
+        "test_R2_B4d_karen_absent",
+        "tools/chiefs_narrative/review_gate.py",
+        "    return False, \"karen-qa absent\"",
+        "    return True, \"ok\"",
+    ),
+    (
+        "M49",
+        "test_R2_B4h_karen_on_wrong_sha",
+        "tools/chiefs_narrative/review_gate.py",
+        "    ok, why = _karen_qa_success(pr_head, repository)",
+        "    ok, why = _karen_qa_success(develop_sha, repository)",
+    ),
+    (
+        "M50",
+        "test_R2_B2b_multiple_prs",
+        "tools/chiefs_narrative/review_gate.py",
+        "    if len(pulls) != 1:\n        return f\"hold override refused: b: zero or multiple PRs ({len(pulls)})\"",
+        "    if False and len(pulls) != 1:\n        return f\"hold override refused: b: zero or multiple PRs ({len(pulls)})\"",
     ),
 ]
 
 
 GATE = "tools.tests.test_frozen38_promote_gate.Frozen38PromoteGate"
 WF = "tools.tests.test_frozen38_workflows.Frozen38Workflows"
+R2 = "tools.tests.test_frozen38_r2.Frozen38R2"
 WF_PREFIXES = (
     "test_A_two",
     "test_A8",
@@ -340,10 +394,13 @@ WF_PREFIXES = (
     "test_B7",
     "test_B10",
     "test_C1b",
+    "test_R2_",
 )
 
 
 def _killer_mod(killer: str) -> str:
+    if killer.startswith("test_R2_"):
+        return R2
     if killer in {"test_C1_promote_prefix", "test_C2_lookalike_refs"}:
         return GATE
     if killer.startswith(WF_PREFIXES):
@@ -450,7 +507,7 @@ def run_clean_control(times: int = 6) -> list[dict]:
                 "-m",
                 "unittest",
                 f"{GATE}.test_A1_preview_11",
-                f"{GATE}.test_A5_two_file_control",
+                f"{R2}.test_R2_B1g_full_set_hold_false",
                 f"{WF}.test_A_two_and_C1b_Y_no_auto",
                 "-q",
             ],

@@ -180,6 +180,7 @@ jobs:
           HEAD_REF: ${{ github.head_ref }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           BASE_REF: ${{ github.base_ref }}
+          PINNED_DEVELOP_SHA: ${{ steps.gate.outputs.develop_sha }}
         run: |
           set -euo pipefail
           git fetch --no-tags origin +refs/heads/develop:refs/remotes/origin/develop
@@ -191,6 +192,7 @@ jobs:
             --head-ref "$HEAD_REF" \
             --develop-ref origin/develop \
             --fetch-develop \
+            --pinned-develop-sha "$PINNED_DEVELOP_SHA" \
             --github-output "$GITHUB_OUTPUT" \
             --root "${GITHUB_WORKSPACE}"
 
@@ -198,19 +200,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.head_ref }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          HOLD_AUTOMERGE: ${{ steps.reverify.outputs.hold_automerge }}
         run: |
           set -euo pipefail
-          if [ "${HOLD_AUTOMERGE}" != "true" ]; then
-            echo "holdAutomerge is not set; skip override checks"
-            exit 0
-          fi
           GATE_BASE="${RUNNER_TEMP}/gate-base"
           cd "$GATE_BASE"
           PYTHONPATH="$GATE_BASE" python -P -m tools.chiefs_narrative.review_gate --hold-override \
             --head "$HEAD_SHA" \
+            --head-ref "$HEAD_REF" \
             --develop-ref origin/develop \
             --pr-number "$PR_NUMBER" \
             --repository "$GITHUB_REPOSITORY" \
@@ -225,8 +224,11 @@ jobs:
           set -euo pipefail
           payload="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
           test -n "$payload"
-          draft="$(printf '%s' "$payload" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("draft"))')"
-          labels="$(printf '%s' "$payload" | python3 -c 'import json,sys; print("\n".join(x.get("name","") for x in json.load(sys.stdin).get("labels") or []))')"
+          NEUTRAL="${RUNNER_TEMP}/label-parse"
+          mkdir -p "$NEUTRAL"
+          cd "$NEUTRAL"
+          draft="$(printf '%s' "$payload" | python3 -P -c 'import json,sys; print(json.load(sys.stdin).get("draft"))')"
+          labels="$(printf '%s' "$payload" | python3 -P -c 'import json,sys; print("\n".join(x.get("name","") for x in json.load(sys.stdin).get("labels") or []))')"
           if [ "$draft" != "False" ] && [ "$draft" != "false" ]; then
             echo "refuse: PR is draft"
             exit 1
@@ -237,17 +239,31 @@ jobs:
           fi
 
       - name: Squash-merge the pull request
+        id: merge
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          gh pr merge "$PR_URL" \
-            --squash \
-            --match-head-commit "$HEAD_SHA"
+          set +e
+          out="$(gh pr merge "$PR_URL" --squash --match-head-commit "$HEAD_SHA" 2>&1)"
+          rc=$?
+          set -e
+          if [ "$rc" -eq 0 ]; then
+            echo "skip_pages=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if printf '%s\n' "$out" | grep -qi 'already merged'; then
+            echo "already merged; treating as success"
+            echo "skip_pages=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          printf '%s\n' "$out" >&2
+          exit "$rc"
 
       - name: Trigger Pages deploy
+        if: ${{ steps.merge.outputs.skip_pages != 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

@@ -1,7 +1,6 @@
 """FROZEN-38 behavioural rows for review_gate --automerge (throwaway git repos)."""
 from __future__ import annotations
 
-import inspect
 import json
 import os
 import tempfile
@@ -93,16 +92,30 @@ class Frozen38PromoteGate(unittest.TestCase):
             self._assert_pass(result, "A4/S1")
 
     def test_A5_two_file_control(self):
+        """#343 2-file shape: r2 N7c/B1a — non-promote never automerges; partial promote refuses."""
         with tempfile.TemporaryDirectory() as tmp:
             payload = preview_payload()
             files = {
                 "data/narrative.json": dumps(payload),
                 f"data/narrative_editions/{SLUG}.json": dumps(payload),
             }
-            promo = build_promo(Path(tmp), files)
-            self._assert_pass(run_gate(promo), "A5 after")
-            result_old = run_gate(promo, head_ref="fix/x")
-            self._assert_pass(result_old, "A5 before/non-promote")
+            promo = build_promo(Path(tmp), files, head_ref="fix/x")
+            self._assert_refuse(
+                run_gate(promo, head_ref="fix/x"),
+                "off the automerge allowlist",
+                "A5 non-promote",
+            )
+            full = edition_files(SLUG, payload)
+            partial = {
+                "data/narrative.json": dumps(payload),
+                f"data/narrative_editions/{SLUG}.json": dumps(payload),
+            }
+            two = build_promo(
+                Path(tmp) / "partial",
+                partial,
+                extra_develop={k: v for k, v in full.items() if k not in partial},
+            )
+            self._assert_refuse(run_gate(two), "blob differs from develop", "A5 partial")
 
     def test_A6_S2_E1U_unsigned_review(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -143,7 +156,11 @@ class Frozen38PromoteGate(unittest.TestCase):
                 f"data/narrative_editions/{SLUG}.json": dumps(payload),
             }
             two = build_promo(Path(tmp) / "two", files, head_ref="fix/x")
-            self._assert_pass(run_gate(two, head_ref="fix/x"), "A9 control")
+            self._assert_refuse(
+                run_gate(two, head_ref="fix/x"),
+                "off the automerge allowlist",
+                "A9/N7c no old-path fallback",
+            )
 
     def test_A_msg_distinct_reasons(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -193,11 +210,18 @@ class Frozen38PromoteGate(unittest.TestCase):
             promo = self._preview11(tmp)
             for ref in lookalikes:
                 with self.subTest(ref=ref):
+                    result = run_gate(promo, head_ref=ref)
                     self._assert_refuse(
-                        run_gate(promo, head_ref=ref),
+                        result,
                         "off the automerge allowlist",
                         ref,
                     )
+                    if not (ref or "").startswith("promote/"):
+                        self.assertNotIn(
+                            "branch slug",
+                            result.stderr,
+                            ref,
+                        )
 
     def test_B1_identity_control(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -465,9 +489,9 @@ class Frozen38PromoteGate(unittest.TestCase):
             promo = build_promo(Path(tmp), files)
             seed = promo.tmp / "seed"
             git(["checkout", promo.head_ref], cwd=seed)
-            (seed / "data" / "wire.json").unlink()
+            (seed / "README.md").unlink()
             git(["add", "-A"], cwd=seed)
-            git(["commit", "-m", "delete wire"], cwd=seed)
+            git(["commit", "-m", "delete README"], cwd=seed)
             git(["push", "origin", promo.head_ref], cwd=seed)
             git(["fetch", "origin", promo.head_ref], cwd=promo.pr_tree)
             git(["checkout", "-B", promo.head_ref, "origin/" + promo.head_ref], cwd=promo.pr_tree)
@@ -488,7 +512,38 @@ class Frozen38PromoteGate(unittest.TestCase):
         reason = review_gate._change_status_reason(changes[0])
         self.assertIsNotNone(reason)
         self.assertIn("tools/x.json", reason)
-        self.assertIn('"--no-renames"', inspect.getsource(review_gate.git_raw_changed))
+        with tempfile.TemporaryDirectory() as tmp:
+            files = edition_files(SLUG, preview_payload(), hold=False)
+            promo = build_promo(Path(tmp), files)
+            seed = promo.tmp / "seed"
+            git(["checkout", promo.head_ref], cwd=seed)
+            git(["mv", "README.md", "data/readme-moved.md"], cwd=seed)
+            git(["commit", "-m", "rename README"], cwd=seed)
+            git(["push", "origin", promo.head_ref], cwd=seed)
+            git(["fetch", "origin", promo.head_ref], cwd=promo.pr_tree)
+            git(["reset", "--hard", "FETCH_HEAD"], cwd=promo.pr_tree)
+            listed = review_gate.git_raw_changed(
+                "origin/main", "HEAD", promo.pr_tree
+            )
+            self.assertFalse(
+                any(str(item.status).startswith("R") for item in listed),
+                [item.status for item in listed],
+            )
+            self.assertTrue(
+                any(
+                    item.path == "README.md" and str(item.status).startswith("D")
+                    for item in listed
+                ),
+                listed,
+            )
+            self.assertTrue(
+                any(
+                    item.path == "data/readme-moved.md"
+                    and str(item.status).startswith("A")
+                    for item in listed
+                ),
+                listed,
+            )
 
     def test_D8_mode_symlink(self):
         change = review_gate.RawChange(

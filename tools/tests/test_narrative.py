@@ -8999,7 +8999,7 @@ class FactCheck(unittest.TestCase):
                     review_gate.main(
                         ["--automerge", "--root", str(root), preview_rel]
                     ),
-                    0,
+                    1,
                 )
                 self.assertEqual(
                     review_gate.main(["--automerge", "--root", str(tmp_path)]),
