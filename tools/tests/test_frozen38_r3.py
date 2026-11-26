@@ -4,7 +4,7 @@ from __future__ import annotations
 import copy
 import json
 import os
-import subprocess
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -34,6 +34,23 @@ from tools.tests.test_frozen38_r2 import _bot_pr, _human_pr, _karen
 
 FIX = Path(__file__).resolve().parent / "fixtures" / "frozen38_r3"
 REPO_NAME = "stevologic/arrowheadpaesanowebsite"
+_MERGED_BY = re.compile(r"merged_by")
+_COMMITS_PULLS_NAME = re.compile(r"^commits_.*_pulls\.json$")
+
+
+def commits_pulls_merged_by_hits(root: Path) -> list[str]:
+    """F1f: same pattern and commits/.../pulls-shape paths as `rg merged_by`."""
+    hits: list[str] = []
+    for dirpath, _dirnames, filenames in os.walk(root):
+        for name in filenames:
+            if not _COMMITS_PULLS_NAME.fullmatch(name):
+                continue
+            path = Path(dirpath) / name
+            text = path.read_text(encoding="utf-8")
+            for lineno, line in enumerate(text.splitlines(), 1):
+                if _MERGED_BY.search(line):
+                    hits.append(f"{path}:{lineno}:{line}")
+    return hits
 
 
 def _load(name: str):
@@ -224,19 +241,8 @@ class Frozen38R3(unittest.TestCase):
             self.assertIn("merged_by", payload)
             ok, why = merger_identity(payload)
             self.assertTrue(ok, why)
-        rg = subprocess.run(
-            [
-                "rg",
-                "-n",
-                "merged_by",
-                str(FIX / "commits_831ae92_pulls.json"),
-                str(FIX / "commits_3a220bd_pulls.json"),
-            ],
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(rg.returncode, 1, rg.stdout + rg.stderr)
-        self.assertEqual(rg.stdout.strip(), "")
+        hits = commits_pulls_merged_by_hits(FIX)
+        self.assertEqual(hits, [])
 
     def _replay_423(self, *, relabel_bot: bool):
         with tempfile.TemporaryDirectory() as tmp:
