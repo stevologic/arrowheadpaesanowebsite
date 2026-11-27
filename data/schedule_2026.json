@@ -231,10 +231,10 @@
     "homeAway": "away",
     "venue": "Highmark Stadium",
     "tv": "NBC",
-    "completed": false,
+    "completed": true,
     "inProgress": false,
-    "kcScore": null,
-    "oppScore": null,
+    "kcScore": 10,
+    "oppScore": 13,
     "kickoff": "Thu, Nov 26 · 7:20 PM CT"
   },
   {
