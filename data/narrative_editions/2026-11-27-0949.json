@@ -1,0 +1,419 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-27T09:49:03+00:00",
+  "updatedAt": "2026-11-27T09:49:05+00:00",
+  "generator": "grok:grok-4.7",
+  "heroMediaId": "none",
+  "phase": {
+    "type": "regular",
+    "label": "Week 12",
+    "week": 12,
+    "mode": "review"
+  },
+  "edition": "2026 Week 12 · Review",
+  "record": "8-3",
+  "headline": "A 10-13 Highmark loss, then a 1.5-point trip to the Rams",
+  "sectionTitles": {
+    "lastGame": "Highmark held the ball and closed it",
+    "currentState": "8-3, a game back, and the third-down stall",
+    "gamePlan": "Los Angeles minus 1.5 on a short week",
+    "pressConferences": "Reid's podium after the 13-10"
+  },
+  "dek": "Kansas City is 8-3 after a 10-13 loss at Buffalo and visits the Los Angeles Rams on Thu Dec 3, 7:15 PM CT on Prime Video as a DraftKings 1.5-point underdog on a 44.5 total, with ESPN FPI at 45.0 percent.",
+  "videoHook": "Buffalo kept the ball for 36:55, Kansas City managed 13 first downs, and Thursday in Los Angeles is already a one-point game.",
+  "theEdge": "ESPN FPI lists Kansas City at 45.0 percent in Los Angeles against 54.6 for the Rams, DraftKings has Los Angeles minus 1.5 on a 44.5 total, and Kansas City's Buffalo box was 74 rushing yards, 167 net passing yards, 2-of-11 on third down, and zero giveaways.",
+  "editorNotes": [
+    "74 rushing yards and 167 net passing yards are Kansas City's Buffalo box, not Buffalo's. Buffalo rushed for 166 on 43 attempts and held the ball 36:55.",
+    "Nourzad eligible reports on the list are Q2 13:12, Q2 0:25, and Q3 5:40 only. Do not attach him to other clocks.",
+    "Zone blitz and play-action boot are calls for the Rams game. Buffalo interceptions are credited to A. Gilman and N. Williams. Mahomes recovered both aborted snaps.",
+    "Scoring player field on the ESPN table is unknown; Cook's 5-yard touchdown is the Q2 14:32 PBP line. Johnson's rushing touchdown is the leader line."
+  ],
+  "pressConferences": [
+    {
+      "url": "https://www.youtube.com/watch?v=uHkEeu9PIjA",
+      "videoId": "uHkEeu9PIjA",
+      "speaker": "Andy Reid, Patrick Mahomes, and Chris Jones",
+      "channel": "Kansas City Chiefs",
+      "title": "Andy Reid, Patrick Mahomes, Chris Jones Postgame Press Conferences - Chiefs vs. Bills NFL Week 12",
+      "date": "2026-11-26",
+      "dateLabel": "Thu Nov 26, 2026"
+    }
+  ],
+  "storyline": {
+    "lede": "Kansas City left Highmark Stadium at 10-13, and the box explains the night better than the final margin. Buffalo ran 43 times for 166 yards, held the ball for 36:55, and went 9-of-16 on third down. Kansas City had 13 first downs, 74 rushing yards, 167 net passing yards, a 23:05 possession, and a 2-of-11 third-down line, with zero giveaways.",
+    "body": [
+      "The scoreboard moved late and stayed cramped. Buffalo's 5-yard touchdown at Q2 14:32 made it 0-7. A 26-yard field goal at Q2 0:02 cut it to 3-7. The 1-yard touchdown at Q3 11:28 put Kansas City in front, 10-7. Buffalo tied it with a 54-yard field goal at Q4 11:58. Harrison Butker's 46-yard try at Q4 6:01 was wide right with the score 10-10. Tyler Bass won it with a 57-yard field goal at Q4 0:00.",
+      "Steve Spagnuolo's unit took the ball away twice and held Josh Allen to 10-of-21, two sacks, an 18.3 rating, and 64 net passing yards. A. Gilman intercepted a short left throw intended for D. Knox, with G. Karlaftis on the credit line. N. Williams intercepted a short right throw intended for K. Shakir. Nick Bolton had the sack on the leader line. That is a real passing-game night. It did not stop James Cook III, who had 32 rushes, or the 43-carry plan that ate the clock.",
+      "Andy Reid's offense had the explosives and not the chain. Travis Kelce caught four passes for 71 yards, including a 24-yard gain and a 21-yard gain before the 26-yard field goal. Emmett Johnson carried 17 times for 72 yards and the rushing touchdown, with four catches and 21 touches. Patrick Mahomes was 16-of-29 for 174 yards, took one sack, and was hit six times. He recovered both aborted snaps. The next assignment is already on the sheet: Thu Dec 3, 7:15 PM CT at the Los Angeles Rams on Prime Video, with DraftKings listing Los Angeles minus 1.5 on a 44.5 total and ESPN FPI at 45.0 percent for Kansas City."
+    ]
+  },
+  "lastGameReview": {
+    "opponent": "Buffalo Bills",
+    "label": "Week 12 · Thu, Nov 26 · 7:20 PM CT",
+    "result": "L",
+    "score": "KC 10–13",
+    "lede": "At Highmark Stadium, Buffalo beat Kansas City 13-10 by keeping the ball and winning the last kick. Kansas City scored 10 points on 241 yards, went 2-of-11 on third down, and never turned it over. Buffalo gained 230 yards, rushed for 166, and possessed it for 36:55.",
+    "analysis": [
+      {
+        "body": "The first score was Buffalo's. At Q2 14:32, J. Cook ran up the middle for 5 yards and a touchdown, and the extra point made it 0-7. Kansas City's answer before halftime was a 26-yard field goal at Q2 0:02, set up by Kelce's 24-yard catch to the Buffalo 40 and his 21-yard catch to the Buffalo 8. That is a real two-minute sequence from Mahomes to Kelce. It produced three points."
+      },
+      {
+        "body": "From there the offense could not stack first downs. Ten drives produced 13 first downs. Johnson's 72 yards were almost the entire 74-yard team rushing total on 20 attempts. Mahomes finished 16-of-29 for 174 yards with one sack and six quarterback hits. Cyrus Allen's 19-yard catch in the fourth quarter was a chunk. It did not become a scoring drive."
+      },
+      {
+        "body": "Buffalo did not need Allen to throw it around. Cook's 32 rushes and Allen's seven rushes sat inside a 43-carry, 166-yard ground plan. The two turnovers were both interceptions: Gilman in the second quarter, Williams in the third."
+      },
+      {
+        "body": "The finish was a kicking game and a penalty game. Buffalo's 54-yard field goal at Q4 11:58 tied it at 10-10. Butker then missed from 46, wide right, at Q4 6:01. Kansas City flags wiped plays across the night, including holding on J. Ott and K. Suamataia, an ineligible-downfield kick on J. Cochrane, unnecessary roughness on Suamataia, offensive pass interference on Kelce, holding on H. Nourzad, and a false start on F. Johnson. Reid told reporters Rashee Rice's overturned catch was not clear and obvious."
+      }
+    ],
+    "takeaways": [
+      {
+        "title": "The run clock was the game",
+        "body": "Two interceptions did not flip the down-and-distance script."
+      },
+      {
+        "title": "Ten points on zero giveaways",
+        "body": "Mahomes recovered both aborted snaps, and the team turnover count is zero. The miss was conversion rate: 2-of-11 on third down, 13 first downs, and a 46-yard field goal wide right while the score was 10-10."
+      },
+      {
+        "title": "Johnson carried the run, Kelce carried the pass",
+        "body": "Johnson had 21 touches, 72 rushing yards, and the rushing touchdown. Kelce had four catches for 71 yards. The rest of the skill group was sparse: Rice two catches, Gray three, and one each for Downs, Royals, and Cyrus Allen."
+      }
+    ],
+    "whatWorked": [
+      "Zero giveaways, with Mahomes recovering both aborted snaps",
+      "Kelce's four catches for 71 yards, including the 24- and 21-yard gains before the 26-yard field goal"
+    ],
+    "whatDidnt": [
+      "2-of-11 on third down and 13 first downs",
+      "74 team rushing yards against a 43-carry Buffalo plan",
+      "Six quarterback hits and one sack on Mahomes",
+      "Butker's 46-yard miss wide right while the score was 10-10"
+    ]
+  },
+  "currentState": {
+    "lede": "The slate record is 8-3 after the loss in Buffalo. Arrowhead Pride's playoff picture put Kansas City a game behind Denver in the AFC West, with Buffalo strengthening its hold on the top of the conference. The tape that has to travel is a 241-yard, 2-of-11 night, not the Arizona afternoon.",
+    "record": "8-3",
+    "workOn": [
+      {
+        "title": "Third down before the explosives",
+        "body": "Kansas City was 2-of-11 and finished with 13 first downs. Kelce's 24- and 21-yard catches and Allen's 19-yard catch were real. They did not replace a third-down plan against a defense that can sit on obvious passing downs after six quarterback hits."
+      },
+      {
+        "title": "Early-down run share",
+        "body": "Johnson had 17 of 20 team rushes and 72 of 74 rushing yards. That is a workable identity if the line can finish blocks. It is not a 43-carry counter if the opponent wants to hold the ball the way Buffalo did for 36:55."
+      },
+      {
+        "title": "Operational flags and the kicking operation",
+        "body": "Suamataia had a holding penalty and an unnecessary-roughness penalty. Butker told the building, through Arrowhead Pride, that his confidence is still high after the 46-yard miss. The operation still has to be trustworthy on a 44.5 total."
+      }
+    ],
+    "thinkAbout": [
+      {
+        "title": "How much of Buffalo was the opponent's plan",
+        "body": "Allen at 10-of-21 and 64 net passing yards is a Spagnuolo night. Cook at 32 rushes inside 166 team rushing yards is the part that has to be answered before Sean McVay's offense gets a short-week script."
+      },
+      {
+        "title": "Rice on the late down Reid would not concede",
+        "body": "Reid said the overturned Rice catch was not clear and obvious. Rice still finished with two catches. The staff has to decide how much of the third-down menu stays on him next to Kelce's four-catch, 71-yard line."
+      },
+      {
+        "title": "Who is available on the short week",
+        "body": "Jalen Royals left with an ankle injury and was ruled out. Kenneth Walker did not dress against Buffalo. Reid also addressed Trey Smith after the game. Thursday's plan cannot assume a full skill group or a settled right guard until the next report says so."
+      }
+    ]
+  },
+  "gamePlan": {
+    "opponent": "Los Angeles Rams",
+    "lede": "Kansas City visits the Rams on Thu Dec 3, 7:15 PM CT on Prime Video as a DraftKings 1.5-point underdog on a 44.5 total. ESPN FPI has Kansas City at 45.0 percent and Los Angeles at 54.6. After a 10-13 loss built on possession, the assignment is to win early downs and keep McVay from playing the same keep-away game Buffalo just played.",
+    "howTheyMatch": "Buffalo showed the cost of a one-dimensional response. Spagnuolo can bother a quarterback — Allen was 10-of-21 with two sacks and an 18.3 rating — and still lose the night if the run game faces 43 carries and a 36:55 clock. Bieniemy's counter is Johnson on early downs, Kelce and Rice in the pattern, and easier throws after Mahomes took six hits and one sack. The Rams are a small favorite in their building. Kansas City does not need a shootout on a 44.5 total. It needs  more than 13 first downs.",
+    "keys": [
+      {
+        "title": "Make Johnson the first-down answer",
+        "body": "He just carried 17 times for 72 yards and scored the 1-yard touchdown. Inside zone on early downs keeps Mahomes out of the third-and-long pocket that produced one sack and six hits."
+      },
+      {
+        "title": "Do not ask the defense to play another 36-minute game",
+        "body": "Cover-2 and a zone-blitz change-up are the calls if Los Angeles wants explosives and then the run. Buffalo's 9-of-16 on third down is the reminder that tackles after the catch and on the ground decide the clock."
+      },
+      {
+        "title": "Treat four points as live",
+        "body": "Butker made the 26-yard field goal and missed the 46-yarder wide right while tied. On a 44.5 total, a make in that range changes who is playing from behind in the fourth quarter."
+      }
+    ],
+    "script": [
+      "Use a screen on an obvious rush down so the six-hit pocket from Buffalo is not the only answer.",
+      "Take a deep shot to Kelce once the run has Buffalo-style linebackers stepping, without labeling every dropback as play-action.",
+      "Spagnuolo in Cover-2 on early downs, then a zone blitz on a medium third down to change the protection picture.",
+      "If the game is inside a score late, the field-goal operation has to be cleaner than the 46-yard miss at Q4 6:01."
+    ]
+  },
+  "nextGame": {
+    "label": "Week 13 · Thu, Dec 3 · 7:15 PM CT",
+    "opponent": "Los Angeles Rams",
+    "at": "@ SoFi Stadium",
+    "tv": "Prime Video",
+    "note": "DraftKings has Los Angeles minus 1.5 on a 44.5 total; ESPN FPI has Kansas City at 45.0 percent."
+  },
+  "markets": {
+    "game": {
+      "opponent": "Los Angeles Rams",
+      "label": "Thu, Dec 3 · 7:15 PM CT",
+      "homeAway": "away",
+      "kcWin": 45.0,
+      "spreadDetail": "LAR -1.5",
+      "overUnder": 44.5,
+      "source": "ESPN FPI win probability; ESPN / DraftKings spread",
+      "url": "https://www.espn.com/nfl/game/_/gameId/401873096"
+    },
+    "model": {
+      "kcWin": 45.0,
+      "oppWin": 54.6,
+      "label": "ESPN FPI game projection",
+      "source": "ESPN FPI",
+      "url": "https://www.espn.com/nfl/fpi"
+    },
+    "vegas": {
+      "provider": "Draft Kings",
+      "spreadDetail": "LAR -1.5",
+      "overUnder": 44.5,
+      "homeMoneyline": -109.0,
+      "awayMoneyline": -108.0,
+      "source": "ESPN / Draft Kings",
+      "url": "https://www.espn.com/nfl/lines"
+    }
+  },
+  "spotlight": [
+    {
+      "tag": "Possession",
+      "title": "36:55 to 23:05",
+      "body": "Buffalo's clock was 36:55 on 11 drives. Kansas City's was 23:05 on 10. The Rams game plan starts with not handing McVay that same down-and-distance cushion."
+    },
+    {
+      "tag": "Rookie back",
+      "title": "Johnson's 21 touches",
+      "body": "Seventeen rushes, four catches, 72 rushing yards, and the rushing touchdown. Arrowhead Addict has him in the Offensive Rookie of the Year conversation. Thursday he is also the early-down plan with Walker having sat out Buffalo."
+    },
+    {
+      "tag": "Kelce",
+      "title": "Four for 71 in a 10-point game",
+      "body": "The 24-yard catch and the 21-yard catch before the 26-yard field goal were the clearest chain-movers Mahomes had. He still needs a third-down partner when Rice's targets are being reviewed on the field."
+    },
+    {
+      "tag": "Allen contained, Cook not",
+      "title": "10-of-21 and 32 rushes",
+      "body": "Josh Allen's rating was 18.3 with two sacks. James Cook III had 32 rushes and one catch, 33 touches, inside a 166-yard team rushing night. That split is the defensive lesson."
+    },
+    {
+      "tag": "Kicker",
+      "title": "26 good, 46 wide right",
+      "body": "Arrowhead Pride reported Butker's confidence is still high after the miss with the score tied."
+    },
+    {
+      "tag": "West",
+      "title": "A game behind Denver",
+      "body": "Arrowhead Pride framed the Buffalo loss as a setback in the AFC West race. The Rams trip does not fix the division by itself, but another low-possession loss would."
+    }
+  ],
+  "matchups": [
+    {
+      "unit": "Chiefs run game vs. the Rams front",
+      "chiefs": "Emmett Johnson and the inside-zone plan",
+      "opponent": "Los Angeles run defense",
+      "edge": "PUSH",
+      "note": "Johnson had 72 of Kansas City's 74 rushing yards. The line also drew holding and unnecessary-roughness flags on Suamataia. Early downs are the lever, not a finished statement."
+    },
+    {
+      "unit": "Mahomes vs. pressure",
+      "chiefs": "Patrick Mahomes",
+      "opponent": "Rams pass rush",
+      "edge": "OPP",
+      "note": "He was 16-of-29 for 174 yards with one sack and six quarterback hits. Screens and mesh are how Bieniemy keeps that hit count from becoming the story again."
+    },
+    {
+      "unit": "Spagnuolo vs. the opponent run game",
+      "chiefs": "Steve Spagnuolo, Nick Bolton, George Karlaftis",
+      "opponent": "Rams rushing plan",
+      "edge": "OPP",
+      "note": "The Buffalo tape is 166 rushing yards on 43 attempts and a 36:55 possession. Two interceptions and Bolton's sack did not shrink that carry count."
+    },
+    {
+      "unit": "Kelce and Rice vs. coverage",
+      "chiefs": "Travis Kelce and Rashee Rice",
+      "opponent": "Rams secondary",
+      "edge": "KC",
+      "note": "Kelce's 4-for-71, with gains of 24 and 21, was the passing identity. Rice had two catches, and Reid disputed the overturn. They are still the answers on third down after a 2-of-11 night."
+    },
+    {
+      "unit": "Kicking game",
+      "chiefs": "Harrison Butker",
+      "opponent": "Rams special teams",
+      "edge": "PUSH",
+      "note": "A 26-yard make and a 46-yard miss wide right, then a loss on a 57-yard kick. On a 44.5 total, that range is a possession."
+    }
+  ],
+  "xsandos": [
+    {
+      "title": "Johnson inside zone on first down",
+      "situation": "1st-and-10 at the Rams, before the down-and-distance gets to the 2-of-11 problem from Buffalo",
+      "concept": "inside_zone",
+      "why": "Johnson just took 17 carries for 72 yards and the 1-yard touchdown inside a 74-yard team rushing night. Los Angeles is laying 1.5. Kansas City needs a first-down run that does not require Mahomes to hold the ball after six quarterback hits.",
+      "coaching": "Bieniemy: zone steps, one cut, Johnson downhill. Do not bounce it into the flags that already hit Suamataia.",
+      "labels": {
+        "x": "alert replace",
+        "z": "crack replace",
+        "te": "zone reach"
+      },
+      "playmakers": [
+        {
+          "name": "Emmett Johnson",
+          "role": "inside zone back"
+        },
+        {
+          "name": "Patrick Mahomes",
+          "role": "under-center quarterback"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-27-0949/xo-inside_zone.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Screen after the rush declares",
+      "situation": "2nd-and-medium when the Rams show the same heat that produced one sack and six hits on Mahomes",
+      "concept": "spacing_screen",
+      "why": "The Buffalo pocket was not clean, and the third-down line was 2-of-11. A screen gives Johnson, who had four catches, a touch that does not ask Mahomes to win from the hash under contact.",
+      "coaching": "Let the line release and lead. Johnson catches it on the move. Gray, who had three catches and dressed, is the extra blocker if the front spills.",
+      "labels": {
+        "x": "stalk outside",
+        "z": "stalk outside",
+        "te": "arc to the screen"
+      },
+      "playmakers": [
+        {
+          "name": "Emmett Johnson",
+          "role": "screen back"
+        },
+        {
+          "name": "Noah Gray",
+          "role": "lead blocker"
+        },
+        {
+          "name": "Patrick Mahomes",
+          "role": "quick thrower"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-27-0949/xo-spacing_screen.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Mesh for Kelce and Rice",
+      "situation": "3rd-and-5 to 3rd-and-7, the down Kansas City converted twice in 11 tries",
+      "concept": "mesh",
+      "why": "Kelce had the 24- and 21-yard gains and finished 4 for 71. Rice had two catches, and Reid said the overturned grab was not clear and obvious. Rubs give both of them a defined catch against man.",
+      "coaching": "Kelce and Rice cross. Gray sits if the linebacker runs with the crosser. Mahomes throws the open man, then the checkdown. No hero ball on a down the Buffalo tape already lost.",
+      "labels": {
+        "x": "clear out",
+        "z": "sit",
+        "te": "mesh cross"
+      },
+      "playmakers": [
+        {
+          "name": "Travis Kelce",
+          "role": "mesh crosser"
+        },
+        {
+          "name": "Rashee Rice",
+          "role": "mesh crosser"
+        },
+        {
+          "name": "Noah Gray",
+          "role": "sit option"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-27-0949/xo-mesh.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Boot off the Johnson look",
+      "situation": "1st-and-10 or 2nd-and-short after an inside-zone carry has the linebackers fitting downhill",
+      "concept": "play_action_boot",
+      "why": "Johnson's 17 carries are the sell. Mahomes already showed he can move, including the 2-yard scramble right end before Kelce's 21-yard catch. A boot is the call in Los Angeles so the six-hit pocket is not the only launch point.",
+      "coaching": "Reid and Bieniemy: sell the zone, Mahomes to the perimeter, Kelce on the cross, Cyrus Allen clearing. Throw the easy one. This is a Thursday call built off the run.",
+      "labels": {
+        "x": "clear",
+        "z": "flat",
+        "te": "cross"
+      },
+      "playmakers": [
+        {
+          "name": "Patrick Mahomes",
+          "role": "boot quarterback"
+        },
+        {
+          "name": "Travis Kelce",
+          "role": "crossing tight end"
+        },
+        {
+          "name": "Emmett Johnson",
+          "role": "run fake"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-27-0949/xo-play_action_boot.svg",
+      "side": "offense"
+    },
+    {
+      "title": "Cover-2 on early downs",
+      "situation": "1st and 2nd down if the Rams try to steal explosives the way Buffalo did not need to",
+      "concept": "cover_two",
+      "why": "Allen was held to 64 net passing yards and an 18.3 rating, with Gilman and Williams intercepting. The leak was the run and the clock. Two deep, five under lets the second level rally without giving up the deep middle McVay will test on a short week.",
+      "coaching": "Spagnuolo: two deep, rally to the ball. Bolton and the linebackers fit the run. Do not abandon the shell just because Buffalo's passing line was small.",
+      "labels": {
+        "x": "deep half",
+        "z": "deep half",
+        "te": "hook"
+      },
+      "playmakers": [
+        {
+          "name": "Nick Bolton",
+          "role": "hook-to-run fitter"
+        },
+        {
+          "name": "A. Gilman",
+          "role": "deep half"
+        },
+        {
+          "name": "N. Williams",
+          "role": "deep half"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-27-0949/xo-cover_two.svg",
+      "side": "defense"
+    },
+    {
+      "title": "Zone blitz on a medium third down",
+      "situation": "3rd-and-6 to 3rd-and-8, after a run fit, when the Rams protection has to declare",
+      "concept": "zone_blitz",
+      "why": "Buffalo converted 9 of 16 third downs while Allen was 10-of-21. A simulated pressure is Spagnuolo's change-up so a protection built for four rushers has to find the second-level rusher, with a lineman dropping into the throwing lane.",
+      "coaching": "Show heat, drop a lineman, rush from the second level. Karlaftis and Bolton are the pictures. The call is for Thursday in Los Angeles. It is a protection disruptor, separate from how the two Buffalo interceptions were caught.",
+      "labels": {
+        "x": "underneath drop",
+        "z": "flat drop",
+        "te": "hook replace"
+      },
+      "playmakers": [
+        {
+          "name": "George Karlaftis",
+          "role": "rushed or dropped on the picture"
+        },
+        {
+          "name": "Nick Bolton",
+          "role": "second-level rusher or hook"
+        }
+      ],
+      "diagram": "images/narrative/2026-11-27-0949/xo-zone_blitz.svg",
+      "side": "defense"
+    }
+  ],
+  "slug": "2026-11-27-0949"
+}
