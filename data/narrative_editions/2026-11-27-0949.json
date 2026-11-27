@@ -64,7 +64,7 @@
         "body": "Buffalo did not need Allen to throw it around. Cook's 32 rushes and Allen's seven rushes sat inside a 43-carry, 166-yard ground plan. The two turnovers were both interceptions: Gilman in the second quarter, Williams in the third."
       },
       {
-        "body": "The finish was a kicking game and a penalty game. Buffalo's 54-yard field goal at Q4 11:58 tied it at 10-10. Butker then missed from 46, wide right, at Q4 6:01. Arrowhead Pride reported that Greg Dortch's 15-yard punt return set up Bass's 57-yard field goal at Q4 0:00. Kansas City flags wiped plays across the night, including holding on J. Ott and K. Suamataia, an ineligible-downfield kick on J. Cochrane, unnecessary roughness on Suamataia, offensive pass interference on Kelce, holding on H. Nourzad, and a false start on F. Johnson. Reid told reporters Rashee Rice's overturned catch was not clear and obvious."
+        "body": "The finish was a kicking game and a penalty game. Buffalo's 54-yard field goal at Q4 11:58 tied it at 10-10. Butker then missed from 46, wide right, at Q4 6:01. Kansas City flags wiped plays across the night, including holding on J. Ott and K. Suamataia, an ineligible-downfield kick on J. Cochrane, unnecessary roughness on Suamataia, offensive pass interference on Kelce, holding on H. Nourzad, and a false start on F. Johnson. Reid told reporters Rashee Rice's overturned catch was not clear and obvious."
       }
     ],
     "takeaways": [
@@ -89,8 +89,7 @@
       "2-of-11 on third down and 13 first downs",
       "74 team rushing yards against a 43-carry Buffalo plan",
       "Six quarterback hits and one sack on Mahomes",
-      "Butker's 46-yard miss wide right while the score was 10-10",
-      "Holding, ineligible-downfield, and pass-interference flags that wiped plays"
+      "Butker's 46-yard miss wide right while the score was 10-10"
     ]
   },
   "currentState": {
@@ -107,7 +106,7 @@
       },
       {
         "title": "Operational flags and the kicking operation",
-        "body": "Suamataia had a holding penalty and an unnecessary-roughness penalty. Cochrane's ineligible-downfield kick and the cluster of were enforced kept drives from starting clean. Butker told the building, through Arrowhead Pride, that his confidence is still high after the 46-yard miss. The operation still has to be trustworthy on a 44.5 total."
+        "body": "Suamataia had a holding penalty and an unnecessary-roughness penalty. Butker told the building, through Arrowhead Pride, that his confidence is still high after the 46-yard miss. The operation still has to be trustworthy on a 44.5 total."
       }
     ],
     "thinkAbout": [
@@ -144,9 +143,7 @@
       }
     ],
     "script": [
-      "Open with Johnson inside zone and a Mahomes keep only if the end is declared, the way the Q2 0:25 scramble right end was a called scramble on the tape.",
       "Use a screen on an obvious rush down so the six-hit pocket from Buffalo is not the only answer.",
-      "Mesh Kelce and Rice against man, with Gray as the third tight end who dressed and caught three balls.",
       "Take a deep shot to Kelce once the run has Buffalo-style linebackers stepping, without labeling every dropback as play-action.",
       "Spagnuolo in Cover-2 on early downs, then a zone blitz on a medium third down to change the protection picture.",
       "If the game is inside a score late, the field-goal operation has to be cleaner than the 46-yard miss at Q4 6:01."
@@ -262,7 +259,7 @@
       "situation": "1st-and-10 at the Rams, before the down-and-distance gets to the 2-of-11 problem from Buffalo",
       "concept": "inside_zone",
       "why": "Johnson just took 17 carries for 72 yards and the 1-yard touchdown inside a 74-yard team rushing night. Los Angeles is laying 1.5. Kansas City needs a first-down run that does not require Mahomes to hold the ball after six quarterback hits.",
-      "coaching": "Bieniemy: zone steps, one cut, Johnson downhill. The Buffalo carries that gained yards were up the middle. Do not bounce it into the flags that already hit Suamataia.",
+      "coaching": "Bieniemy: zone steps, one cut, Johnson downhill. Do not bounce it into the flags that already hit Suamataia.",
       "labels": {
         "x": "alert replace",
         "z": "crack replace",
