@@ -1,0 +1,32 @@
+/* Reuse the existing Kingdom Press Box cards without third-party media or JS. */
+.affiliate-preview-intro { max-width: var(--max); margin: auto; padding: 24px var(--gutter); }
+.affiliate-preview-intro h1 { margin: 0 0 8px; font: 400 32px/1.1 var(--display); }
+.affiliate-preview-intro p { margin: 0; }
+.affiliate-footer { color: var(--ap-black); text-align: left; }
+.affiliate-footer .amazon-finds-band__inner { padding-block: 64px; }
+.affiliate-footer .amazon-finds-head { gap: 32px; }
+.affiliate-footer .amazon-finds-head h2 { font-size: clamp(48px, 6vw, 76px); }
+.affiliate-footer .affiliate-eyebrow { color: #6b291f; font: 800 12px var(--grotesk); letter-spacing: .14em; text-transform: uppercase; }
+.affiliate-footer .affiliate-disclosure { transform: none; box-shadow: none; }
+.affiliate-footer .affiliate-disclosure > span { font-size: 11px; }
+.affiliate-footer .affiliate-disclosure p { color: #f7f1e5; font-size: 14px; line-height: 1.6; }
+.affiliate-footer .affiliate-disclosure p + p { margin-top: 12px; }
+.affiliate-footer .affiliate-products { list-style: none; padding: 0; margin: 0; }
+.affiliate-footer .amazon-find-card { margin: 0; }
+.affiliate-footer .amazon-find-card:hover { transform: none; box-shadow: 0 6px 0 rgba(13, 12, 13, .1); }
+.affiliate-footer .amazon-find-card__body { flex: 1; padding-bottom: 24px; }
+.affiliate-footer .affiliate-brand { margin-bottom: 10px; color: #64564c; font: 700 12px var(--grotesk); }
+.affiliate-footer .amazon-find-card__body h3 { line-height: 1.1; overflow-wrap: anywhere; }
+.affiliate-footer .amazon-find-card__body p { line-height: 1.6; }
+.affiliate-footer .amazon-find-card > a { font-size: 12px; min-height: 48px; }
+.affiliate-footer .amazon-find-card > a:hover { background: #9e1024; border-color: #9e1024; }
+.affiliate-footer .amazon-find-card > a:focus-visible { outline: 3px solid #9e1024; outline-offset: 4px; }
+.affiliate-footer .amazon-finds-note { font-size: 13px; line-height: 1.6; }
+.affiliate-preview-note { margin: 0 0 28px; padding: 14px 18px; border: 2px dashed #6b291f; color: #4e261e; font-size: 14px; line-height: 1.6; }
+.affiliate-link-pending { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; margin: auto 20px 20px; padding: 12px 13px; min-height: 48px; box-sizing: border-box; background: #e7dfd1; color: #4f463c; font: 700 12px var(--grotesk); }
+.affiliate-link-pending small { font: inherit; }
+@media (max-width: 700px) {
+  .affiliate-footer .amazon-finds-head { grid-template-columns: minmax(0, 1fr); }
+  .affiliate-footer .amazon-finds-grid { grid-template-columns: minmax(0, 1fr); }
+  .affiliate-footer .amazon-finds-band__inner { padding-block: 40px; }
+}
