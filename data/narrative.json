@@ -218,6 +218,7 @@
     {
       "unit": "Mahomes vs. pressure",
       "chiefs": "16-of-29, 174 yards, 1 sack, 6 QB hits, 73.1 rating",
+      "opponent": "Rams rush",
       "edge": "OPP",
       "note": "Six hits and one sack on a 29-throw night, with third down at 2-of-11, is the leverage Los Angeles can chase without needing a perfect coverage plan."
     },
@@ -238,6 +239,7 @@
     {
       "unit": "Kelce and the catch sheet vs. Rams coverage",
       "chiefs": "Kelce 4 receptions, 71 yards; Rice 2; Gray 3; Cyrus Allen 1 for 19",
+      "opponent": "Rams secondary",
       "edge": "KC",
       "note": "The throws that worked were deep middle and deep left to Kelce, plus Allen on a deep middle. That is a real answer if the pocket lasts."
     },
